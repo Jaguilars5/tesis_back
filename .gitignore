@@ -1,0 +1,44 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- Entornos Virtuales ---
+# Es importante no subir tu entorno local
+venv/
+.venv/
+env/
+.env/
+bin/
+include/
+lib/
+
+# --- Variables de Entorno y Secretos ---
+# Nunca subas tus claves secretas
+.env
+.secrets
+secret_key.txt
+
+# --- Base de datos local ---
+# SQLite no debe ser parte del control de versiones
+db.sqlite3
+db.sqlite3-journal
+
+# --- Archivos de Medios y Estáticos ---
+# Generalmente, los medios subidos por usuarios no se versionan
+media/
+# Los archivos estáticos se generan en producción
+staticfiles/
+
+# --- IDEs / Editores ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Archivos de sistema ---
+.DS_Store
+
+
+#Archivos locales
+diagrams/
