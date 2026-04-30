@@ -1,122 +1,97 @@
-# Módulo `grading` — Gestión de Calificaciones, Asistencia y Conducta
+# Módulo `grading` — Registro de Desempeño y Conducta
 
-Este módulo implementa el patrón de arquitectura de **separación en capas** (models → repositories → services → api) para gestionar el ciclo de vida académico de los estudiantes en cuanto a sus notas, asistencia diaria e incidentes de comportamiento.
+Este módulo se encarga del seguimiento integral del estudiante, gestionando sus calificaciones, registros de asistencia e incidentes de conducta.
 
-## Estructura de Carpetas
+Su diseño garantiza que las reglas de negocio, como la normalización de notas a base 10 y el cálculo de promedios ponderados, se apliquen de forma consistente mediante una capa de servicios robusta.
+
+---
+
+## Estructura del Módulo
 
 ```
 grading/
-├── models/                    # Capa de datos (3 modelos)
-│   ├── __init__.py           # Re-export de todos los modelos
-│   ├── student_note.py       # Calificaciones por actividad
-│   ├── attendance.py         # Registro de asistencia
-│   └── conduct_incident.py   # Reportes de conducta
-│
-├── repositories/             # Capa de acceso a datos
-│   ├── __init__.py
-│   └── grading_repo.py       # Repositorios para Note, Attendance e Incident
-│
-├── services/                 # Capa de lógica de negocio
-│   ├── __init__.py
-│   └── grading_service.py    # Orquesta operaciones y cálculos (promedios, etc.)
-│
-├── api/                      # Capa HTTP (REST)
-│   ├── __init__.py
-│   ├── serializers.py        # Validadores de entrada/salida
-│   ├── views.py              # Vistas generadas dinámicamente
-│   └── urls.py               # Rutas estandarizadas (list, get, add, update, delete)
-│
-├── tests/                    # Tests
-│   ├── __init__.py
-│   └── ...                   # Suites de tests
-│
-├── admin.py                  # Panel de administración Django
-├── apps.py                   # Configuración de la app
-├── urls.py                   # Rutas raíz del módulo
-├── README.md                 # Este archivo
-└── migrations/               # Migraciones (auto-generadas)
+├── models/         # Calificaciones, Asistencia, Conducta
+├── repositories/   # Consultas especializadas y filtros
+├── services/       # Lógica de normalización y promedios
+├── api/            # Serializadores y vistas dinámicas
+└── tests/          # Verificación de lógica y cálculos
 ```
 
-## Modelos
+---
 
-### StudentNote
+## Modelos de Datos
 
-Registro de calificación para una actividad académica específica.
-- `student`: FK a Student
-- `academic_activity`: FK a Academic_Activity
-- `note_value`: Valor numérico original
-- `normalized_value`: Valor normalizado a base 10
-- `sync_status`: Estado de sincronización (pending, synced)
+### StudentNote (Nota de Estudiante)
+Calificaciones individuales vinculadas a una actividad académica.
 
-### Attendance
+| Campo | Tipo | Verbose Name |
+| :--- | :--- | :--- |
+| `uuid` | UUIDField | UUID |
+| `student` | ForeignKey (Student) | Estudiante |
+| `academic_activity` | ForeignKey (Academic_Activity) | Actividad Académica |
+| `academic_period` | ForeignKey (Academic_Period) | Período Académico |
+| `teacher_subject_section` | ForeignKey (Teacher_Subject_Section) | Docente-Materia-Sección |
+| `note_value` | DecimalField | Valor de la Nota |
+| `normalized_value` | DecimalField | Valor Normalizado |
+| `observation` | TextField | Observación |
+| `sync_status` | CharField (20) | Estado de Sincronización |
+| `synced_at` | DateTimeField | Sincronizado el |
+| `active` | BooleanField | Activo |
+| `created_at` | DateTimeField | Fecha de Creación |
+| `updated_at` | DateTimeField | Fecha de Actualización |
+| `deleted_at` | DateTimeField | Fecha de Eliminación |
+| `sync_version` | PositiveIntegerField | Versión de Sincronización |
+| `device_origin` | CharField (40) | Dispositivo de Origen |
 
-Registro de asistencia diaria o por materia.
-- `student`: FK a Student
-- `status`: P (Presente), A (Ausente), T (Tardanza), J (Justificado)
-- `date`: Fecha del registro
+---
 
-### ConductIncident
+## Capa de Servicios
 
-Reporte de incidentes de comportamiento.
-- `category`: disciplina, académica, social, asistencia
-- `severity`: 1 (Leve), 2 (Moderado), 3 (Grave)
-- `family_notified`: Boolean
+### GradingService (Orquestador)
 
-## Repositorios
+- `create_student_note`: Registra o actualiza la nota de un estudiante para una actividad. Realiza automáticamente la normalización a base 10 basándose en el valor máximo de la actividad.
+- `update_student_note`: Modifica una calificación existente y recalcula el valor normalizado si el puntaje numérico ha cambiado.
+- `calculate_period_average`: Obtiene el promedio simple de las notas normalizadas de un estudiante para un período y materia específicos.
+- `create_attendance`: Registra el estado de asistencia de un alumno (Presente, Ausente, etc.) para una fecha y clase determinada. Si ya existe un registro para ese día, lo actualiza.
+- `list_attendance`: Recupera registros de asistencia filtrados por estudiante, sección, fecha o estado.
+- `create_conduct_incident`: Documenta un evento disciplinario o académico, asignando una categoría y nivel de gravedad (Leve, Moderado, Grave).
+- `list_conduct_incidents`: Lista los incidentes registrados con soporte de filtros por severidad y estado de notificación familiar.
+- `deactivate_student_note`: Ejecuta un borrado lógico de una calificación marcándola como inactiva en el sistema.
 
-Centralizan las consultas a la base de datos.
-- `StudentNoteRepository`: Consultas compuestas por estudiante/actividad/periodo.
-- `AttendanceRepository`: Consultas por fecha y clase.
-- `ConductIncidentRepository`: Consultas filtradas por severidad y categoría.
+---
 
-## Servicios
+## API REST (Resumen)
 
-### GradingService
+El módulo utiliza el patrón de acciones basadas en POST para todas sus operaciones CRUD.
 
-Orquesta la lógica compleja. Por ejemplo, al crear una nota:
-1. Valida los rangos permitidos.
-2. Calcula el `normalized_value` automáticamente.
-3. Gestiona la actualización si ya existe un registro para esa combinación única.
+### Calificaciones
+- POST `/api/grading/student-note/list/`
+- POST `/api/grading/student-note/get/`
+- POST `/api/grading/student-note/add/`
+- POST `/api/grading/student-note/update/`
+- POST `/api/grading/student-note/soft-delete/`
 
-```python
-from apps.grading.services.grading_service import GradingService
+---
 
-# Crear una nota
-note = GradingService.create_student_note(
-    student_id=1,
-    academic_activity_id=5,
-    academic_period_id=1,
-    teacher_subject_section_id=10,
-    note_value=8.5
-)
+## Seguridad
 
-# Calcular promedio
-average = GradingService.calculate_period_average(student_id=1, academic_period_id=1)
+Header requerido:
+
+```
+Authorization: Bearer <token>
 ```
 
-## API REST
+---
 
-El módulo usa una estructura de endpoints POST estandarizada:
+## Pruebas
 
-### Student Notes
-- `POST /api/grading/student-note/list/`
-- `POST /api/grading/student-note/get/`
-- `POST /api/grading/student-note/add/`
-- `POST /api/grading/student-note/update/`
-- `POST /api/grading/student-note/delete/`
+```
+python manage.py test apps.grading
+```
 
-### Attendance
-- `POST /api/grading/attendance/list/`
-- `POST /api/grading/attendance/add/`
-- ... (mismo patrón)
+---
 
-### Conduct Incidents
-- `POST /api/grading/conduct-incident/list/`
-- `POST /api/grading/conduct-incident/add/`
-- ... (mismo patrón)
+## Lógica de Negocio Clave
 
-## Notas Importantes
-
-1. **Normalización**: Las notas siempre se guardan con su valor original y uno normalizado a base 10 para reportes globales.
-2. **Sincronización**: Los modelos incluyen campos de `sync_version` y `device_origin` para soportar la captura de datos offline desde dispositivos móviles.
-3. **Validación**: `StudentNote` valida que la nota no exceda el `value_max` definido en la `Academic_Activity`.
+1.  **Normalización Interna**: El servicio utiliza `_normalize_note` para asegurar que todas las notas, independientemente de su base original (20, 100, etc.), se almacenen en `normalized_value` con base 10.
+2.  **Sincronización**: Los registros incluyen metadatos de sincronización (`sync_status`, `device_origin`) para soportar escenarios de uso en dispositivos móviles con conexión intermitente.

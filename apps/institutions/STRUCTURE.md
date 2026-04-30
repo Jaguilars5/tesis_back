@@ -1,144 +1,62 @@
-# Estructura del Módulo Institutions
+# Estructura Técnica: Módulo `institutions`
 
-```
+Este documento detalla la organización interna y las responsabilidades de cada componente dentro del módulo institucional.
+
+## Árbol de Directorios
+
+```text
 institutions/
-├─ api/                          # REST API (DRF)
-│  ├─ __init__.py
-│  ├─ filters.py                 # Filtros (Institution, SchoolYear, Classroom)
-│  ├─ serializers.py             # Validadores (3)
-│  ├─ urls.py                    # Router DRF
-│  └─ views.py                   # ViewSets (3)
-│
-├─ models/                       # Capa de datos (3 modelos)
-│  ├─ __init__.py                # Re-export de modelos
-│  ├─ institution.py             # Institution
-│  ├─ school_year.py             # School_Year
-│  └─ classroom.py               # Classroom
-│
-├─ repositories/                 # Capa de acceso a datos (3 repos)
-│  ├─ __init__.py
-│  └─ institution_repo.py        # BaseRepository + 3 clases específicas
-│
-├─ services/                     # Capa de lógica de negocio
-│  ├─ __init__.py
-│  └─ institution_service.py     # InstitutionService (27+ métodos)
-│
-├─ tests/                        # Tests (3 suites)
-│  ├─ __init__.py
-│  ├─ test_api.py                # Tests HTTP (12+ casos)
-│  ├─ test_models.py             # Tests unitarios (15+ casos)
-│  └─ test_services.py           # Tests lógica (20+ casos)
-│
-├─ __init__.py                   # Paquete Python
-├─ admin.py                      # Panel Django (3 ModelAdmin)
-├─ apps.py                       # Configuración de app
-├─ README.md                     # Documentación principal
-├─ STRUCTURE.md                  # Este archivo
-├─ urls.py                       # Rutas: path('', include(api.urls))
-└─ migrations/                   # (Auto-generadas)
+├── api/                  # Capa de Entrada (REST)
+│   ├── serializers.py    # Definición de esquemas (3 serializers)
+│   ├── views.py          # Controladores (basados en funciones)
+│   └── urls.py           # Definición de rutas dinámicas
+├── models/               # Capa de Datos (Entidades)
+│   ├── institution.py
+│   ├── school_year.py
+│   └── classroom.py
+├── repositories/         # Capa de Persistencia (Queries)
+│   └── institution_repo.py # Repositorios centralizados
+├── services/             # Capa de Negocio (Orquestación)
+│   └── institution_service.py # Lógica de validaciones de fechas
+└── tests/                # Suites de Pruebas
+    ├── test_models.py
+    ├── test_services.py
+    └── test_api.py
 ```
 
-## Organización por Responsabilidades
+## Flujo de Trabajo Recomendado
 
-### 🗄️ Capa de Datos
+Para mantener el desacoplamiento, siga este flujo de llamadas:
+`API View` → `Service` → `Repository` → `Model`
 
-- **models/** — Definiciones de tablas (Institution, SchoolYear, Classroom)
-- **repositories/** — Queries complejas, acceso a BD
+> [!IMPORTANT]
+> **Nunca** ignore las validaciones de fechas en la creación de años escolares. Utilice siempre `InstitutionService.create_school_year` para evitar solapamientos cronológicos que podrían corromper la lógica de otros módulos (como `academic` o `scheduling`).
 
-### 💼 Capa de Lógica
+## Guía de Importación
 
-- **services/** — Orquestación de 27+ operaciones, validaciones
-- **tests/** — Verificación de comportamiento
+Utilice los puntos de entrada definidos para evitar dependencias circulares:
 
-### 🌐 Capa HTTP
-
-- **api/** — Serialización, vistas, rutas
-- **admin.py** — Interfaz de administración
-
-## ¿Dónde agregar cosas nuevas?
-
-| Necesidad         | Carpeta         | Archivo                    |
-| ----------------- | --------------- | -------------------------- |
-| Nuevo modelo      | `models/`       | `nuevo_modelo.py`          |
-| Query compleja    | `repositories/` | `institution_repo.py`      |
-| Lógica de negocio | `services/`     | `institution_service.py`   |
-| Endpoint API      | `api/`          | `views.py` (nuevo ViewSet) |
-| Serializer        | `api/`          | `serializers.py`           |
-| Test              | `tests/`        | `test_{tipo}.py`           |
-
-## Niveles de Importación
-
-### ✅ Correcto
-
+### ✅ Prácticas Correctas
 ```python
-# Desde otra app
-from apps.institutions.models import Institution, SchoolYear, Classroom
+# Importar servicios
 from apps.institutions.services.institution_service import InstitutionService
+
+# Importar modelos (re-exportados en models/__init__.py)
+from apps.institutions.models import Institution, School_Year
+
+# Importar repositorios
 from apps.institutions.repositories.institution_repo import InstitutionRepository
-
-# Dentro del módulo
-from apps.institutions.models import Institution
-from .repositories.institution_repo import InstitutionRepository
-from .services.institution_service import InstitutionService
 ```
 
-### ❌ Incorrecto
-
+### ❌ Prácticas a Evitar
 ```python
-# No importes de archivos internos
-from apps.institutions.models.institution import Institution  # Usa models/__init__.py
+# Importar desde archivos internos específicos (rompe el encapsulamiento)
+from apps.institutions.models.institution import Institution 
 ```
 
-## Re-exports
+## Responsabilidades de Capas
 
-Las siguientes carpetas re-exportan en `__init__.py`:
-
-- **models/** → Institution, SchoolYear, Classroom
-- **repositories/** → InstitutionRepository, SchoolYearRepository, ClassroomRepository
-- **services/** → InstitutionService
-
-## Métodos del Servicio
-
-### Institution (7)
-
-create, get, get_all, get_details, update, deactivate, search
-
-### SchoolYear (7)
-
-create, get, list, get_current, update, deactivate, (+ validaciones de fechas)
-
-### Classroom (7+)
-
-create, get, list, list_by_type, update, deactivate, get_available
-
-## Orden de Ejecución
-
-Para operaciones complejas:
-
-```python
-# 1. Validar institución existe
-institution = InstitutionService.get_institution(inst_id)
-
-# 2. Crear año escolar (con validación de fechas)
-school_year = InstitutionService.create_school_year(
-    institution_id=inst_id,
-    name='2024-2025',
-    start_date=...,
-    end_date=...
-)
-
-# 3. Crear aulas (con validación de capacidad)
-classroom = InstitutionService.create_classroom(
-    institution_id=inst_id,
-    name='101',
-    room_type='Aula',
-    capacity=40
-)
-```
-
-## Validaciones Importantes
-
-1. **Institution.code** - Debe ser único
-2. **School_Year fechas** - start_date < end_date, sin conflictos
-3. **Classroom.capacity** - Debe ser > 0
-4. **FK constraints** - Usar `on_delete=models.CASCADE` apropiadamente
+1.  **Models**: Definen el "qué" (entidades base del sistema).
+2.  **Repositories**: Definen el "cómo buscar" (centralizan queries ORM).
+3.  **Services**: Definen el "qué hacer" (validaciones complejas de fechas y capacidad).
+4.  **API**: Definen el "cómo exponer" (utilizan un sistema de generación de vistas dinámicas para CRUD).

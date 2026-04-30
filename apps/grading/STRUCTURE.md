@@ -1,94 +1,64 @@
-# Estructura del Módulo Grading
+# Estructura Técnica: Módulo `grading`
 
-```
+Este documento detalla la organización interna y las responsabilidades de cada componente dentro del módulo de calificaciones y conducta.
+
+## Árbol de Directorios
+
+```text
 grading/
-├─ api/                          # REST API
-│  ├─ __init__.py
-│  ├─ serializers.py             # Serializers (Note, Attendance, Incident)
-│  ├─ urls.py                    # Rutas dinámicas
-│  └─ views.py                   # Generador de vistas CRUD
-│
-├─ models/                       # Capa de datos
-│  ├─ __init__.py                # Re-export de modelos
-│  ├─ student_note.py            # StudentNote
-│  ├─ attendance.py              # Attendance
-│  └─ conduct_incident.py        # ConductIncident
-│
-├─ repositories/                 # Capa de acceso a datos
-│  ├─ __init__.py
-│  └─ grading_repo.py            # Repositorios especializados (3)
-│
-├─ services/                     # Capa de lógica de negocio
-│  ├─ __init__.py
-│  └─ grading_service.py         # Lógica centralizada
-│
-├─ tests/                        # Verificación
-│  ├─ __init__.py
-│  └─ ...
-│
-├─ __init__.py                   # Paquete Python
-├─ admin.py                      # Panel Django
-├─ apps.py                       # Configuración de app
-├─ README.md                     # Documentación principal
-├─ urls.py                       # Inclusión de api/urls.py
-└─ migrations/                   # Auto-generadas
+├── api/                  # Capa de Entrada (REST)
+│   ├── serializers.py    # Esquemas para Notas, Asistencia y Conducta
+│   ├── views.py          # Generador de vistas CRUD dinámicas
+│   └── urls.py           # Rutas por acción (list, get, add, etc.)
+├── models/               # Capa de Datos (Entidades)
+│   ├── student_note.py   # Gestión de calificaciones
+│   ├── attendance.py     # Gestión de asistencia
+│   └── conduct_incident.py # Gestión de comportamiento
+├── repositories/         # Capa de Persistencia (Queries)
+│   ├── __init__.py       # Exportación de repositorios
+│   └── (clases internas) # Queries optimizadas y filtros
+├── services/             # Capa de Negocio (Orquestación)
+│   └── grading_service.py # Lógica de cálculos y normalización
+└── tests/                # Suites de Pruebas
+    └── (test suites)     # Validación de promedios y lógica
 ```
 
-## Organización por Responsabilidades
+## Flujo de Trabajo Recomendado
 
-### 🗄️ Capa de Datos
+Para mantener el desacoplamiento, siga este flujo de llamadas:
+`API View` → `Service` → `Repository` → `Model`
 
-- **models/**: Define el esquema de la base de datos y validaciones de campo.
-- **repositories/**: Abstrae las consultas ORM. Ningún otro componente debe usar `Model.objects` directamente.
+> [!IMPORTANT]
+> **Nunca** inserte registros de notas directamente usando el modelo. Debe utilizar siempre `GradingService.create_student_note` para asegurar que el proceso de normalización a base 10 y el marcado de `sync_status` se ejecuten correctamente.
 
-### 💼 Capa de Lógica
+## Guía de Importación
 
-- **services/**: Implementa las reglas de negocio, cálculos y orquestación entre modelos.
-- **tests/**: Garantiza la integridad de la lógica.
+Utilice los puntos de entrada definidos para evitar dependencias circulares:
 
-### 🌐 Capa HTTP
-
-- **api/**: Maneja la entrada/salida de datos vía HTTP.
-- **admin.py**: Configura la interfaz visual para administradores.
-
-## ¿Dónde agregar cosas nuevas?
-
-| Necesidad         | Carpeta         | Archivo                    |
-| ----------------- | --------------- | -------------------------- |
-| Nuevo modelo      | `models/`       | `nuevo_modelo.py`          |
-| Query compleja    | `repositories/` | `grading_repo.py`          |
-| Lógica de negocio | `services/`     | `grading_service.py`       |
-| Endpoint API      | `api/`          | `views.py`                 |
-| Serializer        | `api/`          | `serializers.py`           |
-| Test              | `tests/`        | `test_{tipo}.py`           |
-
-## Niveles de Importación
-
-### ✅ Correcto
-
+### ✅ Prácticas Correctas
 ```python
-# Desde otra app
-from apps.grading.models import StudentNote
+# Importar servicios
 from apps.grading.services.grading_service import GradingService
 
-# Dentro del módulo grading
-from .models import StudentNote
-from .repositories.grading_repo import StudentNoteRepository
+# Importar modelos (re-exportados en models/__init__.py)
+from apps.grading.models import StudentNote, Attendance
+
+# Importar repositorios
+from apps.grading.repositories import StudentNoteRepository
 ```
 
-### ❌ Incorrecto
-
+### ❌ Prácticas a Evitar
 ```python
-# Evitar importar de archivos internos si hay re-export en __init__.py
-from apps.grading.models.student_note import StudentNote  # Usa models/__init__.py
+# Importar desde archivos internos específicos
+from apps.grading.models.student_note import StudentNote 
+
+# Realizar cálculos de promedios en la vista
+avg = sum(n.value for n in notes) / len(notes) # Usar GradingService
 ```
 
-## Re-exports
+## Responsabilidades de Capas
 
-La carpeta **models/** re-exporta sus contenidos en `__init__.py`:
-
-```python
-from apps.grading.models import StudentNote, Attendance, ConductIncident
-```
-
-Esto permite importaciones más limpias y consistentes con el estándar del proyecto.
+1.  **Models**: Definen la estructura de los datos del desempeño estudiantil.
+2.  **Repositories**: Centralizan las consultas complejas y el filtrado por períodos o secciones.
+3.  **Services**: Implementan la lógica crítica (normalización de notas, promedios de período, validación de estados de asistencia).
+4.  **API**: Exponen las acciones CRUD mediante un generador dinámico que estandariza las respuestas del sistema.

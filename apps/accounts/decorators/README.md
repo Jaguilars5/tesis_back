@@ -1,20 +1,27 @@
-# Decorators
+# Decoradores de Seguridad
 
-Decoradores personalizado para el módulo accounts.
+Los decoradores permiten proteger de forma declarativa las vistas basadas en funciones.
 
-## Contenido
+## `@require_permission(codename)`
 
-### @require_permission(codename)
+Este decorador verifica que el usuario autenticado posea el permiso especificado en sus permisos efectivos.
 
-Decorador para proteger vistas función-based con un permiso específico.
+### Flujo de Validación
+1.  **Verificación de Identidad**: Si `request.current_user` es `None`, retorna `401 Unauthorized`.
+2.  **Verificación de Autorización**: Si el `codename` no está presente en `request.user_permissions`, retorna `403 Forbidden`.
+3.  **Ejecución**: Si ambas pasan, se ejecuta la lógica de la vista.
 
-**Comportamiento:**
+### Formato de Error
+En caso de falla, el decorador retorna una respuesta estandarizada:
+```json
+{
+    "ok": false,
+    "data": {},
+    "msg": "Mensaje descriptivo del error"
+}
+```
 
-- 401 si no hay usuario autenticado (token ausente o inválido)
-- 403 si el usuario autenticado no tiene el permiso
-- Ejecuta la vista si el usuario tiene el permiso
-
-## Uso
+## Ejemplo de Implementación
 
 ```python
 from rest_framework.decorators import api_view
@@ -22,18 +29,11 @@ from apps.accounts.decorators import require_permission
 
 @api_view(['POST'])
 @require_permission('grading.create_note')
-def create_note(request):
-    # Usuario garantizado que tiene el permiso
-    return Response({'message': 'Nota creada'})
+def guardar_nota(request):
+    # Aquí ya sabemos que request.current_user existe 
+    # y tiene el permiso 'grading.create_note'
+    return Response({"ok": True, "msg": "Nota guardada"})
 ```
 
-## Notas
-
-Para ViewSets de DRF, usa `permission_classes` en su lugar:
-
-```python
-from rest_framework.permissions import IsAuthenticated
-
-class MyViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
-```
+> [!TIP]
+> Para clases `ViewSet`, se recomienda usar `permission_classes` de Django REST Framework en lugar de este decorador.

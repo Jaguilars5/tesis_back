@@ -1,134 +1,72 @@
-# Estructura del Módulo Accounts
+# Estructura Técnica: Módulo `accounts`
 
-```
+Este documento detalla la organización interna y las responsabilidades de cada componente dentro del módulo de gestión de identidad.
+
+## Árbol de Directorios
+
+```text
 accounts/
-├─ api/                          # REST API (DRF)
-│  ├─ __init__.py
-│  ├─ filters.py                 # Filtros de búsqueda
-│  ├─ serializers.py             # Validadores de entrada/salida
-│  ├─ urls.py                    # Router DRF
-│  └─ views.py                   # ViewSets (3)
-│
-├─ decorators/                   # Decoradores personalizados
-│  ├─ __init__.py                # @require_permission()
-│  └─ README.md
-│
-├─ middleware/                   # Middleware personalizado
-│  ├─ __init__.py                # JWTAuthMiddleware
-│  ├─ jwt_auth.py                # Implementación JWT
-│  └─ README.md
-│
-├─ models/                       # Capa de datos (5 modelos)
-│  ├─ __init__.py                # Re-export de modelos
-│  ├─ permission.py              # Permission
-│  ├─ role.py                    # Role
-│  ├─ role_permission.py         # RolePermission (M2M explícito)
-│  ├─ user.py                    # User
-│  └─ user_permission.py         # UserPermission (excepciones)
-│
-├─ repositories/                 # Capa de acceso a datos (3 repos)
-│  ├─ __init__.py
-│  ├─ permission_repo.py         # PermissionRepository
-│  ├─ role_repo.py               # RoleRepository
-│  └─ user_repo.py               # UserRepository
-│
-├─ services/                     # Capa de lógica de negocio (3)
-│  ├─ __init__.py
-│  ├─ permission_service.py      # PermissionService
-│  ├─ role_service.py            # RoleService
-│  └─ user_service.py            # UserService
-│
-├─ tests/                        # Tests (3 suites)
-│  ├─ __init__.py
-│  ├─ test_api.py                # Tests HTTP (APIClient)
-│  ├─ test_models.py             # Tests unitarios de modelos
-│  └─ test_services.py           # Tests de lógica de negocio
-│
-├─ utils/                        # Funciones auxiliares
-│  ├─ __init__.py                # JWT, password, permission helpers
-│  └─ README.md
-│
-├─ __init__.py                   # Paquete Python
-├─ admin.py                      # Panel Django (5 ModelAdmin)
-├─ apps.py                       # Configuración de app
-├─ README.md                     # Documentación principal
-├─ urls.py                       # Rutas: path('', include(api.urls))
-└─ migrations/                   # (Auto-generadas)
+├── api/                  # Capa de Entrada (REST)
+│   ├── serializers.py    # Definición de esquemas JSON
+│   ├── views.py          # Controladores (ViewSets)
+│   ├── filters.py        # Lógica de filtrado de queries
+│   └── urls.py           # Definición de rutas del módulo
+├── models/               # Capa de Datos (Entidades)
+│   ├── user.py           # Usuario principal
+│   ├── role.py           # Perfiles de acceso
+│   └── permission.py     # Acciones atómicas
+├── repositories/         # Capa de Persistencia (Queries)
+│   ├── user_repo.py
+│   ├── role_repo.py
+│   └── permission_repo.py
+├── services/             # Capa de Negocio (Orquestación)
+│   ├── user_service.py
+│   ├── role_service.py
+│   └── permission_service.py
+├── middleware/           # Interceptores de Request
+│   └── jwt_auth.py       # Autenticación por Token
+├── decorators/           # Protecciones de Vista
+│   └── permissions.py    # @require_permission
+└── utils/                # Utilidades Globales del Módulo
+    └── jwt.py            # Generación y validación de tokens
 ```
 
-## Organización por Responsabilidades
+## Flujo de Trabajo Recomendado
 
-### 🗄️ Capa de Datos
+Para mantener el desacoplamiento, siga este flujo de llamadas:
+`API View` → `Service` → `Repository` → `Model`
 
-- **models/** — Definiciones de tablas y lógica de modelo
-- **repositories/** — Queries complejas, acceso a BD
+> [!IMPORTANT]
+> **Nunca** importe modelos directamente desde las vistas de API. Utilice siempre la capa de servicios para garantizar que se ejecuten las validaciones de negocio necesarias.
 
-### 💼 Capa de Lógica
+## Guía de Importación
 
-- **services/** — Orquestación de operaciones, validaciones
-- **tests/** — Verificación de comportamiento
+Para mantener un código limpio y evitar dependencias circulares, utilice los puntos de entrada definidos en los archivos `__init__.py`:
 
-### 🌐 Capa HTTP
-
-- **api/** — Serialización, vistas, rutas
-- **admin.py** — Interfaz de administración
-
-### 🛠️ Utilidades
-
-- **utils/** — Helpers (JWT, hashing, permisos)
-- **middleware/** — Procesamiento de requests
-- **decorators/** — Protección de vistas
-
-## ¿Dónde agregar cosas nuevas?
-
-| Necesidad         | Carpeta         | Archivo                    |
-| ----------------- | --------------- | -------------------------- |
-| Nuevo modelo      | `models/`       | `nuevo_modelo.py`          |
-| Query compleja    | `repositories/` | `{modelo}_repo.py`         |
-| Lógica de negocio | `services/`     | `{modelo}_service.py`      |
-| Endpoint API      | `api/`          | `views.py` (nuevo ViewSet) |
-| Serializer        | `api/`          | `serializers.py`           |
-| Función auxiliar  | `utils/`        | `__init__.py`              |
-| Test              | `tests/`        | `test_{tipo}.py`           |
-
-## Niveles de Importación
-
-### ✅ Correcto
-
+### ✅ Prácticas Correctas
 ```python
-# Desde otra app
-from apps.accounts.models import User
+# Importar servicios
 from apps.accounts.services.user_service import UserService
-from apps.accounts.middleware import JWTAuthMiddleware
+
+# Importar modelos (re-exportados en models/__init__.py)
+from apps.accounts.models import User, Role
+
+# Usar decoradores
 from apps.accounts.decorators import require_permission
-
-# Dentro del módulo accounts
-from apps.accounts.models import User  # Desde models/__init__.py
-from .repositories.user_repo import UserRepository
-from .services.user_service import UserService
 ```
 
-### ❌ Incorrecto
-
+### ❌ Prácticas a Evitar
 ```python
-# No importes de archivos internos de carpetas
-from apps.accounts.utils.helpers import hash_password  # NO
-from apps.accounts.middleware.jwt_auth import JWTAuthMiddleware  # Usa __init__.py
+# Importar desde archivos internos específicos (rompe el encapsulamiento)
+from apps.accounts.models.user import User 
+
+# Consultar la base de datos directamente en el service sin pasar por el repo
+User.objects.filter(active=True) 
 ```
 
-## Re-exports
+## Responsabilidades de Capas
 
-Las siguientes carpetas re-exportan sus contenidos en `__init__.py`:
-
-- **models/** → Todos los modelos disponibles
-- **utils/** → Todas las funciones útiles
-- **middleware/** → JWTAuthMiddleware
-- **decorators/** → @require_permission()
-
-Esto permite importaciones limpias:
-
-```python
-from apps.accounts.utils import generate_access_token  # ✓
-from apps.accounts.middleware import JWTAuthMiddleware  # ✓
-from apps.accounts.models import User  # ✓
-```
+1.  **Models**: Definen el "qué" (estructura de datos y restricciones de integridad).
+2.  **Repositories**: Definen el "cómo buscar" (centralizan las consultas ORM).
+3.  **Services**: Definen el "qué hacer" (lógica de negocio, transacciones, validaciones complejas).
+4.  **API**: Definen el "cómo exponer" (serialización, códigos de estado, documentación de endpoints).

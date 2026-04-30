@@ -23,60 +23,96 @@ class StudentNote(models.Model):
     sync_version: Versión incremental para control de concurrencia
     """
 
-    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    uuid = models.UUIDField(
+        default=uuid.uuid4, editable=False, unique=True, verbose_name="UUID"
+    )
     student = models.ForeignKey(
-        "students.Student", on_delete=models.CASCADE, help_text="Estudiante evaluado"
+        "students.Student",
+        on_delete=models.CASCADE,
+        verbose_name="Estudiante",
+        help_text="Estudiante evaluado",
     )
     academic_activity = models.ForeignKey(
         "academic.Academic_Activity",
         on_delete=models.CASCADE,
+        verbose_name="Actividad Académica",
         help_text="Actividad académica evaluada",
     )
     academic_period = models.ForeignKey(
         "academic.Academic_Period",
         on_delete=models.CASCADE,
+        verbose_name="Período Académico",
         help_text="Período académico correspondiente",
     )
     teacher_subject_section = models.ForeignKey(
         "academic.Teacher_Subject_Section",
         on_delete=models.CASCADE,
+        verbose_name="Docente-Materia-Sección",
         help_text="Relación docente, materia y sección",
     )
     note_value = models.DecimalField(
-        max_digits=5, decimal_places=2, help_text="Valor obtenido en la actividad"
+        max_digits=5,
+        decimal_places=2,
+        verbose_name="Valor de la Nota",
+        help_text="Valor obtenido en la actividad",
     )
     normalized_value = models.DecimalField(
         max_digits=5,
         decimal_places=2,
+        verbose_name="Valor Normalizado",
         help_text="Valor de la nota normalizado (usualmente base 10)",
     )
     observation = models.TextField(
-        null=True, blank=True, help_text="Observaciones o comentarios del docente"
+        null=True,
+        blank=True,
+        verbose_name="Observación",
+        help_text="Observaciones o comentarios del docente",
     )
-    
-    # Sync & Audit Fields
+
     sync_status = models.CharField(
-        max_length=20, default="pending", help_text="Estado de sincronización con el servidor"
+        max_length=20,
+        default="pending",
+        verbose_name="Estado de Sincronización",
+        help_text="Estado de sincronización con el servidor",
     )
-    synced_at = models.DateTimeField(null=True, blank=True)
+    synced_at = models.DateTimeField(
+        null=True, blank=True, verbose_name="Sincronizado el"
+    )
     active = models.BooleanField(
-        default=True, help_text="Indica si la nota está activa (no eliminada logicamente)"
+        default=True, verbose_name="Activo", help_text="Indica si la nota está activa"
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    deleted_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(
+        auto_now_add=True, verbose_name="Fecha de Creación"
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True, verbose_name="Fecha de Actualización"
+    )
+    deleted_at = models.DateTimeField(
+        null=True, blank=True, verbose_name="Fecha de Eliminación"
+    )
     sync_version = models.PositiveIntegerField(
-        default=0, help_text="Versión para control de cambios en sincronización"
+        default=0,
+        verbose_name="Versión de Sincronización",
+        help_text="Versión para control de cambios",
     )
     device_origin = models.CharField(
         max_length=40,
         null=True,
         blank=True,
+        verbose_name="Dispositivo de Origen",
         help_text="ID o nombre del dispositivo de origen",
     )
 
     class Meta:
         app_label = "grading"
+        verbose_name = "Nota de Estudiante"
+        verbose_name_plural = "Notas de Estudiantes"
+        unique_together = (
+            "student",
+            "academic_activity",
+            "academic_period",
+            "teacher_subject_section",
+        )
         unique_together = (
             "student",
             "academic_activity",
@@ -117,4 +153,3 @@ class StudentNote(models.Model):
             f"{self.student.names} - {self.academic_activity.name} - "
             f"{self.academic_period.name}"
         )
-
