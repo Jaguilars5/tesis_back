@@ -1,0 +1,108 @@
+services:
+  # ─────────────────────────────────────────
+  # BASE DE DATOS
+  # ─────────────────────────────────────────
+  db:
+    image: postgres:15-alpine
+    container_name: tesis_db
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      # Persiste los datos aunque bajes los contenedores
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────
+  # REDIS (broker para Celery)
+  # ─────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: tesis_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────
+  # APLICACIÓN DJANGO
+  # ─────────────────────────────────────────
+  web:
+    build: .
+    container_name: tesis_web
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      # Monta el código local dentro del contenedor
+      # Así los cambios en tu código se reflejan sin reconstruir
+      - .:/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      # Apunta exactamente a tu estructura de settings
+      - DJANGO_SETTINGS_MODULE=config.settings.local
+      - WAIT_FOR_DB=true
+      - RUN_MIGRATIONS=true
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ─────────────────────────────────────────
+  # CELERY WORKER
+  # ─────────────────────────────────────────
+  celery:
+    build: .
+    container_name: tesis_celery
+    command: celery -A config worker --loglevel=info
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.local
+      - WAIT_FOR_DB=false
+      - RUN_MIGRATIONS=false
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ─────────────────────────────────────────
+  # FLOWER - Monitor visual de Celery (opcional)
+  # Accesible en http://localhost:5555
+  # ─────────────────────────────────────────
+  flower:
+    build: .
+    container_name: tesis_flower
+    command: celery -A config flower --port=5555
+    ports:
+      - "5555:5555"
+    env_file:
+      - .env
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.local
+      - WAIT_FOR_DB=false
+      - RUN_MIGRATIONS=false
+    depends_on:
+      - redis
+      - celery
+
+# ─────────────────────────────────────────
+# VOLÚMENES PERSISTENTES
+# ─────────────────────────────────────────
+volumes:
+  postgres_data:
