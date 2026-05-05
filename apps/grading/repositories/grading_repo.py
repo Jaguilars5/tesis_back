@@ -85,6 +85,21 @@ class StudentNoteRepository(BaseRepository):
             queryset = queryset.filter(teacher_subject_section__section_id=section_id)
         return queryset.order_by("-created_at")
 
+    @classmethod
+    def list_for_risk_snapshot(cls, student_id, academic_period_id):
+        """
+        Lista notas activas con relaciones necesarias para construir features.
+        """
+        return (
+            cls.model.objects.filter(
+                student_id=student_id,
+                academic_period_id=academic_period_id,
+                active=True,
+            )
+            .select_related("academic_activity", "teacher_subject_section__subject")
+            .order_by("created_at")
+        )
+
 
 class AttendanceRepository(BaseRepository):
     """
@@ -129,6 +144,16 @@ class AttendanceRepository(BaseRepository):
             queryset = queryset.filter(status=status)
         return queryset.order_by("-date", "student__last_names", "student__names")
 
+    @classmethod
+    def list_for_risk_snapshot(cls, student_id, academic_period_id):
+        """
+        Lista asistencias del estudiante en un periodo para construir features.
+        """
+        return cls.model.objects.filter(
+            student_id=student_id,
+            academic_period_id=academic_period_id,
+        ).order_by("date", "id")
+
 
 class ConductIncidentRepository(BaseRepository):
     """
@@ -163,4 +188,14 @@ class ConductIncidentRepository(BaseRepository):
         return queryset.order_by(
             "-incident_date", "student__last_names", "student__names"
         )
+
+    @classmethod
+    def list_for_risk_snapshot(cls, student_id, academic_period_id):
+        """
+        Lista incidentes del estudiante en un periodo para construir features.
+        """
+        return cls.model.objects.filter(
+            student_id=student_id,
+            academic_period_id=academic_period_id,
+        ).order_by("-incident_date", "-id")
 

@@ -16,48 +16,57 @@ Esta API permite consultar los perfiles de riesgo y los snapshots de métricas d
 
 ---
 
-## Riesgo Estudiantil (`/api/analytics/student-risk/`)
+## Autenticación y Permisos
 
-### Listar Estudiantes de Alto Riesgo
-**POST** `/api/analytics/student-risk/list/`
-
-Request:
-```json
-{
-  "academic_period_id": 1
-}
+Header requerido:
+```
+Authorization: Bearer <access_token>
 ```
 
-Response:
+| Endpoint | Método | Permiso |
+|---------|--------|---------|
+| `student-risk-scores/` | GET | analytics.view_risk_score |
+| `student-risk-scores/{id}/` | GET | analytics.view_risk_score |
+| `feature-snapshots/` | GET | analytics.view_feature_snapshot |
+| `feature-snapshots/{id}/` | GET | analytics.view_feature_snapshot |
+
+---
+
+## Riesgo Estudiantil (`/api/analytics/student-risk-scores/`)
+
+### Listar Puntajes de Riesgo
+**GET** `/api/analytics/student-risk-scores/`
+
+Response (paginado):
 ```json
 {
   "ok": true,
-  "data": [
-    {
-      "student_id": 1,
-      "score": 0.85,
-      "level": "Alto"
-    }
-  ],
+  "data": {
+    "count": 1,
+    "next": null,
+    "previous": null,
+    "results": [
+      {
+        "id": 1,
+        "student_id": 1,
+        "score": 0.85,
+        "level": "Alto"
+      }
+    ]
+  },
   "msg": ""
 }
 ```
 
-### Obtener Riesgo por Estudiante
-**POST** `/api/analytics/student-risk/get/`
-
-Request:
-```json
-{
-  "id": 1
-}
-```
+### Obtener Detalle
+**GET** `/api/analytics/student-risk-scores/{id}/`
 
 Response:
 ```json
 {
   "ok": true,
   "data": {
+    "id": 1,
     "student_id": 1,
     "score": 0.85,
     "level": "Alto"
@@ -68,24 +77,20 @@ Response:
 
 ---
 
-## Snapshots de Métricas (`/api/analytics/feature-snapshot/`)
+## Snapshots de Métricas (`/api/analytics/feature-snapshots/`)
+
+### Listar Snapshots
+**GET** `/api/analytics/feature-snapshots/`
 
 ### Obtener Snapshot
-**POST** `/api/analytics/feature-snapshot/get/`
-
-Request:
-```json
-{
-  "student_id": 1,
-  "academic_period_id": 1
-}
-```
+**GET** `/api/analytics/feature-snapshots/{id}/`
 
 Response:
 ```json
 {
   "ok": true,
   "data": {
+    "id": 1,
     "student_id": 1,
     "attendance_rate": 0.92,
     "average_grade": 8.5

@@ -112,10 +112,27 @@ Asignaturas vinculadas a una sección.
 
 ## Seguridad
 
-Header requerido:
+### Autenticación y Permisos
 
-```
-Authorization: Bearer <token>
+Todos los endpoints requieren:
+1. Header `Authorization: Bearer <token>`
+2. Permiso específico del usuario
+
+Permisos requeridos:
+
+| ViewSet | View | Create | Update | Delete |
+|---------|------|--------|--------|--------|
+| Section | `academic.view_section` | `academic.create_section` | `academic.update_section` | `academic.delete_section` |
+| Subject | `academic.view_subject` | `academic.create_subject` | `academic.update_subject` | `academic.delete_subject` |
+| ConfigAcademic | `academic.view_config` | `academic.create_config` | `academic.update_config` | `academic.delete_config` |
+| AcademicPeriod | `academic.view_period` | `academic.create_period` | `academic.update_period` | `academic.delete_period` |
+| AcademicActivity | `academic.view_activity` | `academic.create_activity` | `academic.update_activity` | `academic.delete_activity` |
+| TimingRegime | `academic.view_regime` | `academic.create_regime` | `academic.update_regime` | `academic.delete_regime` |
+| TeacherSubjectSection | `academic.view_teacher_subject` | `academic.create_teacher_subject` | `academic.update_teacher_subject` | `academic.delete_teacher_subject` |
+
+Seedear permisos:
+```bash
+python manage.py seed_permissions --module academic
 ```
 
 ---

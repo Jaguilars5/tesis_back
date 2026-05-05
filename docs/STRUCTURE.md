@@ -21,12 +21,14 @@ El núcleo del sistema reside en la carpeta `apps/`, donde cada subcarpeta repre
 
 - **academic/**: Gestión de mallas curriculares, materias, paralelos y periodos lectivos.
 - **accounts/**: Gestión de usuarios, roles y autenticación.
+- **analytics/**: Análisis de riesgo estudiantil, perfiles de riesgo y métricas predictivas.
 - **core/**: Utilidades transversales, helpers globales y lógica compartida por todos los módulos.
-- **config/**: Configuraciones globales del sistema y parámetros académicos.
 - **grading/**: Registro de calificaciones, asistencia e incidentes de conducta.
 - **institutions/**: Información de la institución educativa y sus sedes.
 - **scheduling/**: Gestión de horarios y disponibilidad docente.
 - **students/**: Administración de expedientes de estudiantes, representantes y contactos de emergencia.
+
+> **Nota**: El directorio `config/` se encuentra en la raíz del proyecto (fuera de `apps/`) y contiene la configuración global de Django (settings, URLs, Celery, WSGI, ASGI).
 
 ## Estructura Estándar de un Módulo
 

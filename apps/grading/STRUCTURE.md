@@ -56,6 +56,23 @@ from apps.grading.models.student_note import StudentNote
 avg = sum(n.value for n in notes) / len(notes) # Usar GradingService
 ```
 
+## Consultas para Analytics
+
+`grading` expone consultas especializadas para que `analytics` pueda construir
+snapshots de riesgo academico sin romper la separacion por capas.
+
+Metodos disponibles:
+
+- `StudentNoteRepository.list_for_risk_snapshot`: retorna notas activas del
+  estudiante y periodo con actividad academica y materia precargadas.
+- `AttendanceRepository.list_for_risk_snapshot`: retorna asistencias del
+  estudiante y periodo ordenadas por fecha.
+- `ConductIncidentRepository.list_for_risk_snapshot`: retorna incidentes del
+  estudiante y periodo ordenados del mas reciente al mas antiguo.
+
+Estas consultas son usadas por `AcademicRiskFeatureBuilder` para calcular
+conducta, asistencia y calificaciones del semaforo de riesgo.
+
 ## Responsabilidades de Capas
 
 1.  **Models**: Definen la estructura de los datos del desempeño estudiantil.

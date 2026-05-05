@@ -18,32 +18,74 @@ Todas las peticiones devuelven el esquema estandarizado:
 
 ---
 
+## Autenticación y Permisos
+
+Header requerido:
+```
+Authorization: Bearer <access_token>
+```
+
+| Endpoint | Método | Permiso |
+|---------|--------|---------|
+| `schedule-slots/` | GET | scheduling.view_schedule |
+| `schedule-slots/` | POST | scheduling.create_schedule |
+| `schedule-slots/{id}/` | GET | scheduling.view_schedule |
+| `schedule-slots/{id}/` | PATCH | scheduling.update_schedule |
+| `schedule-slots/{id}/` | DELETE | scheduling.delete_schedule |
+| `time-slots/` | GET | scheduling.view_timeslot |
+| `time-slots/` | POST | scheduling.create_timeslot |
+| `time-slots/{id}/` | GET | scheduling.view_timeslot |
+| `time-slots/{id}/` | PATCH | scheduling.update_timeslot |
+| `time-slots/{id}/` | DELETE | scheduling.delete_timeslot |
+| `teacher-availability/` | GET | scheduling.view_availability |
+| `teacher-availability/` | POST | scheduling.create_availability |
+| `teacher-availability/{id}/` | GET | scheduling.view_availability |
+| `teacher-availability/{id}/` | PATCH | scheduling.update_availability |
+| `teacher-availability/{id}/` | DELETE | scheduling.delete_availability |
+| `subject-constraints/` | GET | scheduling.view_constraint |
+| `subject-constraints/` | POST | scheduling.create_constraint |
+| `subject-constraints/{id}/` | GET | scheduling.view_constraint |
+| `subject-constraints/{id}/` | PATCH | scheduling.update_constraint |
+| `subject-constraints/{id}/` | DELETE | scheduling.delete_constraint |
+| `schedule-configs/` | GET | scheduling.view_template |
+| `schedule-configs/` | POST | scheduling.create_template |
+| `schedule-configs/{id}/` | GET | scheduling.view_template |
+| `schedule-configs/{id}/` | PATCH | scheduling.update_template |
+| `schedule-configs/{id}/` | DELETE | scheduling.delete_template |
+
+---
+
 ## Patrón de Endpoints
 
-El módulo `scheduling` utiliza el patrón de acciones basadas en POST para todas las operaciones.
+El módulo `scheduling` utiliza ViewSets RESTful con DRF router.
 
-### Asignación de Horarios (`/api/scheduling/schedule-slot/`)
+### ScheduleSlots (`/api/scheduling/schedule-slots/`)
 
-#### Listar Slots
-**POST** `/api/scheduling/schedule-slot/list/`
+#### Listar
+**GET** `/api/scheduling/schedule-slots/`
 
-Response:
+Response (paginado):
 ```json
 {
   "ok": true,
-  "data": [
-    {
-      "id": 1,
-      "time_slot": 5,
-      "classroom": 10
-    }
-  ],
+  "data": {
+    "count": 1,
+    "next": null,
+    "previous": null,
+    "results": [
+      {
+        "id": 1,
+        "time_slot": 5,
+        "classroom": 10
+      }
+    ]
+  },
   "msg": ""
 }
 ```
 
-#### Asignar Horario (Agregar)
-**POST** `/api/scheduling/schedule-slot/add/`
+#### Crear
+**POST** `/api/scheduling/schedule-slots/`
 
 Request:
 ```json
@@ -68,15 +110,8 @@ Response:
 }
 ```
 
-#### Eliminar Asignación
-**POST** `/api/scheduling/schedule-slot/delete/`
-
-Request:
-```json
-{
-  "id": 1
-}
-```
+#### Eliminar
+**DELETE** `/api/scheduling/schedule-slots/{id}/`
 
 Response:
 ```json
@@ -95,7 +130,7 @@ Response:
 ## Disponibilidad Docente (`/api/scheduling/teacher-availability/`)
 
 ### Registrar Disponibilidad
-**POST** `/api/scheduling/teacher-availability/add/`
+**POST** `/api/scheduling/teacher-availability/`
 
 Request:
 ```json
@@ -121,10 +156,10 @@ Response:
 
 ---
 
-## Franjas Horarias (`/api/scheduling/time-slot/`)
+## Franjas Horarias (`/api/scheduling/time-slots/`)
 
 ### Crear Franja
-**POST** `/api/scheduling/time-slot/add/`
+**POST** `/api/scheduling/time-slots/`
 
 Request:
 ```json

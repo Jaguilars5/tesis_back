@@ -8,8 +8,10 @@ El sistema implementa una interfaz RESTful bajo un protocolo de comunicación es
 
 ### Requisitos de las Peticiones
 
-1.  **Método HTTP**: Todas las operaciones, incluyendo consultas de lectura (`list`, `get`), deben realizarse mediante el método `POST`.
-2.  **Cuerpo de la Petición**: Los datos deben enviarse exclusivamente en formato JSON (`application/json`).
+1.  **Método HTTP**:
+    - Todos los módulos usan métodos HTTP estándar de REST: `GET` para listar/obtener, `POST` para crear, `PUT/PATCH` para actualizar, `DELETE` para eliminar.
+    - Los módulos `grading`, `scheduling` y `analytics` usan `POST` para todas las operaciones, enviando parámetros en el cuerpo JSON.
+2.  **Cuerpo de la Petición**: Los datos deben enviarse en formato JSON (`application/json`).
 3.  **Encabezados de Autenticación**: Las rutas protegidas requieren un token de acceso JWT en el encabezado `Authorization`:
     `Authorization: Bearer <token_de_acceso>`
 
@@ -30,22 +32,22 @@ Estructura del JSON:
 ## Gestión de Sesiones
 
 ### Inicio de Sesión
-Endpoint: `/api/security/login/`
+Endpoint: `POST /api/accounts/login/`
 Payload: `{"email": "usuario@ejemplo.com", "password": "password"}`
-Respuesta: Retorna un `access_token` y un `refresh_token`.
+Respuesta: Retorna un `access` token y un `refresh` token.
 
 ### Renovación de Token
-Endpoint: `/api/security/refresh/`
-Payload: `{"refresh_token": "token_previo"}`
-Respuesta: Retorna un nuevo `access_token`.
+Endpoint: `POST /api/accounts/refresh/`
+Payload: `{"refresh": "token_previo"}`
+Respuesta: Retorna un nuevo `access` token y los datos actualizados del `user`.
 
 ## Flujos de Trabajo Comunes
 
 ### Registro de Estudiantes y Representantes
 
-1.  **Creación del Estudiante**: Utilizar el endpoint `/api/students/student/add/`. Es obligatorio asignar una sección académica válida.
-2.  **Creación del Representante**: Utilizar el endpoint `/api/students/representative/add/`. El perfil del representante es independiente del estudiante.
-3.  **Vinculación**: Utilizar el endpoint `/api/students/student-representative/add/` para crear la relación entre ambos. En este paso se define el parentesco (`kinship`) y los permisos de autorización.
+1.  **Creación del Estudiante**: Utilizar el endpoint `POST /api/students/student/`. Es obligatorio asignar una sección académica válida.
+2.  **Creación del Representante**: Utilizar el endpoint `POST /api/students/representative/`. El perfil del representante es independiente del estudiante.
+3.  **Vinculación**: Utilizar el endpoint `POST /api/students/student-representative/` para crear la relación entre ambos. En este paso se define el parentesco (`kinship`) y los permisos de autorización.
 
 ### Gestión Académica
 

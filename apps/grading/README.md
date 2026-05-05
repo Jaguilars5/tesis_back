@@ -60,25 +60,61 @@ Calificaciones individuales vinculadas a una actividad académica.
 
 ---
 
-## API REST (Resumen)
+## Endpoints
 
-El módulo utiliza el patrón de acciones basadas en POST para todas sus operaciones CRUD.
+Todos los endpoints son RESTful con ViewSets de DRF.
 
-### Calificaciones
-- POST `/api/grading/student-note/list/`
-- POST `/api/grading/student-note/get/`
-- POST `/api/grading/student-note/add/`
-- POST `/api/grading/student-note/update/`
-- POST `/api/grading/student-note/soft-delete/`
+### StudentNote
+
+| Método | Endpoint | Descripción | Permiso |
+|--------|----------|-------------|---------|
+| GET | `/api/grading/student-notes/` | Listar calificaciones (paginado) | grading.view_note |
+| POST | `/api/grading/student-notes/` | Crear calificación | grading.create_note |
+| GET | `/api/grading/student-notes/{id}/` | Detalle de calificación | grading.view_note |
+| PATCH | `/api/grading/student-notes/{id}/` | Actualizar parcialmente | grading.update_note |
+| DELETE | `/api/grading/student-notes/{id}/` | Eliminar (soft delete) | grading.delete_note |
+
+### Attendance
+
+| Método | Endpoint | Descripción | Permiso |
+|--------|----------|-------------|---------|
+| GET | `/api/grading/attendance/` | Listar asistencia (paginado) | grading.view_attendance |
+| POST | `/api/grading/attendance/` | Crear registro de asistencia | grading.create_attendance |
+| GET | `/api/grading/attendance/{id}/` | Detalle de asistencia | grading.view_attendance |
+| PATCH | `/api/grading/attendance/{id}/` | Actualizar parcialmente | grading.update_attendance |
+| DELETE | `/api/grading/attendance/{id}/` | Eliminar (soft delete) | grading.delete_attendance |
+
+### ConductIncident
+
+| Método | Endpoint | Descripción | Permiso |
+|--------|----------|-------------|---------|
+| GET | `/api/grading/conduct-incidents/` | Listar incidentes (paginado) | grading.view_incident |
+| POST | `/api/grading/conduct-incidents/` | Crear incidente | grading.create_incident |
+| GET | `/api/grading/conduct-incidents/{id}/` | Detalle de incidente | grading.view_incident |
+| PATCH | `/api/grading/conduct-incidents/{id}/` | Actualizar parcialmente | grading.update_incident |
+| DELETE | `/api/grading/conduct-incidents/{id}/` | Eliminar (soft delete) | grading.delete_incident |
 
 ---
 
 ## Seguridad
 
-Header requerido:
+### Autenticación y Permisos
 
-```
-Authorization: Bearer <token>
+Todos los endpoints requieren:
+1. Header `Authorization: Bearer <token>`
+2. Permiso específico del usuario
+
+### Permisos por modelo
+
+| Modelo | Ver | Crear | Actualizar | Eliminar |
+|--------|-----|-------|------------|----------|
+| StudentNote | grading.view_note | grading.create_note | grading.update_note | grading.delete_note |
+| Attendance | grading.view_attendance | grading.create_attendance | grading.update_attendance | grading.delete_attendance |
+| ConductIncident | grading.view_incident | grading.create_incident | grading.update_incident | grading.delete_incident |
+
+Seedear permisos:
+```bash
+python manage.py seed_permissions --module grading
 ```
 
 ---
@@ -88,6 +124,31 @@ Authorization: Bearer <token>
 ```
 python manage.py test apps.grading
 ```
+
+---
+
+## Integracion con Analytics
+
+El modulo `grading` funciona como fuente de datos para el modelo de riesgo
+academico de `analytics`.
+
+Datos consumidos:
+
+- `StudentNote`: promedio normalizado, ultimo examen y materias reprobadas.
+- `Attendance`: porcentaje de asistencia, faltas justificadas, faltas
+  injustificadas, tardanzas y maximo de faltas consecutivas.
+- `ConductIncident`: faltas leves, moderadas, graves, observaciones recientes
+  y notificacion familiar.
+
+Repositorios para snapshots de riesgo:
+
+- `StudentNoteRepository.list_for_risk_snapshot(student_id, academic_period_id)`.
+- `AttendanceRepository.list_for_risk_snapshot(student_id, academic_period_id)`.
+- `ConductIncidentRepository.list_for_risk_snapshot(student_id, academic_period_id)`.
+
+Estos metodos mantienen las consultas ORM dentro de la capa de repositorios y
+permiten que `apps.analytics.services.feature_builder.AcademicRiskFeatureBuilder`
+construya el JSON de entrada sin acceder directamente a los modelos.
 
 ---
 

@@ -37,11 +37,31 @@ Módulo encargado del registro de notas, control de asistencia y bitácora de in
 Gestión de la disponibilidad docente y generación de horarios de clase, optimizando el uso de recursos físicos y temporales.
 [Documentación del Módulo Scheduling](apps/scheduling/README.md)
 
+### Analítica y Riesgo Académico (Analytics)
+
+Análisis de riesgo estudiantil basado en métricas de asistencia, rendimiento académico y conducta. Genera perfiles de riesgo y prioriza estudiantes que requieren intervención.
+
 ## Diagrama de Base de Datos
 
 El diseño de la base de datos se basa en un modelo relacional normalizado que asegura la integridad de la información académica. Las relaciones clave incluyen la vinculación entre periodos académicos, actividades de evaluación y registros de estudiantes.
 
 El esquema detallado de las entidades y sus relaciones puede visualizarse en el archivo de documentación técnica [Diagrama ER](bd.html).
+
+## Pruebas Automatizadas
+
+El proyecto cuenta con una suite de pruebas que cubre modelos, servicios y API de todos los módulos.
+
+```bash
+# Ejecutar todas las pruebas (requiere PostgreSQL o usa settings de test con SQLite)
+python manage.py test --settings=config.settings.test
+
+# Ejecutar pruebas de un módulo específico
+python manage.py test apps.accounts --settings=config.settings.test
+
+# Con coverage
+coverage run --source='.' manage.py test --settings=config.settings.test
+coverage report -m
+```
 
 ## Estándares de Comunicación (API)
 
@@ -67,7 +87,7 @@ Para garantizar la consistencia entre el Backend y el Frontend, todas las respue
 - **Consultas y filtros**: `django-filter` para búsqueda y filtrado de endpoints.
 - **Tareas asíncronas**: Celery como worker y Redis como broker.
 - **Caché**: `django-redis` para cache distribuida y soporte de Redis.
-- **Base de datos**: PostgreSQL en Docker, con soporte histórico para SQL Server en producción según la configuración del proyecto.
+- **Base de datos**: PostgreSQL (desarrollo y producción).
 - **Contenedores**: Docker y Docker Compose para aislar web, base de datos, Redis, Celery y Flower.
 - **Configuración**: Estructura modular (`base`, `local`, `production`) y variables de entorno desde `.env`.
 - **Servidor WSGI**: Gunicorn como opción de despliegue.

@@ -15,8 +15,10 @@ academic/
 │   ├── config_academic.py
 │   ├── section.py
 │   ├── subject.py
-│   ├── student_note.py
-│   └── ... (8 modelos en total)
+│   ├── academic_period.py
+│   ├── academic_activity.py
+│   ├── timing_regime.py
+│   └── teacher_subject_section.py  # (7 modelos en total)
 ├── repositories/         # Capa de Persistencia (Queries)
 │   └── academic_repo.py  # Repositorios centralizados por entidad
 ├── services/             # Capa de Negocio (Orquestación)

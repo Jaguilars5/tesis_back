@@ -1,94 +1,314 @@
-from rest_framework.decorators import api_view
+from rest_framework import viewsets, permissions
+from rest_framework.decorators import action
 from rest_framework.response import Response
-from ..repositories.institution_repo import (
-    InstitutionRepository, SchoolYearRepository, ClassroomRepository
-)
-from .serializers import (
-    InstitutionSerializer, School_YearSerializer, ClassroomSerializer
-)
 
+from apps.core.permissions import HasPermission
+from apps.core.constants.permissions import institutions
+
+from ..services.institution_service import InstitutionService
+from ..models import Institution, School_Year, Classroom
+from .serializers import (
+    InstitutionSerializer,
+    School_YearSerializer,
+    ClassroomSerializer,
+)
 from apps.core.utils import ok_response, error_response
 
-def create_repo_views(repository_class, serializer_class, model_name):
-    @api_view(['POST'])
-    def list_view(request):
+
+class InstitutionViewSet(viewsets.ModelViewSet):
+    serializer_class = InstitutionSerializer
+    permission_classes = [permissions.IsAuthenticated, HasPermission]
+    action_permissions = {
+        "list": institutions.VIEW_INSTITUTION,
+        "retrieve": institutions.VIEW_INSTITUTION,
+        "create": institutions.CREATE_INSTITUTION,
+        "update": institutions.UPDATE_INSTITUTION,
+        "partial_update": institutions.UPDATE_INSTITUTION,
+        "destroy": institutions.DELETE_INSTITUTION,
+    }
+
+    def get_queryset(self):
+        return InstitutionService.get_all_institutions().order_by("name")
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         try:
-            items = repository_class.get_all()
-            return ok_response(serializer_class(items, many=True).data)
-        except Exception as e:
+            institution = InstitutionService.create_institution(
+                name=serializer.validated_data["name"],
+                code=serializer.validated_data["code"],
+                address=serializer.validated_data["address"],
+                city=serializer.validated_data["city"],
+            )
+            return ok_response(self.get_serializer(institution).data, status=201)
+        except ValueError as e:
             return error_response(e)
 
-    @api_view(['POST'])
-    def get_view(request):
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        serializer = self.get_serializer(
+            self.get_object(), data=request.data, partial=partial
+        )
+        serializer.is_valid(raise_exception=True)
         try:
-            pk = request.data.get('id')
-            item = repository_class.get_by_id(pk)
-            if not item:
-                return error_response(f'{model_name} not found', 404)
-            return ok_response(serializer_class(item).data)
-        except Exception as e:
+            institution = InstitutionService.update_institution(
+                kwargs["pk"], **serializer.validated_data
+            )
+            return ok_response(self.get_serializer(institution).data)
+        except ValueError as e:
             return error_response(e)
 
-    @api_view(['POST'])
-    def add_view(request):
+    def destroy(self, request, *args, **kwargs):
         try:
-            serializer = serializer_class(data=request.data)
-            if serializer.is_valid():
-                serializer.save()
-                return ok_response(serializer.data, status=201)
-            return error_response(serializer.errors)
-        except Exception as e:
+            InstitutionService.deactivate_institution(kwargs["pk"])
+            return ok_response({"id": kwargs["pk"], "active": False})
+        except ValueError as e:
             return error_response(e)
 
-    @api_view(['POST'])
-    def update_view(request):
+
+class SchoolYearViewSet(viewsets.ModelViewSet):
+    serializer_class = School_YearSerializer
+    permission_classes = [permissions.IsAuthenticated, HasPermission]
+    action_permissions = {
+        "list": institutions.VIEW_SCHOOL_YEAR,
+        "retrieve": institutions.VIEW_SCHOOL_YEAR,
+        "create": institutions.CREATE_SCHOOL_YEAR,
+        "update": institutions.UPDATE_SCHOOL_YEAR,
+        "partial_update": institutions.UPDATE_SCHOOL_YEAR,
+        "destroy": institutions.DELETE_SCHOOL_YEAR,
+        "list_by_institution": institutions.VIEW_SCHOOL_YEAR,
+        "get_by_id": institutions.VIEW_SCHOOL_YEAR,
+        "add_school_year": institutions.CREATE_SCHOOL_YEAR,
+        "update_school_year": institutions.UPDATE_SCHOOL_YEAR,
+        "soft_delete_school_year": institutions.DELETE_SCHOOL_YEAR,
+    }
+
+    def get_queryset(self):
+        return School_Year.objects.filter(active=True).order_by("-start_date")
+
+    @action(detail=False, methods=["post"], url_path="list")
+    def list_by_institution(self, request):
+        institution_id = request.data.get("institution")
+        if not institution_id:
+            return error_response('Se requiere "institution"')
+        school_years = School_Year.objects.filter(
+            institution_id=institution_id, active=True
+        ).order_by("-start_date")
+        return ok_response(self.get_serializer(school_years, many=True).data)
+
+    @action(detail=False, methods=["post"], url_path="get")
+    def get_by_id(self, request):
+        school_year_id = request.data.get("id")
+        if not school_year_id:
+            return error_response('Se requiere "id"')
         try:
-            pk = request.data.get('id')
-            item = repository_class.get_by_id(pk)
-            if not item:
-                return error_response(f'{model_name} not found', 404)
-            serializer = serializer_class(item, data=request.data, partial=True)
-            if serializer.is_valid():
-                serializer.save()
-                return ok_response(serializer.data)
-            return error_response(serializer.errors)
-        except Exception as e:
+            school_year = School_Year.objects.get(id=school_year_id)
+            return ok_response(self.get_serializer(school_year).data)
+        except School_Year.DoesNotExist:
+            return error_response("Año escolar no encontrado")
+
+    @action(detail=False, methods=["post"], url_path="add")
+    def add_school_year(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            school_year = InstitutionService.create_school_year(
+                institution_id=serializer.validated_data["institution"].id,
+                name=serializer.validated_data["name"],
+                start_date=serializer.validated_data["start_date"],
+                end_date=serializer.validated_data["end_date"],
+            )
+            return ok_response(self.get_serializer(school_year).data, status=201)
+        except ValueError as e:
             return error_response(e)
 
-    @api_view(['POST'])
-    def soft_delete_view(request):
+    @action(detail=False, methods=["post"], url_path="update")
+    def update_school_year(self, request):
+        school_year_id = request.data.get("id")
+        if not school_year_id:
+            return error_response('Se requiere "id"')
         try:
-            pk = request.data.get('id')
-            item = repository_class.get_by_id(pk)
-            if not item:
-                return error_response(f'{model_name} not found', 404)
-            if hasattr(item, 'active'):
-                item.active = False
-                item.save()
-                return ok_response({'id': pk, 'active': False})
-            return error_response(f'{model_name} does not support soft delete.')
-        except Exception as e:
+            school_year = School_Year.objects.get(id=school_year_id)
+        except School_Year.DoesNotExist:
+            return error_response("Año escolar no encontrado")
+
+        data = {k: v for k, v in request.data.items() if k != "id"}
+        serializer = self.get_serializer(school_year, data=data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        try:
+            updated = InstitutionService.update_school_year(
+                school_year_id, **serializer.validated_data
+            )
+            return ok_response(self.get_serializer(updated).data)
+        except ValueError as e:
             return error_response(e)
 
-    @api_view(['POST'])
-    def delete_view(request):
+    @action(detail=False, methods=["post"], url_path="soft-delete")
+    def soft_delete_school_year(self, request):
+        school_year_id = request.data.get("id")
+        if not school_year_id:
+            return error_response('Se requiere "id"')
         try:
-            pk = request.data.get('id')
-            item = repository_class.get_by_id(pk)
-            if not item:
-                return error_response(f'{model_name} not found', 404)
-            item.delete()
-            return ok_response({'id': pk, 'deleted': True})
-        except Exception as e:
+            InstitutionService.deactivate_school_year(school_year_id)
+            return ok_response({"id": school_year_id, "active": False})
+        except ValueError as e:
             return error_response(e)
 
-    return list_view, get_view, add_view, update_view, soft_delete_view, delete_view
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            school_year = InstitutionService.create_school_year(
+                institution_id=serializer.validated_data["institution"].id,
+                name=serializer.validated_data["name"],
+                start_date=serializer.validated_data["start_date"],
+                end_date=serializer.validated_data["end_date"],
+            )
+            return ok_response(self.get_serializer(school_year).data, status=201)
+        except ValueError as e:
+            return error_response(e)
 
-# Institution
-institution_list, institution_get, institution_add, institution_update, institution_soft_delete, institution_delete = create_repo_views(InstitutionRepository, InstitutionSerializer, 'Institution')
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        serializer = self.get_serializer(
+            self.get_object(), data=request.data, partial=partial
+        )
+        serializer.is_valid(raise_exception=True)
+        try:
+            school_year = InstitutionService.update_school_year(
+                kwargs["pk"], **serializer.validated_data
+            )
+            return ok_response(self.get_serializer(school_year).data)
+        except ValueError as e:
+            return error_response(e)
 
-# School Year
-school_year_list, school_year_get, school_year_add, school_year_update, school_year_soft_delete, school_year_delete = create_repo_views(SchoolYearRepository, School_YearSerializer, 'School_Year')
+    def destroy(self, request, *args, **kwargs):
+        try:
+            InstitutionService.deactivate_school_year(kwargs["pk"])
+            return ok_response({"id": kwargs["pk"], "active": False})
+        except ValueError as e:
+            return error_response(e)
 
-# Classroom
-classroom_list, classroom_get, classroom_add, classroom_update, classroom_soft_delete, classroom_delete = create_repo_views(ClassroomRepository, ClassroomSerializer, 'Classroom')
+
+class ClassroomViewSet(viewsets.ModelViewSet):
+    serializer_class = ClassroomSerializer
+    permission_classes = [permissions.IsAuthenticated, HasPermission]
+    action_permissions = {
+        "list": institutions.VIEW_CLASSROOM,
+        "retrieve": institutions.VIEW_CLASSROOM,
+        "create": institutions.CREATE_CLASSROOM,
+        "update": institutions.UPDATE_CLASSROOM,
+        "partial_update": institutions.UPDATE_CLASSROOM,
+        "destroy": institutions.DELETE_CLASSROOM,
+        "list_by_institution": institutions.VIEW_CLASSROOM,
+        "get_by_id": institutions.VIEW_CLASSROOM,
+        "add_classroom": institutions.CREATE_CLASSROOM,
+        "update_classroom": institutions.UPDATE_CLASSROOM,
+        "soft_delete_classroom": institutions.DELETE_CLASSROOM,
+    }
+
+    def get_queryset(self):
+        return Classroom.objects.filter(active=True).order_by("name")
+
+    @action(detail=False, methods=["post"], url_path="list")
+    def list_by_institution(self, request):
+        institution_id = request.data.get("institution")
+        if not institution_id:
+            return error_response('Se requiere "institution"')
+        classrooms = Classroom.objects.filter(
+            institution_id=institution_id, active=True
+        ).order_by("name")
+        return ok_response(self.get_serializer(classrooms, many=True).data)
+
+    @action(detail=False, methods=["post"], url_path="get")
+    def get_by_id(self, request):
+        classroom_id = request.data.get("id")
+        if not classroom_id:
+            return error_response('Se requiere "id"')
+        try:
+            classroom = Classroom.objects.get(id=classroom_id)
+            return ok_response(self.get_serializer(classroom).data)
+        except Classroom.DoesNotExist:
+            return error_response("Aula no encontrada")
+
+    @action(detail=False, methods=["post"], url_path="add")
+    def add_classroom(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            classroom = InstitutionService.create_classroom(
+                institution_id=serializer.validated_data["institution"].id,
+                name=serializer.validated_data["name"],
+                room_type=serializer.validated_data["room_type"],
+                capacity=serializer.validated_data["capacity"],
+            )
+            return ok_response(self.get_serializer(classroom).data, status=201)
+        except ValueError as e:
+            return error_response(e)
+
+    @action(detail=False, methods=["post"], url_path="update")
+    def update_classroom(self, request):
+        classroom_id = request.data.get("id")
+        if not classroom_id:
+            return error_response('Se requiere "id"')
+        try:
+            classroom = Classroom.objects.get(id=classroom_id)
+        except Classroom.DoesNotExist:
+            return error_response("Aula no encontrada")
+
+        data = {k: v for k, v in request.data.items() if k != "id"}
+        serializer = self.get_serializer(classroom, data=data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        try:
+            updated = InstitutionService.update_classroom(
+                classroom_id, **serializer.validated_data
+            )
+            return ok_response(self.get_serializer(updated).data)
+        except ValueError as e:
+            return error_response(e)
+
+    @action(detail=False, methods=["post"], url_path="soft-delete")
+    def soft_delete_classroom(self, request):
+        classroom_id = request.data.get("id")
+        if not classroom_id:
+            return error_response('Se requiere "id"')
+        try:
+            InstitutionService.deactivate_classroom(classroom_id)
+            return ok_response({"id": classroom_id, "active": False})
+        except ValueError as e:
+            return error_response(e)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            classroom = InstitutionService.create_classroom(
+                institution_id=serializer.validated_data["institution"].id,
+                name=serializer.validated_data["name"],
+                room_type=serializer.validated_data["room_type"],
+                capacity=serializer.validated_data["capacity"],
+            )
+            return ok_response(self.get_serializer(classroom).data, status=201)
+        except ValueError as e:
+            return error_response(e)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        serializer = self.get_serializer(
+            self.get_object(), data=request.data, partial=partial
+        )
+        serializer.is_valid(raise_exception=True)
+        try:
+            classroom = InstitutionService.update_classroom(
+                kwargs["pk"], **serializer.validated_data
+            )
+            return ok_response(self.get_serializer(classroom).data)
+        except ValueError as e:
+            return error_response(e)
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            InstitutionService.deactivate_classroom(kwargs["pk"])
+            return ok_response({"id": kwargs["pk"], "active": False})
+        except ValueError as e:
+            return error_response(e)

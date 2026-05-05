@@ -24,11 +24,13 @@ accounts/
 │   ├── role_service.py
 │   └── permission_service.py
 ├── middleware/           # Interceptores de Request
-│   └── jwt_auth.py       # Autenticación por Token
+│   └── __init__.py       # (reservado para futuros middlewares)
 ├── decorators/           # Protecciones de Vista
-│   └── permissions.py    # @require_permission
+│   ├── __init__.py       # @require_permission
+│   └── README.md
 └── utils/                # Utilidades Globales del Módulo
-    └── jwt.py            # Generación y validación de tokens
+    ├── __init__.py       # Helpers JWT, bcrypt y permisos
+    └── README.md
 ```
 
 ## Flujo de Trabajo Recomendado

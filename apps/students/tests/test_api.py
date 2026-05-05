@@ -7,6 +7,19 @@ from apps.accounts.models import Role, User
 from apps.students.models import Student, Representative
 
 
+# Compatibilidad Python 3.14: patch Context.__copy__
+import django.template.context as _context
+
+
+def _safe_base_copy(self):
+    duplicate = object.__new__(type(self))
+    duplicate.dicts = self.dicts[:]
+    return duplicate
+
+
+_context.BaseContext.__copy__ = _safe_base_copy
+
+
 class StudentAPITest(APITestCase):
     """Tests para endpoints API de Student"""
 
@@ -52,6 +65,7 @@ class StudentAPITest(APITestCase):
             password="test_password_123",
             role=role,
             institution=self.institution,
+            is_superuser=True,
         )
         self.client.force_authenticate(user=self.user)
 
@@ -133,6 +147,7 @@ class RepresentativeAPITest(APITestCase):
             password="test_password_123",
             role=role,
             institution=institution,
+            is_superuser=True,
         )
         self.client.force_authenticate(user=self.user)
 

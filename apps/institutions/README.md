@@ -77,23 +77,50 @@ Espacios físicos destinados a la enseñanza.
 
 ## API REST (Resumen)
 
-El módulo utiliza un patrón de endpoints basados en acciones POST para garantizar la consistencia en el manejo de payloads complejos.
+El módulo utiliza ViewSets estándar de Django Rest Framework con enrutamiento RESTful.
 
 ### Instituciones
-- POST `/api/institutions/institution/list/`
-- POST `/api/institutions/institution/get/`
-- POST `/api/institutions/institution/add/`
-- POST `/api/institutions/institution/update/`
-- POST `/api/institutions/institution/soft-delete/`
+- `GET`    `/api/institutions/institution/`
+- `POST`   `/api/institutions/institution/`
+- `GET`    `/api/institutions/institution/{id}/`
+- `PATCH`  `/api/institutions/institution/{id}/`
+- `DELETE` `/api/institutions/institution/{id}/` (soft-delete)
+
+### Años Escolares
+- `GET`    `/api/institutions/school-year/`
+- `POST`   `/api/institutions/school-year/`
+- `GET`    `/api/institutions/school-year/{id}/`
+- `PATCH`  `/api/institutions/school-year/{id}/`
+- `DELETE` `/api/institutions/school-year/{id}/` (soft-delete)
+
+### Aulas
+- `GET`    `/api/institutions/classroom/`
+- `POST`   `/api/institutions/classroom/`
+- `GET`    `/api/institutions/classroom/{id}/`
+- `PATCH`  `/api/institutions/classroom/{id}/`
+- `DELETE` `/api/institutions/classroom/{id}/` (soft-delete)
 
 ---
 
 ## Seguridad
 
-Header requerido:
+### Autenticación y Permisos
 
-```
-Authorization: Bearer <token>
+Todos los endpoints requieren:
+1. Header `Authorization: Bearer <token>`
+2. Permiso específico del usuario
+
+Permisos requeridos:
+
+| ViewSet | View | Create | Update | Delete |
+|---------|------|--------|--------|--------|
+| Institution | `institutions.view_institution` | `institutions.create_institution` | `institutions.update_institution` | `institutions.delete_institution` |
+| SchoolYear | `institutions.view_school_year` | `institutions.create_school_year` | `institutions.update_school_year` | `institutions.delete_school_year` |
+| Classroom | `institutions.view_classroom` | `institutions.create_classroom` | `institutions.update_classroom` | `institutions.delete_classroom` |
+
+Seedear permisos:
+```bash
+python manage.py seed_permissions --module institutions
 ```
 
 ---

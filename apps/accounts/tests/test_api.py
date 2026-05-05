@@ -27,7 +27,8 @@ class PermissionAPITest(TestCase):
             email="admin@example.com",
             role=self.role,
             institution=self.institution,
-            password="adminpassword"
+            password="adminpassword",
+            is_superuser=True,
         )
         self.admin_user.set_password("adminpass")
         self.admin_user.save()
@@ -81,7 +82,8 @@ class RoleAPITest(TestCase):
             email="admin@example.com",
             role=self.role,
             institution=self.institution,
-            password="adminpassword"
+            password="adminpassword",
+            is_superuser=True,
         )
         self.client.force_authenticate(user=self.admin_user)
 
@@ -129,7 +131,8 @@ class UserAPITest(TestCase):
             email="admin@example.com",
             role=self.role,
             institution=self.institution,
-            password="adminpassword"
+            password="adminpassword",
+            is_superuser=True,
         )
         self.client.force_authenticate(user=self.admin_user)
 

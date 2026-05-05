@@ -18,13 +18,15 @@ Todas las respuestas exitosas devuelven un HTTP 200 (o 201 para creación) con e
 
 ---
 
-## Autenticación
+## Autenticación y Permisos
 
 Se requiere un token JWT válido en el header de cada petición:
 
 ```
 Authorization: Bearer <access_token>
 ```
+
+Todos los ViewSets usan `HasPermission` con `action_permissions`. Ver tabla de permisos en `apps/academic/README.md`.
 
 ---
 

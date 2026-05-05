@@ -18,36 +18,70 @@ Todas las peticiones devuelven el esquema estandarizado:
 
 ---
 
-## Calificaciones (`/api/grading/student-note/`)
+## Autenticación y Permisos
+
+Header requerido:
+```
+Authorization: Bearer <access_token>
+```
+
+| Endpoint | Método | Permiso |
+|---------|--------|---------|
+| `student-notes/` | GET | grading.view_note |
+| `student-notes/` | POST | grading.create_note |
+| `student-notes/{id}/` | GET | grading.view_note |
+| `student-notes/{id}/` | PATCH | grading.update_note |
+| `student-notes/{id}/` | DELETE | grading.delete_note |
+| `attendance/` | GET | grading.view_attendance |
+| `attendance/` | POST | grading.create_attendance |
+| `attendance/{id}/` | GET | grading.view_attendance |
+| `attendance/{id}/` | PATCH | grading.update_attendance |
+| `attendance/{id}/` | DELETE | grading.delete_attendance |
+| `conduct-incidents/` | GET | grading.view_incident |
+| `conduct-incidents/` | POST | grading.create_incident |
+| `conduct-incidents/{id}/` | GET | grading.view_incident |
+| `conduct-incidents/{id}/` | PATCH | grading.update_incident |
+| `conduct-incidents/{id}/` | DELETE | grading.delete_incident |
+
+Respuesta sin permiso:
+```json
+{
+  "ok": false,
+  "data": null,
+  "msg": "You do not have permission to perform this action."
+}
+```
+
+---
+
+## Calificaciones (`/api/grading/student-notes/`)
 
 ### Listar Notas
-**POST** `/api/grading/student-note/list/`
+**GET** `/api/grading/student-notes/`
 
-Response:
+Response (paginado):
 ```json
 {
   "ok": true,
-  "data": [
-    {
-      "id": 1,
-      "student": 1,
-      "note_value": 18.5,
-      "normalized_value": 9.25
-    }
-  ],
+  "data": {
+    "count": 1,
+    "next": null,
+    "previous": null,
+    "results": [
+      {
+        "id": 1,
+        "student": 1,
+        "note_value": 18.5,
+        "normalized_value": 9.25
+      }
+    ]
+  },
   "msg": ""
 }
 ```
 
 ### Obtener Detalle
-**POST** `/api/grading/student-note/get/`
-
-Request:
-```json
-{
-  "id": 1
-}
-```
+**GET** `/api/grading/student-notes/{id}/`
 
 Response:
 ```json
@@ -62,8 +96,8 @@ Response:
 }
 ```
 
-### Registrar/Agregar Nota
-**POST** `/api/grading/student-note/add/`
+### Crear Nota
+**POST** `/api/grading/student-notes/`
 
 Request:
 ```json
@@ -91,12 +125,11 @@ Response:
 ```
 
 ### Actualizar Nota
-**POST** `/api/grading/student-note/update/`
+**PATCH** `/api/grading/student-notes/{id}/`
 
 Request:
 ```json
 {
-  "id": 1,
   "note_value": 19.0
 }
 ```
@@ -118,8 +151,14 @@ Response:
 
 ## Asistencia (`/api/grading/attendance/`)
 
-### Registrar Asistencia
-**POST** `/api/grading/attendance/add/`
+### Listar Asistencia
+**GET** `/api/grading/attendance/`
+
+### Detalle de Asistencia
+**GET** `/api/grading/attendance/{id}/`
+
+### Crear/Registrar Asistencia
+**POST** `/api/grading/attendance/`
 
 Request:
 ```json
@@ -148,10 +187,16 @@ Response:
 
 ---
 
-## Conducta (`/api/grading/conduct-incident/`)
+## Conducta (`/api/grading/conduct-incidents/`)
+
+### Listar Incidentes
+**GET** `/api/grading/conduct-incidents/`
+
+### Detalle de Incidente
+**GET** `/api/grading/conduct-incidents/{id}/`
 
 ### Reportar Incidente
-**POST** `/api/grading/conduct-incident/add/`
+**POST** `/api/grading/conduct-incidents/`
 
 Request:
 ```json

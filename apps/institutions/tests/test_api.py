@@ -12,7 +12,6 @@ class InstitutionAPITest(APITestCase):
     """Tests para los endpoints API de Institution"""
 
     def setUp(self):
-        """Crear datos de prueba"""
         self.institution = Institution.objects.create(
             name="Instituto Test",
             code="IT-001",
@@ -28,65 +27,48 @@ class InstitutionAPITest(APITestCase):
             password="test_password_123",
             role=self.role,
             institution=self.institution,
+            is_superuser=True,
         )
         self.client.force_authenticate(user=self.user)
-        self.institution_url = "/api/institutions/institution/"
-        self.school_year_url = "/api/institutions/school-year/"
-        self.classroom_url = "/api/institutions/classroom/"
+        self.url = "/api/institutions/institution/"
 
     def test_list_institutions(self):
-        """Probar listado de instituciones"""
-        response = self.client.post(f"{self.institution_url}list/", {})
+        response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_create_institution(self):
-        """Probar creación de institución mediante API"""
         data = {
             "name": "Nueva Institución",
             "code": "NI-002",
             "address": "Av. Nueva",
             "city": "Guayaquil",
         }
-        response = self.client.post(f"{self.institution_url}add/", data)
-        self.assertIn(
-            response.status_code, [status.HTTP_201_CREATED, status.HTTP_200_OK]
-        )
+        response = self.client.post(self.url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
     def test_retrieve_institution(self):
-        """Probar obtención de institución específica"""
-        response = self.client.post(
-            f"{self.institution_url}get/", {"id": self.institution.id}
-        )
+        response = self.client.get(f"{self.url}{self.institution.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_update_institution(self):
-        """Probar actualización de institución"""
         data = {"name": "Instituto Actualizado"}
-        response = self.client.post(
-            f"{self.institution_url}update/", {"id": self.institution.id, **data}
+        response = self.client.patch(
+            f"{self.url}{self.institution.id}/", data, format="json"
         )
-        self.assertIn(
-            response.status_code, [status.HTTP_200_OK, status.HTTP_202_ACCEPTED]
-        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_delete_institution(self):
-        """Probar eliminación de institución"""
         institution = Institution.objects.create(
             name="Para Eliminar", code="PE-001", address="Dirección", city="Quito"
         )
-        response = self.client.post(
-            f"{self.institution_url}delete/", {"id": institution.id}
-        )
-        self.assertIn(
-            response.status_code, [status.HTTP_204_NO_CONTENT, status.HTTP_200_OK]
-        )
+        response = self.client.delete(f"{self.url}{institution.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
 class SchoolYearAPITest(APITestCase):
     """Tests para los endpoints API de School_Year"""
 
     def setUp(self):
-        """Crear datos de prueba"""
         self.institution = Institution.objects.create(
             name="Escuela A", code="EA-001", address="Dirección", city="Quito"
         )
@@ -99,6 +81,7 @@ class SchoolYearAPITest(APITestCase):
             password="test_password_123",
             role=self.role,
             institution=self.institution,
+            is_superuser=True,
         )
         self.client.force_authenticate(user=self.user)
         self.school_year = School_Year.objects.create(
@@ -107,49 +90,38 @@ class SchoolYearAPITest(APITestCase):
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
-        self.school_year_url = "/api/institutions/school-year/"
+        self.url = "/api/institutions/school-year/"
 
     def test_list_school_years(self):
-        """Probar listado de años escolares"""
-        response = self.client.post(f"{self.school_year_url}list/", {})
+        response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_create_school_year(self):
-        """Probar creación de año escolar"""
         data = {
             "institution": self.institution.id,
             "name": "2025-2026",
             "start_date": "2025-09-01",
             "end_date": "2026-07-31",
         }
-        response = self.client.post(f"{self.school_year_url}add/", data)
-        self.assertIn(
-            response.status_code, [status.HTTP_201_CREATED, status.HTTP_200_OK]
-        )
+        response = self.client.post(self.url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
     def test_retrieve_school_year(self):
-        """Probar obtención de año escolar"""
-        response = self.client.post(
-            f"{self.school_year_url}get/", {"id": self.school_year.id}
-        )
+        response = self.client.get(f"{self.url}{self.school_year.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_update_school_year(self):
-        """Probar actualización de año escolar"""
         data = {"name": "2024-2025 Modified"}
-        response = self.client.post(
-            f"{self.school_year_url}update/", {"id": self.school_year.id, **data}
+        response = self.client.patch(
+            f"{self.url}{self.school_year.id}/", data, format="json"
         )
-        self.assertIn(
-            response.status_code, [status.HTTP_200_OK, status.HTTP_202_ACCEPTED]
-        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
 class ClassroomAPITest(APITestCase):
     """Tests para los endpoints API de Classroom"""
 
     def setUp(self):
-        """Crear datos de prueba"""
         self.institution = Institution.objects.create(
             name="Instituto B", code="IB-002", address="Dirección B", city="Quito"
         )
@@ -162,6 +134,7 @@ class ClassroomAPITest(APITestCase):
             password="test_password_123",
             role=self.role,
             institution=self.institution,
+            is_superuser=True,
         )
         self.client.force_authenticate(user=self.user)
         self.classroom = Classroom.objects.create(
@@ -170,53 +143,39 @@ class ClassroomAPITest(APITestCase):
             room_type="Aula de clase",
             capacity=40,
         )
-        self.classroom_url = "/api/institutions/classroom/"
+        self.url = "/api/institutions/classroom/"
 
     def test_list_classrooms(self):
-        """Probar listado de aulas"""
-        response = self.client.post(f"{self.classroom_url}list/", {})
+        response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_create_classroom(self):
-        """Probar creación de aula"""
         data = {
             "institution": self.institution.id,
             "name": "102",
             "room_type": "Aula de clase",
             "capacity": 35,
         }
-        response = self.client.post(f"{self.classroom_url}add/", data)
-        self.assertIn(
-            response.status_code, [status.HTTP_201_CREATED, status.HTTP_200_OK]
-        )
+        response = self.client.post(self.url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
     def test_retrieve_classroom(self):
-        """Probar obtención de aula"""
-        response = self.client.post(
-            f"{self.classroom_url}get/", {"id": self.classroom.id}
-        )
+        response = self.client.get(f"{self.url}{self.classroom.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_update_classroom(self):
-        """Probar actualización de aula"""
         data = {"capacity": 50}
-        response = self.client.post(
-            f"{self.classroom_url}update/", {"id": self.classroom.id, **data}
+        response = self.client.patch(
+            f"{self.url}{self.classroom.id}/", data, format="json"
         )
-        self.assertIn(
-            response.status_code, [status.HTTP_200_OK, status.HTTP_202_ACCEPTED]
-        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_classroom_capacity_validation(self):
-        """Probar validación de capacidad"""
         data = {
             "institution": self.institution.id,
             "name": "Invalid",
             "room_type": "Aula",
-            "capacity": 0,  # Inválido
+            "capacity": 0,
         }
-        response = self.client.post(f"{self.classroom_url}add/", data)
-        self.assertIn(
-            response.status_code,
-            [status.HTTP_400_BAD_REQUEST, status.HTTP_422_UNPROCESSABLE_ENTITY],
-        )
+        response = self.client.post(self.url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

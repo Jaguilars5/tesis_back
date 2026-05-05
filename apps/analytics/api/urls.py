@@ -1,9 +1,20 @@
-from django.urls import path
-from . import views
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
+
+from .views import StudentFeatureSnapshotViewSet, StudentRiskScoreViewSet
+
+router = DefaultRouter()
+router.register(
+    r"student-risk-scores",
+    StudentRiskScoreViewSet,
+    basename="student-risk-score",
+)
+router.register(
+    r"feature-snapshots",
+    StudentFeatureSnapshotViewSet,
+    basename="feature-snapshot",
+)
 
 urlpatterns = [
-    path("student-risk/list/", views.student_risk_list, name="student-risk-list"),
-    path("student-risk/get/", views.student_risk_get, name="student-risk-get"),
-    path("feature-snapshot/list/", views.feature_snapshot_list, name="feature-snapshot-list"),
-    path("feature-snapshot/get/", views.feature_snapshot_get, name="feature-snapshot-get"),
+    path("", include(router.urls)),
 ]

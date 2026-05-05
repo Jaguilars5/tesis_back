@@ -24,6 +24,27 @@ Authorization: Bearer <access_token>
 
 ---
 
+## Permisos
+
+Todos los endpoints (excepto login y refresh) requieren permisos específicos:
+
+| ViewSet | Acción | Permiso |
+|---------|--------|---------|
+| User | list, retrieve, search, permissions | `accounts.view_user` |
+| User | create | `accounts.create_user` |
+| User | update, change_password, grant_permission, revoke_permission | `accounts.update_user` |
+| User | destroy | `accounts.delete_user` |
+| Role | list, retrieve | `accounts.view_role` |
+| Role | create | `accounts.create_role` |
+| Role | update, add_permission, remove_permission, assign_permissions | `accounts.update_role` |
+| Role | destroy | `accounts.delete_role` |
+| Permission | list, retrieve, by_module | `accounts.view_permission` |
+| Permission | create, bulk_create | `accounts.create_permission` |
+| Permission | update | `accounts.update_permission` |
+| Permission | destroy | `accounts.delete_permission` |
+
+---
+
 # Login
 
 POST /api/accounts/login/
@@ -42,7 +63,19 @@ Response:
 ```
 {
   "access": "token",
-  "refresh": "token"
+  "refresh": "token",
+  "user": {
+    "id": 1,
+    "dni": "1234567890",
+    "names": "Admin",
+    "last_names": "Test",
+    "email": "admin@test.com",
+    "role": "Administrador",
+    "role_id": 1,
+    "institution": "Institución Ejemplo",
+    "institution_id": 1,
+    "active": true
+  }
 }
 ```
 
@@ -64,7 +97,19 @@ Response:
 
 ```
 {
-  "access": "token"
+  "access": "token",
+  "user": {
+    "id": 1,
+    "dni": "1234567890",
+    "names": "Admin",
+    "last_names": "Test",
+    "email": "admin@test.com",
+    "role": "Administrador",
+    "role_id": 1,
+    "institution": "Institución Ejemplo",
+    "institution_id": 1,
+    "active": true
+  }
 }
 ```
 

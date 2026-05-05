@@ -16,7 +16,10 @@ sys.path.insert(0, str(BASE_DIR / "apps"))
 load_dotenv(BASE_DIR / ".env")
 
 # ─── Core Django ─────────────────────────────────────────────────────────────
-SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-fallback-key")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured("SECRET_KEY environment variable is required")
 
 # ─── Aplicaciones ────────────────────────────────────────────────────────────
 DEFAULT_APPS = [
@@ -31,6 +34,7 @@ DEFAULT_APPS = [
 THIRD_PARTY_APPS = [
     "rest_framework",
     "corsheaders",
+    "drf_spectacular",
 ]
 
 LOCAL_APPS = [
@@ -52,6 +56,7 @@ AUTH_USER_MODEL = "accounts.User"
 # ─── Middleware ───────────────────────────────────────────────────────────────
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "apps.core.middleware.SecurityHeadersMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -59,8 +64,6 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    # Auth JWT (Si sigues usando el personalizado o simplejwt)
-    "apps.accounts.middleware.JWTAuthMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -85,7 +88,10 @@ WSGI_APPLICATION = "config.wsgi.application"
 # ─── Validación de contraseñas ────────────────────────────────────────────────
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {"min_length": 12},
+    },
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
@@ -119,13 +125,66 @@ REST_FRAMEWORK = {
         "django_filters.rest_framework.DjangoFilterBackend",
         "rest_framework.filters.OrderingFilter",
     ),
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "100/day",
+        "user": "1000/day",
+        "login": "10/hour",
+    },
+    "DEFAULT_SCHEMA_CLASS": "apps.core.schema.StandardResponseAutoSchema",
     "EXCEPTION_HANDLER": "apps.core.exceptions.custom_exception_handler",
+}
+
+# ─── DRF Spectacular (OpenAPI) ───────────────────────────────────────────────
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Sistema de Gesti\u00f3n Acad\u00e9mica API",
+    "DESCRIPTION": """
+API RESTful para la gesti\u00f3n acad\u00e9mica de instituciones educativas.
+
+## Autenticaci\u00f3n
+Todos los endpoints (excepto login y refresh) requieren:
+```
+Authorization: Bearer <access_token>
+```
+
+## Formato de Respuesta
+Todas las respuestas siguen el formato:
+```json
+{
+  "ok": true,
+  "data": {},
+  "msg": ""
+}
+```
+
+## C\u00f3digos de Error
+- 401: No autenticado
+- 403: Sin permiso
+- 404: No encontrado
+- 422: Error de validaci\u00f3n
+- 429: Rate limit excedido
+""",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
+    "TAGS": [
+        {"name": "accounts", "description": "Gesti\u00f3n de usuarios, roles y permisos"},
+        {"name": "institutions", "description": "Instituciones, a\u00f1os escolares y aulas"},
+        {"name": "academic", "description": "Secciones, materias, per\u00edodos y actividades"},
+        {"name": "students", "description": "Estudiantes y representantes"},
+        {"name": "grading", "description": "Calificaciones, asistencia e incidentes"},
+        {"name": "scheduling", "description": "Horarios y disponibilidad docente"},
+        {"name": "analytics", "description": "An\u00e1lisis de riesgo estudiantil"},
+    ],
 }
 
 # ─── JWT (Compatibilidad y SimpleJWT) ─────────────────────────────────────────
 JWT_SECRET = os.getenv("JWT_SECRET", SECRET_KEY)
-JWT_ACCESS_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_EXPIRE_MINUTES", 480))
-JWT_REFRESH_EXPIRE_DAYS = int(os.getenv("JWT_REFRESH_EXPIRE_DAYS", 30))
+JWT_ACCESS_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_EXPIRE_MINUTES", 15))
+JWT_REFRESH_EXPIRE_DAYS = int(os.getenv("JWT_REFRESH_EXPIRE_DAYS", 7))
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=JWT_ACCESS_EXPIRE_MINUTES),
@@ -144,6 +203,11 @@ SIMPLE_JWT = {
     "USER_ID_CLAIM": "user_id",
 }
 
+
+# ─── CSRF ─────────────────────────────────────────────────────────────────────
+CSRF_TRUSTED_ORIGINS = os.getenv(
+    "CSRF_TRUSTED_ORIGINS", "http://localhost:3000"
+).split(",")
 
 # ─── Celery ──────────────────────────────────────────────────────────────────
 CELERY_TASK_SERIALIZER = "json"

@@ -40,5 +40,11 @@ staticfiles/
 .DS_Store
 
 
+#Logs
+logs/
+*.log
+
 #Archivos locales
 diagrams/
+
+

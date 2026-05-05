@@ -5,7 +5,64 @@ Validan el formato de entrada HTTP y controlan qué campos se exponen en la resp
 """
 
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from apps.accounts.models import User, Role, Permission, RolePermission, UserPermission
+
+
+class CustomTokenRefreshSerializer(TokenRefreshSerializer):
+    """Serializer personalizado para refresh que incluye datos del usuario."""
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        from rest_framework_simplejwt.tokens import RefreshToken
+
+        refresh = RefreshToken(attrs["refresh"])
+        user_id = refresh.payload.get("user_id")
+        print(f"[DEBUG] Refresh - user_id from token: {user_id}, type: {type(user_id)}")
+        if user_id:
+            try:
+                user = User.objects.get(id=int(user_id))
+                print(f"[DEBUG] Refresh - user found: {user}, institution: {user.institution}")
+                data["user"] = {
+                    "id": user.id,
+                    "dni": user.dni,
+                    "names": user.names,
+                    "last_names": user.last_names,
+                    "email": user.email,
+                    "role": user.role.name if user.role else None,
+                    "role_id": user.role.id if user.role else None,
+                    "institution": str(user.institution) if user.institution else None,
+                    "institution_id": user.institution.id if user.institution else None,
+                    "active": user.active,
+                    "permissions": list(user.get_all_permissions()),
+                }
+            except User.DoesNotExist:
+                print(f"[DEBUG] Refresh - user with id {user_id} not found")
+            except Exception as e:
+                print(f"[DEBUG] Refresh - error: {e}")
+        return data
+
+
+class LoginSerializer(TokenObtainPairSerializer):
+    """Serializer personalizado para login que incluye datos del usuario."""
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        user = self.user
+        data["user"] = {
+            "id": user.id,
+            "dni": user.dni,
+            "names": user.names,
+            "last_names": user.last_names,
+            "email": user.email,
+            "role": user.role.name if user.role else None,
+            "role_id": user.role.id if user.role else None,
+            "institution": str(user.institution) if user.institution else None,
+            "institution_id": user.institution.id if user.institution else None,
+            "active": user.active,
+            "permissions": list(user.get_all_permissions()),
+        }
+        return data
 
 
 class PermissionSerializer(serializers.ModelSerializer):

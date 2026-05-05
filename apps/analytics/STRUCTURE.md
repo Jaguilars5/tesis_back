@@ -34,6 +34,55 @@ from apps.analytics.services.analytics_service import AnalyticsService
 from apps.analytics.models import StudentRiskScore
 ```
 
+## Riesgo Academico v1
+
+El modulo incluye un flujo asincrono para calcular riesgo academico con
+snapshots de `grading`, un artefacto ML opcional y fallback de reglas.
+
+Flujo:
+
+```text
+Celery task
+  -> AcademicRiskFeatureBuilder
+  -> Grading repositories
+  -> StudentFeatureSnapshot
+  -> ML joblib opcional o fallback de reglas
+  -> StudentRiskScore
+  -> JSON estandarizado
+```
+
+Componentes:
+
+- `services/feature_builder.py`: construye el snapshot desde asistencia,
+  conducta y calificaciones.
+- `tasks.py`: expone `calculate_student_academic_risk_task`.
+- `ml/risk_model.joblib`: ubicacion esperada del modelo entrenado.
+- `ml/.gitkeep`: conserva el directorio de modelos.
+
+Contrato de salida de la task:
+
+```json
+{
+  "estudiante_id": "string",
+  "periodo": "string",
+  "fecha_analisis": "datetime",
+  "semaforo_riesgo": {
+    "nivel": "rojo|amarillo|verde",
+    "puntaje_riesgo": 0.0,
+    "factores_criticos": [],
+    "recomendaciones": []
+  },
+  "detalle_por_variable": {
+    "conducta": { "nivel": "string", "peso": 0.3 },
+    "asistencia": { "nivel": "string", "peso": 0.35 },
+    "calificaciones": { "nivel": "string", "peso": 0.35 }
+  }
+}
+```
+
+`model_version` se usa internamente para persistir `StudentRiskScore`, pero no
+se expone en la respuesta publica de la task.
+
 ## Responsabilidades de Capas
 
 1.  **Models**: Almacenan los resultados procesados del motor de riesgo.

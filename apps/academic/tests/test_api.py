@@ -30,6 +30,7 @@ class AcademicAPITest(APITestCase):
             last_names="User",
             role=self.role,
             institution=self.user_institution,
+            is_superuser=True,
         )
         self.user.set_password("test_password_123")
         self.user.save()

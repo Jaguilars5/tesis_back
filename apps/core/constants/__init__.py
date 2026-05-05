@@ -1,0 +1,33 @@
+from .permissions import (
+    AcademicPermissions,
+    AccountsPermissions,
+    AnalyticsPermissions,
+    GradingPermissions,
+    InstitutionsPermissions,
+    SchedulingPermissions,
+    StudentsPermissions,
+    academic,
+    accounts,
+    analytics,
+    grading,
+    institutions,
+    scheduling,
+    students,
+)
+
+__all__ = [
+    "AccountsPermissions",
+    "InstitutionsPermissions",
+    "AcademicPermissions",
+    "StudentsPermissions",
+    "GradingPermissions",
+    "SchedulingPermissions",
+    "AnalyticsPermissions",
+    "accounts",
+    "institutions",
+    "academic",
+    "students",
+    "grading",
+    "scheduling",
+    "analytics",
+]

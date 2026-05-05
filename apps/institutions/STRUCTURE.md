@@ -8,8 +8,8 @@ Este documento detalla la organización interna y las responsabilidades de cada 
 institutions/
 ├── api/                  # Capa de Entrada (REST)
 │   ├── serializers.py    # Definición de esquemas (3 serializers)
-│   ├── views.py          # Controladores (basados en funciones)
-│   └── urls.py           # Definición de rutas dinámicas
+│   ├── views.py          # ViewSets (Institution, SchoolYear, Classroom)
+│   └── urls.py           # Rutas vía DefaultRouter
 ├── models/               # Capa de Datos (Entidades)
 │   ├── institution.py
 │   ├── school_year.py
@@ -17,6 +17,7 @@ institutions/
 ├── repositories/         # Capa de Persistencia (Queries)
 │   └── institution_repo.py # Repositorios centralizados
 ├── services/             # Capa de Negocio (Orquestación)
+│   ├── __init__.py
 │   └── institution_service.py # Lógica de validaciones de fechas
 └── tests/                # Suites de Pruebas
     ├── test_models.py
@@ -59,4 +60,4 @@ from apps.institutions.models.institution import Institution
 1.  **Models**: Definen el "qué" (entidades base del sistema).
 2.  **Repositories**: Definen el "cómo buscar" (centralizan queries ORM).
 3.  **Services**: Definen el "qué hacer" (validaciones complejas de fechas y capacidad).
-4.  **API**: Definen el "cómo exponer" (utilizan un sistema de generación de vistas dinámicas para CRUD).
+4.  **API**: Exponen los recursos mediante ViewSets con `DefaultRouter` para estandarizar las respuestas (`ok`, `data`, `msg`).

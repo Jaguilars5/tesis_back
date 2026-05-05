@@ -18,6 +18,17 @@ Todas las peticiones exitosas devuelven el esquema estandarizado:
 
 ---
 
+## Autenticación y Permisos
+
+Header requerido:
+```
+Authorization: Bearer <access_token>
+```
+
+Todos los ViewSets usan `HasPermission` con `action_permissions`. Ver tabla de permisos en `apps/students/README.md`.
+
+---
+
 ## Estudiantes (`/api/students/student/`)
 
 ### Listar Estudiantes

@@ -1,52 +1,89 @@
 """
 Vistas de API para el módulo Analytics.
+
+Utiliza ViewSets de DRF para operaciones CRUD RESTful sobre
+puntajes de riesgo y snapshots de características.
 """
 
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
+from drf_spectacular.utils import extend_schema, extend_schema_view
 
-from ..repositories import StudentRiskScoreRepository, StudentFeatureSnapshotRepository
-from .serializers import StudentRiskScoreSerializer, StudentFeatureSnapshotSerializer
+from rest_framework import viewsets
+from rest_framework.permissions import IsAuthenticated
 
-
+from apps.core.constants.permissions import analytics
+from apps.core.pagination import StandardResultsSetPagination
+from apps.core.permissions import HasPermission
 from apps.core.utils import ok_response, error_response
 
-
-def create_repo_views(repository_class, serializer_class, model_name):
-    """Generador de vistas CRUD estándar."""
-
-    @api_view(["POST"])
-    def list_view(request):
-        try:
-            items = repository_class.get_all()
-            return ok_response(serializer_class(items, many=True).data)
-        except Exception as e:
-            return error_response(e)
-
-    @api_view(["POST"])
-    def get_view(request):
-        try:
-            pk = request.data.get("id")
-            item = repository_class.get_by_id(pk)
-            if not item:
-                return error_response(f"{model_name} not found", 404)
-            return ok_response(serializer_class(item).data)
-        except Exception as e:
-            return error_response(e)
-
-    return list_view, get_view
-
-
-# Vistas para StudentRiskScore
-(
-    student_risk_list,
-    student_risk_get,
-) = create_repo_views(StudentRiskScoreRepository, StudentRiskScoreSerializer, "StudentRiskScore")
-
-# Vistas para StudentFeatureSnapshot
-(
-    feature_snapshot_list,
-    feature_snapshot_get,
-) = create_repo_views(
-    StudentFeatureSnapshotRepository, StudentFeatureSnapshotSerializer, "StudentFeatureSnapshot"
+from ..repositories import (
+    StudentFeatureSnapshotRepository,
+    StudentRiskScoreRepository,
 )
+from .serializers import (
+    StudentFeatureSnapshotSerializer,
+    StudentRiskScoreSerializer,
+)
+
+
+@extend_schema_view(
+    list=extend_schema(summary="Listar registros", tags=["analytics"]),
+    retrieve=extend_schema(summary="Obtener registro", tags=["analytics"]),
+)
+class BaseAnalyticsViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated, HasPermission]
+    pagination_class = StandardResultsSetPagination
+
+    def list(self, request, *args, **kwargs):
+        try:
+            queryset = self.get_queryset()
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+            serializer = self.get_serializer(queryset, many=True)
+            return ok_response(serializer.data)
+        except Exception as e:
+            return error_response(e)
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            instance = self.repository.get_by_id(kwargs.get("pk"))
+            if not instance:
+                return error_response(
+                    f"{self.serializer_class.Meta.model.__name__} not found",
+                    404,
+                )
+            serializer = self.get_serializer(instance)
+            return ok_response(serializer.data)
+        except Exception as e:
+            return error_response(e)
+
+
+class StudentRiskScoreViewSet(BaseAnalyticsViewSet):
+    serializer_class = StudentRiskScoreSerializer
+    action_permissions = {
+        "list": analytics.VIEW_RISK_SCORE,
+        "retrieve": analytics.VIEW_RISK_SCORE,
+    }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.repository = StudentRiskScoreRepository()
+
+    def get_queryset(self):
+        return self.repository.get_all()
+
+
+class StudentFeatureSnapshotViewSet(BaseAnalyticsViewSet):
+    serializer_class = StudentFeatureSnapshotSerializer
+    action_permissions = {
+        "list": analytics.VIEW_FEATURE_SNAPSHOT,
+        "retrieve": analytics.VIEW_FEATURE_SNAPSHOT,
+    }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.repository = StudentFeatureSnapshotRepository()
+
+    def get_queryset(self):
+        return self.repository.get_all()

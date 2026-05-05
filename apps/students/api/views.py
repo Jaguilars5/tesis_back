@@ -4,6 +4,9 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
+
+from apps.core.permissions import HasPermission
+from apps.core.constants.permissions import students
 from apps.core.utils import ok_response, error_response
 
 from ..models import Student, Representative, Student_Representative
@@ -22,12 +25,23 @@ class StudentViewSet(viewsets.ModelViewSet):
     """ViewSet para Student"""
 
     serializer_class = StudentSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasPermission]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = StudentFilter
     search_fields = ["names", "last_names", "dni", "enrollment_number"]
     ordering_fields = ["last_names", "enrollment_date", "active"]
     ordering = ["last_names"]
+    action_permissions = {
+        "list": students.VIEW_STUDENT,
+        "retrieve": students.VIEW_STUDENT,
+        "create": students.CREATE_STUDENT,
+        "update": students.UPDATE_STUDENT,
+        "partial_update": students.UPDATE_STUDENT,
+        "destroy": students.DELETE_STUDENT,
+        "by_section": students.VIEW_STUDENT,
+        "search": students.VIEW_STUDENT,
+        "representatives": students.VIEW_RELATIONSHIP,
+    }
 
     def get_queryset(self):
         return Student.objects.filter(active=True).select_related("section")
@@ -109,12 +123,21 @@ class RepresentativeViewSet(viewsets.ModelViewSet):
     """ViewSet para Representative"""
 
     serializer_class = RepresentativeSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasPermission]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = RepresentativeFilter
     search_fields = ["names", "last_names", "dni", "phone", "email"]
     ordering_fields = ["last_names", "kinship", "active"]
     ordering = ["last_names"]
+    action_permissions = {
+        "list": students.VIEW_REPRESENTATIVE,
+        "retrieve": students.VIEW_REPRESENTATIVE,
+        "create": students.CREATE_REPRESENTATIVE,
+        "update": students.UPDATE_REPRESENTATIVE,
+        "partial_update": students.UPDATE_REPRESENTATIVE,
+        "destroy": students.DELETE_REPRESENTATIVE,
+        "search": students.VIEW_REPRESENTATIVE,
+    }
 
     def get_queryset(self):
         return Representative.objects.filter(active=True)
@@ -172,11 +195,21 @@ class StudentRepresentativeViewSet(viewsets.ModelViewSet):
     """ViewSet para Student_Representative"""
 
     serializer_class = StudentRepresentativeSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasPermission]
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_fields = ["student", "representative", "is_primary"]
     ordering_fields = ["created_at"]
     ordering = ["-is_primary", "created_at"]
+    action_permissions = {
+        "list": students.VIEW_RELATIONSHIP,
+        "retrieve": students.VIEW_RELATIONSHIP,
+        "create": students.CREATE_RELATIONSHIP,
+        "update": students.UPDATE_RELATIONSHIP,
+        "partial_update": students.UPDATE_RELATIONSHIP,
+        "destroy": students.DELETE_RELATIONSHIP,
+        "set_primary": students.UPDATE_RELATIONSHIP,
+        "unlink": students.DELETE_RELATIONSHIP,
+    }
 
     def get_queryset(self):
         return Student_Representative.objects.filter(

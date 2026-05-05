@@ -35,6 +35,26 @@ class StudentRiskScoreRepository(BaseRepository):
             academic_period_id=academic_period_id, risk_score__gte=threshold
         ).select_related("student")
 
+    @classmethod
+    def create_score(
+        cls,
+        student_id,
+        academic_period_id,
+        risk_score,
+        risk_label,
+        top_factors,
+        model_version,
+    ):
+        """Persiste un puntaje de riesgo calculado."""
+        return cls.model.objects.create(
+            student_id=student_id,
+            academic_period_id=academic_period_id,
+            risk_score=risk_score,
+            risk_label=risk_label,
+            top_factors=top_factors,
+            model_version=model_version,
+        )
+
 
 class StudentFeatureSnapshotRepository(BaseRepository):
     model = StudentFeatureSnapshot
@@ -45,3 +65,12 @@ class StudentFeatureSnapshotRepository(BaseRepository):
         return cls.model.objects.filter(
             student_id=student_id, academic_period_id=academic_period_id
         ).first()
+
+    @classmethod
+    def create_snapshot(cls, student_id, academic_period_id, metrics):
+        """Persiste una instantanea de features calculadas."""
+        return cls.model.objects.create(
+            student_id=student_id,
+            academic_period_id=academic_period_id,
+            **metrics,
+        )

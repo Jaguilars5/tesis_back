@@ -77,6 +77,7 @@ class GradingAPITest(APITestCase):
             password="hash",
             role=self.role,
             institution=institution,
+            is_superuser=True,
         )
         self.client.force_authenticate(user=self.user)
         self.teacher_subject_section = Teacher_Subject_Section.objects.create(
@@ -93,17 +94,17 @@ class GradingAPITest(APITestCase):
             section=self.section,
         )
 
-        self.student_note_url = "/api/grading/student-note/list/"
-        self.attendance_url = "/api/grading/attendance/list/"
-        self.conduct_url = "/api/grading/conduct-incident/list/"
+        self.student_note_url = "/api/grading/student-notes/"
+        self.attendance_url = "/api/grading/attendance/"
+        self.conduct_url = "/api/grading/conduct-incidents/"
 
     def test_list_student_notes(self):
-        response = self.client.post(self.student_note_url, {})
+        response = self.client.get(self.student_note_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_create_attendance(self):
         response = self.client.post(
-            "/api/grading/attendance/add/",
+            self.attendance_url,
             {
                 "student": self.student.id,
                 "teacher_subject_section": self.teacher_subject_section.id,
@@ -119,7 +120,7 @@ class GradingAPITest(APITestCase):
 
     def test_create_conduct_incident(self):
         response = self.client.post(
-            "/api/grading/conduct-incident/add/",
+            self.conduct_url,
             {
                 "student": self.student.id,
                 "reported_by": self.user.id,

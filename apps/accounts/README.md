@@ -93,6 +93,24 @@ grading.create_note
 
 ---
 
+## Management Commands
+
+### `seed_permissions`
+
+Crea todos los permisos del catálogo en la base de datos. Es idempotente (puede ejecutarse múltiples veces sin duplicar).
+
+```bash
+# Seedear todos los permisos
+python manage.py seed_permissions
+
+# Seedear solo permisos de un módulo
+python manage.py seed_permissions --module grading
+```
+
+Módulos disponibles: `accounts`, `institutions`, `academic`, `students`, `grading`, `scheduling`, `analytics`
+
+---
+
 ## API REST (Resumen)
 
 ### Autenticación
@@ -130,10 +148,23 @@ accounts/api/README.md
 
 ## Seguridad
 
-Header requerido:
+### Autenticación y Permisos
 
-```
-Authorization: Bearer <token>
+Endpoints públicos (sin auth):
+- `POST /api/accounts/login/`
+- `POST /api/accounts/refresh/`
+
+Endpoints protegidos (requieren auth + permiso):
+
+| ViewSet | View | Create | Update | Delete |
+|---------|------|--------|--------|--------|
+| User | `accounts.view_user` | `accounts.create_user` | `accounts.update_user` | `accounts.delete_user` |
+| Role | `accounts.view_role` | `accounts.create_role` | `accounts.update_role` | `accounts.delete_role` |
+| Permission | `accounts.view_permission` | `accounts.create_permission` | `accounts.update_permission` | `accounts.delete_permission` |
+
+Seedear permisos:
+```bash
+python manage.py seed_permissions --module accounts
 ```
 
 ---

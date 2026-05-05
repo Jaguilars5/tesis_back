@@ -7,8 +7,11 @@ Validan con los serializers y delegan al service. Cero lógica de negocio aquí.
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
+from apps.core.permissions import HasPermission
+from apps.core.constants.permissions import accounts
 from apps.core.utils import ok_response, error_response
 
 from apps.accounts.models import User, Role, Permission
@@ -23,8 +26,22 @@ from apps.accounts.api.serializers import (
     RoleDetailSerializer,
     PermissionSerializer,
     UserPermissionSerializer,
+    LoginSerializer,
+    CustomTokenRefreshSerializer,
 )
 from apps.accounts.api.filters import UserFilter, RoleFilter, PermissionFilter
+
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    """Vista personalizada de login que retorna datos del usuario junto con los tokens."""
+
+    serializer_class = LoginSerializer
+
+
+class CustomTokenRefreshView(TokenRefreshView):
+    """Vista personalizada de refresh que retorna datos del usuario junto con el nuevo token."""
+
+    serializer_class = CustomTokenRefreshSerializer
 
 
 class PermissionViewSet(viewsets.ModelViewSet):
@@ -42,7 +59,17 @@ class PermissionViewSet(viewsets.ModelViewSet):
 
     queryset = Permission.objects.all()
     serializer_class = PermissionSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasPermission]
+    action_permissions = {
+        "list": accounts.VIEW_PERMISSION,
+        "retrieve": accounts.VIEW_PERMISSION,
+        "create": accounts.CREATE_PERMISSION,
+        "update": accounts.UPDATE_PERMISSION,
+        "partial_update": accounts.UPDATE_PERMISSION,
+        "destroy": accounts.DELETE_PERMISSION,
+        "bulk_create": accounts.CREATE_PERMISSION,
+        "by_module": accounts.VIEW_PERMISSION,
+    }
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = PermissionFilter
     search_fields = ["codename", "description"]
@@ -106,7 +133,18 @@ class RoleViewSet(viewsets.ModelViewSet):
     - POST /api/accounts/roles/{id}/remove-permission/ — remover permiso
     """
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasPermission]
+    action_permissions = {
+        "list": accounts.VIEW_ROLE,
+        "retrieve": accounts.VIEW_ROLE,
+        "create": accounts.CREATE_ROLE,
+        "update": accounts.UPDATE_ROLE,
+        "partial_update": accounts.UPDATE_ROLE,
+        "destroy": accounts.DELETE_ROLE,
+        "add_permission": accounts.UPDATE_ROLE,
+        "remove_permission": accounts.UPDATE_ROLE,
+        "assign_permissions": accounts.UPDATE_ROLE,
+    }
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = RoleFilter
     search_fields = ["name", "description"]
@@ -196,7 +234,20 @@ class UserViewSet(viewsets.ModelViewSet):
     - GET /api/accounts/users/{id}/permissions/ — ver permisos
     """
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasPermission]
+    action_permissions = {
+        "list": accounts.VIEW_USER,
+        "retrieve": accounts.VIEW_USER,
+        "create": accounts.CREATE_USER,
+        "update": accounts.UPDATE_USER,
+        "partial_update": accounts.UPDATE_USER,
+        "destroy": accounts.DELETE_USER,
+        "change_password": accounts.UPDATE_USER,
+        "grant_permission": accounts.UPDATE_USER,
+        "revoke_permission": accounts.UPDATE_USER,
+        "permissions": accounts.VIEW_USER,
+        "search": accounts.VIEW_USER,
+    }
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = UserFilter
     search_fields = ["names", "last_names", "email", "dni"]

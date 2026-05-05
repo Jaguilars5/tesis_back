@@ -65,9 +65,14 @@ Información básica del estudiante.
 El módulo utiliza ViewSets estándar de Django Rest Framework.
 
 ### Estudiantes
-- GET/POST `/api/students/student/`
-- GET/PUT/PATCH/DELETE `/api/students/student/{id}/`
-- POST `/api/students/student/{id}/soft-delete/`
+- `GET`    `/api/students/student/`
+- `POST`   `/api/students/student/`
+- `GET`    `/api/students/student/{id}/`
+- `PATCH`  `/api/students/student/{id}/`
+- `DELETE` `/api/students/student/{id}/` (soft-delete)
+- `GET`    `/api/students/student/by_section/?section_id={id}`
+- `GET`    `/api/students/student/search/?q={query}`
+- `GET`    `/api/students/student/{id}/representatives/`
 
 ---
 
@@ -85,6 +90,29 @@ Authorization: Bearer <token>
 
 ```
 python manage.py test apps.students
+```
+
+---
+
+## Seguridad
+
+### Autenticación y Permisos
+
+Todos los endpoints requieren:
+1. Header `Authorization: Bearer <token>`
+2. Permiso específico del usuario
+
+Permisos requeridos:
+
+| ViewSet | View | Create | Update | Delete |
+|---------|------|--------|--------|--------|
+| Student | `students.view_student` | `students.create_student` | `students.update_student` | `students.delete_student` |
+| Representative | `students.view_representative` | `students.create_representative` | `students.update_representative` | `students.delete_representative` |
+| StudentRepresentative | `students.view_relationship` | `students.create_relationship` | `students.update_relationship` | `students.delete_relationship` |
+
+Seedear permisos:
+```bash
+python manage.py seed_permissions --module students
 ```
 
 ---
