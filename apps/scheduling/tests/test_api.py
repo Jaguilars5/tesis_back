@@ -5,6 +5,7 @@ from rest_framework.test import APITestCase
 
 from apps.academic.models import Section, Timing_Regime
 from apps.accounts.models import Role, User
+from apps.core.tests.helpers import create_test_user
 from apps.institutions.models import Institution, School_Year
 from apps.scheduling.models import (
     ScheduleTemplateConfig,
@@ -28,20 +29,18 @@ class SchedulingAPITest(APITestCase):
             end_date=date(2025, 12, 31),
         )
         self.timing_regime = Timing_Regime.objects.create(
-            school_year=school_year,
+            institution=institution,
             name="Matutina",
         )
         self.school_year = school_year
 
         # Create test user
         role = Role.objects.create(name="Admin")
-        self.user = User.objects.create_user(
+        self.user = create_test_user(
             email="scheduling@test.com",
             dni="1717171717",
             names="Scheduling",
             last_names="Tester",
-            password="test_password_123",
-            role=role,
             institution=institution,
         )
         self.client.force_authenticate(user=self.user)

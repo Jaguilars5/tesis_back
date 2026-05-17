@@ -87,7 +87,7 @@ class InstitutionService:
     # =====================
 
     @staticmethod
-    def create_school_year(institution_id, name, start_date, end_date):
+    def create_school_year(institution_id, name, start_date, end_date, academic_regime_id=None):
         """Crear nuevo año escolar"""
         institution = InstitutionService.get_institution(institution_id)
 
@@ -104,7 +104,11 @@ class InstitutionService:
             raise ValueError("Conflicto de fechas con otro año escolar")
 
         school_year = School_Year(
-            institution=institution, name=name, start_date=start_date, end_date=end_date
+            institution=institution,
+            name=name,
+            start_date=start_date,
+            end_date=end_date,
+            academic_regime_id=academic_regime_id,
         )
         school_year.save()
         return school_year
@@ -179,7 +183,7 @@ class InstitutionService:
     # =====================
 
     @staticmethod
-    def create_classroom(institution_id, name, room_type, capacity):
+    def create_classroom(institution_id, name, room_type_id, capacity):
         """Crear nueva aula"""
         institution = InstitutionService.get_institution(institution_id)
 
@@ -187,7 +191,7 @@ class InstitutionService:
             raise ValueError("Capacidad debe ser mayor a 0")
 
         classroom = Classroom(
-            institution=institution, name=name, room_type=room_type, capacity=capacity
+            institution=institution, name=name, room_type_id=room_type_id, capacity=capacity
         )
         classroom.save()
         return classroom
@@ -212,11 +216,11 @@ class InstitutionService:
         return query.order_by("name")
 
     @staticmethod
-    def list_classrooms_by_type(institution_id, room_type):
-        """Listar aulas por tipo (ej: 'Laboratorio', 'Aula de clase')"""
+    def list_classrooms_by_type(institution_id, room_type_id):
+        """Listar aulas por tipo"""
         institution = InstitutionService.get_institution(institution_id)
         return Classroom.objects.filter(
-            institution=institution, room_type=room_type, active=True
+            institution=institution, room_type_id=room_type_id, active=True
         ).order_by("name")
 
     @staticmethod

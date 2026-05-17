@@ -21,18 +21,54 @@ analytics/
 
 ## Modelos de Datos
 
+### RiskFactor (Factor de Riesgo)
+Catálogo de factores de riesgo.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `code` | CharField (30) | Código único |
+| `name` | CharField (100) | Nombre |
+| `description` | TextField | Descripción |
+
+### StudentFeatureSnapshot (Instantánea de Métricas)
+Métricas de un estudiante para un período específico.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `student` | ForeignKey (Student) | Estudiante |
+| `academic_period` | ForeignKey (Academic_Period) | Período académico |
+| `attendance_rate` | DecimalField | Tasa de asistencia (0-1) |
+| `consecutive_absences_max` | IntegerField | Máximo de faltas consecutivas |
+| `tardiness_count` | IntegerField | Cantidad de atrasos |
+| `avg_grade_normalized` | DecimalField | Promedio normalizado (base 10) |
+| `grade_trend_slope` | DecimalField | Tendencia de notas |
+| `failing_subjects_count` | IntegerField | Materias reprobadas |
+| `conduct_score` | DecimalField | Puntaje de conducta |
+| `family_notified_ratio` | DecimalField | Ratio de notificación familiar |
+| `prev_period_avg_grade` | DecimalField | Promedio período anterior |
+| `age_grade_gap` | IntegerField | Brecha edad-grado |
+| `calculated_at` | DateTimeField | Fecha de cálculo |
+
 ### StudentRiskScore (Puntaje de Riesgo)
 Puntuación de riesgo calculada para un estudiante.
 
-| Campo | Tipo | Verbose Name |
-| :--- | :--- | :--- |
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
 | `student` | ForeignKey (Student) | Estudiante |
-| `academic_period` | ForeignKey (Academic_Period) | Período Académico |
-| `risk_score` | DecimalField | Puntaje de Riesgo |
-| `risk_label` | CharField (20) | Etiqueta de Riesgo |
-| `top_factors` | JSONField | Factores Principales |
-| `model_version` | CharField (50) | Versión del Modelo |
-| `calculated_at` | DateTimeField | Fecha de Cálculo |
+| `academic_period` | ForeignKey (Academic_Period) | Período académico |
+| `risk_score` | DecimalField | Puntaje de riesgo |
+| `risk_label` | CharField (20) | Etiqueta de riesgo |
+| `model_version` | CharField (50) | Versión del modelo |
+| `calculated_at` | DateTimeField | Fecha de cálculo |
+
+### StudentRiskFactor (Factor de Riesgo del Estudiante)
+Asociación entre puntaje de riesgo y factor.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `student_risk_score` | ForeignKey (StudentRiskScore) | Puntaje de riesgo |
+| `risk_factor` | ForeignKey (RiskFactor) | Factor de riesgo |
+| `contribution_weight` | DecimalField | Peso de contribución (%) |
 
 ---
 
@@ -60,6 +96,20 @@ Puntuación de riesgo calculada para un estudiante.
 |--------|----------|-------------|---------|
 | GET | `/api/analytics/feature-snapshots/` | Listar snapshots | analytics.view_feature_snapshot |
 | GET | `/api/analytics/feature-snapshots/{id}/` | Detalle | analytics.view_feature_snapshot |
+
+### StudentRiskFactor
+
+| Método | Endpoint | Descripción | Permiso |
+|--------|----------|-------------|---------|
+| GET | `/api/analytics/student-risk-factors/` | Listar factores | analytics.view_risk_factor |
+| GET | `/api/analytics/student-risk-factors/{id}/` | Detalle | analytics.view_risk_factor |
+
+### RiskFactor
+
+| Método | Endpoint | Descripción | Permiso |
+|--------|----------|-------------|---------|
+| GET | `/api/analytics/risk-factors/` | Listar factores | analytics.view_risk_factor |
+| POST | `/api/analytics/risk-factors/` | Crear factor | analytics.create_risk_factor |
 
 ---
 

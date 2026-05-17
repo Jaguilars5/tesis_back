@@ -84,7 +84,7 @@ class RoleService:
         """Obtiene todos los permisos de un rol."""
         return self.role_repo.get_permissions(role_id)
 
-    def add_permission_to_role(self, role_id, permission_codename):
+    def add_permission_to_role(self, role_id, permission_code):
         """
         Agrega un permiso a un rol.
 
@@ -95,14 +95,14 @@ class RoleService:
         if not role:
             raise ValueError(f"Rol con ID {role_id} no existe")
 
-        permission = self.permission_repo.get_by_codename(permission_codename)
+        permission = self.permission_repo.get_by_code(permission_code)
         if not permission:
-            raise ValueError(f"El permiso {permission_codename} no existe")
+            raise ValueError(f"El permiso {permission_code} no existe")
 
         rp, created = self.role_repo.add_permission(role, permission)
         return rp, created
 
-    def remove_permission_from_role(self, role_id, permission_codename):
+    def remove_permission_from_role(self, role_id, permission_code):
         """
         Remueve un permiso de un rol.
         """
@@ -110,14 +110,14 @@ class RoleService:
         if not role:
             raise ValueError(f"Rol con ID {role_id} no existe")
 
-        permission = self.permission_repo.get_by_codename(permission_codename)
+        permission = self.permission_repo.get_by_code(permission_code)
         if not permission:
-            raise ValueError(f"El permiso {permission_codename} no existe")
+            raise ValueError(f"El permiso {permission_code} no existe")
 
         deleted_count, _ = self.role_repo.remove_permission(role, permission)
         return deleted_count > 0
 
-    def assign_permissions_to_role(self, role_id, permission_codenames):
+    def assign_permissions_to_role(self, role_id, permission_codes):
         """
         Asigna múltiples permisos a un rol de una sola vez.
 
@@ -131,17 +131,17 @@ class RoleService:
 
         # Obtener permiso objects
         permissions = self.permission_repo.get_all()
-        permission_dict = {p.codename: p for p in permissions}
+        permission_dict = {p.code: p for p in permissions}
 
-        # Validar que todos los codenames existan
-        for codename in permission_codenames:
-            if codename not in permission_dict:
-                raise ValueError(f"El permiso {codename} no existe")
+        # Validar que todos los codes existan
+        for code in permission_codes:
+            if code not in permission_dict:
+                raise ValueError(f"El permiso {code} no existe")
 
         # Limpiar permisos actuales y asignar nuevos
         RolePermission.objects.filter(role_id=role_id).delete()
 
-        permission_objs = [permission_dict[c] for c in permission_codenames]
+        permission_objs = [permission_dict[c] for c in permission_codes]
         rps = [RolePermission(role=role, permission=p) for p in permission_objs]
         RolePermission.objects.bulk_create(rps)
 

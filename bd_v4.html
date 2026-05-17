@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ERD SIGAE v4 - Single Institution Model</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      background-color: #1a1a2e;
+      color: #e0e0e0;
+    }
+
+    h2 {
+      text-align: center;
+      color: #e0e0e0;
+      padding: 20px 0 10px;
+      margin: 0;
+      font-size: 1.4rem;
+    }
+
+    .controls-bar {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      background: #16213e;
+      border-bottom: 1px solid #0f3460;
+      flex-wrap: wrap;
+    }
+
+    .controls-bar button {
+      background: #0f3460;
+      color: #e0e0e0;
+      border: 1px solid #533483;
+      border-radius: 6px;
+      padding: 6px 14px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s;
+    }
+
+    .controls-bar button:hover {
+      background: #533483;
+    }
+
+    .controls-bar .zoom-level {
+      color: #a0a0c0;
+      font-size: 13px;
+      min-width: 50px;
+      text-align: center;
+    }
+
+    .legend-bar {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 14px;
+      padding: 8px 20px;
+      background: #16213e;
+      border-bottom: 1px solid #0f3460;
+      font-size: 12px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      display: inline-block;
+    }
+
+    #erd-viewport {
+      width: 100%;
+      height: calc(100vh - 130px);
+      overflow: hidden;
+      cursor: grab;
+      position: relative;
+      background-color: #1a1a2e;
+    }
+
+    #erd-viewport.grabbing {
+      cursor: grabbing;
+    }
+
+    #erd-wrap {
+      position: absolute;
+      top: 0;
+      left: 0;
+      transform-origin: 0 0;
+      transition: transform 0.1s ease-out;
+      padding: 20px;
+      min-width: 100%;
+    }
+
+    #erd svg {
+      width: 100%;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      border: 0;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h2>ERD SIGAE v3 — Sistema Académico (Modelo Ecuador 2025-2026)</h2>
+
+  <div class="legend-bar">
+    <div class="legend-item"><span class="legend-dot" style="background:#6c757d"></span>Catálogos</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#1d7a5f"></span>Global Config</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#2d6a4f"></span>Infrastructure</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#7b2cbf"></span>Personas & Usuarios</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#e09f3e"></span>Académico</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#457b9d"></span>Matrícula</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#e63946"></span>Evaluaciones</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#f4a261"></span>Asistencia & Conducta</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#2a9d8f"></span>Horarios</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#8338ec"></span>Analítica</div>
+  </div>
+
+  <div class="controls-bar">
+    <button id="zoom-in" title="Acercar">🔍+</button>
+    <button id="zoom-out" title="Alejar">🔍−</button>
+    <button id="zoom-reset" title="Restablecer">↺ Reset</button>
+    <span class="zoom-level" id="zoom-level">100%</span>
+    <button id="fit-view" title="Ajustar a pantalla">⊞ Ajustar</button>
+  </div>
+
+  <div id="erd-viewport">
+    <div id="erd-wrap">
+      <div id="erd"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import mermaid from 'https://esm.sh/mermaid@11/dist/mermaid.esm.min.mjs';
+    await document.fonts.ready;
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'base',
+      fontFamily: '"Anthropic Sans", sans-serif',
+      themeVariables: {
+        fontSize: '13px',
+        fontFamily: '"Anthropic Sans", sans-serif',
+        lineColor: '#73726c',
+        textColor: '#e0e0e0',
+      },
+    });
+
+    // Domain color map
+    const DOMAIN_COLORS = {
+            // Catalogs
+            'DOCUMENT_TYPE': '#6c757d',
+            'GRADE_TYPE': '#6c757d',
+            'ATTENDANCE_STATUS': '#6c757d',
+            'ENROLLMENT_STATUS': '#6c757d',
+            'RISK_FACTOR': '#6c757d',
+            'QUALITATIVE_SCALE': '#6c757d',
+            // Global Config
+            'SYSTEM_CONFIG': '#1d7a5f',
+            // Infrastructure
+            'SCHOOL_YEAR': '#2d6a4f',
+            'CLASSROOM': '#2d6a4f',
+            'ACADEMIC_LEVEL': '#2d6a4f',
+            'ACADEMIC_GRADE': '#2d6a4f',
+            'SECTION': '#2d6a4f',
+            // Persons and Users
+            'PERSON': '#7b2cbf',
+            'USER': '#7b2cbf',
+            'STUDENT': '#7b2cbf',
+            'ROLE': '#7b2cbf',
+            'PERMISSION': '#7b2cbf',
+            'USER_ROLE': '#7b2cbf',
+            'ROLE_PERMISSION': '#7b2cbf',
+            'STUDENT_REPRESENTATIVE': '#7b2cbf',
+            // Academic
+            'SUBJECT': '#e09f3e',
+            'SUBJECT_ACADEMIC_CONFIG': '#e09f3e',
+            'SUBJECT_OFFERING': '#e09f3e',
+            'TEACHER_SUBJECT_SECTION': '#e09f3e',
+            // Enrollment
+            'ENROLLMENT': '#457b9d',
+            // Evaluations
+            'ACADEMIC_PERIOD': '#e63946',
+            'EVALUATION_MACRO': '#e63946',
+            'EVALUATION_CRITERIA': '#e63946',
+            'EVALUATION_SUBCRITERIA': '#e63946',
+            'CLASS_ASSIGNMENT': '#e63946',
+            'STUDENT_NOTE': '#e63946',
+            'GRADE_CHANGE_HISTORY': '#e63946',
+            // Attendance and Conduct
+            'ATTENDANCE': '#f4a261',
+            'CONDUCT_INCIDENT': '#f4a261',
+            'BEHAVIOR_EVALUATION': '#f4a261',
+            // Analytics
+            'STUDENT_RISK_SCORE': '#8338ec',
+            'STUDENT_FEATURE_SNAPSHOT': '#8338ec',
+            'STUDENT_RISK_FACTOR': '#8338ec',
+        };
+
+    function getLighterColor(hex) {
+      let r = parseInt(hex.slice(1, 3), 16);
+      let g = parseInt(hex.slice(3, 5), 16);
+      let b = parseInt(hex.slice(5, 7), 16);
+      r = Math.min(255, r + 40);
+      g = Math.min(255, g + 40);
+      b = Math.min(255, b + 40);
+      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    }
+
+    function getDarkerColor(hex) {
+      let r = parseInt(hex.slice(1, 3), 16);
+      let g = parseInt(hex.slice(3, 5), 16);
+      let b = parseInt(hex.slice(5, 7), 16);
+      r = Math.max(0, r - 30);
+      g = Math.max(0, g - 30);
+      b = Math.max(0, b - 30);
+      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    }
+
+    const diagram = `erDiagram
+
+%% ============================================================
+%% BLOCK 1 — ACADEMIC STRUCTURE
+%% ============================================================
+
+SCHOOL_YEAR ||--o{ SECTION : "hosts"
+SCHOOL_YEAR ||--o{ ACADEMIC_PERIOD : "divides"
+SCHOOL_YEAR ||--o{ SUBJECT_OFFERING : "offers"
+
+ACADEMIC_LEVEL ||--o{ ACADEMIC_GRADE : "contains"
+
+ACADEMIC_GRADE ||--o{ SECTION : "groups"
+
+SECTION ||--o{ SUBJECT_OFFERING : "contains"
+SECTION ||--o{ ENROLLMENT : "contains"
+
+%% ============================================================
+%% BLOCK 2 — PERSONS AND SECURITY
+%% ============================================================
+
+DOCUMENT_TYPE ||--o{ PERSON : "identifies"
+
+PERSON ||--o| USER : "can be"
+PERSON ||--o| STUDENT : "can be"
+
+USER ||--o{ USER_ROLE : "assigned"
+ROLE ||--o{ USER_ROLE : "grants"
+
+ROLE ||--o{ ROLE_PERMISSION : "has"
+PERMISSION ||--o{ ROLE_PERMISSION : "belongs"
+
+%% ============================================================
+%% BLOCK 3 — REPRESENTATIVES
+%% ============================================================
+
+STUDENT ||--o{ STUDENT_REPRESENTATIVE : "linked"
+PERSON ||--o{ STUDENT_REPRESENTATIVE : "represents"
+
+%% ============================================================
+%% BLOCK 4 — ACADEMIC DOMAIN
+%% ============================================================
+
+SUBJECT ||--o{ SUBJECT_ACADEMIC_CONFIG : "configured"
+ACADEMIC_GRADE ||--o{ SUBJECT_ACADEMIC_CONFIG : "defines"
+SUBJECT_ACADEMIC_CONFIG ||--o{ SUBJECT_OFFERING : "instantiates"
+
+USER ||--o{ TEACHER_SUBJECT_SECTION : "teaches"
+SUBJECT_OFFERING ||--o{ TEACHER_SUBJECT_SECTION : "assigned"
+
+%% ============================================================
+%% BLOCK 5 — ENROLLMENT
+%% ============================================================
+
+STUDENT ||--o{ ENROLLMENT : "enrolled"
+ENROLLMENT_STATUS ||--o{ ENROLLMENT : "classifies"
+
+%% ============================================================
+%% BLOCK 6 — EVALUATIONS
+%% ============================================================
+
+ACADEMIC_PERIOD ||--o{ EVALUATION_MACRO : "contains"
+EVALUATION_MACRO ||--o{ EVALUATION_CRITERIA : "groups"
+EVALUATION_CRITERIA ||--o{ EVALUATION_SUBCRITERIA : "contains"
+EVALUATION_SUBCRITERIA ||--o{ CLASS_ASSIGNMENT : "evaluates"
+TEACHER_SUBJECT_SECTION ||--o{ CLASS_ASSIGNMENT : "creates"
+
+CLASS_ASSIGNMENT ||--o{ STUDENT_NOTE : "grades"
+ENROLLMENT ||--o{ STUDENT_NOTE : "receives"
+GRADE_TYPE ||--o{ STUDENT_NOTE : "categorizes"
+QUALITATIVE_SCALE ||--o{ STUDENT_NOTE : "references"
+
+%% ============================================================
+%% BLOCK 7 — GRADE AUDIT
+%% ============================================================
+
+STUDENT_NOTE ||--o{ GRADE_CHANGE_HISTORY : "tracks"
+USER ||--o{ GRADE_CHANGE_HISTORY : "modifies"
+
+%% ============================================================
+%% BLOCK 8 — ATTENDANCE AND CONDUCT
+%% ============================================================
+
+ATTENDANCE_STATUS ||--o{ ATTENDANCE : "defines"
+ENROLLMENT ||--o{ ATTENDANCE : "has"
+TEACHER_SUBJECT_SECTION ||--o{ ATTENDANCE : "records"
+ACADEMIC_PERIOD ||--o{ ATTENDANCE : "during"
+
+ENROLLMENT ||--o{ CONDUCT_INCIDENT : "reports"
+USER ||--o{ CONDUCT_INCIDENT : "registered by"
+ACADEMIC_PERIOD ||--o{ CONDUCT_INCIDENT : "during"
+
+QUALITATIVE_SCALE ||--o{ BEHAVIOR_EVALUATION : "uses"
+ENROLLMENT ||--o{ BEHAVIOR_EVALUATION : "evaluates"
+ACADEMIC_PERIOD ||--o{ BEHAVIOR_EVALUATION : "during"
+
+%% ============================================================
+%% BLOCK 9 — PREDICTIVE ANALYTICS
+%% ============================================================
+
+STUDENT ||--o{ STUDENT_FEATURE_SNAPSHOT : "captures"
+ACADEMIC_PERIOD ||--o{ STUDENT_FEATURE_SNAPSHOT : "during"
+
+STUDENT ||--o{ STUDENT_RISK_SCORE : "scores"
+ACADEMIC_PERIOD ||--o{ STUDENT_RISK_SCORE : "during"
+
+STUDENT_RISK_SCORE ||--o{ STUDENT_RISK_FACTOR : "explains"
+RISK_FACTOR ||--o{ STUDENT_RISK_FACTOR : "categorizes"
+
+%% ============================================================
+%% CATALOGS
+%% ============================================================
+
+DOCUMENT_TYPE {
+    int id PK
+    string code UK
+    string name
+}
+
+GRADE_TYPE {
+    int id PK
+    string code UK
+    string name
+}
+
+ATTENDANCE_STATUS {
+    int id PK
+    string code UK
+    string name
+}
+
+ENROLLMENT_STATUS {
+    int id PK
+    string code UK
+    string name
+}
+
+RISK_FACTOR {
+    int id PK
+    string code UK
+    string name
+    string description
+}
+
+QUALITATIVE_SCALE {
+    int id PK
+    string code UK
+    string description
+    decimal numeric_equivalence
+}
+
+%% ============================================================
+%% GLOBAL CONFIGURATION (replaces INSTITUTION + regimes)
+%% ============================================================
+
+SYSTEM_CONFIG {
+    string key PK
+    string value
+    string description
+    datetime updated_at
+}
+
+%% ============================================================
+%% ACADEMIC INFRASTRUCTURE
+%% ============================================================
+
+SCHOOL_YEAR {
+    int id PK
+    string name
+    date start_date
+    date end_date
+    boolean active
+}
+
+ACADEMIC_LEVEL {
+    int id PK
+    string name
+    boolean active
+}
+
+ACADEMIC_GRADE {
+    int id PK
+    int academic_level_id FK
+    string name
+    int sequence_order
+    boolean active
+}
+
+SECTION {
+    int id PK
+    int school_year_id FK
+    int academic_grade_id FK
+    string parallel
+    int capacity
+    boolean active
+}
+
+CLASSROOM {
+    int id PK
+    string name
+    string room_type
+    int capacity
+    boolean active
+}
+
+%% ============================================================
+%% PERSONS AND SECURITY
+%% ============================================================
+
+PERSON {
+    int id PK
+    int document_type_id FK
+    string document_number UK
+    string names
+    string last_names
+    date birth_date
+    string email
+    string phone
+    boolean active
+    datetime created_at
+    datetime updated_at
+}
+
+USER {
+    int id PK
+    int person_id FK
+    string password_hash
+    boolean active
+}
+
+STUDENT {
+    int id PK
+    int person_id FK
+    string student_code UK
+    string residential_zone
+    decimal distance_to_school_km
+    boolean active
+}
+
+ROLE {
+    int id PK
+    string code UK
+    string name
+    string description
+}
+
+PERMISSION {
+    int id PK
+    string code UK
+    string module
+    string description
+}
+
+USER_ROLE {
+    int id PK
+    int user_id FK
+    int role_id FK
+    datetime assigned_at
+    datetime expires_at
+}
+
+ROLE_PERMISSION {
+    int id PK
+    int role_id FK
+    int permission_id FK
+}
+
+%% ============================================================
+%% REPRESENTATIVES
+%% ============================================================
+
+STUDENT_REPRESENTATIVE {
+    int id PK
+    int student_id FK
+    int person_id FK
+    string kinship
+    boolean is_primary
+    boolean can_pickup
+    boolean emergency_contact
+    boolean receives_notifications
+    datetime created_at
+}
+
+%% ============================================================
+%% SUBJECTS
+%% ============================================================
+
+SUBJECT {
+    int id PK
+    string code UK
+    string name
+    boolean active
+}
+
+SUBJECT_ACADEMIC_CONFIG {
+    int id PK
+    int subject_id FK
+    int academic_grade_id FK
+    int weekly_hours
+    int pedagogical_order
+    boolean is_required
+    boolean active
+}
+
+SUBJECT_OFFERING {
+    int id PK
+    int school_year_id FK
+    int section_id FK
+    int subject_academic_config_id FK
+    boolean active
+}
+
+TEACHER_SUBJECT_SECTION {
+    int id PK
+    int user_id FK
+    int subject_offering_id FK
+}
+
+%% ============================================================
+%% ENROLLMENT
+%% ============================================================
+
+ENROLLMENT {
+    int id PK
+    int student_id FK
+    int section_id FK
+    int enrollment_status_id FK
+    date enrollment_date
+    string final_status
+    date withdrawal_date
+    string withdrawal_reason
+}
+
+%% ============================================================
+%% EVALUATIONS
+%% ============================================================
+
+ACADEMIC_PERIOD {
+    int id PK
+    int school_year_id FK
+    string name
+    date start_date
+    date end_date
+    boolean is_regular_period
+}
+
+EVALUATION_MACRO {
+    int id PK
+    int academic_period_id FK
+    string name
+    decimal weight_percentage
+    boolean active
+}
+
+EVALUATION_CRITERIA {
+    int id PK
+    int evaluation_macro_id FK
+    string name
+    decimal internal_weight
+}
+
+EVALUATION_SUBCRITERIA {
+    int id PK
+    int evaluation_criteria_id FK
+    string name
+    decimal internal_weight
+}
+
+CLASS_ASSIGNMENT {
+    int id PK
+    int evaluation_subcriteria_id FK
+    int teacher_subject_section_id FK
+    string title
+    decimal max_score
+    date due_date
+}
+
+STUDENT_NOTE {
+    int id PK
+    string uuid UK
+    int enrollment_id FK
+    int class_assignment_id FK
+    int grade_type_id FK
+    int qualitative_scale_id FK
+    decimal numeric_score
+    boolean manually_overridden
+    string teacher_observation
+    string sync_status
+    datetime synced_at
+    datetime created_at
+    datetime updated_at
+    int sync_version
+    string device_origin
+}
+
+GRADE_CHANGE_HISTORY {
+    int id PK
+    int student_note_id FK
+    int modified_by_user_id FK
+    decimal previous_score
+    decimal new_score
+    string reason
+    datetime modified_at
+}
+
+%% ============================================================
+%% ATTENDANCE AND CONDUCT
+%% ============================================================
+
+ATTENDANCE {
+    int id PK
+    string uuid UK
+    int enrollment_id FK
+    int teacher_subject_section_id FK
+    int academic_period_id FK
+    int attendance_status_id FK
+    date attendance_date
+    string observation
+    string sync_status
+    datetime synced_at
+    datetime created_at
+    datetime updated_at
+    int sync_version
+    string device_origin
+}
+
+CONDUCT_INCIDENT {
+    int id PK
+    string uuid UK
+    int enrollment_id FK
+    int reported_by_user_id FK
+    int academic_period_id FK
+    date incident_date
+    string category
+    int severity
+    string description
+    boolean family_notified
+    string sync_status
+    datetime synced_at
+    datetime created_at
+    datetime updated_at
+    int sync_version
+    string device_origin
+}
+
+BEHAVIOR_EVALUATION {
+    int id PK
+    int enrollment_id FK
+    int academic_period_id FK
+    int calculated_scale_id FK
+    int final_scale_id FK
+    string override_reason
+}
+
+%% ============================================================
+%% PREDICTIVE ANALYTICS
+%% ============================================================
+
+STUDENT_FEATURE_SNAPSHOT {
+    int id PK
+    int student_id FK
+    int academic_period_id FK
+    decimal attendance_rate
+    int consecutive_absences_max
+    int tardiness_count
+    decimal avg_grade_normalized
+    decimal grade_trend_slope
+    int failing_subjects_count
+    decimal conduct_score
+    decimal family_notified_ratio
+    decimal prev_period_avg_grade
+    int age_grade_gap
+    string residential_zone
+    decimal distance_to_school_km
+    datetime calculated_at
+}
+
+STUDENT_RISK_SCORE {
+    int id PK
+    int student_id FK
+    int academic_period_id FK
+    decimal risk_score
+    string risk_label
+    string model_version
+    datetime calculated_at
+}
+
+STUDENT_RISK_FACTOR {
+    int id PK
+    int student_risk_score_id FK
+    int risk_factor_id FK
+    decimal contribution_weight
+}
+`;
+
+    const { svg } = await mermaid.render('erd-main', diagram);
+    document.getElementById('erd').innerHTML = svg;
+
+    // Parse entity names from diagram definition (guaranteed order + exact names)
+    const entityDefRegex = /^\s*([A-Z_]+)\s*\{/gm;
+    const entityNamesFromDef = [...diagram.matchAll(entityDefRegex)].map(m => m[1]);
+    // Sort by length descending so longer names match first (e.g. STUDENT_RISK_SCORE before STUDENT)
+    entityNamesFromDef.sort((a, b) => b.length - a.length);
+
+    // Build entity -> color map
+    const entityColorMap = {};
+    for (const [entity, color] of Object.entries(DOMAIN_COLORS)) {
+      entityColorMap[entity] = color;
+    }
+
+    // Apply domain colors to table nodes
+    const allNodes = document.querySelectorAll('#erd svg.erDiagram .node');
+    allNodes.forEach(node => {
+      // Try to find entity name by matching known names in text content
+      const textContent = node.textContent || '';
+      let entityName = null;
+      for (const name of entityNamesFromDef) {
+        if (textContent.includes(name)) {
+          entityName = name;
+          break;
+        }
+      }
+
+      const domainColor = entityName ? entityColorMap[entityName] : null;
+      if (!domainColor) return; // Skip non-entity nodes
+
+      const firstPath = node.querySelector('path[d]');
+      if (firstPath) {
+        const d = firstPath.getAttribute('d');
+        const nums = d.match(/-?[\d.]+/g)?.map(Number);
+        if (nums && nums.length >= 8) {
+          const xs = [nums[0], nums[2], nums[4], nums[6]];
+          const ys = [nums[1], nums[3], nums[5], nums[7]];
+          const x = Math.min(...xs), y = Math.min(...ys);
+          const w = Math.max(...xs) - x, h = Math.max(...ys) - y;
+          const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          rect.setAttribute('x', x);
+          rect.setAttribute('y', y);
+          rect.setAttribute('width', w);
+          rect.setAttribute('height', h);
+          rect.setAttribute('rx', '8');
+          rect.setAttribute('fill', getDarkerColor(domainColor));
+          rect.setAttribute('stroke', domainColor);
+          rect.setAttribute('stroke-width', '2');
+          firstPath.replaceWith(rect);
+        }
+      }
+
+      // Color header text
+      const textEls = node.querySelectorAll('text tspan');
+      if (textEls.length > 0) {
+        textEls[0].setAttribute('fill', '#fff');
+        textEls[0].setAttribute('font-weight', '700');
+      }
+
+      // Color row rectangles
+      node.querySelectorAll('.row-rect-odd path, .row-rect-even path').forEach(p => {
+        p.setAttribute('stroke', 'none');
+        p.setAttribute('fill', getLighterColor(domainColor));
+      });
+    });
+
+    // Color relationship lines by domain
+    document.querySelectorAll('#erd svg.erDiagram .relationship, #erd svg.erDiagram .relationshipLabel').forEach(el => {
+      el.setAttribute('stroke', '#555');
+      el.setAttribute('fill', '#aaa');
+    });
+
+    // ===================== PAN & ZOOM =====================
+    const viewport = document.getElementById('erd-viewport');
+    const wrap = document.getElementById('erd-wrap');
+    const zoomLevelEl = document.getElementById('zoom-level');
+
+    let scale = 1;
+    let panX = 0;
+    let panY = 0;
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+
+    function updateTransform() {
+      wrap.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+      zoomLevelEl.textContent = `${Math.round(scale * 100)}%`;
+    }
+
+    function setZoom(newScale, cx, cy) {
+      const prevScale = scale;
+      scale = Math.min(3, Math.max(0.1, newScale));
+      if (cx !== undefined && cy !== undefined) {
+        panX = cx - (cx - panX) * (scale / prevScale);
+        panY = cy - (cy - panY) * (scale / prevScale);
+      }
+      updateTransform();
+    }
+
+    // Mouse drag
+    viewport.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      isDragging = true;
+      startX = e.clientX - panX;
+      startY = e.clientY - panY;
+      viewport.classList.add('grabbing');
+      e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      panX = e.clientX - startX;
+      panY = e.clientY - startY;
+      updateTransform();
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDragging = false;
+      viewport.classList.remove('grabbing');
+    });
+
+    // Scroll zoom
+    viewport.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const rect = viewport.getBoundingClientRect();
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      setZoom(scale * delta, cx, cy);
+    }, { passive: false });
+
+    // Touch support
+    let lastTouchDist = 0;
+    let lastTouchCenter = null;
+
+    viewport.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        isDragging = true;
+        startX = e.touches[0].clientX - panX;
+        startY = e.touches[0].clientY - panY;
+      } else if (e.touches.length === 2) {
+        isDragging = false;
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        lastTouchDist = Math.sqrt(dx * dx + dy * dy);
+        lastTouchCenter = {
+          x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+          y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+        };
+      }
+      e.preventDefault();
+    }, { passive: false });
+
+    viewport.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 1 && isDragging) {
+        panX = e.touches[0].clientX - startX;
+        panY = e.touches[0].clientY - startY;
+        updateTransform();
+      } else if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const rect = viewport.getBoundingClientRect();
+        const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+        const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+        if (lastTouchDist > 0) {
+          const delta = dist / lastTouchDist;
+          setZoom(scale * delta, cx, cy);
+        }
+        lastTouchDist = dist;
+      }
+      e.preventDefault();
+    }, { passive: false });
+
+    viewport.addEventListener('touchend', () => {
+      isDragging = false;
+      lastTouchDist = 0;
+    });
+
+    // Buttons
+    document.getElementById('zoom-in').addEventListener('click', () => {
+      const rect = viewport.getBoundingClientRect();
+      setZoom(scale * 1.25, rect.width / 2, rect.height / 2);
+    });
+
+    document.getElementById('zoom-out').addEventListener('click', () => {
+      const rect = viewport.getBoundingClientRect();
+      setZoom(scale / 1.25, rect.width / 2, rect.height / 2);
+    });
+
+    document.getElementById('zoom-reset').addEventListener('click', () => {
+      scale = 1;
+      panX = 0;
+      panY = 0;
+      updateTransform();
+    });
+
+    document.getElementById('fit-view').addEventListener('click', () => {
+      const svgEl = document.querySelector('#erd svg');
+      if (!svgEl) return;
+      const svgW = svgEl.scrollWidth || svgEl.clientWidth;
+      const svgH = svgEl.scrollHeight || svgEl.clientHeight;
+      const vpW = viewport.clientWidth;
+      const vpH = viewport.clientHeight;
+      scale = Math.min(vpW / svgW, vpH / svgH, 1) * 0.95;
+      panX = 0;
+      panY = 0;
+      updateTransform();
+    });
+
+    updateTransform();
+  </script>
+</body>
+
+</html>

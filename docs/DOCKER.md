@@ -33,7 +33,6 @@ docker-compose --version
 proyecto/
 ├── Dockerfile                    # Especificación de imagen
 ├── docker-compose.yml            # Orquestación de servicios
-├── entrypoint.sh                 # Script de inicialización (movido a scripts/)
 ├── .env                          # Variables de entorno (desarrollo)
 ├── .env.example                  # Plantilla de variables
 ├── scripts/

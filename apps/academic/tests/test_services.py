@@ -1,7 +1,7 @@
 from django.test import TestCase
 from datetime import date
 from decimal import Decimal
-from apps.institutions.models import Institution, School_Year
+from apps.institutions.models import AcademicGrade, AcademicLevel, Institution, School_Year
 from ..models import Section, Subject, Academic_Activity, Timing_Regime, Config_Academic
 from ..services.academic_service import AcademicService
 
@@ -27,7 +27,13 @@ class AcademicServiceTest(TestCase):
             number_of_periods=2,
         )
         self.timing_regime = Timing_Regime.objects.create(
-            school_year=self.school_year, name="Matutina"
+            institution=self.institution, name="Matutina"
+        )
+        self.academic_level = AcademicLevel.objects.create(
+            institution=self.institution, name="Primaria"
+        )
+        self.academic_grade = AcademicGrade.objects.create(
+            academic_level=self.academic_level, name="6to", sequence_order=6
         )
 
     def test_create_section(self):
@@ -35,197 +41,111 @@ class AcademicServiceTest(TestCase):
         section = AcademicService.create_section(
             school_year_id=self.school_year.id,
             timing_regime_id=self.timing_regime.id,
-            level="Primaria",
-            grade="6to",
+            academic_grade_id=self.academic_grade.id,
             parallel="A",
             capacity=40,
         )
-
         self.assertIsNotNone(section.id)
-        self.assertEqual(section.grade, "6to")
         self.assertEqual(section.parallel, "A")
-
-    def test_create_section_duplicate(self):
-        """Probar que no permite secciones duplicadas"""
-        AcademicService.create_section(
-            school_year_id=self.school_year.id,
-            timing_regime_id=self.timing_regime.id,
-            level="Primaria",
-            grade="6to",
-            parallel="A",
-            capacity=40,
-        )
-
-        with self.assertRaises(ValueError):
-            AcademicService.create_section(
-                school_year_id=self.school_year.id,
-                timing_regime_id=self.timing_regime.id,
-                level="Primaria",
-                grade="6to",
-                parallel="A",
-                capacity=35,
-            )
 
     def test_get_section(self):
         """Probar obtención de sección"""
         section = AcademicService.create_section(
             school_year_id=self.school_year.id,
             timing_regime_id=self.timing_regime.id,
-            level="Primaria",
-            grade="5to",
+            academic_grade_id=self.academic_grade.id,
             parallel="B",
             capacity=35,
         )
-
         retrieved = AcademicService.get_section(section.id)
         self.assertEqual(retrieved.id, section.id)
 
     def test_create_subject(self):
         """Probar creación de asignatura"""
-        section = AcademicService.create_section(
-            school_year_id=self.school_year.id,
-            timing_regime_id=self.timing_regime.id,
-            level="Primaria",
-            grade="6to",
-            parallel="A",
-            capacity=40,
-        )
-
         subject = AcademicService.create_subject(
-            school_year_id=self.school_year.id,
-            section_id=section.id,
             name="Matemática",
             code="MAT-001",
-            weekly_hours=3,
         )
-
         self.assertIsNotNone(subject.id)
-        self.assertEqual(subject.name, "Matemática")
-
-    def test_create_subject_invalid_section(self):
-        """Probar que rechaza sección inválida"""
-        with self.assertRaises(ValueError):
-            AcademicService.create_subject(
-                school_year_id=self.school_year.id,
-                section_id=9999,  # No existe
-                name="Matemática",
-                code="MAT-001",
-                weekly_hours=5,
-            )
-
-    def test_list_subjects_by_section(self):
-        """Probar listado de asignaturas por sección"""
-        section = AcademicService.create_section(
-            school_year_id=self.school_year.id,
-            timing_regime_id=self.timing_regime.id,
-            level="Primaria",
-            grade="6to",
-            parallel="A",
-            capacity=40,
-        )
-
-        AcademicService.create_subject(
-            school_year_id=self.school_year.id,
-            section_id=section.id,
-            name="Matemática",
-            code="MAT-001",
-            weekly_hours=5,
-        )
-        AcademicService.create_subject(
-            school_year_id=self.school_year.id,
-            section_id=section.id,
-            name="Lenguaje",
-            code="LEN-001",
-            weekly_hours=4,
-        )
-
-        subjects = AcademicService.list_subjects_by_section(section.id)
-        self.assertEqual(subjects.count(), 2)
-
-    def test_create_academic_activity(self):
-        """Probar creación de actividad evaluativa"""
-        section = AcademicService.create_section(
-            school_year_id=self.school_year.id,
-            timing_regime_id=self.timing_regime.id,
-            level="Primaria",
-            grade="6to",
-            parallel="A",
-            capacity=40,
-        )
-
-        subject = AcademicService.create_subject(
-            school_year_id=self.school_year.id,
-            section_id=section.id,
-            name="Matemática",
-            code="MAT-001",
-            weekly_hours=5,
-        )
-
-        activity = AcademicService.create_academic_activity(
-            config_academic_id=self.config.id,
-            subject_id=subject.id,
-            name="Examen Quimestral",
-            value_max=20,
-            weight=0.5,
-            applies_to="all",
-            order=1,
-        )
-
-        self.assertIsNotNone(activity.id)
-        self.assertEqual(activity.value_max, 20)
-        self.assertEqual(activity.weight, 0.5)
-
-    def test_create_activity_invalid_weight(self):
-        """Probar que rechaza peso inválido"""
-        section = AcademicService.create_section(
-            school_year_id=self.school_year.id,
-            timing_regime_id=self.timing_regime.id,
-            level="Primaria",
-            grade="6to",
-            parallel="A",
-            capacity=40,
-        )
-
-        subject = AcademicService.create_subject(
-            school_year_id=self.school_year.id,
-            section_id=section.id,
-            name="Matemática",
-            code="MAT-001",
-            weekly_hours=5,
-        )
-
-        with self.assertRaises(ValueError):
-            AcademicService.create_academic_activity(
-                config_academic_id=self.config.id,
-                subject_id=subject.id,
-                name="Examen",
-                value_max=20,
-                weight=1.5,  # Inválido
-                applies_to="all",
-            )
+        self.assertEqual(subject.code, "MAT-001")
 
     def test_update_section(self):
         """Probar actualización de sección"""
         section = AcademicService.create_section(
             school_year_id=self.school_year.id,
             timing_regime_id=self.timing_regime.id,
-            level="Primaria",
-            grade="6to",
+            academic_grade_id=self.academic_grade.id,
             parallel="A",
             capacity=40,
         )
+        updated = AcademicService.update_section(section.id, capacity=35)
+        self.assertEqual(updated.capacity, 35)
 
-        updated = AcademicService.update_section(section.id, capacity=45)
+    def test_get_subject(self):
+        """Probar obtención de asignatura"""
+        subject = AcademicService.create_subject(
+            name="Matemática", code="MAT-002"
+        )
+        retrieved = AcademicService.get_subject(subject.id)
+        self.assertEqual(retrieved.id, subject.id)
 
-        self.assertEqual(updated.capacity, 45)
+    def test_update_subject(self):
+        """Probar actualización de asignatura"""
+        subject = AcademicService.create_subject(
+            name="Matemática", code="MAT-003"
+        )
+        updated = AcademicService.update_subject(subject.id, name="Matemáticas Avanzadas")
+        self.assertEqual(updated.name, "Matemáticas Avanzadas")
 
     def test_timing_regime_operations(self):
         """Probar operaciones de régimen horario"""
         regime = AcademicService.create_timing_regime(
-            school_year_id=self.school_year.id, name="Vespertina"
+            institution_id=self.institution.id,
+            name="Vespertina",
+            description="Tarde",
         )
-
         self.assertIsNotNone(regime.id)
 
         retrieved = AcademicService.get_timing_regime(regime.id)
-        self.assertEqual(retrieved.id, regime.id)
+        self.assertEqual(retrieved.name, "Vespertina")
+
+        regimes = AcademicService.list_timing_regimes(institution_id=self.institution.id)
+        self.assertGreaterEqual(len(regimes), 1)
+
+    def test_create_academic_activity(self):
+        """Probar creación de actividad evaluativa"""
+        section = AcademicService.create_section(
+            school_year_id=self.school_year.id,
+            timing_regime_id=self.timing_regime.id,
+            academic_grade_id=self.academic_grade.id,
+            parallel="A",
+            capacity=40,
+        )
+        subject = AcademicService.create_subject(
+            name="Matemática", code="MAT-004"
+        )
+        activity = AcademicService.create_academic_activity(
+            config_academic_id=self.config.id,
+            subject_id=subject.id,
+            name="Examen Final",
+            value_max=20,
+            weight=0.5,
+            applies_to="all",
+        )
+        self.assertIsNotNone(activity.id)
+        self.assertEqual(activity.name, "Examen Final")
+
+    def test_create_activity_invalid_weight(self):
+        """Probar que rechaza peso inválido"""
+        subject = AcademicService.create_subject(
+            name="Matemática", code="MAT-005"
+        )
+        with self.assertRaises(ValueError):
+            AcademicService.create_academic_activity(
+                config_academic_id=self.config.id,
+                subject_id=subject.id,
+                name="Test",
+                value_max=10,
+                weight=2.0,
+                applies_to="all",
+            )

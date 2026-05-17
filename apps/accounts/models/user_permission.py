@@ -77,7 +77,7 @@ class UserPermission(models.Model):
 
     def __str__(self):
         state = "granted" if self.granted else "revoked"
-        return f"{self.user} — {self.permission.codename} [{state}]"
+        return f"{self.user} — {self.permission.code} [{state}]"
 
     def is_expired(self):
         """

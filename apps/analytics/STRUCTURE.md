@@ -8,19 +8,36 @@ Este documento detalla la organización interna del módulo de análisis de dato
 analytics/
 ├── api/                  # Capa de Entrada (REST)
 │   ├── serializers.py    # Esquemas para Scores y Snapshots
-│   ├── views.py          # Vistas basadas en funciones (POST)
-│   └── urls.py           # Definición de rutas específicas
+│   ├── views.py          # ViewSets REST
+│   └── urls.py           # Definición de rutas
 ├── models/               # Capa de Datos (Entidades)
-│   ├── student_risk_score.py
-│   └── student_feature_snapshot.py
+│   ├── risk_factor.py           # Catálogo de factores de riesgo
+│   ├── student_feature_snapshot.py # Métricas de un estudiante
+│   ├── student_risk_score.py    # Puntaje de riesgo
+│   └── student_risk_factor.py   # Asociación score-factor
 ├── repositories/         # Capa de Persistencia (Queries)
-│   ├── __init__.py
 │   └── (clases internas) # Queries de ordenamiento por riesgo
 ├── services/             # Capa de Negocio (Orquestación)
 │   └── analytics_service.py # Lógica de perfiles de riesgo
+├── tasks.py              # Tasks Celery para cálculo async
+├── ml/                   # Modelos ML entrenados
+│   └── risk_model.joblib # Modelo de predicción de riesgo
 └── tests/                # Suites de Pruebas
-    └── (test suites)     # Validación de reportes de riesgo
 ```
+
+## Modelos de Datos
+
+### RiskFactor
+Catálogo de factores de riesgo (ej: "Baja Asistencia", "Bajo Rendimiento").
+
+### StudentFeatureSnapshot
+Instantánea de métricas de un estudiante para un período específico. Estas métricas sirven como entrada para el modelo de predicción.
+
+### StudentRiskScore
+Puntaje de riesgo calculado para un estudiante en un período.
+
+### StudentRiskFactor
+Asociación entre un puntaje de riesgo y los factores que contribuyen a ese score.
 
 ## Flujo de Trabajo Recomendado
 
@@ -31,12 +48,12 @@ analytics/
 ### ✅ Prácticas Correctas
 ```python
 from apps.analytics.services.analytics_service import AnalyticsService
-from apps.analytics.models import StudentRiskScore
+from apps.analytics.models import StudentRiskScore, StudentFeatureSnapshot, RiskFactor
 ```
 
-## Riesgo Academico v1
+## Riesgo Académico v1
 
-El modulo incluye un flujo asincrono para calcular riesgo academico con
+El módulo incluye un flujo asíncrono para calcular riesgo académico con
 snapshots de `grading`, un artefacto ML opcional y fallback de reglas.
 
 Flujo:
@@ -56,32 +73,25 @@ Componentes:
 - `services/feature_builder.py`: construye el snapshot desde asistencia,
   conducta y calificaciones.
 - `tasks.py`: expone `calculate_student_academic_risk_task`.
-- `ml/risk_model.joblib`: ubicacion esperada del modelo entrenado.
+- `ml/risk_model.joblib`: ubicación esperada del modelo entrenado.
 - `ml/.gitkeep`: conserva el directorio de modelos.
 
-Contrato de salida de la task:
+### Semáforo de Riesgo v1
 
-```json
-{
-  "estudiante_id": "string",
-  "periodo": "string",
-  "fecha_analisis": "datetime",
-  "semaforo_riesgo": {
-    "nivel": "rojo|amarillo|verde",
-    "puntaje_riesgo": 0.0,
-    "factores_criticos": [],
-    "recomendaciones": []
-  },
-  "detalle_por_variable": {
-    "conducta": { "nivel": "string", "peso": 0.3 },
-    "asistencia": { "nivel": "string", "peso": 0.35 },
-    "calificaciones": { "nivel": "string", "peso": 0.35 }
-  }
-}
-```
+| Nivel | Condiciones |
+|-------|-------------|
+| Rojo | Asistencia < 70% O promedio < 6.0 O > 3 faltas graves |
+| Amarillo | Asistencia 70-85% O promedio 6.0-7.0 O > 5 faltas leves |
+| Verde | Asistencia > 85% Y promedio > 7.0 Y sin faltas graves |
 
-`model_version` se usa internamente para persistir `StudentRiskScore`, pero no
-se expone en la respuesta publica de la task.
+### Puntaje Fallback
+
+Si no existe `risk_model.joblib`, el sistema calcula un puntaje 0-100 con:
+- Conducta: 30%
+- Asistencia: 35%
+- Calificaciones: 35%
+
+El resultado mantiene explicabilidad mediante `risk_factors`.
 
 ## Responsabilidades de Capas
 

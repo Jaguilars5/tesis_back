@@ -1,6 +1,6 @@
 from django.test import TestCase
 from datetime import date
-from ..models import Institution, School_Year, Classroom
+from ..models import Classroom, Institution, RoomType, School_Year
 from ..services.institution_service import InstitutionService
 
 
@@ -182,17 +182,18 @@ class ClassroomServiceTest(TestCase):
         self.institution = Institution.objects.create(
             name="Instituto Test", code="IT-001", address="Dirección IT", city="Quito"
         )
+        self.room_type = RoomType.objects.create(code="AULA", name="Aula de Clase")
         self.classroom = Classroom.objects.create(
             institution=self.institution,
             name="101",
-            room_type="Aula de clase",
+            room_type=self.room_type,
             capacity=40,
         )
 
     def test_create_classroom(self):
         """Probar creación de aula"""
         classroom = InstitutionService.create_classroom(
-            self.institution.id, "102", "Aula de clase", 35
+            self.institution.id, "102", self.room_type.id, 35
         )
 
         self.assertIsNotNone(classroom.id)
@@ -203,7 +204,7 @@ class ClassroomServiceTest(TestCase):
         """Probar que rechaza capacidad inválida"""
         with self.assertRaises(ValueError):
             InstitutionService.create_classroom(
-                self.institution.id, "999", "Aula", 0  # Capacidad inválida
+                self.institution.id, "999", self.room_type.id, 0  # Capacidad inválida
             )
 
     def test_get_classroom(self):
@@ -214,7 +215,7 @@ class ClassroomServiceTest(TestCase):
     def test_list_classrooms(self):
         """Probar listado de aulas"""
         InstitutionService.create_classroom(
-            self.institution.id, "103", "Laboratorio", 25
+            self.institution.id, "103", self.room_type.id, 25
         )
 
         classrooms = InstitutionService.list_classrooms(self.institution.id)
@@ -222,24 +223,25 @@ class ClassroomServiceTest(TestCase):
 
     def test_list_classrooms_by_type(self):
         """Probar listado de aulas por tipo"""
+        lab_type = RoomType.objects.create(code="LAB", name="Laboratorio")
         InstitutionService.create_classroom(
-            self.institution.id, "Lab-01", "Laboratorio", 20
+            self.institution.id, "Lab-01", lab_type.id, 20
         )
 
         labs = InstitutionService.list_classrooms_by_type(
-            self.institution.id, "Laboratorio"
+            self.institution.id, lab_type.id
         )
         self.assertEqual(labs.count(), 1)
-        self.assertEqual(labs.first().room_type, "Laboratorio")
+        self.assertEqual(labs.first().room_type, lab_type)
 
     def test_update_classroom(self):
         """Probar actualización de aula"""
         classroom = InstitutionService.update_classroom(
-            self.classroom.id, capacity=50, room_type="Aula Premium"
+            self.classroom.id, capacity=50, room_type_id=self.room_type.id
         )
 
         self.assertEqual(classroom.capacity, 50)
-        self.assertEqual(classroom.room_type, "Aula Premium")
+        self.assertEqual(classroom.room_type, self.room_type)
 
     def test_deactivate_classroom(self):
         """Probar desactivación de aula"""
@@ -249,7 +251,7 @@ class ClassroomServiceTest(TestCase):
     def test_get_available_classrooms(self):
         """Probar obtención de aulas disponibles"""
         InstitutionService.create_classroom(
-            self.institution.id, "Grande", "Auditorio", 100
+            self.institution.id, "Grande", self.room_type.id, 100
         )
 
         available = InstitutionService.get_available_classrooms(self.institution.id)

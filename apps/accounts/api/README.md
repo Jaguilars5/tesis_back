@@ -1,10 +1,14 @@
 # API - Módulo Accounts
 
+Esta API gestiona la autenticación y administración de usuarios, roles y permisos del sistema.
+
 ---
 
 ## Formato de Respuesta
 
-```
+Todas las respuestas siguen el esquema estandarizado:
+
+```json
 {
   "ok": true,
   "data": {},
@@ -16,10 +20,68 @@
 
 ## Autenticación
 
-Header:
-
+Header requerido:
 ```
 Authorization: Bearer <access_token>
+```
+
+### Endpoints Públicos
+
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| POST | `/api/accounts/login/` | Iniciar sesión |
+| POST | `/api/accounts/refresh/` | Refrescar token |
+
+### Login
+**POST** `/api/accounts/login/`
+
+Request:
+```json
+{
+  "email": "admin@test.com",
+  "password": "123456"
+}
+```
+
+Response:
+```json
+{
+  "access": "eyJ...",
+  "refresh": "eyJ...",
+  "user": {
+    "id": 1,
+    "email": "admin@test.com",
+    "person": {
+      "id": 1,
+      "names": "Admin",
+      "last_names": "Test",
+      "document_number": "1234567890"
+    },
+    "institution": {
+      "id": 1,
+      "name": "Institución Ejemplo"
+    },
+    "active": true
+  }
+}
+```
+
+### Refresh
+**POST** `/api/accounts/refresh/`
+
+Request:
+```json
+{
+  "refresh": "eyJ..."
+}
+```
+
+Response:
+```json
+{
+  "access": "eyJ...",
+  "user": { ... }
+}
 ```
 
 ---
@@ -30,280 +92,168 @@ Todos los endpoints (excepto login y refresh) requieren permisos específicos:
 
 | ViewSet | Acción | Permiso |
 |---------|--------|---------|
-| User | list, retrieve, search, permissions | `accounts.view_user` |
+| User | list, retrieve | `accounts.view_user` |
 | User | create | `accounts.create_user` |
 | User | update, change_password, grant_permission, revoke_permission | `accounts.update_user` |
 | User | destroy | `accounts.delete_user` |
 | Role | list, retrieve | `accounts.view_role` |
 | Role | create | `accounts.create_role` |
-| Role | update, add_permission, remove_permission, assign_permissions | `accounts.update_role` |
+| Role | update, assign_permissions | `accounts.update_role` |
 | Role | destroy | `accounts.delete_role` |
-| Permission | list, retrieve, by_module | `accounts.view_permission` |
+| Permission | list, retrieve | `accounts.view_permission` |
 | Permission | create, bulk_create | `accounts.create_permission` |
-| Permission | update | `accounts.update_permission` |
-| Permission | destroy | `accounts.delete_permission` |
 
 ---
 
-# Login
+## Usuarios (`/api/accounts/users/`)
 
-POST /api/accounts/login/
+### Listar
+**GET** `/api/accounts/users/`
+
+Response (paginado):
+```json
+{
+  "ok": true,
+  "data": {
+    "count": 1,
+    "next": null,
+    "previous": null,
+    "results": [
+      {
+        "id": 1,
+        "email": "admin@test.com",
+        "person": { "names": "Admin", "last_names": "Test" },
+        "institution": { "id": 1, "name": "Colegio" },
+        "active": true
+      }
+    ]
+  },
+  "msg": ""
+}
+```
+
+### Crear
+**POST** `/api/accounts/users/`
 
 Request:
-
-```
+```json
 {
-  "email": "admin@test.com",
-  "password": "123456"
-}
-```
-
-Response:
-
-```
-{
-  "access": "token",
-  "refresh": "token",
-  "user": {
-    "id": 1,
-    "dni": "1234567890",
-    "names": "Admin",
-    "last_names": "Test",
-    "email": "admin@test.com",
-    "role": "Administrador",
-    "role_id": 1,
-    "institution": "Institución Ejemplo",
-    "institution_id": 1,
-    "active": true
-  }
-}
-```
-
----
-
-# Refresh
-
-POST /api/accounts/refresh/
-
-Request:
-
-```
-{
-  "refresh": "token"
-}
-```
-
-Response:
-
-```
-{
-  "access": "token",
-  "user": {
-    "id": 1,
-    "dni": "1234567890",
-    "names": "Admin",
-    "last_names": "Test",
-    "email": "admin@test.com",
-    "role": "Administrador",
-    "role_id": 1,
-    "institution": "Institución Ejemplo",
-    "institution_id": 1,
-    "active": true
-  }
-}
-```
-
----
-
-# Crear usuario
-
-POST /api/accounts/users/
-
-Request:
-
-```
-{
-  "dni": "1234567890",
-  "names": "Juan",
-  "last_names": "Pérez",
-  "email": "juan@test.com",
+  "person": {
+    "document_type": 1,
+    "document_number": "1234567890",
+    "names": "Juan",
+    "last_names": "Pérez",
+    "email": "juan@test.com",
+    "birth_date": "1990-05-15"
+  },
   "password": "123456",
-  "role_id": 1,
-  "institution_id": 1
+  "institution": 1
 }
 ```
 
-Response:
+### Obtener
+**GET** `/api/accounts/users/{id}/`
 
-```
-{
-  "ok": true,
-  "data": {
-    "id": 1,
-    "email": "juan@test.com"
-  },
-  "msg": ""
-}
-```
+### Actualizar
+**PATCH** `/api/accounts/users/{id}/`
 
----
+### Eliminar (soft delete)
+**DELETE** `/api/accounts/users/{id}/`
 
-# Listar usuarios
-
-GET /api/accounts/users/
-
-Response:
-
-```
-{
-  "ok": true,
-  "data": [
-    {
-      "id": 1,
-      "email": "admin@test.com"
-    }
-  ],
-  "msg": ""
-}
-```
-
----
-
-# Obtener usuario
-
-GET /api/accounts/users/{id}/
-
-Response:
-
-```
-{
-  "ok": true,
-  "data": {
-    "id": 1,
-    "email": "admin@test.com"
-  },
-  "msg": ""
-}
-```
-
----
-
-# Actualizar usuario
-
-PUT /api/accounts/users/{id}/
+### Cambiar Contraseña
+**POST** `/api/accounts/users/{id}/change-password/`
 
 Request:
-
-```
-{
-  "names": "Nuevo Nombre"
-}
-```
-
-Response:
-
-```
-{
-  "ok": true,
-  "data": {
-    "id": 1,
-    "names": "Nuevo Nombre"
-  },
-  "msg": ""
-}
-```
-
----
-
-# Eliminar usuario
-
-DELETE /api/accounts/users/{id}/
-
-Response:
-
-```
-{
-  "ok": true,
-  "data": {
-    "id": 1,
-    "active": false
-  },
-  "msg": ""
-}
-```
-
----
-
-# Cambiar contraseña
-
-POST /api/accounts/users/{id}/change-password/
-
-Request:
-
-```
+```json
 {
   "new_password": "newpass123"
 }
 ```
 
-Response:
+### Conceder Permiso
+**POST** `/api/accounts/users/{id}/grant-permission/`
 
-```
+Request:
+```json
 {
-  "ok": true,
-  "data": {},
-  "msg": "Contraseña actualizada"
+  "permission_code": "grading.view_note",
+  "reason": "Acceso temporal"
+}
+```
+
+### Revocar Permiso
+**POST** `/api/accounts/users/{id}/revoke-permission/`
+
+Request:
+```json
+{
+  "permission_code": "grading.view_note"
 }
 ```
 
 ---
 
-# Conceder permiso
+## Roles (`/api/accounts/roles/`)
 
-POST /api/accounts/users/{id}/grant-permission/
+### Listar
+**GET** `/api/accounts/roles/`
+
+### Crear
+**POST** `/api/accounts/roles/`
 
 Request:
-
-```
+```json
 {
-  "permission_codename": "grading.view"
+  "name": "Docente",
+  "code": "TEACHER",
+  "description": "Rol para docentes"
 }
 ```
 
-Response:
+### Obtener
+**GET** `/api/accounts/roles/{id}/`
 
-```
+### Actualizar
+**PATCH** `/api/accounts/roles/{id}/`
+
+### Asignar Permisos
+**POST** `/api/accounts/roles/{id}/assign-permissions/`
+
+Request:
+```json
 {
-  "ok": true,
-  "data": {
-    "granted": true
-  },
-  "msg": ""
+  "permission_ids": [1, 2, 3]
 }
 ```
 
 ---
 
-# Revocar permiso
+## Permisos (`/api/accounts/permissions/`)
 
-POST /api/accounts/users/{id}/revoke-permission/
+### Listar
+**GET** `/api/accounts/permissions/`
+
+### Crear
+**POST** `/api/accounts/permissions/`
 
 Request:
-
-```
+```json
 {
-  "permission_codename": "grading.view"
+  "code": "grading.view_note",
+  "module": "grading",
+  "description": "Ver calificaciones"
 }
 ```
 
-Response:
+### Creación Masiva
+**POST** `/api/accounts/permissions/bulk-create/`
 
-```
+Request:
+```json
 {
-  "ok": true,
-  "data": {
-    "granted": false
-  },
-  "msg": ""
+  "permissions": [
+    {"code": "grading.view_note", "module": "grading", "description": "Ver notas"},
+    {"code": "grading.create_note", "module": "grading", "description": "Crear notas"}
+  ]
 }
 ```

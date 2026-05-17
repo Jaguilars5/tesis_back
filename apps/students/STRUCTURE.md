@@ -1,27 +1,44 @@
 # Estructura Técnica: Módulo `students`
 
-Este documento detalla la organización interna y las responsabilidades de cada componente dentro del módulo de gestión de estudiantes.
+Este documento detailing the internal organization and responsibilities of each component within the student management module.
 
 ## Árbol de Directorios
 
 ```text
 students/
 ├── api/                  # Capa de Entrada (REST)
-│   ├── serializers.py    # Esquemas para Estudiantes y Representantes
-│   ├── views.py          # ViewSets estándar con soporte de acciones
+│   ├── serializers.py    # Esquemas para Estudiantes y Matrículas
+│   ├── views.py          # ViewSets estándar
 │   └── urls.py           # Registro de rutas vía DefaultRouter
 ├── models/               # Capa de Datos (Entidades)
-│   ├── student.py        # Entidad Estudiante
-│   ├── representative.py # Entidad Representante
-│   └── student_representative.py # Relación y autorizaciones
+│   ├── student.py            # Entidad Estudiante
+│   ├── enrollment.py         # Matrícula
+│   ├── enrollment_status.py  # Catálogo de estados
+│   ├── student_representative.py # Relación estudiante-representante
+│   └── representative.py     # Legacy (managed=False)
 ├── repositories/         # Capa de Persistencia (Queries)
-│   ├── __init__.py       # Exportación de repositorios
-│   └── students_repo.py  # Queries especializadas por DNI y sección
+│   └── students_repo.py  # Queries especializadas
 ├── services/             # Capa de Negocio (Orquestación)
-│   └── students_service.py # Lógica de alta y vinculación familiar
+│   └── students_service.py # Lógica de alta y vinculación
 └── tests/                # Suites de Pruebas
-    └── (test suites)     # Validación de matriculación y relaciones
 ```
+
+## Modelos Principales
+
+### Student
+Información del estudiante vinculada a una Person. El campo `student_code` es único.
+
+### EnrollmentStatus
+Catálogo de estados de matrícula (Activo, Retirado, Suspendido, etc.)
+
+### Enrollment
+Vinculación de un estudiante a una sección para un año escolar. Incluye campos de sync para operación offline.
+
+### Student_Representative
+Vinculación entre estudiante y representante legal. Define parentesco y niveles de autorización.
+
+**Modelo Legacy** (managed=False, no usar):
+- `Representative` — Será eliminado tras migración completa
 
 ## Flujo de Trabajo Recomendado
 
@@ -29,19 +46,17 @@ Para mantener el desacoplamiento, siga este flujo de llamadas:
 `API View` → `Service` → `Repository` → `Model`
 
 > [!IMPORTANT]
-> **Nunca** manipule directamente la tabla `Student_Representative` desde las vistas. Utilice siempre `StudentService.assign_representative` para garantizar que se apliquen las reglas de contacto primario y se validen las existencias de ambas entidades.
+> **Nunca** manipule directamente la tabla `Student_Representative` desde las vistas. Utilice siempre `StudentService.assign_representative`.
 
 ## Guía de Importación
-
-Utilice los puntos de entrada definidos para evitar dependencias circulares:
 
 ### ✅ Prácticas Correctas
 ```python
 # Importar servicios
 from apps.students.services.students_service import StudentService
 
-# Importar modelos (re-exportados en models/__init__.py)
-from apps.students.models import Student, Representative
+# Importar modelos
+from apps.students.models import Student, Enrollment, Student_Representative
 
 # Importar repositorios
 from apps.students.repositories.students_repo import StudentRepository
@@ -49,13 +64,12 @@ from apps.students.repositories.students_repo import StudentRepository
 
 ### ❌ Prácticas a Evitar
 ```python
-# Importar desde archivos internos específicos
-from apps.students.models.student import Student 
+from apps.students.models.student import Student
 ```
 
 ## Responsabilidades de Capas
 
-1.  **Models**: Definen la estructura de los datos personales y las reglas de parentesco/autorización.
-2.  **Repositories**: Centralizan la lógica de búsqueda (por DNI, nombres parciales o secciones).
-3.  **Services**: Implementan validaciones de negocio (edad permitida, unicidad, integridad de representantes).
-4.  **API**: Exponen los recursos mediante ViewSets que heredan de `BaseStudentViewSet` (o similar) para estandarizar las respuestas.
+1.  **Models**: Definen la estructura de los datos personales y reglas de parentesco.
+2.  **Repositories**: Centralizan la lógica de búsqueda (por código, secciones).
+3.  **Services**: Implementan validaciones (edad permitida, unicidad, integridad).
+4.  **API**: Exponen los recursos mediante ViewSets con respuestas estandarizadas.

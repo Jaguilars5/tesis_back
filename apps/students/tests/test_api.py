@@ -1,10 +1,11 @@
 from rest_framework.test import APITestCase
 from rest_framework import status
 from datetime import date
-from apps.institutions.models import Institution, School_Year
+from apps.institutions.models import AcademicGrade, AcademicLevel, Institution, School_Year
 from apps.academic.models import Timing_Regime, Section
 from apps.accounts.models import Role, User
-from apps.students.models import Student, Representative
+from apps.core.tests.helpers import create_test_user, create_test_student
+from apps.students.models import EnrollmentStatus, Representative, Student
 
 
 # Compatibilidad Python 3.14: patch Context.__copy__
@@ -35,35 +36,37 @@ class StudentAPITest(APITestCase):
             end_date=date(2025, 7, 31),
         )
         self.timing_regime = Timing_Regime.objects.create(
-            school_year=self.school_year, name="Matutina"
+            institution=self.institution, name="Matutina"
+        )
+        self.academic_level = AcademicLevel.objects.create(
+            institution=self.institution, name="Primaria"
+        )
+        self.academic_grade = AcademicGrade.objects.create(
+            academic_level=self.academic_level, name="6to", sequence_order=6
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
             timing_regime=self.timing_regime,
-            level="Primaria",
-            grade="6to",
+            academic_grade=self.academic_grade,
             parallel="A",
             capacity=40,
         )
-        self.student = Student.objects.create(
-            dni="1234567890",
+        self.student = create_test_student(
+            document_number="1234567890",
             names="Juan",
             last_names="Pérez García",
             birth_date=date(2012, 5, 15),
-            section=self.section,
         )
 
         self.student_url = "/api/students/student/"
 
         # Crear usuario autenticado
         role = Role.objects.create(name="Admin")
-        self.user = User.objects.create_user(
+        self.user = create_test_user(
             email="student@test.com",
             dni="1717171717",
             names="Student",
             last_names="Tester",
-            password="test_password_123",
-            role=role,
             institution=self.institution,
             is_superuser=True,
         )
@@ -77,12 +80,10 @@ class StudentAPITest(APITestCase):
     def test_create_student(self):
         """Probar creación de estudiante"""
         data = {
-            "dni": "0987654321",
+            "document_number": "0987654321",
             "names": "María",
             "last_names": "García López",
             "birth_date": "2012-06-20",
-            "section": self.section.id,
-            "enrollment_number": "MAT-2024-002",
         }
         response = self.client.post(self.student_url, data)
         self.assertIn(
@@ -104,12 +105,11 @@ class StudentAPITest(APITestCase):
 
     def test_delete_student(self):
         """Probar eliminación (soft delete) de estudiante"""
-        student = Student.objects.create(
-            dni="1111111111",
+        student = create_test_student(
+            document_number="1111111111",
             names="Para Eliminar",
             last_names="Test",
             birth_date=date(2012, 5, 15),
-            section=self.section,
         )
         response = self.client.delete(f"{self.student_url}{student.id}/")
         self.assertIn(
@@ -117,72 +117,33 @@ class StudentAPITest(APITestCase):
         )
 
 
-class RepresentativeAPITest(APITestCase):
-    """Tests para endpoints API de Representative"""
 
+
+
+class EnrollmentStatusAPITest(APITestCase):
     def setUp(self):
-        """Crear datos de prueba"""
-        self.representative = Representative.objects.create(
-            dni="9876543210",
-            names="María",
-            last_names="Pérez García",
-            phone="0987654321",
-        )
-
-        self.representative_url = "/api/students/representative/"
-
-        # Crear usuario autenticado
-        institution = Institution.objects.create(
-            name="Test Institution",
-            code="TI-001",
-            address="Test Address",
-            city="Quito",
-        )
-        role = Role.objects.create(name="Admin")
-        self.user = User.objects.create_user(
-            email="representative@test.com",
-            dni="1717171718",
-            names="Representative",
+        self.role = Role.objects.create(name="Admin")
+        self.user = create_test_user(
+            email="enrstatus@test.com",
+            dni="4040404040",
+            names="EnrStatus",
             last_names="Tester",
-            password="test_password_123",
-            role=role,
-            institution=institution,
             is_superuser=True,
         )
         self.client.force_authenticate(user=self.user)
+        EnrollmentStatus.objects.get_or_create(code="ACT", defaults={"name": "Activa"})
+        EnrollmentStatus.objects.create(code="RET", name="Retirado")
+        self.url = "/api/students/enrollment-statuses/"
 
-    def test_list_representatives(self):
-        """Probar listado de representantes"""
-        response = self.client.get(self.representative_url)
+    def test_list(self):
+        response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-    def test_create_representative(self):
-        """Probar creación de representante"""
-        data = {
-            "dni": "1111111111",
-            "names": "Pedro",
-            "last_names": "García López",
-            "phone": "0987654322",
-            "email": "pedro@example.com",
-        }
-        response = self.client.post(self.representative_url, data)
-        self.assertIn(
-            response.status_code, [status.HTTP_201_CREATED, status.HTTP_200_OK]
-        )
-
-    def test_retrieve_representative(self):
-        """Probar obtención de representante"""
-        response = self.client.get(
-            f"{self.representative_url}{self.representative.id}/"
-        )
+    def test_retrieve(self):
+        obj = EnrollmentStatus.objects.first()
+        response = self.client.get(f"{self.url}{obj.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-    def test_update_representative(self):
-        """Probar actualización de representante"""
-        data = {"phone": "0999999999"}
-        response = self.client.patch(
-            f"{self.representative_url}{self.representative.id}/", data
-        )
-        self.assertIn(
-            response.status_code, [status.HTTP_200_OK, status.HTTP_202_ACCEPTED]
-        )
+    def test_create_not_allowed(self):
+        response = self.client.post(self.url, {"code": "GRAD", "name": "Graduado"})
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)

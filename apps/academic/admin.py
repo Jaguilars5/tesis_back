@@ -1,65 +1,51 @@
 from django.contrib import admin
 from .models import (
-    Section, Subject, Config_Academic, Academic_Period, 
-    Academic_Activity, Timing_Regime, Teacher_Subject_Section
+    Section, Subject, Academic_Period, Timing_Regime, Teacher_Subject_Section,
+    SubjectAcademicConfig, SubjectOffering,
 )
+
 
 @admin.register(Timing_Regime)
 class TimingRegimeAdmin(admin.ModelAdmin):
-    list_display = ("name", "school_year", "active")
-    list_filter = ("school_year", "active")
+    list_display = ("name", "institution", "active")
+    list_filter = ("institution", "active")
     search_fields = ("name",)
 
 
 @admin.register(Section)
 class SectionAdmin(admin.ModelAdmin):
-    list_display = ("grade", "parallel", "level", "school_year", "capacity")
-    list_filter = ("school_year", "level", "grade")
-    search_fields = ("grade", "parallel", "level")
+    list_display = ("academic_grade", "parallel", "school_year", "capacity")
+    list_filter = ("school_year", "academic_grade")
+    search_fields = ("parallel",)
 
 
 @admin.register(Subject)
 class SubjectAdmin(admin.ModelAdmin):
-    list_display = ("name", "code", "section", "weekly_hours", "active")
-    list_filter = ("school_year", "section", "active")
+    list_display = ("name", "code", "active")
+    list_filter = ("active",)
     search_fields = ("name", "code")
-
-
-class AcademicPeriodInline(admin.TabularInline):
-    model = Academic_Period
-    extra = 1
-
-
-class AcademicActivityInline(admin.TabularInline):
-    model = Academic_Activity
-    extra = 1
-
-
-@admin.register(Config_Academic)
-class ConfigAcademicAdmin(admin.ModelAdmin):
-    list_display = ("name", "institution", "school_year", "academic_period_type", "active")
-    list_filter = ("institution", "active")
-    search_fields = ("name",)
-    inlines = [AcademicPeriodInline, AcademicActivityInline]
 
 
 @admin.register(Academic_Period)
 class AcademicPeriodAdmin(admin.ModelAdmin):
-    list_display = ("name", "config_academic", "number", "start_date", "end_date", "active")
-    list_filter = ("config_academic", "active")
-    search_fields = ("name",)
-
-
-@admin.register(Academic_Activity)
-class AcademicActivityAdmin(admin.ModelAdmin):
-    list_display = ("name", "config_academic", "value_max", "weight", "order", "active")
-    list_filter = ("config_academic", "active")
+    list_display = ("name", "school_year", "start_date", "end_date", "is_regular_period", "active")
+    list_filter = ("school_year", "active")
     search_fields = ("name",)
 
 
 @admin.register(Teacher_Subject_Section)
 class TeacherSubjectSectionAdmin(admin.ModelAdmin):
-    list_display = ("user", "subject", "section", "school_year", "active")
-    list_filter = ("school_year", "section", "active")
-    raw_id_fields = ("user", "subject", "section", "school_year")
-    search_fields = ("user__names", "user__last_names", "subject__name")
+    list_display = ("user", "subject_offering", "active")
+    list_filter = ("active",)
+    raw_id_fields = ("user", "subject_offering")
+    search_fields = ("user__person__names", "user__person__last_names")
+
+
+@admin.register(SubjectAcademicConfig)
+class SubjectAcademicConfigAdmin(admin.ModelAdmin):
+    list_display = ("subject", "academic_grade", "weekly_hours", "pedagogical_order", "active")
+
+
+@admin.register(SubjectOffering)
+class SubjectOfferingAdmin(admin.ModelAdmin):
+    list_display = ("school_year", "section", "subject_academic_config", "active")

@@ -14,7 +14,7 @@ from apps.core.permissions import HasPermission
 from apps.core.constants.permissions import accounts
 from apps.core.utils import ok_response, error_response
 
-from apps.accounts.models import User, Role, Permission
+from apps.accounts.models import Person, User, Role, Permission
 from apps.accounts.services.user_service import UserService
 from apps.accounts.services.role_service import RoleService
 from apps.accounts.services.permission_service import PermissionService
@@ -25,11 +25,26 @@ from apps.accounts.api.serializers import (
     RoleListSerializer,
     RoleDetailSerializer,
     PermissionSerializer,
+    PersonSerializer,
     UserPermissionSerializer,
     LoginSerializer,
     CustomTokenRefreshSerializer,
 )
 from apps.accounts.api.filters import UserFilter, RoleFilter, PermissionFilter
+
+
+class PersonViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Person.objects.all()
+    serializer_class = PersonSerializer
+    permission_classes = [permissions.IsAuthenticated, HasPermission]
+    action_permissions = {
+        "list": accounts.VIEW_PERSON,
+        "retrieve": accounts.VIEW_PERSON,
+    }
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    search_fields = ["names", "last_names", "document_number", "email"]
+    ordering_fields = ["names", "last_names", "created_at"]
+    ordering = ["last_names", "names"]
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -72,9 +87,9 @@ class PermissionViewSet(viewsets.ModelViewSet):
     }
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = PermissionFilter
-    search_fields = ["codename", "description"]
-    ordering_fields = ["codename", "module", "created_at"]
-    ordering = ["codename"]
+    search_fields = ["code", "description"]
+    ordering_fields = ["code", "module", "created_at"]
+    ordering = ["code"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -87,7 +102,7 @@ class PermissionViewSet(viewsets.ModelViewSet):
 
         try:
             permission = self.service.create_permission(
-                codename=serializer.validated_data["codename"],
+                code=serializer.validated_data["code"],
                 description=serializer.validated_data.get("description", ""),
                 module=serializer.validated_data.get("module", ""),
             )
@@ -104,7 +119,9 @@ class PermissionViewSet(viewsets.ModelViewSet):
 
         try:
             permissions = self.service.create_permissions_bulk(permission_list)
-            return ok_response(self.serializer_class(permissions, many=True).data, status=201)
+            return ok_response(
+                self.serializer_class(permissions, many=True).data, status=201
+            )
         except Exception as e:
             return error_response(e)
 
@@ -181,12 +198,12 @@ class RoleViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="add-permission")
     def add_permission(self, request, pk=None):
         """Agrega un permiso a un rol."""
-        permission_codename = request.data.get("permission_codename")
-        if not permission_codename:
-            return error_response('Se requiere "permission_codename"')
+        permission_code = request.data.get("permission_code")
+        if not permission_code:
+            return error_response('Se requiere "permission_code"')
 
         try:
-            rp, created = self.service.add_permission_to_role(pk, permission_codename)
+            rp, created = self.service.add_permission_to_role(pk, permission_code)
             return ok_response({"message": "Permiso agregado", "created": created})
         except ValueError as e:
             return error_response(e)
@@ -194,12 +211,12 @@ class RoleViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="remove-permission")
     def remove_permission(self, request, pk=None):
         """Remueve un permiso de un rol."""
-        permission_codename = request.data.get("permission_codename")
-        if not permission_codename:
-            return error_response('Se requiere "permission_codename"')
+        permission_code = request.data.get("permission_code")
+        if not permission_code:
+            return error_response('Se requiere "permission_code"')
 
         try:
-            removed = self.service.remove_permission_from_role(pk, permission_codename)
+            removed = self.service.remove_permission_from_role(pk, permission_code)
             return ok_response({"message": "Permiso removido", "success": removed})
         except ValueError as e:
             return error_response(e)
@@ -207,12 +224,12 @@ class RoleViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def assign_permissions(self, request, pk=None):
         """Asigna múltiples permisos a un rol (reemplaza los existentes)."""
-        permission_codenames = request.data.get("permission_codenames", [])
-        if not isinstance(permission_codenames, list):
-            return error_response('Se requiere una lista en "permission_codenames"')
+        permission_codes = request.data.get("permission_codes", [])
+        if not isinstance(permission_codes, list):
+            return error_response('Se requiere una lista en "permission_codes"')
 
         try:
-            count = self.service.assign_permissions_to_role(pk, permission_codenames)
+            count = self.service.assign_permissions_to_role(pk, permission_codes)
             return ok_response({"message": f"{count} permisos asignados"})
         except ValueError as e:
             return error_response(e)
@@ -250,7 +267,12 @@ class UserViewSet(viewsets.ModelViewSet):
     }
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = UserFilter
-    search_fields = ["names", "last_names", "email", "dni"]
+    search_fields = [
+        "person__names",
+        "person__last_names",
+        "email",
+        "person__document_number",
+    ]
     ordering_fields = ["email", "created_at"]
     ordering = ["email"]
 
@@ -259,7 +281,7 @@ class UserViewSet(viewsets.ModelViewSet):
         self.service = UserService()
 
     def get_queryset(self):
-        return User.objects.select_related("role", "institution")
+        return User.objects.select_related("institution")
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -275,7 +297,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
         try:
             user = self.service.create_user(
-                dni=serializer.validated_data["dni"],
+                document_number=serializer.validated_data["document_number"],
                 names=serializer.validated_data["names"],
                 last_names=serializer.validated_data["last_names"],
                 email=serializer.validated_data["email"],
@@ -303,15 +325,15 @@ class UserViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="grant-permission")
     def grant_permission(self, request, pk=None):
         """Otorga un permiso específico a un usuario."""
-        permission_codename = request.data.get("permission_codename")
+        permission_code = request.data.get("permission_code")
         reason = request.data.get("reason", "")
 
-        if not permission_codename:
-            return error_response('Se requiere "permission_codename"')
+        if not permission_code:
+            return error_response('Se requiere "permission_code"')
 
         try:
             up = self.service.grant_permission(
-                pk, permission_codename, reason, request.user.id
+                pk, permission_code, reason, request.user.id
             )
             return ok_response(UserPermissionSerializer(up).data)
         except ValueError as e:
@@ -320,15 +342,15 @@ class UserViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="revoke-permission")
     def revoke_permission(self, request, pk=None):
         """Revoca un permiso específico a un usuario."""
-        permission_codename = request.data.get("permission_codename")
+        permission_code = request.data.get("permission_code")
         reason = request.data.get("reason", "")
 
-        if not permission_codename:
-            return error_response('Se requiere "permission_codename"')
+        if not permission_code:
+            return error_response('Se requiere "permission_code"')
 
         try:
             up = self.service.revoke_permission(
-                pk, permission_codename, reason, request.user.id
+                pk, permission_code, reason, request.user.id
             )
             return ok_response(UserPermissionSerializer(up).data)
         except ValueError as e:

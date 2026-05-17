@@ -3,19 +3,18 @@ from .permission import Permission
 
 
 class Role(models.Model):
-    """
-    Rol del sistema que agrupa un conjunto base de permisos.
-
-    Los permisos efectivos de un usuario se ajustan via UserPermission,
-    que permite granularity: un usuario puede tener permisos adicionales
-    o tener revocados permisos que su rol tenga.
-    """
-
     name = models.CharField(
         max_length=100,
         unique=True,
         verbose_name="Nombre del Rol",
-        help_text="Nombre único del rol (Docente, Administrador, Director, etc)",
+        help_text="Nombre único del rol",
+    )
+    code = models.CharField(
+        max_length=50,
+        unique=True,
+        verbose_name="Código del Rol",
+        help_text="Código único del rol (DOCENTE, ADMIN, etc)",
+        null=True,
     )
     description = models.CharField(
         max_length=255,

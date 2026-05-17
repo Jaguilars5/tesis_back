@@ -42,16 +42,13 @@ class StudentRiskScoreRepository(BaseRepository):
         academic_period_id,
         risk_score,
         risk_label,
-        top_factors,
         model_version,
     ):
-        """Persiste un puntaje de riesgo calculado."""
         return cls.model.objects.create(
             student_id=student_id,
             academic_period_id=academic_period_id,
             risk_score=risk_score,
             risk_label=risk_label,
-            top_factors=top_factors,
             model_version=model_version,
         )
 

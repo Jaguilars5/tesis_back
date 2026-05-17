@@ -1,8 +1,23 @@
 from django.test import TestCase
 from datetime import date
-from apps.institutions.models import Institution, School_Year
+from apps.accounts.models import Person
+from apps.institutions.models import AcademicGrade, AcademicLevel, DocumentType, Institution, School_Year
 from apps.academic.models import Timing_Regime, Section
-from ..models import Student, Representative, Student_Representative
+from ..models import EnrollmentStatus, Representative, Student, Student_Representative
+from apps.core.tests.helpers import create_test_student
+
+
+def _create_person(document_number, names, last_names, phone=""):
+    doc_type = DocumentType.objects.get_or_create(
+        code="CC", defaults={"name": "Cédula de Ciudadanía"}
+    )[0]
+    return Person.objects.create(
+        document_type=doc_type,
+        document_number=document_number,
+        names=names,
+        last_names=last_names,
+        phone=phone,
+    )
 
 
 class StudentModelTest(TestCase):
@@ -20,82 +35,81 @@ class StudentModelTest(TestCase):
             end_date=date(2025, 7, 31),
         )
         self.timing_regime = Timing_Regime.objects.create(
-            school_year=self.school_year, name="Matutina"
+            institution=self.institution, name="Matutina"
+        )
+        self.academic_level = AcademicLevel.objects.create(
+            institution=self.institution, name="Primaria"
+        )
+        self.academic_grade = AcademicGrade.objects.create(
+            academic_level=self.academic_level, name="6to", sequence_order=1
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
             timing_regime=self.timing_regime,
-            level="Primaria",
-            grade="6to",
+            academic_grade=self.academic_grade,
             parallel="A",
             capacity=40,
         )
 
     def test_student_creation(self):
         """Probar creación de estudiante"""
-        student = Student.objects.create(
-            dni="1234567890",
+        student = create_test_student(
+            document_number="1234567890",
             names="Juan",
             last_names="Pérez García",
             birth_date=date(2012, 5, 15),
-            section=self.section,
         )
 
         self.assertIsNotNone(student.id)
-        self.assertEqual(student.dni, "1234567890")
+        self.assertEqual(student.person.document_number, "1234567890")
         self.assertTrue(student.active)
 
     def test_student_dni_unique(self):
         """Probar que DNI es único"""
-        Student.objects.create(
-            dni="1234567890",
+        create_test_student(
+            document_number="1234567890",
             names="Juan",
             last_names="Pérez",
             birth_date=date(2012, 5, 15),
-            section=self.section,
         )
 
         with self.assertRaises(Exception):
-            Student.objects.create(
-                dni="1234567890",  # Mismo DNI
+            create_test_student(
+                document_number="1234567890",  # Mismo DNI
                 names="Pedro",
                 last_names="González",
                 birth_date=date(2011, 3, 20),
-                section=self.section,
             )
 
     def test_student_str(self):
         """Probar representación en string"""
-        student = Student.objects.create(
-            dni="1234567890",
+        student = create_test_student(
+            document_number="1234567890",
             names="Juan",
             last_names="Pérez García",
             birth_date=date(2012, 5, 15),
-            section=self.section,
         )
 
         self.assertEqual(str(student), "Juan Pérez García")
 
     def test_student_full_name(self):
         """Probar get_full_name"""
-        student = Student.objects.create(
-            dni="1234567890",
+        student = create_test_student(
+            document_number="1234567890",
             names="Juan",
             last_names="Pérez García",
             birth_date=date(2012, 5, 15),
-            section=self.section,
         )
 
         self.assertEqual(student.get_full_name(), "Juan Pérez García")
 
     def test_student_age(self):
         """Probar cálculo de edad"""
-        student = Student.objects.create(
-            dni="1234567890",
+        student = create_test_student(
+            document_number="1234567890",
             names="Juan",
             last_names="Pérez",
             birth_date=date(2010, 5, 15),  # ~14 años
-            section=self.section,
         )
 
         age = student.get_age()
@@ -173,25 +187,29 @@ class StudentRepresentativeModelTest(TestCase):
             end_date=date(2025, 7, 31),
         )
         self.timing_regime = Timing_Regime.objects.create(
-            school_year=self.school_year, name="Matutina"
+            institution=self.institution, name="Matutina"
+        )
+        self.academic_level = AcademicLevel.objects.create(
+            institution=self.institution, name="Primaria"
+        )
+        self.academic_grade = AcademicGrade.objects.create(
+            academic_level=self.academic_level, name="6to", sequence_order=1
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
             timing_regime=self.timing_regime,
-            level="Primaria",
-            grade="6to",
+            academic_grade=self.academic_grade,
             parallel="A",
             capacity=40,
         )
-        self.student = Student.objects.create(
-            dni="1234567890",
+        self.student = create_test_student(
+            document_number="1234567890",
             names="Juan",
             last_names="Pérez",
             birth_date=date(2012, 5, 15),
-            section=self.section,
         )
-        self.representative = Representative.objects.create(
-            dni="9876543210",
+        self.representative = _create_person(
+            document_number="9876543210",
             names="María",
             last_names="Pérez",
             phone="0987654321",
@@ -201,7 +219,7 @@ class StudentRepresentativeModelTest(TestCase):
         """Probar creación de relación"""
         rel = Student_Representative.objects.create(
             student=self.student,
-            representative=self.representative,
+            person=self.representative,
             kinship="Madre",
             is_primary=True,
             can_pickup=True,
@@ -214,20 +232,20 @@ class StudentRepresentativeModelTest(TestCase):
     def test_relationship_unique_together(self):
         """Probar que no puede haber duplicados"""
         Student_Representative.objects.create(
-            student=self.student, representative=self.representative, kinship="Madre"
+            student=self.student, person=self.representative, kinship="Madre"
         )
 
         with self.assertRaises(Exception):
             Student_Representative.objects.create(
                 student=self.student,
-                representative=self.representative,
+                person=self.representative,
                 kinship="Madre",
             )
 
     def test_multiple_representatives(self):
         """Probar múltiples representantes por estudiante"""
-        rep2 = Representative.objects.create(
-            dni="1111111111",
+        rep2 = _create_person(
+            document_number="1111111111",
             names="Pedro",
             last_names="García",
             phone="0987654322",
@@ -235,13 +253,31 @@ class StudentRepresentativeModelTest(TestCase):
 
         Student_Representative.objects.create(
             student=self.student,
-            representative=self.representative,
+            person=self.representative,
             kinship="Madre",
             is_primary=True,
         )
         Student_Representative.objects.create(
-            student=self.student, representative=rep2, kinship="Padre", is_primary=False
+            student=self.student, person=rep2, kinship="Padre", is_primary=False
         )
 
         rels = Student_Representative.objects.filter(student=self.student)
         self.assertEqual(rels.count(), 2)
+
+
+class EnrollmentStatusModelTest(TestCase):
+    def setUp(self):
+        self.status, _ = EnrollmentStatus.objects.get_or_create(
+            code="ACT", defaults={"name": "Activa"}
+        )
+
+    def test_creation(self):
+        self.assertEqual(self.status.code, "ACT")
+        self.assertEqual(self.status.name, "Activa")
+
+    def test_code_unique(self):
+        with self.assertRaises(Exception):
+            EnrollmentStatus.objects.create(code="ACT", name="Duplicado")
+
+    def test_str(self):
+        self.assertEqual(str(self.status), "Activa")

@@ -14,6 +14,8 @@ from ..models import (
     Academic_Activity,
     Timing_Regime,
     Teacher_Subject_Section,
+    SubjectAcademicConfig,
+    SubjectOffering,
 )
 from .serializers import (
     SectionSerializer,
@@ -23,6 +25,8 @@ from .serializers import (
     Academic_ActivitySerializer,
     Timing_RegimeSerializer,
     Teacher_Subject_SectionSerializer,
+    SubjectAcademicConfigSerializer,
+    SubjectOfferingSerializer,
 )
 
 
@@ -152,4 +156,32 @@ class TeacherSubjectSectionViewSet(BaseAcademicViewSet):
         "partial_update": academic.UPDATE_TEACHER_SUBJECT,
         "destroy": academic.DELETE_TEACHER_SUBJECT,
         "soft_delete": academic.DELETE_TEACHER_SUBJECT,
+    }
+
+
+class SubjectAcademicConfigViewSet(BaseAcademicViewSet):
+    queryset = SubjectAcademicConfig.objects.all()
+    serializer_class = SubjectAcademicConfigSerializer
+    action_permissions = {
+        "list": academic.VIEW_SUBJECT,
+        "retrieve": academic.VIEW_SUBJECT,
+        "create": academic.CREATE_SUBJECT,
+        "update": academic.UPDATE_SUBJECT,
+        "partial_update": academic.UPDATE_SUBJECT,
+        "destroy": academic.DELETE_SUBJECT,
+        "soft_delete": academic.DELETE_SUBJECT,
+    }
+
+
+class SubjectOfferingViewSet(BaseAcademicViewSet):
+    queryset = SubjectOffering.objects.all()
+    serializer_class = SubjectOfferingSerializer
+    action_permissions = {
+        "list": academic.VIEW_SUBJECT,
+        "retrieve": academic.VIEW_SUBJECT,
+        "create": academic.CREATE_SUBJECT,
+        "update": academic.UPDATE_SUBJECT,
+        "partial_update": academic.UPDATE_SUBJECT,
+        "destroy": academic.DELETE_SUBJECT,
+        "soft_delete": academic.DELETE_SUBJECT,
     }

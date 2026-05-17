@@ -1,6 +1,6 @@
 # API - Módulo Students
 
-Esta API gestiona el registro de estudiantes, sus representantes legales y las vinculaciones entre ellos.
+Esta API gestiona el registro de estudiantes, sus matrículas y la relación con representantes legales.
 
 ---
 
@@ -25,137 +25,158 @@ Header requerido:
 Authorization: Bearer <access_token>
 ```
 
-Todos los ViewSets usan `HasPermission` con `action_permissions`. Ver tabla de permisos en `apps/students/README.md`.
+| Endpoint | Método | Permiso |
+|---------|--------|---------|
+| `student/` | GET | `students.view_student` |
+| `student/` | POST | `students.create_student` |
+| `student/{id}/` | GET | `students.view_student` |
+| `student/{id}/` | PATCH | `students.update_student` |
+| `student/{id}/` | DELETE | `students.delete_student` |
+| `enrollment/` | GET | `students.view_enrollment` |
+| `enrollment/` | POST | `students.create_enrollment` |
+| `student-representative/` | GET | `students.view_relationship` |
+| `student-representative/` | POST | `students.create_relationship` |
 
 ---
 
 ## Estudiantes (`/api/students/student/`)
 
-### Listar Estudiantes
+### Listar
 **GET** `/api/students/student/`
 
-Response:
+Response (paginado):
 ```json
 {
   "ok": true,
-  "data": [
-    {
-      "id": 1,
-      "dni": "1725556660",
-      "names": "Carlos Andrés"
-    }
-  ],
+  "data": {
+    "count": 1,
+    "next": null,
+    "previous": null,
+    "results": [
+      {
+        "id": 1,
+        "student_code": "EST-2024-001",
+        "person": {
+          "id": 1,
+          "document_number": "1725556660",
+          "names": "Carlos Andrés",
+          "last_names": "Mendoza Paz"
+        },
+        "active": true
+      }
+    ]
+  },
   "msg": ""
 }
 ```
 
-### Crear Estudiante (Matriculación)
+### Crear Estudiante
 **POST** `/api/students/student/`
 
 Request:
 ```json
 {
-  "dni": "1725556660",
-  "names": "Carlos Andrés",
-  "last_names": "Mendoza Paz",
-  "birth_date": "2015-05-12",
+  "person": {
+    "document_type": 1,
+    "document_number": "1725556660",
+    "names": "Carlos Andrés",
+    "last_names": "Mendoza Paz",
+    "birth_date": "2015-05-12",
+    "email": "carlos@mail.com"
+  },
+  "student_code": "EST-2024-001"
+}
+```
+
+### Obtener
+**GET** `/api/students/student/{id}/`
+
+### Actualizar
+**PATCH** `/api/students/student/{id}/`
+
+### Eliminar (soft delete)
+**DELETE** `/api/students/student/{id}/`
+
+---
+
+## Matrículas (`/api/students/enrollment/`)
+
+### Listar
+**GET** `/api/students/enrollment/`
+
+Response (paginado):
+```json
+{
+  "ok": true,
+  "data": {
+    "count": 1,
+    "next": null,
+    "previous": null,
+    "results": [
+      {
+        "id": 1,
+        "student": 1,
+        "section": 1,
+        "enrollment_status": 1,
+        "enrollment_date": "2024-09-01"
+      }
+    ]
+  },
+  "msg": ""
+}
+```
+
+### Crear Matrícula
+**POST** `/api/students/enrollment/`
+
+Request:
+```json
+{
+  "student": 1,
   "section": 1,
-  "enrollment_number": "MAT-2024-001"
+  "enrollment_status": 1
 }
 ```
 
-Response:
-```json
-{
-  "ok": true,
-  "data": {
-    "id": 1,
-    "dni": "1725556660"
-  },
-  "msg": ""
-}
-```
+### Obtener
+**GET** `/api/students/enrollment/{id}/`
 
-### Actualizar Estudiante
-**PUT** `/api/students/student/{id}/`
+### Actualizar
+**PATCH** `/api/students/enrollment/{id}/`
+
+---
+
+## Estados de Matrícula (`/api/students/enrollment-status/`)
+
+### Listar
+**GET** `/api/students/enrollment-status/`
+
+### Crear
+**POST** `/api/students/enrollment-status/`
 
 Request:
 ```json
 {
-  "names": "Carlos Alberto"
-}
-```
-
-Response:
-```json
-{
-  "ok": true,
-  "data": {
-    "id": 1,
-    "names": "Carlos Alberto"
-  },
-  "msg": ""
-}
-```
-
-### Borrado Lógico
-**POST** `/api/students/student/{id}/soft-delete/`
-
-Response:
-```json
-{
-  "ok": true,
-  "data": {
-    "id": 1,
-    "active": false
-  },
-  "msg": ""
+  "code": "ACTIVE",
+  "name": "Activo"
 }
 ```
 
 ---
 
-## Representantes (`/api/students/representative/`)
+## Relaciones Estudiante-Representante (`/api/students/student-representative/`)
 
-### Crear Representante
-**POST** `/api/students/representative/`
+### Listar
+**GET** `/api/students/student-representative/`
 
-Request:
-```json
-{
-  "dni": "1711122233",
-  "names": "Mariana",
-  "last_names": "Paz",
-  "phone": "0998887766",
-  "email": "mariana.paz@mail.com",
-  "address": "Quito, Sector Sur"
-}
-```
-
-Response:
-```json
-{
-  "ok": true,
-  "data": {
-    "id": 1,
-    "dni": "1711122233"
-  },
-  "msg": ""
-}
-```
-
----
-
-## Vinculación Estudiante-Representante (`/api/students/student-representative/`)
-
-### Asignar Representante
+### Crear
 **POST** `/api/students/student-representative/`
 
 Request:
 ```json
 {
   "student": 1,
-  "representative": 2,
+  "person": 5,
   "kinship": "Madre",
   "is_primary": true,
   "can_pickup": true,
@@ -164,15 +185,11 @@ Request:
 }
 ```
 
-Response:
-```json
-{
-  "ok": true,
-  "data": {
-    "id": 1,
-    "student": 1,
-    "representative": 2
-  },
-  "msg": ""
-}
-```
+### Obtener
+**GET** `/api/students/student-representative/{id}/`
+
+### Actualizar
+**PATCH** `/api/students/student-representative/{id}/`
+
+### Eliminar
+**DELETE** `/api/students/student-representative/{id}/`

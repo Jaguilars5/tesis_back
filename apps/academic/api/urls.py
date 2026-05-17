@@ -3,7 +3,8 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     SectionViewSet, SubjectViewSet, ConfigAcademicViewSet,
     AcademicPeriodViewSet, AcademicActivityViewSet, TimingRegimeViewSet,
-    TeacherSubjectSectionViewSet
+    TeacherSubjectSectionViewSet, SubjectAcademicConfigViewSet,
+    SubjectOfferingViewSet,
 )
 
 router = DefaultRouter()
@@ -14,6 +15,8 @@ router.register(r'academic-period', AcademicPeriodViewSet, basename='academic-pe
 router.register(r'academic-activity', AcademicActivityViewSet, basename='academic-activity')
 router.register(r'timing-regime', TimingRegimeViewSet, basename='timing-regime')
 router.register(r'teacher-subject-section', TeacherSubjectSectionViewSet, basename='teacher-subject-section')
+router.register(r'subject-academic-configs', SubjectAcademicConfigViewSet, basename='subject-academic-config')
+router.register(r'subject-offerings', SubjectOfferingViewSet, basename='subject-offering')
 
 urlpatterns = [
     path('', include(router.urls)),

@@ -1,10 +1,11 @@
 from django.test import TestCase
 from datetime import date
 from decimal import Decimal
-from apps.institutions.models import Institution, School_Year
+from apps.institutions.models import AcademicGrade, AcademicLevel, Institution, School_Year
 from apps.academic.models import Config_Academic, Academic_Period, Timing_Regime, Section
+from apps.core.tests.helpers import create_test_student
 from apps.students.models import Student
-from apps.analytics.models import StudentRiskScore, StudentFeatureSnapshot
+from apps.analytics.models import RiskFactor, StudentFeatureSnapshot, StudentRiskScore
 
 
 class StudentRiskScoreModelTest(TestCase):
@@ -30,27 +31,31 @@ class StudentRiskScoreModelTest(TestCase):
         self.period = Academic_Period.objects.create(
             config_academic=self.config,
             name="Periodo 1",
-            number=1,
+
             start_date=date(2024, 9, 1),
             end_date=date(2024, 12, 15),
         )
         self.timing = Timing_Regime.objects.create(
-            school_year=self.school_year, name="Matutina"
+            institution=self.institution, name="Matutina"
+        )
+        self.academic_level = AcademicLevel.objects.create(
+            institution=self.institution, name="Primaria"
+        )
+        self.academic_grade = AcademicGrade.objects.create(
+            academic_level=self.academic_level, name="6to", sequence_order=6
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
             timing_regime=self.timing,
-            level="Primaria",
-            grade="6to",
+            academic_grade=self.academic_grade,
             parallel="A",
             capacity=40,
         )
-        self.student = Student.objects.create(
-            dni="1234567890",
+        self.student = create_test_student(
+            document_number="1234567890",
             names="Juan",
             last_names="Perez",
             birth_date=date(2012, 5, 15),
-            section=self.section,
         )
 
     def test_risk_score_creation(self):
@@ -59,7 +64,6 @@ class StudentRiskScoreModelTest(TestCase):
             academic_period=self.period,
             risk_score=Decimal("75.50"),
             risk_label="Alto",
-            top_factors={"absences": 0.4, "grades": 0.35},
             model_version="v1.0",
         )
         self.assertEqual(risk.risk_score, Decimal("75.50"))
@@ -72,7 +76,6 @@ class StudentRiskScoreModelTest(TestCase):
             academic_period=self.period,
             risk_score=Decimal("45.00"),
             risk_label="Medio",
-            top_factors={"grades": 0.5},
             model_version="v1.0",
         )
         self.assertIn("Medio", str(risk))
@@ -84,7 +87,6 @@ class StudentRiskScoreModelTest(TestCase):
             academic_period=self.period,
             risk_score=Decimal("30.00"),
             risk_label="Bajo",
-            top_factors={},
             model_version="v1.0",
         )
         self.student.delete()
@@ -96,7 +98,6 @@ class StudentRiskScoreModelTest(TestCase):
             academic_period=self.period,
             risk_score=Decimal("30.00"),
             risk_label="Bajo",
-            top_factors={},
             model_version="v1.0",
         )
         StudentRiskScore.objects.create(
@@ -104,7 +105,6 @@ class StudentRiskScoreModelTest(TestCase):
             academic_period=self.period,
             risk_score=Decimal("80.00"),
             risk_label="Alto",
-            top_factors={},
             model_version="v1.0",
         )
         scores = StudentRiskScore.objects.filter(student=self.student)
@@ -134,27 +134,31 @@ class StudentFeatureSnapshotModelTest(TestCase):
         self.period = Academic_Period.objects.create(
             config_academic=self.config,
             name="Periodo 1",
-            number=1,
+
             start_date=date(2024, 9, 1),
             end_date=date(2024, 12, 15),
         )
         self.timing = Timing_Regime.objects.create(
-            school_year=self.school_year, name="Matutina"
+            institution=self.institution, name="Matutina"
+        )
+        self.academic_level = AcademicLevel.objects.create(
+            institution=self.institution, name="Primaria"
+        )
+        self.academic_grade = AcademicGrade.objects.create(
+            academic_level=self.academic_level, name="6to", sequence_order=6
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
             timing_regime=self.timing,
-            level="Primaria",
-            grade="6to",
+            academic_grade=self.academic_grade,
             parallel="A",
             capacity=40,
         )
-        self.student = Student.objects.create(
-            dni="1234567890",
+        self.student = create_test_student(
+            document_number="1234567890",
             names="Maria",
             last_names="Lopez",
             birth_date=date(2012, 3, 10),
-            section=self.section,
         )
 
     def test_snapshot_creation(self):
@@ -225,3 +229,26 @@ class StudentFeatureSnapshotModelTest(TestCase):
         )
         self.student.delete()
         self.assertFalse(StudentFeatureSnapshot.objects.filter(pk=snapshot.pk).exists())
+
+
+class RiskFactorModelTest(TestCase):
+    def setUp(self):
+        self.factor = RiskFactor.objects.create(
+            code="ASIST_BAJA",
+            name="Asistencia Baja",
+            description="Estudiante con alta tasa de inasistencia",
+        )
+
+    def test_creation(self):
+        self.assertEqual(self.factor.code, "ASIST_BAJA")
+        self.assertEqual(self.factor.name, "Asistencia Baja")
+        self.assertEqual(self.factor.description, "Estudiante con alta tasa de inasistencia")
+
+    def test_code_unique(self):
+        with self.assertRaises(Exception):
+            RiskFactor.objects.create(
+                code="ASIST_BAJA", name="Duplicado", description="Test"
+            )
+
+    def test_str(self):
+        self.assertEqual(str(self.factor), "Asistencia Baja")

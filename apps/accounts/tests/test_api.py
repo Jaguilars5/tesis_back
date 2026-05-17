@@ -8,6 +8,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
 from apps.accounts.models import User, Role, Permission
+from apps.core.tests.helpers import create_test_user
 from apps.institutions.models import Institution
 
 
@@ -20,18 +21,15 @@ class PermissionAPITest(TestCase):
             name="Institución de Prueba", code="INST001"
         )
         self.role = Role.objects.create(name="Admin")
-        self.admin_user = User.objects.create(
+        self.admin_user = create_test_user(
+            email="admin@example.com",
             dni="999999999",
             names="Admin",
             last_names="User",
-            email="admin@example.com",
-            role=self.role,
             institution=self.institution,
-            password="adminpassword",
             is_superuser=True,
+            password="adminpass",
         )
-        self.admin_user.set_password("adminpass")
-        self.admin_user.save()
 
         self.client.force_authenticate(user=self.admin_user)
 
@@ -75,14 +73,12 @@ class RoleAPITest(TestCase):
             name="Institución de Prueba", code="INST001"
         )
         self.role = Role.objects.create(name="Admin")
-        self.admin_user = User.objects.create(
+        self.admin_user = create_test_user(
+            email="admin@example.com",
             dni="999999999",
             names="Admin",
             last_names="User",
-            email="admin@example.com",
-            role=self.role,
             institution=self.institution,
-            password="adminpassword",
             is_superuser=True,
         )
         self.client.force_authenticate(user=self.admin_user)
@@ -124,14 +120,12 @@ class UserAPITest(TestCase):
             name="Institución de Prueba", code="INST001"
         )
         self.role = Role.objects.create(name="Admin")
-        self.admin_user = User.objects.create(
+        self.admin_user = create_test_user(
+            email="admin@example.com",
             dni="999999999",
             names="Admin",
             last_names="User",
-            email="admin@example.com",
-            role=self.role,
             institution=self.institution,
-            password="adminpassword",
             is_superuser=True,
         )
         self.client.force_authenticate(user=self.admin_user)
@@ -145,7 +139,7 @@ class UserAPITest(TestCase):
     def test_create_user(self):
         """Verifica que se puede crear un usuario."""
         data = {
-            "dni": "123456789",
+            "document_number": "123456789",
             "names": "Juan",
             "last_names": "Pérez",
             "email": "juan@example.com",
@@ -161,18 +155,16 @@ class UserAPITest(TestCase):
 
     def test_create_user_duplicate_email(self):
         """Verifica que no se puede crear usuario con email duplicado."""
-        User.objects.create(
+        create_test_user(
+            email="otro@example.com",
             dni="111111111",
             names="Otro",
             last_names="Usuario",
-            email="otro@example.com",
-            role=self.role,
             institution=self.institution,
-            password="password"
         )
 
         data = {
-            "dni": "123456789",
+            "document_number": "123456789",
             "names": "Juan",
             "last_names": "Pérez",
             "email": "otro@example.com",
@@ -187,17 +179,14 @@ class UserAPITest(TestCase):
 
     def test_change_password(self):
         """Verifica que se puede cambiar la contraseña."""
-        user = User.objects.create(
+        user = create_test_user(
+            email="juan@example.com",
             dni="123456789",
             names="Juan",
             last_names="Pérez",
-            email="juan@example.com",
-            role=self.role,
             institution=self.institution,
-            password="password"
+            password="micontraseña123",
         )
-        user.set_password("micontraseña123")
-        user.save()
 
         data = {"new_password": "nuevacontraseña456"}
         response = self.client.post(
@@ -210,14 +199,12 @@ class UserAPITest(TestCase):
 
     def test_grant_permission(self):
         """Verifica que se puede otorgar un permiso."""
-        user = User.objects.create(
+        user = create_test_user(
+            email="juan@example.com",
             dni="123456789",
             names="Juan",
             last_names="Pérez",
-            email="juan@example.com",
-            role=self.role,
             institution=self.institution,
-            password="password"
         )
         permission = Permission.objects.create(codename="perm1", module="test")
 
@@ -230,14 +217,12 @@ class UserAPITest(TestCase):
 
     def test_get_user_permissions(self):
         """Verifica que se pueden obtener los permisos de un usuario."""
-        user = User.objects.create(
+        user = create_test_user(
+            email="juan@example.com",
             dni="123456789",
             names="Juan",
             last_names="Pérez",
-            email="juan@example.com",
-            role=self.role,
             institution=self.institution,
-            password="password"
         )
 
         response = self.client.get(f"/api/accounts/users/{user.id}/permissions/")

@@ -4,10 +4,11 @@ UserService - Lógica de negocio para User.
 Orquesta operaciones entre repositories, modelos y tareas asíncronas.
 """
 
-from apps.accounts.repositories.user_repo import UserRepository
+from apps.accounts.models import Person, User, UserPermission
 from apps.accounts.repositories.role_repo import RoleRepository
+from apps.accounts.repositories.user_repo import UserRepository
 from apps.accounts.repositories.permission_repo import PermissionRepository
-from apps.accounts.models import User, UserPermission
+from apps.institutions.models import DocumentType, Institution
 
 
 class UserService:
@@ -23,7 +24,7 @@ class UserService:
         self.permission_repo = PermissionRepository()
 
     def create_user(
-        self, dni, names, last_names, email, password, role_id, institution_id
+        self, document_number, names, last_names, email, password, role_id, institution_id
     ):
         """
         Crea un nuevo usuario.
@@ -32,7 +33,8 @@ class UserService:
         1. Validar que no exista otro usuario con el mismo email/dni
         2. Validar que el rol exista
         3. Validar que la institución exista
-        4. Crear el usuario
+        4. Crear la Persona
+        5. Crear el usuario asociado
 
         Lanza:
         - ValueError si el email ya existe
@@ -45,9 +47,9 @@ class UserService:
             raise ValueError(f"El email {email} ya está registrado")
 
         # Verificar DNI único (en la institución)
-        existing_dni = self.user_repo.get_by_dni(dni, institution_id)
+        existing_dni = self.user_repo.get_by_dni(document_number, institution_id)
         if existing_dni:
-            raise ValueError(f"El DNI {dni} ya está registrado en esta institución")
+            raise ValueError(f"El DNI {document_number} ya está registrado en esta institución")
 
         # Verificar que el rol existe
         role = self.role_repo.get_by_id(role_id)
@@ -55,21 +57,27 @@ class UserService:
             raise ValueError(f"El rol con ID {role_id} no existe")
 
         # Verificar que la institución existe
-        from apps.institutions.models import Institution
-
         try:
             institution = Institution.objects.get(id=institution_id)
         except Institution.DoesNotExist:
             raise ValueError(f"La institución con ID {institution_id} no existe")
 
-        # Crear el usuario
-        user = self.user_repo.create(
-            dni=dni,
+        # Crear la Persona
+        doc_type = DocumentType.objects.get_or_create(
+            code="CC", defaults={"name": "Cédula de Ciudadanía"}
+        )[0]
+        person = Person.objects.create(
+            document_type=doc_type,
+            document_number=document_number,
             names=names,
             last_names=last_names,
             email=email,
+        )
+
+        # Crear el usuario
+        user = self.user_repo.create(
+            person=person,
             password=password,
-            role=role,
             institution=institution,
         )
         return user
@@ -132,7 +140,7 @@ class UserService:
         return user
 
     def grant_permission(
-        self, user_id, permission_codename, reason="", granted_by_id=None
+        self, user_id, permission_code, reason="", granted_by_id=None
     ):
         """
         Otorga un permiso específico a un usuario.
@@ -143,9 +151,9 @@ class UserService:
         if not user:
             raise ValueError(f"Usuario con ID {user_id} no existe")
 
-        permission = self.permission_repo.get_by_codename(permission_codename)
+        permission = self.permission_repo.get_by_code(permission_code)
         if not permission:
-            raise ValueError(f"El permiso {permission_codename} no existe")
+            raise ValueError(f"El permiso {permission_code} no existe")
 
         granted_by = None
         if granted_by_id:
@@ -158,7 +166,6 @@ class UserService:
         )
 
         if not created:
-            # Actualizar si ya existe
             up.granted = True
             up.reason = reason
             up.granted_by = granted_by
@@ -167,7 +174,7 @@ class UserService:
         return up
 
     def revoke_permission(
-        self, user_id, permission_codename, reason="", granted_by_id=None
+        self, user_id, permission_code, reason="", granted_by_id=None
     ):
         """
         Revoca un permiso específico a un usuario.
@@ -178,9 +185,9 @@ class UserService:
         if not user:
             raise ValueError(f"Usuario con ID {user_id} no existe")
 
-        permission = self.permission_repo.get_by_codename(permission_codename)
+        permission = self.permission_repo.get_by_code(permission_code)
         if not permission:
-            raise ValueError(f"El permiso {permission_codename} no existe")
+            raise ValueError(f"El permiso {permission_code} no existe")
 
         granted_by = None
         if granted_by_id:
@@ -200,14 +207,14 @@ class UserService:
 
         return up
 
-    def has_permission(self, user_id, permission_codename):
+    def has_permission(self, user_id, permission_code):
         """
         Verifica si un usuario tiene un permiso específico.
         """
         user = self.user_repo.get_by_id(user_id)
         if not user:
             return False
-        return user.has_perm(permission_codename)
+        return user.has_perm(permission_code)
 
     def get_user_permissions(self, user_id):
         """

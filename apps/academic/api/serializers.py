@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from ..models import (
     Section, Subject, Config_Academic, Academic_Period, 
-    Academic_Activity, Timing_Regime, Teacher_Subject_Section
+    Academic_Activity, Timing_Regime, Teacher_Subject_Section,
+    SubjectAcademicConfig, SubjectOffering,
 )
 
 class SectionSerializer(serializers.ModelSerializer):
@@ -37,4 +38,14 @@ class Timing_RegimeSerializer(serializers.ModelSerializer):
 class Teacher_Subject_SectionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Teacher_Subject_Section
+        fields = '__all__'
+
+class SubjectAcademicConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubjectAcademicConfig
+        fields = '__all__'
+
+class SubjectOfferingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubjectOffering
         fields = '__all__'

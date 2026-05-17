@@ -67,12 +67,6 @@ def calculate_student_academic_risk_task(self, student_id, academic_period_id):
                 academic_period_id=academic_period_id,
                 risk_score=analysis["semaforo_riesgo"]["puntaje_riesgo"],
                 risk_label=analysis["semaforo_riesgo"]["nivel"],
-                top_factors={
-                    "factores_criticos": analysis["semaforo_riesgo"][
-                        "factores_criticos"
-                    ],
-                    "detalle_por_variable": analysis["detalle_por_variable"],
-                },
                 model_version=analysis["model_version"],
             )
 

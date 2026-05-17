@@ -21,6 +21,5 @@ class SchoolYearAdmin(admin.ModelAdmin):
 class ClassroomAdmin(admin.ModelAdmin):
     list_display = ("name", "institution", "room_type", "capacity", "active")
     list_filter = ("institution", "active", "room_type")
-    search_fields = ("name", "room_type")
-    # Classroom no tiene created_at ni updated_at en su modelo actual
+    search_fields = ("name",)
 

@@ -3,7 +3,8 @@ from rest_framework import status
 from datetime import date
 from django.contrib.auth import get_user_model
 from apps.accounts.models import Role
-from ..models import Institution, School_Year, Classroom
+from apps.core.tests.helpers import create_test_user
+from ..models import AcademicGrade, AcademicLevel, AcademicRegime, Classroom, DocumentType, Institution, RoomType, School_Year
 
 User = get_user_model()
 
@@ -19,13 +20,11 @@ class InstitutionAPITest(APITestCase):
             city="Quito",
         )
         self.role = Role.objects.create(name="Admin")
-        self.user = User.objects.create_user(
+        self.user = create_test_user(
             email="institutions@test.com",
             dni="1717171717",
             names="Institutions",
             last_names="Tester",
-            password="test_password_123",
-            role=self.role,
             institution=self.institution,
             is_superuser=True,
         )
@@ -73,13 +72,11 @@ class SchoolYearAPITest(APITestCase):
             name="Escuela A", code="EA-001", address="Dirección", city="Quito"
         )
         self.role = Role.objects.create(name="Admin")
-        self.user = User.objects.create_user(
+        self.user = create_test_user(
             email="schoolyear@test.com",
             dni="1818181818",
             names="School",
             last_names="Tester",
-            password="test_password_123",
-            role=self.role,
             institution=self.institution,
             is_superuser=True,
         )
@@ -126,21 +123,22 @@ class ClassroomAPITest(APITestCase):
             name="Instituto B", code="IB-002", address="Dirección B", city="Quito"
         )
         self.role = Role.objects.create(name="Admin")
-        self.user = User.objects.create_user(
+        self.user = create_test_user(
             email="classroom@test.com",
             dni="1919191919",
             names="Classroom",
             last_names="Tester",
-            password="test_password_123",
-            role=self.role,
             institution=self.institution,
             is_superuser=True,
         )
         self.client.force_authenticate(user=self.user)
+        self.room_type = RoomType.objects.create(
+            code="AULA", name="Aula de Clase"
+        )
         self.classroom = Classroom.objects.create(
             institution=self.institution,
             name="101",
-            room_type="Aula de clase",
+            room_type=self.room_type,
             capacity=40,
         )
         self.url = "/api/institutions/classroom/"
@@ -153,7 +151,7 @@ class ClassroomAPITest(APITestCase):
         data = {
             "institution": self.institution.id,
             "name": "102",
-            "room_type": "Aula de clase",
+            "room_type": self.room_type.id,
             "capacity": 35,
         }
         response = self.client.post(self.url, data, format="json")
@@ -174,8 +172,95 @@ class ClassroomAPITest(APITestCase):
         data = {
             "institution": self.institution.id,
             "name": "Invalid",
-            "room_type": "Aula",
+            "room_type": self.room_type.id,
             "capacity": 0,
         }
         response = self.client.post(self.url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class DocumentTypeAPITest(APITestCase):
+    """Tests para los endpoints de DocumentType"""
+
+    def setUp(self):
+        self.role = Role.objects.create(name="Admin")
+        self.user = create_test_user(
+            email="doctype@test.com",
+            dni="2010101010",
+            names="DocType",
+            last_names="Tester",
+            is_superuser=True,
+        )
+        self.client.force_authenticate(user=self.user)
+        # CC already created by create_test_user helper
+        DocumentType.objects.create(code="PP", name="Pasaporte")
+        self.url = "/api/institutions/document-types/"
+
+    def test_list(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(len(data.get("data", [])), 2)
+
+    def test_retrieve(self):
+        doc = DocumentType.objects.first()
+        response = self.client.get(f"{self.url}{doc.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["data"]["code"], "CC")
+
+    def test_create_not_allowed(self):
+        data = {"code": "TI", "name": "Tarjeta de Identidad"}
+        response = self.client.post(self.url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+class RoomTypeAPITest(APITestCase):
+    """Tests para los endpoints de RoomType"""
+
+    def setUp(self):
+        self.role = Role.objects.create(name="Admin")
+        self.user = create_test_user(
+            email="roomtype@test.com",
+            dni="2020202020",
+            names="RoomType",
+            last_names="Tester",
+            is_superuser=True,
+        )
+        self.client.force_authenticate(user=self.user)
+        RoomType.objects.create(code="AULA", name="Aula de Clase")
+        self.url = "/api/institutions/room-types/"
+
+    def test_list(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_retrieve(self):
+        room = RoomType.objects.first()
+        response = self.client.get(f"{self.url}{room.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class AcademicRegimeAPITest(APITestCase):
+    """Tests para los endpoints de AcademicRegime"""
+
+    def setUp(self):
+        self.role = Role.objects.create(name="Admin")
+        self.user = create_test_user(
+            email="regime@test.com",
+            dni="2021202020",
+            names="Regime",
+            last_names="Tester",
+            is_superuser=True,
+        )
+        self.client.force_authenticate(user=self.user)
+        AcademicRegime.objects.create(code="SIERRA", name="Régimen Sierra")
+        self.url = "/api/institutions/academic-regimes/"
+
+    def test_list(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_retrieve(self):
+        regime = AcademicRegime.objects.first()
+        response = self.client.get(f"{self.url}{regime.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)

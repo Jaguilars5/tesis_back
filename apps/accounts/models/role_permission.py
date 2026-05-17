@@ -38,4 +38,4 @@ class RolePermission(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.role.name} → {self.permission.codename}"
+        return f"{self.role.name} → {self.permission.code}"

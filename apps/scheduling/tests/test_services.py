@@ -22,7 +22,7 @@ class SchedulingServiceTest(TestCase):
             end_date=date(2025, 12, 31),
         )
         self.timing_regime = Timing_Regime.objects.create(
-            school_year=school_year,
+            institution=institution,
             name="Matutina",
         )
         self.school_year = school_year

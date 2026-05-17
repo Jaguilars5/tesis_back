@@ -6,7 +6,12 @@ class Classroom(models.Model):
         "institutions.Institution", on_delete=models.CASCADE, verbose_name="Institución"
     )
     name = models.CharField(max_length=100, verbose_name="Nombre del Salón")
-    room_type = models.CharField(max_length=50, verbose_name="Tipo de Sala")
+    room_type = models.ForeignKey(
+        "institutions.RoomType",
+        on_delete=models.CASCADE,
+        verbose_name="Tipo de Sala",
+        null=True,
+    )
     capacity = models.IntegerField(verbose_name="Capacidad")
     active = models.BooleanField(default=True, verbose_name="Activo")
 

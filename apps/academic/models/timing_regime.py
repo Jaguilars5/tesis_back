@@ -2,8 +2,11 @@ from django.db import models
 
 
 class Timing_Regime(models.Model):
-    school_year = models.ForeignKey(
-        "institutions.School_Year", on_delete=models.CASCADE, verbose_name="Año Escolar"
+    institution = models.ForeignKey(
+        "institutions.Institution",
+        on_delete=models.CASCADE,
+        verbose_name="Institución",
+        null=True,
     )
     name = models.CharField(max_length=100, verbose_name="Nombre del Régimen")
     description = models.TextField(null=True, blank=True, verbose_name="Descripción")
@@ -15,4 +18,4 @@ class Timing_Regime(models.Model):
         verbose_name_plural = "Regímenes de Horario"
 
     def __str__(self):
-        return f"{self.name} - {self.school_year}"
+        return f"{self.name}"

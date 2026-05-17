@@ -15,12 +15,15 @@ from apps.core.pagination import StandardResultsSetPagination
 from apps.core.permissions import HasPermission
 from apps.core.utils import ok_response, error_response
 
+from ..models import RiskFactor, StudentRiskFactor
 from ..repositories import (
     StudentFeatureSnapshotRepository,
     StudentRiskScoreRepository,
 )
 from .serializers import (
+    RiskFactorSerializer,
     StudentFeatureSnapshotSerializer,
+    StudentRiskFactorSerializer,
     StudentRiskScoreSerializer,
 )
 
@@ -87,3 +90,42 @@ class StudentFeatureSnapshotViewSet(BaseAnalyticsViewSet):
 
     def get_queryset(self):
         return self.repository.get_all()
+
+
+class RiskFactorViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = RiskFactorSerializer
+    permission_classes = [IsAuthenticated, HasPermission]
+    action_permissions = {
+        "list": analytics.VIEW_RISK_FACTOR,
+        "retrieve": analytics.VIEW_RISK_FACTOR,
+    }
+
+    def get_queryset(self):
+        return RiskFactor.objects.all().order_by("name")
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return ok_response(serializer.data)
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            serializer = self.get_serializer(instance)
+            return ok_response(serializer.data)
+        except Exception as e:
+            return error_response(e)
+
+
+class StudentRiskFactorViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = StudentRiskFactorSerializer
+    permission_classes = [IsAuthenticated, HasPermission]
+    action_permissions = {
+        "list": analytics.VIEW_STUDENT_RISK_FACTOR,
+        "retrieve": analytics.VIEW_STUDENT_RISK_FACTOR,
+    }
+
+    def get_queryset(self):
+        return StudentRiskFactor.objects.all().select_related(
+            "student_risk_score", "risk_factor"
+        )

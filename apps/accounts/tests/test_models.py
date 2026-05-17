@@ -6,6 +6,7 @@ Prueban validaciones de campo, propiedades calculadas y restricciones de BD.
 
 from django.test import TestCase
 from apps.accounts.models import User, Role, Permission, RolePermission, UserPermission
+from apps.core.tests.helpers import create_test_user
 from apps.institutions.models import Institution
 
 
@@ -80,20 +81,18 @@ class UserModelTest(TestCase):
             name="Institución de Prueba", code="INST001"
         )
         self.role = Role.objects.create(name="Docente", description="Rol de docente")
-        self.user = User.objects.create(
+        self.user = create_test_user(
+            email="juan@example.com",
             dni="123456789",
             names="Juan",
             last_names="Pérez",
-            email="juan@example.com",
-            role=self.role,
             institution=self.institution,
-            password="password_provisional"
         )
 
     def test_create_user(self):
         """Verifica que se crea un usuario correctamente."""
-        self.assertEqual(self.user.dni, "123456789")
-        self.assertEqual(self.user.names, "Juan")
+        self.assertEqual(self.user.person.document_number, "123456789")
+        self.assertEqual(self.user.person.names, "Juan")
         self.assertEqual(self.user.email, "juan@example.com")
 
     def test_user_email_unique(self):
@@ -101,14 +100,12 @@ class UserModelTest(TestCase):
         from django.db import IntegrityError
 
         with self.assertRaises(IntegrityError):
-            User.objects.create(
+            create_test_user(
+                email="juan@example.com",
                 dni="987654321",
                 names="Pedro",
                 last_names="García",
-                email="juan@example.com",
-                role=self.role,
                 institution=self.institution,
-                password="password"
             )
 
     def test_user_dni_unique_per_institution(self):
@@ -116,14 +113,12 @@ class UserModelTest(TestCase):
         from django.db import IntegrityError
 
         with self.assertRaises(IntegrityError):
-            User.objects.create(
+            create_test_user(
+                email="pedro@example.com",
                 dni="123456789",
                 names="Pedro",
                 last_names="García",
-                email="pedro@example.com",
-                role=self.role,
                 institution=self.institution,
-                password="password"
             )
 
     def test_set_password(self):
@@ -144,6 +139,9 @@ class UserModelTest(TestCase):
 
     def test_has_perm_via_role(self):
         """Verifica que un usuario hereda permisos del rol."""
+        from apps.accounts.models import UserRole
+
+        UserRole.objects.create(user=self.user, role=self.role)
         permission = Permission.objects.create(
             codename="grading.create_note", module="grading"
         )
@@ -164,6 +162,9 @@ class UserModelTest(TestCase):
 
     def test_has_perm_override_revoked(self):
         """Verifica que UserPermission granted=False revoca permiso."""
+        from apps.accounts.models import UserRole
+
+        UserRole.objects.create(user=self.user, role=self.role)
         permission = Permission.objects.create(
             codename="grading.create_note", module="grading"
         )
@@ -176,6 +177,9 @@ class UserModelTest(TestCase):
 
     def test_get_all_permissions(self):
         """Verifica que se obtienen todos los permisos del usuario."""
+        from apps.accounts.models import UserRole
+
+        UserRole.objects.create(user=self.user, role=self.role)
         perm1 = Permission.objects.create(codename="perm1", module="test")
         perm2 = Permission.objects.create(codename="perm2", module="test")
         perm3 = Permission.objects.create(codename="perm3", module="test")
@@ -202,14 +206,12 @@ class UserPermissionModelTest(TestCase):
             name="Institución de Prueba", code="INST001"
         )
         self.role = Role.objects.create(name="Docente")
-        self.user = User.objects.create(
+        self.user = create_test_user(
+            email="juan@example.com",
             dni="123456789",
             names="Juan",
             last_names="Pérez",
-            email="juan@example.com",
-            role=self.role,
             institution=self.institution,
-            password="password"
         )
         self.permission = Permission.objects.create(
             codename="grading.create_note", module="grading"
@@ -249,14 +251,12 @@ class UserPermissionModelTest(TestCase):
 
         # Expirado
         up_expired = UserPermission.objects.create(
-            user=User.objects.create(
+            user=create_test_user(
+                email="pedro@example.com",
                 dni="987654321",
                 names="Pedro",
                 last_names="García",
-                email="pedro@example.com",
-                role=self.role,
                 institution=self.institution,
-                password="password"
             ),
             permission=self.permission,
             granted=True,

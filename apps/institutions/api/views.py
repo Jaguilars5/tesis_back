@@ -6,11 +6,16 @@ from apps.core.permissions import HasPermission
 from apps.core.constants.permissions import institutions
 
 from ..services.institution_service import InstitutionService
-from ..models import Institution, School_Year, Classroom
+from ..models import AcademicGrade, AcademicLevel, AcademicRegime, Classroom, DocumentType, Institution, RoomType, School_Year
 from .serializers import (
-    InstitutionSerializer,
-    School_YearSerializer,
+    AcademicGradeSerializer,
+    AcademicLevelSerializer,
+    AcademicRegimeSerializer,
     ClassroomSerializer,
+    DocumentTypeSerializer,
+    InstitutionSerializer,
+    RoomTypeSerializer,
+    School_YearSerializer,
 )
 from apps.core.utils import ok_response, error_response
 
@@ -239,7 +244,7 @@ class ClassroomViewSet(viewsets.ModelViewSet):
             classroom = InstitutionService.create_classroom(
                 institution_id=serializer.validated_data["institution"].id,
                 name=serializer.validated_data["name"],
-                room_type=serializer.validated_data["room_type"],
+                room_type_id=serializer.validated_data["room_type"].id,
                 capacity=serializer.validated_data["capacity"],
             )
             return ok_response(self.get_serializer(classroom).data, status=201)
@@ -285,7 +290,7 @@ class ClassroomViewSet(viewsets.ModelViewSet):
             classroom = InstitutionService.create_classroom(
                 institution_id=serializer.validated_data["institution"].id,
                 name=serializer.validated_data["name"],
-                room_type=serializer.validated_data["room_type"],
+                room_type_id=serializer.validated_data["room_type"].id,
                 capacity=serializer.validated_data["capacity"],
             )
             return ok_response(self.get_serializer(classroom).data, status=201)
@@ -312,3 +317,110 @@ class ClassroomViewSet(viewsets.ModelViewSet):
             return ok_response({"id": kwargs["pk"], "active": False})
         except ValueError as e:
             return error_response(e)
+
+
+class DocumentTypeViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = DocumentTypeSerializer
+    permission_classes = [permissions.IsAuthenticated, HasPermission]
+    action_permissions = {
+        "list": institutions.VIEW_DOCUMENT_TYPE,
+        "retrieve": institutions.VIEW_DOCUMENT_TYPE,
+    }
+
+    def get_queryset(self):
+        return DocumentType.objects.all().order_by("name")
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return ok_response(serializer.data)
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            serializer = self.get_serializer(instance)
+            return ok_response(serializer.data)
+        except Exception as e:
+            return error_response(e)
+
+
+class RoomTypeViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = RoomTypeSerializer
+    permission_classes = [permissions.IsAuthenticated, HasPermission]
+    action_permissions = {
+        "list": institutions.VIEW_ROOM_TYPE,
+        "retrieve": institutions.VIEW_ROOM_TYPE,
+    }
+
+    def get_queryset(self):
+        return RoomType.objects.all().order_by("name")
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return ok_response(serializer.data)
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            serializer = self.get_serializer(instance)
+            return ok_response(serializer.data)
+        except Exception as e:
+            return error_response(e)
+
+
+class AcademicRegimeViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = AcademicRegimeSerializer
+    permission_classes = [permissions.IsAuthenticated, HasPermission]
+    action_permissions = {
+        "list": institutions.VIEW_ACADEMIC_REGIME,
+        "retrieve": institutions.VIEW_ACADEMIC_REGIME,
+    }
+
+    def get_queryset(self):
+        return AcademicRegime.objects.all().order_by("name")
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return ok_response(serializer.data)
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            serializer = self.get_serializer(instance)
+            return ok_response(serializer.data)
+        except Exception as e:
+            return error_response(e)
+
+
+class AcademicLevelViewSet(viewsets.ModelViewSet):
+    serializer_class = AcademicLevelSerializer
+    permission_classes = [permissions.IsAuthenticated, HasPermission]
+    action_permissions = {
+        "list": institutions.VIEW_INSTITUTION,
+        "retrieve": institutions.VIEW_INSTITUTION,
+        "create": institutions.CREATE_INSTITUTION,
+        "update": institutions.UPDATE_INSTITUTION,
+        "partial_update": institutions.UPDATE_INSTITUTION,
+        "destroy": institutions.DELETE_INSTITUTION,
+    }
+
+    def get_queryset(self):
+        return AcademicLevel.objects.all().order_by("name")
+
+
+class AcademicGradeViewSet(viewsets.ModelViewSet):
+    serializer_class = AcademicGradeSerializer
+    permission_classes = [permissions.IsAuthenticated, HasPermission]
+    action_permissions = {
+        "list": institutions.VIEW_INSTITUTION,
+        "retrieve": institutions.VIEW_INSTITUTION,
+        "create": institutions.CREATE_INSTITUTION,
+        "update": institutions.UPDATE_INSTITUTION,
+        "partial_update": institutions.UPDATE_INSTITUTION,
+        "destroy": institutions.DELETE_INSTITUTION,
+    }
+
+    def get_queryset(self):
+        return AcademicGrade.objects.all().order_by("sequence_order")

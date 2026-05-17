@@ -25,7 +25,7 @@ class UserServiceTest(TestCase):
     def test_create_user(self):
         """Verifica que create_user funciona correctamente."""
         user = self.service.create_user(
-            dni="123456789",
+            document_number="123456789",
             names="Juan",
             last_names="Pérez",
             email="juan@example.com",
@@ -40,7 +40,7 @@ class UserServiceTest(TestCase):
     def test_create_user_duplicate_email(self):
         """Verifica que create_user lanza error con email duplicado."""
         self.service.create_user(
-            dni="123456789",
+            document_number="123456789",
             names="Juan",
             last_names="Pérez",
             email="juan@example.com",
@@ -51,7 +51,7 @@ class UserServiceTest(TestCase):
 
         with self.assertRaises(ValueError) as context:
             self.service.create_user(
-                dni="987654321",
+                document_number="987654321",
                 names="Pedro",
                 last_names="García",
                 email="juan@example.com",
@@ -66,7 +66,7 @@ class UserServiceTest(TestCase):
         """Verifica que create_user lanza error con rol inexistente."""
         with self.assertRaises(ValueError) as context:
             self.service.create_user(
-                dni="123456789",
+                document_number="123456789",
                 names="Juan",
                 last_names="Pérez",
                 email="juan@example.com",
@@ -80,7 +80,7 @@ class UserServiceTest(TestCase):
     def test_get_user(self):
         """Verifica que get_user retorna un usuario."""
         user = self.service.create_user(
-            dni="123456789",
+            document_number="123456789",
             names="Juan",
             last_names="Pérez",
             email="juan@example.com",
@@ -95,7 +95,7 @@ class UserServiceTest(TestCase):
     def test_change_password(self):
         """Verifica que change_password funciona."""
         user = self.service.create_user(
-            dni="123456789",
+            document_number="123456789",
             names="Juan",
             last_names="Pérez",
             email="juan@example.com",
@@ -111,7 +111,7 @@ class UserServiceTest(TestCase):
     def test_grant_permission(self):
         """Verifica que grant_permission otorga un permiso."""
         user = self.service.create_user(
-            dni="123456789",
+            document_number="123456789",
             names="Juan",
             last_names="Pérez",
             email="juan@example.com",
@@ -132,7 +132,7 @@ class UserServiceTest(TestCase):
     def test_revoke_permission(self):
         """Verifica que revoke_permission revoca un permiso."""
         user = self.service.create_user(
-            dni="123456789",
+            document_number="123456789",
             names="Juan",
             last_names="Pérez",
             email="juan@example.com",
@@ -146,8 +146,9 @@ class UserServiceTest(TestCase):
         )
 
         # Agregar permiso al rol
-        from apps.accounts.models import RolePermission
+        from apps.accounts.models import RolePermission, UserRole
 
+        UserRole.objects.create(user=user, role=self.role)
         RolePermission.objects.create(role=self.role, permission=permission)
 
         # Revocar al usuario

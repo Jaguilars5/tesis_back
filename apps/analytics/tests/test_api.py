@@ -2,11 +2,12 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 from datetime import date
 from decimal import Decimal
-from apps.institutions.models import Institution, School_Year
+from apps.institutions.models import AcademicGrade, AcademicLevel, Institution, School_Year
 from apps.academic.models import Config_Academic, Academic_Period, Timing_Regime, Section
 from apps.students.models import Student
 from apps.accounts.models import Role, User
-from apps.analytics.models import StudentRiskScore, StudentFeatureSnapshot
+from apps.core.tests.helpers import create_test_user, create_test_student
+from apps.analytics.models import RiskFactor, StudentFeatureSnapshot, StudentRiskScore
 
 
 class StudentRiskAPITest(APITestCase):
@@ -32,45 +33,46 @@ class StudentRiskAPITest(APITestCase):
         self.period = Academic_Period.objects.create(
             config_academic=self.config,
             name="Periodo 1",
-            number=1,
+
             start_date=date(2024, 9, 1),
             end_date=date(2024, 12, 15),
         )
         self.timing = Timing_Regime.objects.create(
-            school_year=self.school_year, name="Matutina"
+            institution=self.institution, name="Matutina"
+        )
+        self.academic_level = AcademicLevel.objects.create(
+            institution=self.institution, name="Primaria"
+        )
+        self.academic_grade = AcademicGrade.objects.create(
+            academic_level=self.academic_level, name="6to", sequence_order=6
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
             timing_regime=self.timing,
-            level="Primaria",
-            grade="6to",
+            academic_grade=self.academic_grade,
             parallel="A",
             capacity=40,
         )
-        self.student = Student.objects.create(
-            dni="1234567890",
+        self.student = create_test_student(
+            document_number="1234567890",
             names="Juan",
             last_names="Perez",
             birth_date=date(2012, 5, 15),
-            section=self.section,
         )
         self.risk = StudentRiskScore.objects.create(
             student=self.student,
             academic_period=self.period,
             risk_score=Decimal("75.50"),
             risk_label="Alto",
-            top_factors={"absences": 0.4},
             model_version="v1.0",
         )
 
         role = Role.objects.create(name="Admin")
-        self.user = User.objects.create_user(
+        self.user = create_test_user(
             email="test@test.com",
             dni="1717171717",
             names="Test",
             last_names="User",
-            password="testpass123",
-            role=role,
             institution=self.institution,
             is_superuser=True,
         )
@@ -119,27 +121,31 @@ class FeatureSnapshotAPITest(APITestCase):
         self.period = Academic_Period.objects.create(
             config_academic=self.config,
             name="Periodo 1",
-            number=1,
+
             start_date=date(2024, 9, 1),
             end_date=date(2024, 12, 15),
         )
         self.timing = Timing_Regime.objects.create(
-            school_year=self.school_year, name="Matutina"
+            institution=self.institution, name="Matutina"
+        )
+        self.academic_level = AcademicLevel.objects.create(
+            institution=self.institution, name="Primaria"
+        )
+        self.academic_grade = AcademicGrade.objects.create(
+            academic_level=self.academic_level, name="6to", sequence_order=6
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
             timing_regime=self.timing,
-            level="Primaria",
-            grade="6to",
+            academic_grade=self.academic_grade,
             parallel="A",
             capacity=40,
         )
-        self.student = Student.objects.create(
-            dni="1234567890",
+        self.student = create_test_student(
+            document_number="1234567890",
             names="Maria",
             last_names="Lopez",
             birth_date=date(2012, 3, 10),
-            section=self.section,
         )
         self.snapshot = StudentFeatureSnapshot.objects.create(
             student=self.student,
@@ -156,13 +162,11 @@ class FeatureSnapshotAPITest(APITestCase):
         )
 
         role = Role.objects.create(name="Admin")
-        self.user = User.objects.create_user(
+        self.user = create_test_user(
             email="test@test.com",
             dni="1717171717",
             names="Test",
             last_names="User",
-            password="testpass123",
-            role=role,
             institution=self.institution,
             is_superuser=True,
         )
@@ -186,3 +190,42 @@ class FeatureSnapshotAPITest(APITestCase):
         response = self.client.get("/api/analytics/feature-snapshots/99999/")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertFalse(response.data["ok"])
+
+
+class RiskFactorAPITest(APITestCase):
+    def setUp(self):
+        self.role = Role.objects.create(name="Admin")
+        self.user = create_test_user(
+            email="riskfactor@test.com",
+            dni="5050505050",
+            names="RiskFactor",
+            last_names="Tester",
+            is_superuser=True,
+        )
+        self.client.force_authenticate(user=self.user)
+        RiskFactor.objects.create(
+            code="ASIST_BAJA",
+            name="Asistencia Baja",
+            description="Estudiante con alta tasa de inasistencia",
+        )
+        RiskFactor.objects.create(
+            code="REND_DECL",
+            name="Rendimiento Declinante",
+        )
+        self.url = "/api/analytics/risk-factors/"
+
+    def test_list(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_retrieve(self):
+        obj = RiskFactor.objects.first()
+        response = self.client.get(f"{self.url}{obj.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_create_not_allowed(self):
+        response = self.client.post(
+            self.url,
+            {"code": "COND_NEG", "name": "Conducta Negativa"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)

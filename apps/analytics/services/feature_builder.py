@@ -150,10 +150,10 @@ class AcademicRiskFeatureBuilder:
 
     def _build_attendance(self, attendances):
         total = len(attendances)
-        presentes = sum(1 for attendance in attendances if attendance.status == "P")
-        justificadas = sum(1 for attendance in attendances if attendance.status == "J")
-        injustificadas = sum(1 for attendance in attendances if attendance.status == "A")
-        tardanzas = sum(1 for attendance in attendances if attendance.status == "T")
+        presentes = sum(1 for attendance in attendances if attendance.attendance_status and attendance.attendance_status.code == "P")
+        justificadas = sum(1 for attendance in attendances if attendance.attendance_status and attendance.attendance_status.code == "J")
+        injustificadas = sum(1 for attendance in attendances if attendance.attendance_status and attendance.attendance_status.code == "A")
+        tardanzas = sum(1 for attendance in attendances if attendance.attendance_status and attendance.attendance_status.code == "T")
         porcentaje = (presentes / total * 100) if total else 0
 
         return {
@@ -167,7 +167,7 @@ class AcademicRiskFeatureBuilder:
         }
 
     def _build_grades(self, notes):
-        values = [_decimal(note.normalized_value) for note in notes]
+        values = [_decimal(note.calculate_normalized_value()) for note in notes]
         average = sum(values, Decimal("0.00")) / len(values) if values else Decimal("0.00")
         last_exam = self._last_exam_grade(notes)
 
@@ -184,8 +184,8 @@ class AcademicRiskFeatureBuilder:
     def _count_failing_subjects(self, notes):
         subject_values = defaultdict(list)
         for note in notes:
-            subject_id = note.teacher_subject_section.subject_id
-            subject_values[subject_id].append(_decimal(note.normalized_value))
+            subject_id = note.class_assignment.teacher_subject_section.subject_offering.subject_academic_config.subject_id
+            subject_values[subject_id].append(_decimal(note.calculate_normalized_value()))
 
         failing = 0
         for values in subject_values.values():
@@ -198,13 +198,13 @@ class AcademicRiskFeatureBuilder:
         exam_notes = [
             note
             for note in notes
-            if note.academic_activity
-            and "examen" in note.academic_activity.name.lower()
+            if note.class_assignment
+            and "examen" in note.class_assignment.title.lower()
         ]
         source = exam_notes or notes
         if not source:
             return Decimal("0.00")
-        return _decimal(source[-1].normalized_value)
+        return _decimal(source[-1].calculate_normalized_value())
 
     def _grade_trend(self, values):
         if len(values) < 2:
@@ -215,7 +215,7 @@ class AcademicRiskFeatureBuilder:
         max_streak = 0
         current = 0
         for attendance in attendances:
-            if attendance.status in ("A", "J"):
+            if attendance.attendance_status and attendance.attendance_status.code in ("A", "J"):
                 current += 1
                 max_streak = max(max_streak, current)
             else:

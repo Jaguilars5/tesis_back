@@ -5,20 +5,23 @@ from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 
-from apps.core.permissions import HasPermission
 from apps.core.constants.permissions import students
+from apps.core.permissions import HasPermission
 from apps.core.utils import ok_response, error_response
 
-from ..models import Student, Representative, Student_Representative
+from ..models import Enrollment, EnrollmentStatus, Student, Student_Representative
 from ..services.students_service import StudentService
+from ..services.enrollment_service import EnrollmentService
+from ..repositories.enrollment_repo import EnrollmentRepository
 from .serializers import (
+    EnrollmentCreateSerializer,
+    EnrollmentSerializer,
+    EnrollmentStatusSerializer,
     StudentSerializer,
     StudentDetailSerializer,
-    RepresentativeSerializer,
-    RepresentativeDetailSerializer,
     StudentRepresentativeSerializer,
 )
-from .filters import StudentFilter, RepresentativeFilter
+from .filters import StudentFilter
 
 
 class StudentViewSet(viewsets.ModelViewSet):
@@ -28,9 +31,9 @@ class StudentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, HasPermission]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = StudentFilter
-    search_fields = ["names", "last_names", "dni", "enrollment_number"]
-    ordering_fields = ["last_names", "enrollment_date", "active"]
-    ordering = ["last_names"]
+    search_fields = ["person__names", "person__last_names", "person__document_number", "student_code"]
+    ordering_fields = ["person__last_names", "active"]
+    ordering = ["person__last_names"]
     action_permissions = {
         "list": students.VIEW_STUDENT,
         "retrieve": students.VIEW_STUDENT,
@@ -44,7 +47,7 @@ class StudentViewSet(viewsets.ModelViewSet):
     }
 
     def get_queryset(self):
-        return Student.objects.filter(active=True).select_related("section")
+        return Student.objects.filter(active=True)
 
     def get_serializer_class(self):
         if self.action == "retrieve":
@@ -54,13 +57,12 @@ class StudentViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         try:
             student = StudentService.create_student(
-                dni=request.data.get("dni"),
+                document_number=request.data.get("document_number"),
                 names=request.data.get("names"),
                 last_names=request.data.get("last_names"),
                 birth_date=request.data.get("birth_date"),
-                section_id=request.data.get("section"),
-                enrollment_number=request.data.get("enrollment_number"),
-                device_origin=request.data.get("device_origin"),
+                email=request.data.get("email", ""),
+                phone=request.data.get("phone", ""),
             )
             serializer = self.get_serializer(student)
             return ok_response(serializer.data, status=201)
@@ -111,7 +113,7 @@ class StudentViewSet(viewsets.ModelViewSet):
 
         relationships = (
             Student_Representative.objects.filter(student_id=pk)
-            .select_related("representative")
+            .select_related("person")
             .order_by("-is_primary")
         )
 
@@ -119,76 +121,7 @@ class StudentViewSet(viewsets.ModelViewSet):
         return ok_response(serializer.data)
 
 
-class RepresentativeViewSet(viewsets.ModelViewSet):
-    """ViewSet para Representative"""
 
-    serializer_class = RepresentativeSerializer
-    permission_classes = [IsAuthenticated, HasPermission]
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_class = RepresentativeFilter
-    search_fields = ["names", "last_names", "dni", "phone", "email"]
-    ordering_fields = ["last_names", "kinship", "active"]
-    ordering = ["last_names"]
-    action_permissions = {
-        "list": students.VIEW_REPRESENTATIVE,
-        "retrieve": students.VIEW_REPRESENTATIVE,
-        "create": students.CREATE_REPRESENTATIVE,
-        "update": students.UPDATE_REPRESENTATIVE,
-        "partial_update": students.UPDATE_REPRESENTATIVE,
-        "destroy": students.DELETE_REPRESENTATIVE,
-        "search": students.VIEW_REPRESENTATIVE,
-    }
-
-    def get_queryset(self):
-        return Representative.objects.filter(active=True)
-
-    def get_serializer_class(self):
-        if self.action == "retrieve":
-            return RepresentativeDetailSerializer
-        return RepresentativeSerializer
-
-    def create(self, request, *args, **kwargs):
-        try:
-            representative = StudentService.create_representative(
-                dni=request.data.get("dni"),
-                names=request.data.get("names"),
-                last_names=request.data.get("last_names"),
-                phone=request.data.get("phone"),
-                email=request.data.get("email"),
-                address=request.data.get("address"),
-            )
-            serializer = self.get_serializer(representative)
-            return ok_response(serializer.data, status=201)
-        except ValueError as e:
-            return error_response(e)
-
-    def update(self, request, *args, **kwargs):
-        try:
-            representative = StudentService.update_representative(
-                kwargs.get("pk"), **request.data
-            )
-            serializer = self.get_serializer(representative)
-            return ok_response(serializer.data)
-        except ValueError as e:
-            return error_response(e)
-    def destroy(self, request, *args, **kwargs):
-        """Desactiva un representante (soft delete)"""
-        try:
-            StudentService.deactivate_representative(kwargs.get("pk"))
-            return ok_response({"id": kwargs.get("pk"), "deleted": True})
-        except ValueError as e:
-            return error_response(e)
-
-    @action(detail=False, methods=["get"])
-    def search(self, request):
-        """Búsqueda de representantes"""
-        query = request.query_params.get("q", "")
-        if not query:
-            return error_response("Parámetro q requerido")
-
-        representatives = StudentService.search_representatives(query)
-        serializer = self.get_serializer(representatives, many=True)
-        return ok_response(serializer.data)
 
 
 class StudentRepresentativeViewSet(viewsets.ModelViewSet):
@@ -197,7 +130,7 @@ class StudentRepresentativeViewSet(viewsets.ModelViewSet):
     serializer_class = StudentRepresentativeSerializer
     permission_classes = [IsAuthenticated, HasPermission]
     filter_backends = [DjangoFilterBackend, OrderingFilter]
-    filterset_fields = ["student", "representative", "is_primary"]
+    filterset_fields = ["student", "person", "is_primary"]
     ordering_fields = ["created_at"]
     ordering = ["-is_primary", "created_at"]
     action_permissions = {
@@ -213,14 +146,14 @@ class StudentRepresentativeViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Student_Representative.objects.filter(
-            student__active=True, representative__active=True
-        ).select_related("student", "representative")
+            student__active=True
+        ).select_related("student", "person")
 
     def create(self, request, *args, **kwargs):
         try:
             relationship = StudentService.assign_representative(
                 student_id=request.data.get("student"),
-                representative_id=request.data.get("representative"),
+                person_id=request.data.get("person"),
                 kinship=request.data.get("kinship", "Padre"),
                 is_primary=request.data.get("is_primary", False),
                 can_pickup=request.data.get("can_pickup", True),
@@ -250,7 +183,7 @@ class StudentRepresentativeViewSet(viewsets.ModelViewSet):
         try:
             StudentService.set_primary_representative(
                 student_id=request.data.get("student"),
-                representative_id=request.data.get("representative"),
+                person_id=request.data.get("person"),
             )
             return ok_response({"status": "Principal actualizado"})
         except ValueError as e:
@@ -263,8 +196,132 @@ class StudentRepresentativeViewSet(viewsets.ModelViewSet):
         try:
             StudentService.remove_representative(
                 student_id=relationship.student_id,
-                representative_id=relationship.representative_id,
+                person_id=relationship.person_id,
             )
             return ok_response({"unlinked": True})
         except ValueError as e:
             return error_response(e)
+
+
+class EnrollmentStatusViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = EnrollmentStatusSerializer
+    permission_classes = [IsAuthenticated, HasPermission]
+    action_permissions = {
+        "list": students.VIEW_ENROLLMENT_STATUS,
+        "retrieve": students.VIEW_ENROLLMENT_STATUS,
+    }
+
+    def get_queryset(self):
+        return EnrollmentStatus.objects.all().order_by("name")
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return ok_response(serializer.data)
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            serializer = self.get_serializer(instance)
+            return ok_response(serializer.data)
+        except Exception as e:
+            return error_response(e)
+
+
+class EnrollmentViewSet(viewsets.ModelViewSet):
+    serializer_class = EnrollmentSerializer
+    permission_classes = [IsAuthenticated, HasPermission]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ["student", "section", "enrollment_status", "enrollment_status__code"]
+    search_fields = ["student__person__names", "student__person__last_names", "student__student_code"]
+    ordering = ["-enrollment_date"]
+    action_permissions = {
+        "list": students.VIEW_ENROLLMENT,
+        "retrieve": students.VIEW_ENROLLMENT,
+        "create": students.CREATE_ENROLLMENT,
+        "update": students.UPDATE_ENROLLMENT,
+        "partial_update": students.UPDATE_ENROLLMENT,
+        "destroy": students.DELETE_ENROLLMENT,
+        "withdraw": students.WITHDRAW_STUDENT,
+        "transfer": students.TRANSFER_STUDENT,
+        "by_section": students.VIEW_ENROLLMENT,
+        "by_student": students.VIEW_ENROLLMENT,
+    }
+
+    def get_queryset(self):
+        return Enrollment.objects.all().select_related(
+            "student__person", "section", "enrollment_status"
+        )
+
+    def get_serializer_class(self):
+        if self.action == "create":
+            return EnrollmentCreateSerializer
+        return EnrollmentSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            enrollment = EnrollmentService.enroll_student(
+                student=serializer.validated_data["student"],
+                section=serializer.validated_data["section"],
+                enrollment_date=serializer.validated_data.get("enrollment_date"),
+                device_origin=serializer.validated_data.get("device_origin"),
+            )
+            return ok_response(
+                self.get_serializer(enrollment).data, status=201
+            )
+        except ValueError as e:
+            return error_response(e)
+
+    @action(detail=True, methods=["post"], url_path="withdraw")
+    def withdraw(self, request, pk=None):
+        try:
+            enrollment = self.get_object()
+            EnrollmentService.withdraw_student(enrollment)
+            return ok_response(
+                self.get_serializer(enrollment).data
+            )
+        except ValueError as e:
+            return error_response(e)
+
+    @action(detail=True, methods=["post"], url_path="transfer")
+    def transfer(self, request, pk=None):
+        new_section_id = request.data.get("section_id")
+        if not new_section_id:
+            return error_response('Se requiere "section_id"')
+        from ..models import Section
+        try:
+            new_section = Section.objects.get(id=new_section_id)
+        except Section.DoesNotExist:
+            return error_response("Sección no encontrada", 404)
+        try:
+            enrollment = self.get_object()
+            EnrollmentService.transfer_student(enrollment, new_section)
+            return ok_response(
+                self.get_serializer(enrollment).data
+            )
+        except ValueError as e:
+            return error_response(e)
+
+    @action(detail=False, methods=["get"], url_path="by-section")
+    def by_section(self, request):
+        section_id = request.query_params.get("section_id")
+        if not section_id:
+            return error_response('Se requiere "section_id"')
+        status_code = request.query_params.get("status", "ACT")
+        enrollments = EnrollmentRepository.get_students_by_section(
+            section_id, status_code
+        )
+        serializer = self.get_serializer(enrollments, many=True)
+        return ok_response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="by-student")
+    def by_student(self, request):
+        student_id = request.query_params.get("student_id")
+        if not student_id:
+            return error_response('Se requiere "student_id"')
+        enrollment = EnrollmentRepository.get_active_by_student(student_id)
+        if not enrollment:
+            return error_response("No tiene matrícula activa", 404)
+        return ok_response(self.get_serializer(enrollment).data)

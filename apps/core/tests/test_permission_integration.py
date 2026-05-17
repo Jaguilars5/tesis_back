@@ -2,7 +2,8 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from apps.accounts.models import Permission, Role, RolePermission, User, UserPermission
+from apps.accounts.models import Permission, Role, RolePermission, User, UserPermission, UserRole
+from apps.core.tests.helpers import create_test_user
 
 
 class PermissionIntegrationTestCase(TestCase):
@@ -54,27 +55,28 @@ class PermissionIntegrationTestCase(TestCase):
             role=self.role, permission=self.perm_accounts
         )
 
-        self.user_no_perms = User.objects.create_user(
-            dni="1234567890", names="Test", last_names="User",
-            email="noperms@test.com", password="testpass123456",
+        self.user_no_perms = create_test_user(
+            email="noperms@test.com", dni="1234567890",
+            names="Test", last_names="User",
         )
 
-        self.user_with_perms = User.objects.create_user(
-            dni="1111111111", names="With", last_names="Perms",
-            email="withperms@test.com", password="testpass123456",
-            role=self.role,
+        self.user_with_perms = create_test_user(
+            email="withperms@test.com", dni="1111111111",
+            names="With", last_names="Perms",
         )
 
-        self.inactive_user = User.objects.create_user(
-            dni="2222222222", names="Inactive", last_names="User",
-            email="inactive@test.com", password="testpass123456",
+        self.inactive_user = create_test_user(
+            email="inactive@test.com", dni="2222222222",
+            names="Inactive", last_names="User",
             active=False,
         )
 
-        self.superuser = User.objects.create_superuser(
-            dni="0000000000", names="Admin", last_names="User",
-            email="admin@test.com", password="testpass123456",
+        self.superuser = create_test_user(
+            email="admin@test.com", dni="0000000000",
+            names="Admin", last_names="User",
+            is_superuser=True,
         )
+        UserRole.objects.create(user=self.user_with_perms, role=self.role)
 
     # ─── Sin autenticacion ────────────────────────────────────
 
@@ -219,14 +221,14 @@ class PermissionIntegrationTestCase(TestCase):
     def test_login_is_public(self):
         response = self.client.post("/api/accounts/login/", {
             "email": "withperms@test.com",
-            "password": "testpass123456",
+            "password": "test_password_123",
         })
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_refresh_is_public(self):
         login_response = self.client.post("/api/accounts/login/", {
             "email": "withperms@test.com",
-            "password": "testpass123456",
+            "password": "test_password_123",
         })
         refresh_token = login_response.data.get(
             "refresh", login_response.data.get("data", {}).get("refresh")

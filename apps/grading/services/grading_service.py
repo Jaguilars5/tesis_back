@@ -11,8 +11,6 @@ from decimal import Decimal
 from django.db import transaction
 from django.db import models
 
-from apps.academic.models import Academic_Activity
-
 from ..models import Attendance, ConductIncident, StudentNote
 from ..repositories import (
     AttendanceRepository,
@@ -41,48 +39,46 @@ class GradingService:
     @staticmethod
     @transaction.atomic
     def create_student_note(
-        student_id,
-        academic_activity_id,
-        academic_period_id,
-        teacher_subject_section_id,
-        note_value,
-        observation="",
+        enrollment_id,
+        class_assignment_id,
+        numeric_score,
+        grade_type_id=None,
+        qualitative_scale_id=None,
+        teacher_observation="",
+        administrative_observation="",
         device_origin=None,
     ):
         """
         Crea o actualiza una nota de estudiante.
-        Si ya existe una nota para la misma combinación de estudiante, actividad,
-        período y sección, se actualiza el valor existente.
+        Si ya existe una nota para la misma matrícula y asignación de clase,
+        se actualiza el valor existente.
         """
-        activity = Academic_Activity.objects.get(id=academic_activity_id)
-        normalized_value = GradingService._normalize_note(
-            note_value, activity.value_max
-        )
-
         existing = StudentNoteRepository.get_by_composite_key(
-            student_id,
-            academic_activity_id,
-            academic_period_id,
-            teacher_subject_section_id,
+            enrollment_id,
+            class_assignment_id,
         )
         if existing:
-            existing.note_value = note_value
-            existing.normalized_value = normalized_value
-            existing.observation = observation
+            existing.numeric_score = numeric_score
+            existing.teacher_observation = teacher_observation
+            existing.administrative_observation = administrative_observation
             existing.sync_status = "pending"
             existing.device_origin = device_origin
+            if grade_type_id:
+                existing.grade_type_id = grade_type_id
+            if qualitative_scale_id:
+                existing.qualitative_scale_id = qualitative_scale_id
             existing.full_clean()
             existing.save()
             return existing
 
         note = StudentNote(
-            student_id=student_id,
-            academic_activity_id=academic_activity_id,
-            academic_period_id=academic_period_id,
-            teacher_subject_section_id=teacher_subject_section_id,
-            note_value=note_value,
-            normalized_value=normalized_value,
-            observation=observation,
+            enrollment_id=enrollment_id,
+            class_assignment_id=class_assignment_id,
+            numeric_score=numeric_score,
+            grade_type_id=grade_type_id,
+            qualitative_scale_id=qualitative_scale_id,
+            teacher_observation=teacher_observation,
+            administrative_observation=administrative_observation,
             sync_status="pending",
             device_origin=device_origin,
         )
@@ -119,14 +115,8 @@ class GradingService:
     def update_student_note(note_id, **kwargs):
         """
         Actualiza campos específicos de una nota.
-        Recalcula el valor normalizado si la nota numérica cambia.
         """
         note = GradingService.get_student_note(note_id)
-        if "note_value" in kwargs:
-            activity = kwargs.get("academic_activity", note.academic_activity)
-            note.normalized_value = GradingService._normalize_note(
-                kwargs["note_value"], activity.value_max
-            )
         for key, value in kwargs.items():
             if hasattr(note, key):
                 setattr(note, key, value)
@@ -140,7 +130,7 @@ class GradingService:
         Realiza un borrado lógico de una nota.
         """
         note = GradingService.get_student_note(note_id)
-        note.active = False
+        note.deleted_at = None
         note.save()
         return note
 
@@ -169,11 +159,11 @@ class GradingService:
     @staticmethod
     @transaction.atomic
     def create_attendance(
-        student_id,
+        enrollment_id,
         teacher_subject_section_id,
         academic_period_id,
-        date,
-        status,
+        attendance_date,
+        attendance_status_id,
         observation="",
         device_origin=None,
     ):
@@ -182,11 +172,11 @@ class GradingService:
         Si ya existe registro para la fecha/clase, lo actualiza.
         """
         existing = AttendanceRepository.get_by_unique_key(
-            student_id, teacher_subject_section_id, date
+            enrollment_id, teacher_subject_section_id, attendance_date
         )
         if existing:
             existing.academic_period_id = academic_period_id
-            existing.status = status
+            existing.attendance_status_id = attendance_status_id
             existing.observation = observation
             existing.device_origin = device_origin
             existing.full_clean()
@@ -194,11 +184,11 @@ class GradingService:
             return existing
 
         attendance = Attendance(
-            student_id=student_id,
+            enrollment_id=enrollment_id,
             teacher_subject_section_id=teacher_subject_section_id,
             academic_period_id=academic_period_id,
-            date=date,
-            status=status,
+            attendance_date=attendance_date,
+            attendance_status_id=attendance_status_id,
             observation=observation,
             device_origin=device_origin,
         )
@@ -222,7 +212,7 @@ class GradingService:
         academic_period_id=None,
         section_id=None,
         date=None,
-        status=None,
+        attendance_status_id=None,
     ):
         """
         Lista registros de asistencia con filtros.
@@ -232,7 +222,7 @@ class GradingService:
             academic_period_id=academic_period_id,
             section_id=section_id,
             date=date,
-            status=status,
+            status=attendance_status_id,
         )
 
     @staticmethod
@@ -261,8 +251,8 @@ class GradingService:
     @staticmethod
     @transaction.atomic
     def create_conduct_incident(
-        student_id,
-        reported_by_id,
+        enrollment_id,
+        reported_by_user_id,
         academic_period_id,
         incident_date,
         category,
@@ -275,8 +265,8 @@ class GradingService:
         Registra un nuevo incidente de conducta.
         """
         incident = ConductIncident(
-            student_id=student_id,
-            reported_by_id=reported_by_id,
+            enrollment_id=enrollment_id,
+            reported_by_user_id=reported_by_user_id,
             academic_period_id=academic_period_id,
             incident_date=incident_date,
             category=category,

@@ -86,10 +86,10 @@ class ClassroomRepository(BaseRepository):
         return cls.model.objects.filter(institution_id=institution_id).order_by("name")
 
     @classmethod
-    def get_by_type(cls, institution_id, room_type):
+    def get_by_type(cls, institution_id, room_type_id):
         """Obtener aulas por tipo"""
         return cls.model.objects.filter(
-            institution_id=institution_id, room_type=room_type, active=True
+            institution_id=institution_id, room_type_id=room_type_id, active=True
         ).order_by("name")
 
     @classmethod

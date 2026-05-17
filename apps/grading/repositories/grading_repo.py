@@ -50,19 +50,15 @@ class StudentNoteRepository(BaseRepository):
     @classmethod
     def get_by_composite_key(
         cls,
-        student_id,
-        academic_activity_id,
-        academic_period_id,
-        teacher_subject_section_id,
+        enrollment_id,
+        class_assignment_id,
     ):
         """
-        Busca una nota específica basada en su clave compuesta única.
+        Busca una nota específica basada en matrícula y asignación de clase.
         """
         return cls.model.objects.filter(
-            student_id=student_id,
-            academic_activity_id=academic_activity_id,
-            academic_period_id=academic_period_id,
-            teacher_subject_section_id=teacher_subject_section_id,
+            enrollment_id=enrollment_id,
+            class_assignment_id=class_assignment_id,
         ).first()
 
     @classmethod
@@ -73,16 +69,18 @@ class StudentNoteRepository(BaseRepository):
         Lista notas aplicando filtros opcionales de estudiante, período, materia o sección.
         """
         queryset = cls.model.objects.all()
-        if hasattr(cls.model, "active"):
-            queryset = queryset.filter(active=True)
         if student_id:
-            queryset = queryset.filter(student_id=student_id)
+            queryset = queryset.filter(enrollment__student_id=student_id)
         if academic_period_id:
-            queryset = queryset.filter(academic_period_id=academic_period_id)
+            queryset = queryset.filter(
+                class_assignment__evaluation_subcriteria__evaluation_criteria__evaluation_macro__academic_period_id=academic_period_id
+            )
         if subject_id:
-            queryset = queryset.filter(teacher_subject_section__subject_id=subject_id)
+            queryset = queryset.filter(
+                class_assignment__teacher_subject_section__subject_id=subject_id
+            )
         if section_id:
-            queryset = queryset.filter(teacher_subject_section__section_id=section_id)
+            queryset = queryset.filter(enrollment__section_id=section_id)
         return queryset.order_by("-created_at")
 
     @classmethod
@@ -92,11 +90,13 @@ class StudentNoteRepository(BaseRepository):
         """
         return (
             cls.model.objects.filter(
-                student_id=student_id,
-                academic_period_id=academic_period_id,
-                active=True,
+                enrollment__student_id=student_id,
+                class_assignment__evaluation_subcriteria__evaluation_criteria__evaluation_macro__academic_period_id=academic_period_id,
             )
-            .select_related("academic_activity", "teacher_subject_section__subject")
+            .select_related(
+                "class_assignment__teacher_subject_section__subject_offering__subject_academic_config__subject",
+                "enrollment__student",
+            )
             .order_by("created_at")
         )
 
@@ -109,14 +109,14 @@ class AttendanceRepository(BaseRepository):
     model = Attendance
 
     @classmethod
-    def get_by_unique_key(cls, student_id, teacher_subject_section_id, date):
+    def get_by_unique_key(cls, enrollment_id, teacher_subject_section_id, attendance_date):
         """
         Busca un registro de asistencia único para un estudiante, clase y fecha.
         """
         return cls.model.objects.filter(
-            student_id=student_id,
+            enrollment_id=enrollment_id,
             teacher_subject_section_id=teacher_subject_section_id,
-            date=date,
+            attendance_date=attendance_date,
         ).first()
 
     @classmethod
@@ -133,16 +133,16 @@ class AttendanceRepository(BaseRepository):
         """
         queryset = cls.model.objects.all()
         if student_id:
-            queryset = queryset.filter(student_id=student_id)
+            queryset = queryset.filter(enrollment__student_id=student_id)
         if academic_period_id:
             queryset = queryset.filter(academic_period_id=academic_period_id)
         if section_id:
             queryset = queryset.filter(teacher_subject_section__section_id=section_id)
         if date:
-            queryset = queryset.filter(date=date)
+            queryset = queryset.filter(attendance_date=date)
         if status:
-            queryset = queryset.filter(status=status)
-        return queryset.order_by("-date", "student__last_names", "student__names")
+            queryset = queryset.filter(attendance_status_id=status)
+        return queryset.order_by("-attendance_date", "enrollment__student__last_names", "enrollment__student__names")
 
     @classmethod
     def list_for_risk_snapshot(cls, student_id, academic_period_id):
@@ -150,9 +150,9 @@ class AttendanceRepository(BaseRepository):
         Lista asistencias del estudiante en un periodo para construir features.
         """
         return cls.model.objects.filter(
-            student_id=student_id,
+            enrollment__student_id=student_id,
             academic_period_id=academic_period_id,
-        ).order_by("date", "id")
+        ).order_by("attendance_date", "id")
 
 
 class ConductIncidentRepository(BaseRepository):
@@ -176,7 +176,7 @@ class ConductIncidentRepository(BaseRepository):
         """
         queryset = cls.model.objects.all()
         if student_id:
-            queryset = queryset.filter(student_id=student_id)
+            queryset = queryset.filter(enrollment__student_id=student_id)
         if academic_period_id:
             queryset = queryset.filter(academic_period_id=academic_period_id)
         if category:
@@ -186,7 +186,7 @@ class ConductIncidentRepository(BaseRepository):
         if family_notified is not None:
             queryset = queryset.filter(family_notified=family_notified)
         return queryset.order_by(
-            "-incident_date", "student__last_names", "student__names"
+            "-incident_date", "enrollment__student__last_names", "enrollment__student__names"
         )
 
     @classmethod
@@ -195,7 +195,7 @@ class ConductIncidentRepository(BaseRepository):
         Lista incidentes del estudiante en un periodo para construir features.
         """
         return cls.model.objects.filter(
-            student_id=student_id,
+            enrollment__student_id=student_id,
             academic_period_id=academic_period_id,
         ).order_by("-incident_date", "-id")
 

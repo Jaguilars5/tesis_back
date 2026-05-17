@@ -1,8 +1,6 @@
-# Módulo `students` — Gestión de Estudiantes y Representantes
+# Módulo `students` — Gestión de Estudiantes y Matrículas
 
-Este módulo centraliza la información de los estudiantes y sus representantes legales, gestionando el proceso de matriculación, vinculación familiar y autorizaciones de retiro.
-
-Su diseño garantiza la integridad de los datos personales y facilita la comunicación con los padres mediante una gestión estructurada de contactos primarios y secundarios.
+Este módulo centraliza la información de los estudiantes, sus representantes legales y el proceso de matriculación.
 
 ---
 
@@ -10,11 +8,11 @@ Su diseño garantiza la integridad de los datos personales y facilita la comunic
 
 ```
 students/
-├── models/         # Entidades de Estudiantes y Representantes
-├── repositories/   # Búsquedas por DNI y filtros de sección
-├── services/       # Lógica de vinculación y validación de edad
-├── api/            # Serializadores y ViewSets (DRF)
-└── tests/          # Pruebas de integridad y procesos de alta
+├── models/         # Student, Enrollment, Representative, etc.
+├── repositories/   # Consultas centralizadas (ORM)
+├── services/       # Lógica de negocio y validación
+├── api/            # Serializadores y ViewSets
+└── tests/          # Pruebas unitarias y de integración
 ```
 
 ---
@@ -22,92 +20,86 @@ students/
 ## Modelos de Datos
 
 ### Student (Estudiante)
-Información básica del estudiante.
+Información del estudiante vinculada a una persona.
 
-| Campo | Tipo | Verbose Name |
-| :--- | :--- | :--- |
-| `uuid` | UUIDField | UUID |
-| `dni` | CharField (13) | Número de Documento |
-| `names` | CharField (100) | Nombres |
-| `last_names` | CharField (100) | Apellidos |
-| `birth_date` | DateField | Fecha de Nacimiento |
-| `section` | ForeignKey (Section) | Sección |
-| `enrollment_number` | CharField (50) | Número de Matrícula |
-| `enrollment_date` | DateField | Fecha de Matrícula |
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `person` | OneToOneField (Person) | Persona asociada |
+| `student_code` | CharField (50) | Código único del estudiante |
 | `active` | BooleanField | Activo |
-| `sync_status` | CharField (20) | Estado de Sincronización |
-| `synced_at` | DateTimeField | Sincronizado en |
-| `created_at` | DateTimeField | Fecha de Creación |
-| `updated_at` | DateTimeField | Fecha de Actualización |
-| `deleted_at` | DateTimeField | Fecha de Eliminación |
-| `sync_version` | PositiveIntegerField | Versión de Sincronización |
-| `device_origin` | CharField (40) | Dispositivo de Origen |
+| `created_at` | DateTimeField | Fecha de creación |
 
----
+### EnrollmentStatus (Estado de Matrícula)
+Catálogo de estados de matrícula.
 
-## Capa de Servicios
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `code` | CharField (10) | Código único |
+| `name` | CharField (100) | Nombre |
 
-### StudentService (Orquestador)
+### Enrollment (Matrícula)
+Vinculación de un estudiante a una sección.
 
-- `create_student`: Registra un nuevo estudiante validando que el DNI sea único y que la edad del alumno esté en el rango permitido (5-30 años).
-- `get_student_details`: Proporciona el perfil completo de un estudiante, incluyendo su sección, edad calculada y la lista detallada de sus representantes.
-- `update_student`: Permite actualizar la información del estudiante, validando nuevamente la unicidad del DNI si este es modificado.
-- `create_representative`: Registra a un tutor o responsable legal en el sistema, asegurando la no duplicidad mediante el DNI.
-- `assign_representative`: Vincula a un estudiante con un representante, definiendo su parentesco y niveles de autorización (retiro, notificaciones, etc.).
-- `set_primary_representative`: Designa a un representante específico como el contacto principal del estudiante para comunicaciones oficiales.
-- `get_contact_info_for_student`: Retorna de forma estructurada los números de teléfono y correos electrónicos de todos los representantes activos del estudiante.
-- `remove_representative`: Desvincula a un representante de un estudiante, validando que el alumno no se quede sin al menos un responsable legal asignado.
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `student` | ForeignKey (Student) | Estudiante |
+| `section` | ForeignKey (Section) | Sección |
+| `enrollment_status` | ForeignKey (EnrollmentStatus) | Estado |
+| `enrollment_date` | DateField | Fecha de matrícula |
+| `sync_status` | CharField (20) | Estado de sincronización |
+| `synced_at` | DateTimeField | Sincronizado el |
+| `created_at` | DateTimeField | Fecha de creación |
+| `updated_at` | DateTimeField | Fecha de actualización |
+| `deleted_at` | DateTimeField | Fecha de eliminación |
+| `sync_version` | PositiveIntegerField | Versión de sincronización |
+| `device_origin` | CharField (40) | Dispositivo de origen |
+
+### Student_Representative (Relación Estudiante-Representante)
+Vinculación entre estudiante y representante.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `student` | ForeignKey (Student) | Estudiante |
+| `person` | ForeignKey (Person) | Persona representante |
+| `kinship` | CharField (30) | Parentesco |
+| `is_primary` | BooleanField | Es principal |
+| `can_pickup` | BooleanField | Puede recoger |
+| `emergency_contact` | BooleanField | Contacto de emergencia |
+| `receives_notifications` | BooleanField | Recibe notificaciones |
+| `created_at` | DateTimeField | Fecha de creación |
+
+**Modelo Legacy** (managed=False, no usar):
+- `Representative` — Será eliminado tras migración completa
 
 ---
 
 ## API REST (Resumen)
 
-El módulo utiliza ViewSets estándar de Django Rest Framework.
-
 ### Estudiantes
-- `GET`    `/api/students/student/`
-- `POST`   `/api/students/student/`
-- `GET`    `/api/students/student/{id}/`
-- `PATCH`  `/api/students/student/{id}/`
-- `DELETE` `/api/students/student/{id}/` (soft-delete)
-- `GET`    `/api/students/student/by_section/?section_id={id}`
-- `GET`    `/api/students/student/search/?q={query}`
-- `GET`    `/api/students/student/{id}/representatives/`
+- GET/POST `/api/students/student/`
+- GET/PUT/PATCH/DELETE `/api/students/student/{id}/`
+
+### Matrículas
+- GET/POST `/api/students/enrollment/`
+- GET/PUT/PATCH/DELETE `/api/students/enrollment/{id}/`
+
+### Estados de Matrícula
+- GET/POST `/api/students/enrollment-status/`
+
+### Relaciones Estudiante-Representante
+- GET/POST `/api/students/student-representative/`
 
 ---
 
 ## Seguridad
 
-Header requerido:
-
-```
-Authorization: Bearer <token>
-```
-
----
-
-## Pruebas
-
-```
-python manage.py test apps.students
-```
-
----
-
-## Seguridad
-
-### Autenticación y Permisos
-
-Todos los endpoints requieren:
-1. Header `Authorization: Bearer <token>`
-2. Permiso específico del usuario
-
-Permisos requeridos:
+Todos los endpoints requieren `Authorization: Bearer <token>` y permiso específico.
 
 | ViewSet | View | Create | Update | Delete |
 |---------|------|--------|--------|--------|
 | Student | `students.view_student` | `students.create_student` | `students.update_student` | `students.delete_student` |
-| Representative | `students.view_representative` | `students.create_representative` | `students.update_representative` | `students.delete_representative` |
+| Enrollment | `students.view_enrollment` | `students.create_enrollment` | `students.update_enrollment` | `students.delete_enrollment` |
+| EnrollmentStatus | `students.view_enrollment_status` | `students.create_enrollment_status` | `students.update_enrollment_status` | `students.delete_enrollment_status` |
 | StudentRepresentative | `students.view_relationship` | `students.create_relationship` | `students.update_relationship` | `students.delete_relationship` |
 
 Seedear permisos:
@@ -117,8 +109,8 @@ python manage.py seed_permissions --module students
 
 ---
 
-## Validaciones Críticas
+## Pruebas
 
-1.  **DNI Único**: El sistema previene el registro duplicado de estudiantes o representantes mediante la validación obligatoria del DNI.
-2.  **Rango de Edad**: Se valida que la fecha de nacimiento del estudiante resulte en una edad válida para el sistema escolar (ej: 5 a 30 años).
-3.  **Representante Único**: No se puede eliminar el último representante vinculado a un estudiante activo para asegurar que siempre exista un contacto responsable.
+```bash
+python manage.py test apps.students --settings=config.settings.test
+```

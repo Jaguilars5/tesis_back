@@ -2,20 +2,11 @@ from django.db import models
 
 
 class SubjectConstraint(models.Model):
-    """
-    Restricciones de planificación para una materia.
-
-    subject: Materia a la que aplica la restricción
-    required_consecutive_slots: Cantidad de horas seguidas requeridas (bloques)
-    max_slots_per_day: Cantidad máxima de horas permitidas por día
-    preferred_room_type: Tipo de aula preferida (ej: 'Laboratorio')
-    """
-
-    subject = models.ForeignKey(
-        "academic.Subject",
+    subject_academic_config = models.ForeignKey(
+        "academic.SubjectAcademicConfig",
         on_delete=models.CASCADE,
-        verbose_name="Materia",
-        help_text="Materia restringida",
+        verbose_name="Configuración de Materia",
+        null=True,
     )
     required_consecutive_slots = models.IntegerField(
         default=1,
@@ -27,8 +18,9 @@ class SubjectConstraint(models.Model):
         verbose_name="Máximo de Periodos por Día",
         help_text="Máximo de periodos permitidos por día",
     )
-    preferred_room_type = models.CharField(
-        max_length=50,
+    preferred_room_type = models.ForeignKey(
+        "institutions.RoomType",
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
         verbose_name="Tipo de Aula Preferida",
@@ -41,4 +33,4 @@ class SubjectConstraint(models.Model):
         verbose_name_plural = "Restricciones de Materias"
 
     def __str__(self):
-        return f"Constraint for {self.subject}"
+        return f"Constraint for {self.subject_academic_config}"

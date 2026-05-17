@@ -1,8 +1,8 @@
 # Módulo `grading` — Registro de Desempeño y Conducta
 
-Este módulo se encarga del seguimiento integral del estudiante, gestionando sus calificaciones, registros de asistencia e incidentes de conducta.
+Este módulo se encarga del seguimiento integral del estudiante, gestionando calificaciones, asistencia e incidentes de conducta.
 
-Su diseño garantiza que las reglas de negocio, como la normalización de notas a base 10 y el cálculo de promedios ponderados, se apliquen de forma consistente mediante una capa de servicios robusta.
+Su diseño garantiza que las reglas de negocio se apliquen de forma consistente mediante una capa de servicios.
 
 ---
 
@@ -11,106 +11,206 @@ Su diseño garantiza que las reglas de negocio, como la normalización de notas 
 ```
 grading/
 ├── models/         # Calificaciones, Asistencia, Conducta
-├── repositories/   # Consultas especializadas y filtros
+├── repositories/   # Consultas especializadas
 ├── services/       # Lógica de normalización y promedios
-├── api/            # Serializadores y vistas dinámicas
-└── tests/          # Verificación de lógica y cálculos
+├── api/            # Serializadores y ViewSets
+└── tests/          # Verificación de lógica
 ```
 
 ---
 
 ## Modelos de Datos
 
-### StudentNote (Nota de Estudiante)
-Calificaciones individuales vinculadas a una actividad académica.
+### AttendanceStatus (Estado de Asistencia)
+Catálogo de estados (Presente, Ausente, Tardanza, etc.)
 
-| Campo | Tipo | Verbose Name |
-| :--- | :--- | :--- |
-| `uuid` | UUIDField | UUID |
-| `student` | ForeignKey (Student) | Estudiante |
-| `academic_activity` | ForeignKey (Academic_Activity) | Actividad Académica |
-| `academic_period` | ForeignKey (Academic_Period) | Período Académico |
-| `teacher_subject_section` | ForeignKey (Teacher_Subject_Section) | Docente-Materia-Sección |
-| `note_value` | DecimalField | Valor de la Nota |
-| `normalized_value` | DecimalField | Valor Normalizado |
-| `observation` | TextField | Observación |
-| `sync_status` | CharField (20) | Estado de Sincronización |
-| `synced_at` | DateTimeField | Sincronizado el |
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `code` | CharField (10) | Código único |
+| `name` | CharField (100) | Nombre |
+
+### GradeType (Tipo de Nota)
+Catálogo de tipos de evaluación (Examen, Tarea, Proyecto, etc.)
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `code` | CharField (20) | Código único |
+| `name` | CharField (100) | Nombre |
+
+### QualitativeScale (Escala Cualitativa)
+Equivalencias entre escalas cualitativas y numéricas.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `code` | CharField (10) | Código único |
+| `description` | CharField (100) | Descripción |
+| `numeric_equivalence` | DecimalField | Equivalencia numérica |
+
+### EvaluationMacro (Macro Evaluación)
+Grupo principal de evaluación (Ej: "Examen Final").
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `academic_period` | ForeignKey (Academic_Period) | Período académico |
+| `name` | CharField (100) | Nombre |
+| `weight_percentage` | DecimalField | Peso porcentual |
 | `active` | BooleanField | Activo |
-| `created_at` | DateTimeField | Fecha de Creación |
-| `updated_at` | DateTimeField | Fecha de Actualización |
-| `deleted_at` | DateTimeField | Fecha de Eliminación |
-| `sync_version` | PositiveIntegerField | Versión de Sincronización |
-| `device_origin` | CharField (40) | Dispositivo de Origen |
+
+### EvaluationCriteria (Criterio de Evaluación)
+Subdivisión de una macro evaluación.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `evaluation_macro` | ForeignKey (EvaluationMacro) | Macro evaluación |
+| `name` | CharField (100) | Nombre |
+| `internal_weight` | DecimalField | Peso interno (%) |
+
+### EvaluationSubcriteria (Subcriterio de Evaluación)
+细分 más granular de un criterio.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `evaluation_criteria` | ForeignKey (EvaluationCriteria) | Criterio |
+| `name` | CharField (100) | Nombre |
+| `internal_weight` | DecimalField | Peso interno (%) |
+
+### ClassAssignment (Tarea/Actividad)
+Actividades evaluativas específicas.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `evaluation_subcriteria` | ForeignKey (EvaluationSubcriteria) | Subcriterio |
+| `teacher_subject_section` | ForeignKey (Teacher_Subject_Section) | Asignación docente |
+| `title` | CharField (200) | Título |
+| `max_score` | DecimalField | Puntaje máximo |
+| `due_date` | DateField | Fecha de entrega |
+
+### StudentNote (Nota de Estudiante)
+Calificaciones individuales vinculadas a una actividad.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `uuid` | UUIDField | UUID único |
+| `enrollment` | ForeignKey (Enrollment) | Matrícula |
+| `class_assignment` | ForeignKey (ClassAssignment) | Actividad |
+| `grade_type` | ForeignKey (GradeType) | Tipo de nota |
+| `qualitative_scale` | ForeignKey (QualitativeScale) | Escala cualitativa |
+| `numeric_score` | DecimalField | Nota numérica |
+| `manually_overridden` | BooleanField | Modificado manualmente |
+| `teacher_observation` | TextField | Observación del docente |
+| `administrative_observation` | TextField | Observación administrativa |
+| `sync_status` | CharField (20) | Estado de sincronización |
+| `synced_at` | DateTimeField | Sincronizado el |
+| `created_at` | DateTimeField | Fecha de creación |
+| `updated_at` | DateTimeField | Fecha de actualización |
+| `deleted_at` | DateTimeField | Fecha de eliminación |
+| `sync_version` | PositiveIntegerField | Versión de sincronización |
+| `device_origin` | CharField (40) | Dispositivo de origen |
+
+### Attendance (Asistencia)
+Registros de asistencia por clase.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `uuid` | UUIDField | UUID único |
+| `enrollment` | ForeignKey (Enrollment) | Matrícula |
+| `teacher_subject_section` | ForeignKey (Teacher_Subject_Section) | Clase |
+| `academic_period` | ForeignKey (Academic_Period) | Período académico |
+| `attendance_status` | ForeignKey (AttendanceStatus) | Estado |
+| `attendance_date` | DateField | Fecha |
+| `observation` | TextField | Observación |
+| `sync_status` | CharField (20) | Estado de sincronización |
+| `synced_at` | DateTimeField | Sincronizado el |
+| `created_at` | DateTimeField | Fecha de creación |
+| `updated_at` | DateTimeField | Fecha de actualización |
+| `sync_version` | PositiveIntegerField | Versión de sincronización |
+| `device_origin` | CharField (40) | Dispositivo de origen |
+
+### ConductIncident (Incidente de Conducta)
+Registros disciplinarios.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `uuid` | UUIDField | UUID único |
+| `enrollment` | ForeignKey (Enrollment) | Matrícula |
+| `reported_by_user` | ForeignKey (User) | Reportado por |
+| `academic_period` | ForeignKey (Academic_Period) | Período académico |
+| `incident_date` | DateField | Fecha del incidente |
+| `category` | CharField (30) | Categoría |
+| `severity` | IntegerField | Gravedad |
+| `description` | TextField | Descripción |
+| `family_notified` | BooleanField | Familia notificada |
+| `sync_status` | CharField (20) | Estado de sincronización |
+| `synced_at` | DateTimeField | Sincronizado el |
+| `created_at` | DateTimeField | Fecha de creación |
+| `updated_at` | DateTimeField | Fecha de actualización |
+| `sync_version` | PositiveIntegerField | Versión de sincronización |
+| `device_origin` | CharField (40) | Dispositivo de origen |
+
+### BehaviorEvaluation (Evaluación de Conducta)
+Evaluación conductual por período.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `enrollment` | ForeignKey (Enrollment) | Matrícula |
+| `academic_period` | ForeignKey (Academic_Period) | Período académico |
+| `calculated_scale` | ForeignKey (QualitativeScale) | Escala calculada |
+| `final_scale` | ForeignKey (QualitativeScale) | Escala final (override) |
+| `override_reason` | TextField | Razón del override |
+
+### GradeChangeHistory (Historial de Cambio de Nota)
+Auditoría de cambios de calificaciones.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `student_note` | ForeignKey (StudentNote) | Nota |
+| `modified_by_user` | ForeignKey (User) | Modificado por |
+| `previous_score` | DecimalField | Nota anterior |
+| `new_score` | DecimalField | Nota nueva |
+| `reason` | TextField | Razón del cambio |
+| `modified_at` | DateTimeField | Fecha de modificación |
 
 ---
 
-## Capa de Servicios
+## API REST (Resumen)
 
-### GradingService (Orquestador)
+### Calificaciones
+- GET/POST `/api/grading/student-notes/`
+- GET/PUT/PATCH/DELETE `/api/grading/student-notes/{id}/`
 
-- `create_student_note`: Registra o actualiza la nota de un estudiante para una actividad. Realiza automáticamente la normalización a base 10 basándose en el valor máximo de la actividad.
-- `update_student_note`: Modifica una calificación existente y recalcula el valor normalizado si el puntaje numérico ha cambiado.
-- `calculate_period_average`: Obtiene el promedio simple de las notas normalizadas de un estudiante para un período y materia específicos.
-- `create_attendance`: Registra el estado de asistencia de un alumno (Presente, Ausente, etc.) para una fecha y clase determinada. Si ya existe un registro para ese día, lo actualiza.
-- `list_attendance`: Recupera registros de asistencia filtrados por estudiante, sección, fecha o estado.
-- `create_conduct_incident`: Documenta un evento disciplinario o académico, asignando una categoría y nivel de gravedad (Leve, Moderado, Grave).
-- `list_conduct_incidents`: Lista los incidentes registrados con soporte de filtros por severidad y estado de notificación familiar.
-- `deactivate_student_note`: Ejecuta un borrado lógico de una calificación marcándola como inactiva en el sistema.
+### Asistencia
+- GET/POST `/api/grading/attendance/`
+- GET/PUT/PATCH/DELETE `/api/grading/attendance/{id}/`
 
----
+### Incidentes de Conducta
+- GET/POST `/api/grading/conduct-incidents/`
+- GET/PUT/PATCH/DELETE `/api/grading/conduct-incidents/{id}/`
 
-## Endpoints
+### Catálogos
+- GET/POST `/api/grading/attendance-status/`
+- GET/POST `/api/grading/grade-type/`
+- GET/POST `/api/grading/qualitative-scale/`
+- GET/POST `/api/grading/evaluation-macro/`
+- GET/POST `/api/grading/evaluation-criteria/`
+- GET/POST `/api/grading/evaluation-subcriteria/`
+- GET/POST `/api/grading/class-assignment/`
 
-Todos los endpoints son RESTful con ViewSets de DRF.
-
-### StudentNote
-
-| Método | Endpoint | Descripción | Permiso |
-|--------|----------|-------------|---------|
-| GET | `/api/grading/student-notes/` | Listar calificaciones (paginado) | grading.view_note |
-| POST | `/api/grading/student-notes/` | Crear calificación | grading.create_note |
-| GET | `/api/grading/student-notes/{id}/` | Detalle de calificación | grading.view_note |
-| PATCH | `/api/grading/student-notes/{id}/` | Actualizar parcialmente | grading.update_note |
-| DELETE | `/api/grading/student-notes/{id}/` | Eliminar (soft delete) | grading.delete_note |
-
-### Attendance
-
-| Método | Endpoint | Descripción | Permiso |
-|--------|----------|-------------|---------|
-| GET | `/api/grading/attendance/` | Listar asistencia (paginado) | grading.view_attendance |
-| POST | `/api/grading/attendance/` | Crear registro de asistencia | grading.create_attendance |
-| GET | `/api/grading/attendance/{id}/` | Detalle de asistencia | grading.view_attendance |
-| PATCH | `/api/grading/attendance/{id}/` | Actualizar parcialmente | grading.update_attendance |
-| DELETE | `/api/grading/attendance/{id}/` | Eliminar (soft delete) | grading.delete_attendance |
-
-### ConductIncident
-
-| Método | Endpoint | Descripción | Permiso |
-|--------|----------|-------------|---------|
-| GET | `/api/grading/conduct-incidents/` | Listar incidentes (paginado) | grading.view_incident |
-| POST | `/api/grading/conduct-incidents/` | Crear incidente | grading.create_incident |
-| GET | `/api/grading/conduct-incidents/{id}/` | Detalle de incidente | grading.view_incident |
-| PATCH | `/api/grading/conduct-incidents/{id}/` | Actualizar parcialmente | grading.update_incident |
-| DELETE | `/api/grading/conduct-incidents/{id}/` | Eliminar (soft delete) | grading.delete_incident |
+### Evaluaciones de Conducta
+- GET/POST `/api/grading/behavior-evaluation/`
 
 ---
 
 ## Seguridad
 
-### Autenticación y Permisos
+Todos los endpoints requieren `Authorization: Bearer <token>` y permiso específico.
 
-Todos los endpoints requieren:
-1. Header `Authorization: Bearer <token>`
-2. Permiso específico del usuario
-
-### Permisos por modelo
-
-| Modelo | Ver | Crear | Actualizar | Eliminar |
-|--------|-----|-------|------------|----------|
-| StudentNote | grading.view_note | grading.create_note | grading.update_note | grading.delete_note |
-| Attendance | grading.view_attendance | grading.create_attendance | grading.update_attendance | grading.delete_attendance |
-| ConductIncident | grading.view_incident | grading.create_incident | grading.update_incident | grading.delete_incident |
+| Modelo | View | Create | Update | Delete |
+|--------|------|--------|--------|--------|
+| StudentNote | `grading.view_note` | `grading.create_note` | `grading.update_note` | `grading.delete_note` |
+| Attendance | `grading.view_attendance` | `grading.create_attendance` | `grading.update_attendance` | `grading.delete_attendance` |
+| ConductIncident | `grading.view_incident` | `grading.create_incident` | `grading.update_incident` | `grading.delete_incident` |
+| EvaluationMacro | `grading.view_macro` | `grading.create_macro` | `grading.update_macro` | `grading.delete_macro` |
+| ClassAssignment | `grading.view_assignment` | `grading.create_assignment` | `grading.update_assignment` | `grading.delete_assignment` |
 
 Seedear permisos:
 ```bash
@@ -121,38 +221,22 @@ python manage.py seed_permissions --module grading
 
 ## Pruebas
 
-```
-python manage.py test apps.grading
+```bash
+python manage.py test apps.grading --settings=config.settings.test
 ```
 
 ---
 
-## Integracion con Analytics
+## Integración con Analytics
 
-El modulo `grading` funciona como fuente de datos para el modelo de riesgo
-academico de `analytics`.
+El módulo `grading` funciona como fuente de datos para el modelo de riesgo académico de `analytics`.
 
 Datos consumidos:
-
-- `StudentNote`: promedio normalizado, ultimo examen y materias reprobadas.
-- `Attendance`: porcentaje de asistencia, faltas justificadas, faltas
-  injustificadas, tardanzas y maximo de faltas consecutivas.
-- `ConductIncident`: faltas leves, moderadas, graves, observaciones recientes
-  y notificacion familiar.
+- `StudentNote`: promedio normalizado, materias reprobadas
+- `Attendance`: tasa de asistencia, faltas consecutivas, tardanzas
+- `ConductIncident`: incidentes por severidad, notificación familiar
 
 Repositorios para snapshots de riesgo:
-
-- `StudentNoteRepository.list_for_risk_snapshot(student_id, academic_period_id)`.
-- `AttendanceRepository.list_for_risk_snapshot(student_id, academic_period_id)`.
-- `ConductIncidentRepository.list_for_risk_snapshot(student_id, academic_period_id)`.
-
-Estos metodos mantienen las consultas ORM dentro de la capa de repositorios y
-permiten que `apps.analytics.services.feature_builder.AcademicRiskFeatureBuilder`
-construya el JSON de entrada sin acceder directamente a los modelos.
-
----
-
-## Lógica de Negocio Clave
-
-1.  **Normalización Interna**: El servicio utiliza `_normalize_note` para asegurar que todas las notas, independientemente de su base original (20, 100, etc.), se almacenen en `normalized_value` con base 10.
-2.  **Sincronización**: Los registros incluyen metadatos de sincronización (`sync_status`, `device_origin`) para soportar escenarios de uso en dispositivos móviles con conexión intermitente.
+- `StudentNoteRepository.list_for_risk_snapshot(student_id, academic_period_id)`
+- `AttendanceRepository.list_for_risk_snapshot(student_id, academic_period_id)`
+- `ConductIncidentRepository.list_for_risk_snapshot(student_id, academic_period_id)`

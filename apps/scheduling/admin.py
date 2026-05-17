@@ -25,8 +25,8 @@ class TimeSlotAdmin(admin.ModelAdmin):
 
 @admin.register(TeacherAvailability)
 class TeacherAvailabilityAdmin(admin.ModelAdmin):
-    list_display = ("id", "user", "school_year", "time_slot", "is_available")
-    list_filter = ("school_year", "is_available")
+    list_display = ("id", "user", "time_slot", "is_available")
+    list_filter = ("is_available",)
 
 
 @admin.register(ScheduleSlot)
@@ -38,9 +38,9 @@ class ScheduleSlotAdmin(admin.ModelAdmin):
         "classroom",
         "active",
     )
-    list_filter = ("active", "school_year")
+    list_filter = ("active",)
 
 
 @admin.register(SubjectConstraint)
 class SubjectConstraintAdmin(admin.ModelAdmin):
-    list_display = ("id", "subject", "required_consecutive_slots", "max_slots_per_day")
+    list_display = ("id", "subject_academic_config", "required_consecutive_slots", "max_slots_per_day")

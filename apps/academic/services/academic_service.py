@@ -8,14 +8,14 @@ from ..models import (
     Academic_Activity,
     Timing_Regime,
     Teacher_Subject_Section,
+    SubjectAcademicConfig,
+    SubjectOffering,
 )
 from apps.grading.models import StudentNote
 from ..repositories.academic_repo import (
     SectionRepository,
     SubjectRepository,
-    ConfigAcademicRepository,
     AcademicPeriodRepository,
-    AcademicActivityRepository,
     TimingRegimeRepository,
     TeacherSubjectSectionRepository,
 )
@@ -78,10 +78,10 @@ class AcademicService:
     # =====================
 
     @staticmethod
-    def create_timing_regime(school_year_id, name, description=""):
+    def create_timing_regime(institution_id, name, description=""):
         """Crear régimen horario"""
         regime = Timing_Regime(
-            school_year_id=school_year_id, name=name, description=description
+            institution_id=institution_id, name=name, description=description
         )
         regime.save()
         return regime
@@ -95,10 +95,10 @@ class AcademicService:
         return regime
 
     @staticmethod
-    def list_timing_regimes(school_year_id=None):
+    def list_timing_regimes(institution_id=None):
         """Listar regímenes horarios"""
-        if school_year_id:
-            return Timing_Regime.objects.filter(school_year_id=school_year_id)
+        if institution_id:
+            return Timing_Regime.objects.filter(institution_id=institution_id)
         return TimingRegimeRepository.get_all()
 
     @staticmethod
@@ -117,25 +117,16 @@ class AcademicService:
 
     @staticmethod
     def create_section(
-        school_year_id, timing_regime_id, level, grade, parallel, capacity
+        school_year_id, timing_regime_id, academic_grade_id, parallel, capacity
     ):
         """Crear sección (grado/paralelo)"""
         if capacity <= 0:
             raise ValueError("Capacidad debe ser mayor a 0")
 
-        # Validar no existe sección duplicada
-        existing = Section.objects.filter(
-            school_year_id=school_year_id, level=level, grade=grade, parallel=parallel
-        ).exists()
-
-        if existing:
-            raise ValueError(f"Sección {level}-{grade}-{parallel} ya existe")
-
         section = Section(
             school_year_id=school_year_id,
             timing_regime_id=timing_regime_id,
-            level=level,
-            grade=grade,
+            academic_grade_id=academic_grade_id,
             parallel=parallel,
             capacity=capacity,
         )
@@ -161,7 +152,7 @@ class AcademicService:
         section = AcademicService.get_section(section_id)
         return {
             "section": section,
-            "subjects": Subject.objects.filter(section=section),
+            "offerings": SubjectOffering.objects.filter(section=section),
             "teachers": Teacher_Subject_Section.objects.filter(section=section),
             "student_count": (
                 section.student_enrollment.count()
@@ -174,7 +165,7 @@ class AcademicService:
     def list_sections_by_school_year(school_year_id):
         """Listar secciones de un año escolar"""
         return Section.objects.filter(school_year_id=school_year_id).order_by(
-            "level", "grade", "parallel"
+            "academic_grade__sequence_order", "parallel"
         )
 
     @staticmethod
@@ -197,23 +188,9 @@ class AcademicService:
     # =====================
 
     @staticmethod
-    def create_subject(
-        school_year_id, section_id, name, code, weekly_hours=0, approve_percentage=70
-    ):
+    def create_subject(name, code):
         """Crear asignatura"""
-        if not Section.objects.filter(
-            id=section_id, school_year_id=school_year_id
-        ).exists():
-            raise ValueError("Sección no pertenece al año escolar")
-
-        subject = Subject(
-            school_year_id=school_year_id,
-            section_id=section_id,
-            name=name,
-            code=code,
-            weekly_hours=weekly_hours,
-            approve_percentage=approve_percentage,
-        )
+        subject = Subject(name=name, code=code)
         subject.save()
         return subject
 
@@ -236,7 +213,7 @@ class AcademicService:
         subject = AcademicService.get_subject(subject_id)
         return {
             "subject": subject,
-            "section": subject.section,
+            "configs": SubjectAcademicConfig.objects.filter(subject=subject),
             "teachers": Teacher_Subject_Section.objects.filter(subject=subject),
             "activities": Academic_Activity.objects.filter(subject=subject),
         }
@@ -244,7 +221,9 @@ class AcademicService:
     @staticmethod
     def list_subjects_by_section(section_id):
         """Listar asignaturas de una sección"""
-        return Subject.objects.filter(section_id=section_id).order_by("name")
+        return Subject.objects.filter(
+            subjectacademicconfig__subjectoffering__section_id=section_id
+        ).distinct().order_by("name")
 
     @staticmethod
     def update_subject(subject_id, **kwargs):

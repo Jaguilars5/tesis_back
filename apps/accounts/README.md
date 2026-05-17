@@ -2,7 +2,7 @@
 
 Este módulo constituye el núcleo de seguridad del sistema, encargado de la gestión de usuarios, roles, permisos y autenticación basada en JWT.
 
-Su diseño sigue una arquitectura desacoplada en capas (Modelos → Repositorios → Servicios → API), permitiendo escalabilidad, mantenibilidad y facilidad de prueba.
+Su diseño sigue una arquitectura desacoplada en capas (Modelos → Repositorios → Servicios → API).
 
 ---
 
@@ -10,151 +10,159 @@ Su diseño sigue una arquitectura desacoplada en capas (Modelos → Repositorios
 
 ```
 accounts/
-├── models/
-├── repositories/
-├── services/
-├── api/
-├── middleware/
-├── decorators/
-├── utils/
-└── tests/
+├── models/         # User, Person, Role, Permission, etc.
+├── repositories/   # Consultas centralizadas (ORM)
+├── services/       # Lógica de negocio y cálculos
+├── api/            # Serializadores y ViewSets
+├── decorators/     # Decoradores de permisos
+├── utils/          # Utilidades varias
+└── tests/          # Pruebas unitarias y de integración
 ```
 
 ---
 
 ## Modelos de Datos
 
+### Person (Persona)
+Entidad base que representa a una persona física en el sistema.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `document_type` | ForeignKey (DocumentType) | Tipo de documento |
+| `document_number` | CharField (20) | Número de documento (único) |
+| `names` | CharField (100) | Nombres |
+| `last_names` | CharField (100) | Apellidos |
+| `birth_date` | DateField | Fecha de nacimiento |
+| `email` | EmailField | Correo electrónico |
+| `phone` | CharField (15) | Teléfono |
+| `active` | BooleanField | Activo |
+| `created_at` | DateTimeField | Fecha de creación |
+| `updated_at` | DateTimeField | Fecha de actualización |
+| `deleted_at` | DateTimeField | Fecha de eliminación |
+
 ### User
+Usuario del sistema (hereda de AbstractBaseUser).
 
-Entidad principal del sistema.
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `person` | OneToOneField (Person) | Persona asociada |
+| `email` | EmailField | Correo (único, username) |
+| `institution` | ForeignKey (Institution) | Institución |
+| `active` | BooleanField | Activo |
+| `is_staff` | BooleanField | Es staff admin |
+| `is_superuser` | BooleanField | Es superusuario |
+| `created_at` | DateTimeField | Fecha de creación |
+| `updated_at` | DateTimeField | Fecha de actualización |
 
-- `dni`
-- `names`
-- `last_names`
-- `email`
-- `role`
-- `institution`
-- `active`
+### Role (Rol)
+Grupos de permisos asignables a usuarios.
 
----
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `name` | CharField (100) | Nombre único |
+| `code` | CharField (50) | Código único |
+| `description` | CharField (255) | Descripción |
+| `active` | BooleanField | Activo |
 
-### Role
+### Permission (Permiso)
+Permisos granulares del sistema.
 
-- `name`
-- `description`
-- `active`
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `code` | CharField (100) | Código único (formato: `modulo.accion`) |
+| `module` | CharField (50) | Módulo asociado |
+| `description` | CharField (255) | Descripción |
 
----
+### UserRole (Rol de Usuario)
+Asociación usuario-rol con fecha de expiración opcional.
 
-### Permission
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `user` | ForeignKey (User) | Usuario |
+| `role` | ForeignKey (Role) | Rol |
+| `assigned_at` | DateTimeField | Fecha de asignación |
+| `expires_at` | DateTimeField | Fecha de expiración |
 
-Formato:
+### RolePermission (Permiso de Rol)
+Asociación rol-permiso.
 
-```
-modulo.accion
-```
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `role` | ForeignKey (Role) | Rol |
+| `permission` | ForeignKey (Permission) | Permiso |
 
-Ejemplo:
+### UserPermission (Permiso de Usuario)
+Overrides individuales de permisos por usuario.
 
-```
-grading.create_note
-```
-
----
-
-### RolePermission / UserPermission
-
-- RolePermission: permisos por rol
-- UserPermission: overrides individuales
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `user` | ForeignKey (User) | Usuario |
+| `permission` | ForeignKey (Permission) | Permiso |
+| `granted` | BooleanField | Otorgado (True) o Revocado (False) |
+| `reason` | TextField | Razón del cambio |
+| `expires_at` | DateTimeField | Fecha de expiración |
+| `granted_by` | ForeignKey (User) | Usuario que otorgó |
 
 ---
 
 ## Capa de Servicios
 
 ### UserService
-
-- create_user
-- update_user
-- change_password
-- grant_permission
-- revoke_permission
-- has_permission
+- `create_user`: Crea usuario con person asociada
+- `update_user`: Actualiza datos de usuario
+- `change_password`: Cambia contraseña
+- `grant_permission` / `revoke_permission`: Gestión de permisos
+- `has_permission`: Verifica si usuario tiene permiso
 
 ### RoleService
-
-- create_role
-- assign_permissions_to_role
-- deactivate_role
+- `create_role`: Crea nuevo rol
+- `assign_permissions_to_role`: Asigna permisos a rol
+- `deactivate_role`: Desactiva rol
 
 ### PermissionService
-
-- create_permissions_bulk
-- list_permissions_by_module
-
----
-
-## Management Commands
-
-### `seed_permissions`
-
-Crea todos los permisos del catálogo en la base de datos. Es idempotente (puede ejecutarse múltiples veces sin duplicar).
-
-```bash
-# Seedear todos los permisos
-python manage.py seed_permissions
-
-# Seedear solo permisos de un módulo
-python manage.py seed_permissions --module grading
-```
-
-Módulos disponibles: `accounts`, `institutions`, `academic`, `students`, `grading`, `scheduling`, `analytics`
+- `create_permissions_bulk`: Creación masiva
+- `list_permissions_by_module`: Lista por módulo
 
 ---
 
 ## API REST (Resumen)
 
-### Autenticación
-
-- POST /api/accounts/login/
-- POST /api/accounts/refresh/
+### Autenticación (públicos)
+- POST `/api/accounts/login/`
+- POST `/api/accounts/refresh/`
 
 ### Usuarios
-
-- GET /api/accounts/users/
-- POST /api/accounts/users/
-- GET /api/accounts/users/{id}/
-- PUT /api/accounts/users/{id}/
-- DELETE /api/accounts/users/{id}/
-- POST /api/accounts/users/{id}/change-password/
-- POST /api/accounts/users/{id}/grant-permission/
-- POST /api/accounts/users/{id}/revoke-permission/
-- GET /api/accounts/users/search/
+- GET/POST `/api/accounts/users/`
+- GET/PUT/PATCH/DELETE `/api/accounts/users/{id}/`
+- POST `/api/accounts/users/{id}/change-password/`
+- POST `/api/accounts/users/{id}/grant-permission/`
+- POST `/api/accounts/users/{id}/revoke-permission/`
 
 ### Roles
-
-- GET /api/accounts/roles/
-- POST /api/accounts/roles/
-- POST /api/accounts/roles/{id}/assign-permissions/
+- GET/POST `/api/accounts/roles/`
+- POST `/api/accounts/roles/{id}/assign-permissions/`
 
 ### Permisos
+- GET `/api/accounts/permissions/`
+- POST `/api/accounts/permissions/bulk-create/`
 
-- GET /api/accounts/permissions/
-- POST /api/accounts/permissions/bulk-create/
-
-📌 Ver documentación detallada:
-accounts/api/README.md
+Ver documentación detallada en `accounts/api/README.md`.
 
 ---
 
 ## Seguridad
 
-### Autenticación y Permisos
+### Formato de Permisos
+```
+modulo.accion
+```
+Ejemplo: `grading.create_note`
 
-Endpoints públicos (sin auth):
+### Endpoints públicos
 - `POST /api/accounts/login/`
 - `POST /api/accounts/refresh/`
 
-Endpoints protegidos (requieren auth + permiso):
+### Permisos por ViewSet
 
 | ViewSet | View | Create | Update | Delete |
 |---------|------|--------|--------|--------|
@@ -171,20 +179,6 @@ python manage.py seed_permissions --module accounts
 
 ## Pruebas
 
-```
-python manage.py test apps.accounts
-```
-
----
-
-## Lógica de Permisos
-
-1. Permisos por rol
-2. Overrides por usuario
-
-```
-user.has_perm('grading.view_note')
-
-service.revoke_permission(...)
-service.grant_permission(...)
+```bash
+python manage.py test apps.accounts --settings=config.settings.test
 ```

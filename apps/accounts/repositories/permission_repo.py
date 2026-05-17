@@ -21,28 +21,28 @@ class PermissionRepository:
             return None
 
     @staticmethod
-    def get_by_codename(codename):
-        """Obtiene un permiso por codename."""
+    def get_by_code(code):
+        """Obtiene un permiso por code."""
         try:
-            return Permission.objects.get(codename=codename)
+            return Permission.objects.get(code=code)
         except Permission.DoesNotExist:
             return None
 
     @staticmethod
     def get_all():
         """Obtiene todos los permisos."""
-        return Permission.objects.order_by("codename")
+        return Permission.objects.order_by("code")
 
     @staticmethod
     def get_by_module(module):
         """Obtiene todos los permisos de un módulo específico."""
-        return Permission.objects.filter(module=module).order_by("codename")
+        return Permission.objects.filter(module=module).order_by("code")
 
     @staticmethod
-    def create(codename, description="", module=""):
+    def create(code, description="", module=""):
         """Crea un nuevo permiso."""
         permission = Permission(
-            codename=codename, description=description, module=module
+            code=code, description=description, module=module
         )
         permission.save()
         return permission
@@ -52,11 +52,11 @@ class PermissionRepository:
         """
         Crea múltiples permisos desde una lista de dictionaries.
 
-        permission_list: lista de {'codename': '...', 'description': '...', 'module': '...'}
+        permission_list: lista de {'code': '...', 'description': '...', 'module': '...'}
         """
         permissions = [
             Permission(
-                codename=p["codename"],
+                code=p["code"],
                 description=p.get("description", ""),
                 module=p.get("module", ""),
             )
@@ -70,7 +70,7 @@ class PermissionRepository:
         Actualiza un permiso.
 
         Campos soportados: description, module
-        (codename no se actualiza: es el identificador único)
+        (code no se actualiza: es el identificador único)
         """
         allowed_fields = {"description", "module"}
         for key, value in kwargs.items():
@@ -89,13 +89,13 @@ class PermissionRepository:
     @staticmethod
     def search(query_string):
         """
-        Búsqueda por codename o description (case-insensitive).
+        Búsqueda por code o description (case-insensitive).
         """
         from django.db.models import Q
 
         return Permission.objects.filter(
-            Q(codename__icontains=query_string) | Q(description__icontains=query_string)
-        ).order_by("codename")
+            Q(code__icontains=query_string) | Q(description__icontains=query_string)
+        ).order_by("code")
 
 
 """

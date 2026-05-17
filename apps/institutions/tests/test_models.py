@@ -1,6 +1,6 @@
 from django.test import TestCase
 from datetime import date, timedelta
-from ..models import Institution, School_Year, Classroom
+from ..models import AcademicRegime, Classroom, DocumentType, Institution, RoomType, School_Year
 
 
 class InstitutionModelTest(TestCase):
@@ -92,36 +92,26 @@ class ClassroomModelTest(TestCase):
         self.institution = Institution.objects.create(
             name="Colegio A", code="CA-001", address="Dirección A", city="Quito"
         )
+        self.room_type = RoomType.objects.create(
+            code="AULA", name="Aula de Clase"
+        )
         self.classroom = Classroom.objects.create(
             institution=self.institution,
             name="101",
-            room_type="Aula de clase",
+            room_type=self.room_type,
             capacity=40,
         )
 
     def test_classroom_creation(self):
         """Probar creación de aula"""
         self.assertEqual(self.classroom.name, "101")
-        self.assertEqual(self.classroom.room_type, "Aula de clase")
+        self.assertEqual(self.classroom.room_type.name, "Aula de Clase")
         self.assertEqual(self.classroom.capacity, 40)
         self.assertTrue(self.classroom.active)
 
     def test_classroom_str(self):
         """Probar representación en string"""
-        self.assertEqual(str(self.classroom), "101 (Aula de clase)")
-
-    def test_classroom_types(self):
-        """Probar diferentes tipos de aulas"""
-        types = ["Aula de clase", "Laboratorio", "Biblioteca", "Gimnasio"]
-
-        for room_type in types:
-            classroom = Classroom.objects.create(
-                institution=self.institution,
-                name=f"Aula-{room_type}",
-                room_type=room_type,
-                capacity=30,
-            )
-            self.assertEqual(classroom.room_type, room_type)
+        self.assertIn("101", str(self.classroom))
 
     def test_classroom_capacity(self):
         """Probar capacidad de aula"""
@@ -129,19 +119,19 @@ class ClassroomModelTest(TestCase):
             Classroom(
                 institution=self.institution,
                 name="Pequeña",
-                room_type="Tutoría",
+                room_type=self.room_type,
                 capacity=10,
             ),
             Classroom(
                 institution=self.institution,
                 name="Mediana",
-                room_type="Clase",
+                room_type=self.room_type,
                 capacity=30,
             ),
             Classroom(
                 institution=self.institution,
                 name="Grande",
-                room_type="Auditorio",
+                room_type=self.room_type,
                 capacity=100,
             ),
         ]

@@ -59,10 +59,10 @@ class TeacherAvailabilityRepository(BaseRepository):
     model = TeacherAvailability
 
     @classmethod
-    def list_by_teacher(cls, user_id, school_year_id):
+    def list_by_teacher(cls, user_id):
         """Lista disponibilidad de un docente."""
         return cls.model.objects.filter(
-            user_id=user_id, school_year_id=school_year_id
+            user_id=user_id
         ).select_related("time_slot")
 
 
@@ -70,13 +70,12 @@ class ScheduleSlotRepository(BaseRepository):
     model = ScheduleSlot
 
     @classmethod
-    def list_by_section(cls, section_id, school_year_id):
+    def list_by_section(cls, section_id):
         """Lista el horario de una sección específica."""
         return cls.model.objects.filter(
-            teacher_subject_section__section_id=section_id,
-            school_year_id=school_year_id,
+            teacher_subject_section__subject_offering__section_id=section_id,
             active=True,
-        ).select_related("time_slot", "teacher_subject_section__subject", "classroom")
+        ).select_related("time_slot", "teacher_subject_section__subject_offering", "classroom")
 
     @classmethod
     def get_conflict(cls, time_slot_id, classroom_id=None, user_id=None):
@@ -103,5 +102,6 @@ class SubjectConstraintRepository(BaseRepository):
 
     @classmethod
     def get_by_subject(cls, subject_id):
-        """Obtiene restricciones de una materia."""
-        return cls.model.objects.filter(subject_id=subject_id).first()
+        return cls.model.objects.filter(
+            subject_academic_config__subject_id=subject_id
+        ).first()

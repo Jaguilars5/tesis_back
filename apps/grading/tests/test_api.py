@@ -9,11 +9,19 @@ from apps.academic.models import (
     Config_Academic,
     Section,
     Subject,
+    SubjectAcademicConfig,
+    SubjectOffering,
     Teacher_Subject_Section,
 )
 from apps.accounts.models import Role, User
-from apps.institutions.models import Institution, School_Year
-from apps.students.models import Student
+from apps.core.tests.helpers import create_test_user, create_test_student
+from apps.grading.models import (
+    AttendanceStatus,
+    GradeType,
+    QualitativeScale,
+)
+from apps.institutions.models import AcademicGrade, AcademicLevel, Institution, School_Year
+from apps.students.models import Enrollment, EnrollmentStatus, Student
 
 
 class GradingAPITest(APITestCase):
@@ -40,7 +48,6 @@ class GradingAPITest(APITestCase):
         self.period = Academic_Period.objects.create(
             config_academic=config,
             name="P1",
-            number=1,
             start_date=date(2025, 1, 1),
             end_date=date(2025, 3, 31),
         )
@@ -52,47 +59,63 @@ class GradingAPITest(APITestCase):
             applies_to="all",
             order=1,
         )
+        self.academic_level = AcademicLevel.objects.create(
+            institution=institution,
+            name="Primaria",
+        )
+        self.academic_grade = AcademicGrade.objects.create(
+            academic_level=self.academic_level,
+            name="7",
+            sequence_order=1,
+        )
         self.section = Section.objects.create(
             school_year=school_year,
             timing_regime=None,
-            level="Primaria",
-            grade="7",
+            academic_grade=self.academic_grade,
             parallel="A",
             capacity=30,
         )
         self.subject = Subject.objects.create(
-            school_year=school_year,
-            section=self.section,
             name="Matemática",
             code="MAT-7A",
-            weekly_hours=5,
-            approve_percentage=70,
         )
         self.role = Role.objects.create(name="Docente")
-        self.user = User.objects.create_user(
+        self.user = create_test_user(
             email="ana@example.com",
             dni="0102030405",
             names="Ana",
             last_names="Perez",
-            password="hash",
-            role=self.role,
             institution=institution,
             is_superuser=True,
         )
         self.client.force_authenticate(user=self.user)
-        self.teacher_subject_section = Teacher_Subject_Section.objects.create(
-            user=self.user,
-            subject=self.subject,
-            section=self.section,
-            school_year=school_year,
+        subj_config = SubjectAcademicConfig.objects.create(
+            subject=self.subject, academic_grade=self.academic_grade,
+            weekly_hours=5, pedagogical_order=1,
         )
-        self.student = Student.objects.create(
-            dni="0912345678",
+        offering = SubjectOffering.objects.create(
+            school_year=school_year, section=self.section,
+            subject_academic_config=subj_config,
+        )
+        self.teacher_subject_section = Teacher_Subject_Section.objects.create(
+            user=self.user, subject_offering=offering,
+        )
+        self.student = create_test_student(
+            document_number="0912345678",
             names="Juan",
             last_names="Lopez",
             birth_date=date(2010, 1, 1),
-            section=self.section,
         )
+
+        status, _ = EnrollmentStatus.objects.get_or_create(
+            code="ACT", defaults={"name": "Activa"}
+        )
+        self.enrollment = Enrollment.objects.create(
+            student=self.student,
+            section=self.section,
+            enrollment_status=status,
+        )
+        self.att_status = AttendanceStatus.objects.create(code="P", name="Presente")
 
         self.student_note_url = "/api/grading/student-notes/"
         self.attendance_url = "/api/grading/attendance/"
@@ -106,11 +129,11 @@ class GradingAPITest(APITestCase):
         response = self.client.post(
             self.attendance_url,
             {
-                "student": self.student.id,
+                "enrollment": self.enrollment.id,
                 "teacher_subject_section": self.teacher_subject_section.id,
                 "academic_period": self.period.id,
-                "date": "2025-02-01",
-                "status": "P",
+                "attendance_date": "2025-02-01",
+                "attendance_status": self.att_status.id,
             },
         )
         self.assertIn(
@@ -122,8 +145,8 @@ class GradingAPITest(APITestCase):
         response = self.client.post(
             self.conduct_url,
             {
-                "student": self.student.id,
-                "reported_by": self.user.id,
+                "enrollment": self.enrollment.id,
+                "reported_by_user": self.user.id,
                 "academic_period": self.period.id,
                 "incident_date": "2025-02-01",
                 "category": "disciplina",
@@ -134,3 +157,82 @@ class GradingAPITest(APITestCase):
             response.status_code,
             [status.HTTP_200_OK, status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST],
         )
+
+
+class AttendanceStatusAPITest(APITestCase):
+    def setUp(self):
+        self.role = Role.objects.create(name="Admin")
+        self.user = create_test_user(
+            email="attstatus@test.com",
+            dni="3030303030",
+            names="AttStatus",
+            last_names="Tester",
+            is_superuser=True,
+        )
+        self.client.force_authenticate(user=self.user)
+        AttendanceStatus.objects.create(code="P", name="Presente")
+        AttendanceStatus.objects.create(code="A", name="Ausente")
+        self.url = "/api/grading/attendance-statuses/"
+
+    def test_list(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_retrieve(self):
+        obj = AttendanceStatus.objects.first()
+        response = self.client.get(f"{self.url}{obj.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_create_not_allowed(self):
+        response = self.client.post(self.url, {"code": "J", "name": "Justificado"})
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+class GradeTypeAPITest(APITestCase):
+    def setUp(self):
+        self.role = Role.objects.create(name="Admin")
+        self.user = create_test_user(
+            email="gradetype@test.com",
+            dni="3031303030",
+            names="GradeType",
+            last_names="Tester",
+            is_superuser=True,
+        )
+        self.client.force_authenticate(user=self.user)
+        GradeType.objects.create(code="NUM", name="Numérica")
+        self.url = "/api/grading/grade-types/"
+
+    def test_list(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_retrieve(self):
+        obj = GradeType.objects.first()
+        response = self.client.get(f"{self.url}{obj.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class QualitativeScaleAPITest(APITestCase):
+    def setUp(self):
+        self.role = Role.objects.create(name="Admin")
+        self.user = create_test_user(
+            email="qualiscale@test.com",
+            dni="3032303030",
+            names="QualiScale",
+            last_names="Tester",
+            is_superuser=True,
+        )
+        self.client.force_authenticate(user=self.user)
+        QualitativeScale.objects.create(
+            code="SE", description="Superior", numeric_equivalence=9.0
+        )
+        self.url = "/api/grading/qualitative-scales/"
+
+    def test_list(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_retrieve(self):
+        obj = QualitativeScale.objects.first()
+        response = self.client.get(f"{self.url}{obj.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)

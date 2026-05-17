@@ -6,7 +6,7 @@ El service nunca escribe directamente User.objects.filter(...),
 sino que delega al repository.
 """
 
-from apps.accounts.models import User
+from apps.accounts.models import Person, User
 
 
 class UserRepository:
@@ -36,7 +36,7 @@ class UserRepository:
         Obtiene un usuario por DNI.
         Si institution_id se proporciona, filtra también por institución.
         """
-        query = User.objects.filter(dni=dni)
+        query = User.objects.filter(person__document_number=dni)
         if institution_id:
             query = query.filter(institution_id=institution_id)
         try:
@@ -50,7 +50,7 @@ class UserRepository:
         Obtiene todos los usuarios activos.
         Si institution_id se proporciona, filtra por institución.
         """
-        query = User.objects.filter(active=True).select_related("role", "institution")
+        query = User.objects.filter(active=True).select_related("institution")
         if institution_id:
             query = query.filter(institution_id=institution_id)
         return query.order_by("email")
@@ -60,9 +60,9 @@ class UserRepository:
         """
         Obtiene todos los usuarios con un rol específico.
         """
-        query = User.objects.filter(role_id=role_id, active=True).select_related(
-            "role", "institution"
-        )
+        query = User.objects.filter(
+            user_roles__role_id=role_id, active=True
+        ).select_related("institution").distinct()
         if institution_id:
             query = query.filter(institution_id=institution_id)
         return query.order_by("email")
@@ -72,36 +72,33 @@ class UserRepository:
         """Obtiene todos los usuarios de una institución."""
         return (
             User.objects.filter(institution_id=institution_id, active=True)
-            .select_related("role", "institution")
+            .select_related("institution")
             .order_by("email")
         )
 
     @staticmethod
-    def create(dni, names, last_names, email, password, role, institution):
+    def create(person, password, institution=None, is_superuser=False, **extra_fields):
         """
-        Crea un nuevo usuario.
+        Crea un nuevo usuario a partir de una Person.
+        Email is handled from person.email by UserManager.
         """
-        user = User(
-            dni=dni,
-            names=names,
-            last_names=last_names,
-            email=email,
-            role=role,
+        return User.objects.create_user(
+            person=person,
+            password=password,
             institution=institution,
+            is_superuser=is_superuser,
+            **extra_fields,
         )
-        user.set_password(password)
-        user.save()
-        return user
 
     @staticmethod
     def update(user, **kwargs):
         """
         Actualiza un usuario con los campos provistos.
 
-        Campos soportados: names, last_names, email, role, active
-        (No actualiza dni ni password directamente)
+        Campos soportados: email, active
+        (Person fields must be updated via Person model directly)
         """
-        allowed_fields = {"names", "last_names", "email", "role", "active"}
+        allowed_fields = {"email", "active"}
         for key, value in kwargs.items():
             if key in allowed_fields and value is not None:
                 setattr(user, key, value)
@@ -123,17 +120,14 @@ class UserRepository:
         Crea múltiples usuarios en una sola query.
 
         user_list: lista de dictionaries con claves:
-          {'dni': ..., 'names': ..., 'last_names': ..., 'email': ..., 'password': ..., 'role': ..., 'institution': ...}
+          {'person': ..., 'email': ..., 'password': ..., 'institution': ..., ...}
         """
         users = []
         for user_data in user_list:
             user = User(
-                dni=user_data["dni"],
-                names=user_data["names"],
-                last_names=user_data["last_names"],
+                person=user_data["person"],
                 email=user_data["email"],
-                role=user_data["role"],
-                institution=user_data["institution"],
+                institution=user_data.get("institution"),
             )
             user.set_password(user_data["password"])
             users.append(user)
@@ -147,11 +141,11 @@ class UserRepository:
         from django.db.models import Q
 
         query = User.objects.filter(
-            Q(names__icontains=query_string)
-            | Q(last_names__icontains=query_string)
+            Q(person__names__icontains=query_string)
+            | Q(person__last_names__icontains=query_string)
             | Q(email__icontains=query_string),
             active=True,
-        ).select_related("role", "institution")
+        ).select_related("institution")
         if institution_id:
             query = query.filter(institution_id=institution_id)
         return query.order_by("email")

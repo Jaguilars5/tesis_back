@@ -2,61 +2,231 @@
 
 Este documento proporciona instrucciones detalladas sobre el uso y la integración con el backend del sistema de gestión académica.
 
+---
+
 ## Protocolo de Comunicación API
 
-El sistema implementa una interfaz RESTful bajo un protocolo de comunicación estricto para asegurar la predictibilidad y seguridad de las transacciones.
+El sistema implementa una interfaz RESTful con Django REST Framework.
 
 ### Requisitos de las Peticiones
 
-1.  **Método HTTP**:
-    - Todos los módulos usan métodos HTTP estándar de REST: `GET` para listar/obtener, `POST` para crear, `PUT/PATCH` para actualizar, `DELETE` para eliminar.
-    - Los módulos `grading`, `scheduling` y `analytics` usan `POST` para todas las operaciones, enviando parámetros en el cuerpo JSON.
+1.  **Método HTTP**: Los endpoints usan métodos estándar REST (`GET`, `POST`, `PATCH`, `DELETE`).
 2.  **Cuerpo de la Petición**: Los datos deben enviarse en formato JSON (`application/json`).
-3.  **Encabezados de Autenticación**: Las rutas protegidas requieren un token de acceso JWT en el encabezado `Authorization`:
-    `Authorization: Bearer <token_de_acceso>`
+3.  **Encabezados de Autenticación**: Las rutas protegidas requieren un token JWT:
+    ```
+    Authorization: Bearer <token_de_acceso>
+    ```
 
 ### Formato de Respuesta Estándar
 
-Independientemente del resultado de la operación, el servidor siempre responderá con un cuerpo JSON estructurado. Los códigos de estado HTTP son semánticos:
-- **200 OK**: Operación exitosa (lectura, actualización, eliminación).
-- **201 Created**: Recurso creado exitosamente.
-- **400 Bad Request**: Error de validación o lógica de negocio.
-- **401 Unauthorized**: Error de autenticación.
-- **404 Not Found**: Recurso no encontrado.
+Todos los endpoints retornan un JSON estructurado:
 
-Estructura del JSON:
-- **ok**: Valor booleano que indica si la operación fue exitosa.
-- **data**: Contiene el objeto o arreglo de datos resultante.
-- **msg**: Mensaje descriptivo. Si `ok` es falso, este campo contendrá la razón del error.
+```json
+{
+  "ok": true,
+  "data": {},
+  "msg": ""
+}
+```
+
+| Campo | Descripción |
+|-------|-------------|
+| `ok` | Booleano que indica éxito o fracaso |
+| `data` | Datos resultantes (objeto, lista o paginación) |
+| `msg` | Mensaje descriptivo o descripción del error |
+
+### Códigos de Estado HTTP
+
+| Código | Significado |
+|--------|-------------|
+| 200 | Operación exitosa |
+| 201 | Recurso creado |
+| 400 | Error de validación o lógica de negocio |
+| 401 | No autenticado |
+| 403 | Sin permisos |
+| 404 | Recurso no encontrado |
+
+---
 
 ## Gestión de Sesiones
 
 ### Inicio de Sesión
-Endpoint: `POST /api/accounts/login/`
-Payload: `{"email": "usuario@ejemplo.com", "password": "password"}`
-Respuesta: Retorna un `access` token y un `refresh` token.
+**POST** `/api/accounts/login/`
+
+Payload:
+```json
+{
+  "email": "usuario@ejemplo.com",
+  "password": "password"
+}
+```
+
+Respuesta:
+```json
+{
+  "access": "eyJ...",
+  "refresh": "eyJ...",
+  "user": {
+    "id": 1,
+    "email": "usuario@ejemplo.com",
+    "person": { "names": "Juan", "last_names": "Pérez" },
+    "institution": { "id": 1, "name": "Colegio" }
+  }
+}
+```
 
 ### Renovación de Token
-Endpoint: `POST /api/accounts/refresh/`
-Payload: `{"refresh": "token_previo"}`
-Respuesta: Retorna un nuevo `access` token y los datos actualizados del `user`.
+**POST** `/api/accounts/refresh/`
+
+Payload:
+```json
+{
+  "refresh": "token_previo"
+}
+```
+
+---
 
 ## Flujos de Trabajo Comunes
 
-### Registro de Estudiantes y Representantes
+### Registro de Estudiantes y Matrículas
 
-1.  **Creación del Estudiante**: Utilizar el endpoint `POST /api/students/student/`. Es obligatorio asignar una sección académica válida.
-2.  **Creación del Representante**: Utilizar el endpoint `POST /api/students/representative/`. El perfil del representante es independiente del estudiante.
-3.  **Vinculación**: Utilizar el endpoint `POST /api/students/student-representative/` para crear la relación entre ambos. En este paso se define el parentesco (`kinship`) y los permisos de autorización.
+**Paso 1**: Crear persona (opcional, si no existe)
+```
+POST /api/accounts/users/ (con person anidado)
+```
 
-### Gestión Académica
+**Paso 2**: Crear estudiante
+```
+POST /api/students/student/
+```
+Payload:
+```json
+{
+  "person": {
+    "document_type": 1,
+    "document_number": "1725556660",
+    "names": "Carlos",
+    "last_names": "Mendoza",
+    "birth_date": "2015-05-12"
+  },
+  "student_code": "EST-2024-001"
+}
+```
 
-1.  **Configuración del Periodo**: Los administradores deben definir los periodos académicos y actividades (exámenes, tareas) antes de registrar notas.
-2.  **Asignación Docente**: Un docente debe estar vinculado a una materia y sección específica para poder registrar calificaciones o asistencia.
-3.  **Sincronización Offline**: Los endpoints de estudiantes y notas soportan campos de sincronización (`uuid`, `sync_status`, `sync_version`). El cliente debe gestionar estos campos para la reconciliación de datos registrados sin conexión.
+**Paso 3**: Matricular estudiante en sección
+```
+POST /api/students/enrollment/
+```
+Payload:
+```json
+{
+  "student": 1,
+  "section": 1,
+  "enrollment_status": 1
+}
+```
+
+### Registro de Calificaciones
+
+**Prerrequisito**: El docente debe tener una asignación activa:
+```
+POST /api/academic/teacher-subject-section/
+```
+
+**Registrar nota**:
+```
+POST /api/grading/student-notes/
+```
+Payload:
+```json
+{
+  "enrollment": 1,
+  "class_assignment": 1,
+  "grade_type": 1,
+  "numeric_score": 18.50,
+  "teacher_observation": "Buen trabajo"
+}
+```
+
+### Registro de Asistencia
+
+```
+POST /api/grading/attendance/
+```
+Payload:
+```json
+{
+  "enrollment": 1,
+  "teacher_subject_section": 1,
+  "academic_period": 1,
+  "attendance_status": 1,
+  "attendance_date": "2024-05-20"
+}
+```
+
+### Gestión de Horarios
+
+**Configurar régimen de horario**:
+```
+POST /api/academic/timing-regime/
+```
+
+**Crear franjas horarias**:
+```
+POST /api/scheduling/time-slots/
+```
+
+**Asignar disponibilidad docente**:
+```
+POST /api/scheduling/teacher-availability/
+```
+
+**Crear bloques de horario**:
+```
+POST /api/scheduling/schedule-slots/
+```
+
+---
+
+## Sincronización Offline
+
+Los modelos `StudentNote`, `Attendance`, `ConductIncident` y `Enrollment` incluyen campos para operación offline:
+
+| Campo | Descripción |
+|-------|-------------|
+| `uuid` | Identificador único del registro |
+| `sync_status` | Estado: `pending`, `synced`, `conflict` |
+| `synced_at` | Timestamp de última sincronización |
+| `sync_version` | Versión para detección de conflictos |
+| `device_origin` | Dispositivo que creó el registro |
+
+**Estrategia de reconciliación**:
+1. El cliente envía `sync_version` con cada actualización
+2. Si el servidor tiene versión mayor, se rechaza la actualización
+3. El cliente debe obtener los datos más recientes y reintentar
+
+---
 
 ## Solución de Problemas
 
--   **Error 401 Unauthorized**: El token ha expirado o no es válido. Debe realizarse una renovación mediante el `refresh_token`.
--   **Error 400 Bad Request**: El payload enviado no cumple con las validaciones del modelo o faltan campos obligatorios. Revise el campo `msg` en la respuesta JSON para más detalles.
--   **Conflicto de Sincronización**: Si el `sync_version` en el servidor es mayor al enviado por el cliente, la actualización será rechazada para proteger la integridad de los datos.
+| Problema | Causa | Solución |
+|----------|-------|----------|
+| `401 Unauthorized` | Token expirado | Usar `refresh` para obtener nuevo token |
+| `400 Bad Request` | Payload inválido | Revisar `msg` en respuesta para detalles |
+| `sync_version` conflict | Versión desactualizada | Obtener datos actuales del servidor y reintentar |
+| `permission denied` | Sin permisos | Verificar que el usuario tiene el rol necesario |
+
+---
+
+## Endpoints por Módulo
+
+| Módulo | Endpoints principales |
+|--------|----------------------|
+| **accounts** | `/api/accounts/login/`, `/api/accounts/refresh/`, `/api/accounts/users/`, `/api/accounts/roles/` |
+| **institutions** | `/api/institutions/institution/`, `/api/institutions/school-year/`, `/api/institutions/classroom/` |
+| **academic** | `/api/academic/section/`, `/api/academic/subject/`, `/api/academic/academic-period/`, `/api/academic/timing-regime/` |
+| **students** | `/api/students/student/`, `/api/students/enrollment/`, `/api/students/student-representative/` |
+| **grading** | `/api/grading/student-notes/`, `/api/grading/attendance/`, `/api/grading/conduct-incidents/` |
+| **scheduling** | `/api/scheduling/schedule-slots/`, `/api/scheduling/time-slots/`, `/api/scheduling/teacher-availability/` |
+| **analytics** | `/api/analytics/student-risk-scores/`, `/api/analytics/feature-snapshots/`, `/api/analytics/risk-factors/` |

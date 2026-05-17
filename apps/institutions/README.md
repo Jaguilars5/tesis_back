@@ -54,7 +54,7 @@ Espacios físicos destinados a la enseñanza.
 | :--- | :--- | :--- |
 | `institution` | ForeignKey (Institution) | Institución |
 | `name` | CharField (100) | Nombre del Salón |
-| `room_type` | CharField (50) | Tipo de Sala |
+| `room_type` | ForeignKey (RoomType) | Tipo de Sala |
 | `capacity` | IntegerField | Capacidad |
 | `active` | BooleanField | Activo |
 

@@ -15,24 +15,24 @@ class PermissionService:
     def __init__(self):
         self.permission_repo = PermissionRepository()
 
-    def create_permission(self, codename, description="", module=""):
+    def create_permission(self, code, description="", module=""):
         """
         Crea un nuevo permiso.
 
         Lanza:
-        - ValueError si el codename ya existe
+        - ValueError si el code ya existe
         """
-        existing = self.permission_repo.get_by_codename(codename)
+        existing = self.permission_repo.get_by_code(code)
         if existing:
-            raise ValueError(f"El permiso '{codename}' ya existe")
+            raise ValueError(f"El permiso '{code}' ya existe")
 
-        return self.permission_repo.create(codename, description, module)
+        return self.permission_repo.create(code, description, module)
 
     def create_permissions_bulk(self, permission_list):
         """
         Crea múltiples permisos desde una lista.
 
-        permission_list: lista de {'codename': '...', 'description': '...', 'module': '...'}
+        permission_list: lista de {'code': '...', 'description': '...', 'module': '...'}
         """
         return self.permission_repo.create_many(permission_list)
 
@@ -40,9 +40,9 @@ class PermissionService:
         """Obtiene un permiso por ID."""
         return self.permission_repo.get_by_id(permission_id)
 
-    def get_permission_by_codename(self, codename):
-        """Obtiene un permiso por codename."""
-        return self.permission_repo.get_by_codename(codename)
+    def get_permission_by_code(self, code):
+        """Obtiene un permiso por code."""
+        return self.permission_repo.get_by_code(code)
 
     def list_permissions(self):
         """Lista todos los permisos."""
@@ -57,7 +57,7 @@ class PermissionService:
         Actualiza un permiso.
 
         Campos soportados: description, module
-        (codename no se actualiza: es el identificador único)
+        (code no se actualiza: es el identificador único)
         """
         permission = self.permission_repo.get_by_id(permission_id)
         if not permission:
@@ -82,14 +82,14 @@ class PermissionService:
         role_count = RolePermission.objects.filter(permission_id=permission_id).count()
         if role_count > 0:
             raise ValueError(
-                f"No se puede eliminar el permiso '{permission.codename}' porque está asignado a {role_count} rol(es)"
+                f"No se puede eliminar el permiso '{permission.code}' porque está asignado a {role_count} rol(es)"
             )
 
         # Verificar si está asignado a usuarios
         user_count = UserPermission.objects.filter(permission_id=permission_id).count()
         if user_count > 0:
             raise ValueError(
-                f"No se puede eliminar el permiso '{permission.codename}' porque está asignado a {user_count} usuario(s)"
+                f"No se puede eliminar el permiso '{permission.code}' porque está asignado a {user_count} usuario(s)"
             )
 
         self.permission_repo.delete(permission)
@@ -97,7 +97,7 @@ class PermissionService:
 
     def search_permissions(self, query_string):
         """
-        Búsqueda de permisos por codename o description.
+        Búsqueda de permisos por code o description.
         """
         return self.permission_repo.search(query_string)
 

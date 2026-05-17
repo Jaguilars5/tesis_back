@@ -12,9 +12,13 @@ accounts/
 │   ├── filters.py        # Lógica de filtrado de queries
 │   └── urls.py           # Definición de rutas del módulo
 ├── models/               # Capa de Datos (Entidades)
-│   ├── user.py           # Usuario principal
-│   ├── role.py           # Perfiles de acceso
-│   └── permission.py     # Acciones atómicas
+│   ├── person.py         # Persona (entidad base)
+│   ├── user.py           # Usuario del sistema
+│   ├── role.py           # Roles de acceso
+│   ├── permission.py     # Permisos atómicos
+│   ├── user_role.py      # Asociación User-Rol
+│   ├── role_permission.py # Asociación Rol-Permiso
+│   └── user_permission.py # Overrides de permisos por usuario
 ├── repositories/         # Capa de Persistencia (Queries)
 │   ├── user_repo.py
 │   ├── role_repo.py
@@ -23,15 +27,34 @@ accounts/
 │   ├── user_service.py
 │   ├── role_service.py
 │   └── permission_service.py
-├── middleware/           # Interceptores de Request
-│   └── __init__.py       # (reservado para futuros middlewares)
 ├── decorators/           # Protecciones de Vista
-│   ├── __init__.py       # @require_permission
-│   └── README.md
+│   └── README.md         # @require_permission
 └── utils/                # Utilidades Globales del Módulo
-    ├── __init__.py       # Helpers JWT, bcrypt y permisos
-    └── README.md
+    └── README.md         # Helpers JWT y permisos
 ```
+
+## Modelo de Datos
+
+### Person (Persona)
+Entidad base que representa a una persona física. No es un usuario del sistema por sí misma.
+
+### User (Usuario)
+Usuario del sistema vinculado a una Persona. Utiliza email como username (hereda de AbstractBaseUser).
+
+### Role (Rol)
+Grupo de permisos asignables a usuarios. Ejemplos: Admin, Docente, Administrador.
+
+### Permission (Permiso)
+Permiso atómico del sistema. Formato: `modulo.accion` (ej: `grading.create_note`).
+
+### UserRole
+Vinculación User-Rol con fecha de expiración opcional.
+
+### RolePermission
+Vinculación Rol-Permiso (un rol tiene múltiples permisos).
+
+### UserPermission
+Override individual de permiso para un usuario específico (grant o revoke).
 
 ## Flujo de Trabajo Recomendado
 
@@ -51,7 +74,7 @@ Para mantener un código limpio y evitar dependencias circulares, utilice los pu
 from apps.accounts.services.user_service import UserService
 
 # Importar modelos (re-exportados en models/__init__.py)
-from apps.accounts.models import User, Role
+from apps.accounts.models import User, Role, Person
 
 # Usar decoradores
 from apps.accounts.decorators import require_permission
@@ -60,10 +83,10 @@ from apps.accounts.decorators import require_permission
 ### ❌ Prácticas a Evitar
 ```python
 # Importar desde archivos internos específicos (rompe el encapsulamiento)
-from apps.accounts.models.user import User 
+from apps.accounts.models.user import User
 
 # Consultar la base de datos directamente en el service sin pasar por el repo
-User.objects.filter(active=True) 
+User.objects.filter(active=True)
 ```
 
 ## Responsabilidades de Capas

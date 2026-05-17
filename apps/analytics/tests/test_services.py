@@ -1,8 +1,9 @@
 from django.test import TestCase
 from datetime import date
 from decimal import Decimal
-from apps.institutions.models import Institution, School_Year
+from apps.institutions.models import AcademicGrade, AcademicLevel, Institution, School_Year
 from apps.academic.models import Config_Academic, Academic_Period, Timing_Regime, Section
+from apps.core.tests.helpers import create_test_student
 from apps.students.models import Student
 from apps.analytics.models import StudentRiskScore, StudentFeatureSnapshot
 from apps.analytics.services import AnalyticsService
@@ -31,34 +32,36 @@ class AnalyticsServiceTest(TestCase):
         self.period = Academic_Period.objects.create(
             config_academic=self.config,
             name="Periodo 1",
-            number=1,
             start_date=date(2024, 9, 1),
             end_date=date(2024, 12, 15),
         )
         self.timing = Timing_Regime.objects.create(
-            school_year=self.school_year, name="Matutina"
+            institution=self.institution, name="Matutina"
+        )
+        self.academic_level = AcademicLevel.objects.create(
+            institution=self.institution, name="Primaria"
+        )
+        self.academic_grade = AcademicGrade.objects.create(
+            academic_level=self.academic_level, name="6to", sequence_order=6
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
             timing_regime=self.timing,
-            level="Primaria",
-            grade="6to",
+            academic_grade=self.academic_grade,
             parallel="A",
             capacity=40,
         )
-        self.student = Student.objects.create(
-            dni="1234567890",
+        self.student = create_test_student(
+            document_number="1234567890",
             names="Juan",
             last_names="Perez",
             birth_date=date(2012, 5, 15),
-            section=self.section,
         )
-        self.student2 = Student.objects.create(
-            dni="0987654321",
+        self.student2 = create_test_student(
+            document_number="0987654321",
             names="Maria",
             last_names="Lopez",
             birth_date=date(2012, 3, 10),
-            section=self.section,
         )
 
     def _create_risk(self, student, period, score, label):
@@ -67,7 +70,6 @@ class AnalyticsServiceTest(TestCase):
             academic_period=period,
             risk_score=score,
             risk_label=label,
-            top_factors={"test": True},
             model_version="v1.0",
         )
 

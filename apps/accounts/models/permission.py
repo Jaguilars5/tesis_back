@@ -2,14 +2,7 @@ from django.db import models
 
 
 class Permission(models.Model):
-    """
-    Permiso atómico del sistema.
-
-    El codename sigue el formato '<app>.<accion>', ej: 'grading.create_note', 'users.view_list'.
-    description es una descripción legible para el administrador.
-    """
-
-    codename = models.CharField(
+    code = models.CharField(
         max_length=100,
         unique=True,
         verbose_name="Código del Permiso",
@@ -38,11 +31,11 @@ class Permission(models.Model):
         app_label = "accounts"
         verbose_name = "Permiso"
         verbose_name_plural = "Permisos"
-        ordering = ["codename"]
+        ordering = ["code"]
         indexes = [
-            models.Index(fields=["codename"]),
+            models.Index(fields=["code"]),
             models.Index(fields=["module"]),
         ]
 
     def __str__(self):
-        return self.codename
+        return self.code

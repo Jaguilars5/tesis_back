@@ -4,8 +4,9 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.test import APIRequestFactory
 
-from apps.accounts.models import Permission, Role, RolePermission, User, UserPermission
+from apps.accounts.models import Permission, Role, RolePermission, User, UserPermission, UserRole
 from apps.core.permissions import HasPermission, require_permission
+from apps.core.tests.helpers import create_test_user
 from apps.institutions.models import Institution
 
 
@@ -33,21 +34,21 @@ class HasPermissionTest(TestCase):
         self.role = Role.objects.create(name="Test Role")
         RolePermission.objects.create(role=self.role, permission=self.permission)
 
-        self.user_with_perm = User.objects.create_user(
+        self.user_with_perm = create_test_user(
             email="withperm@test.com", dni="1000000000",
             names="With", last_names="Perm",
-            password="testpass123", institution=self.institution,
-            role=self.role,
+            institution=self.institution,
         )
-        self.user_without_perm = User.objects.create_user(
+        self.user_without_perm = create_test_user(
             email="noperm@test.com", dni="1000000001",
             names="No", last_names="Perm",
-            password="testpass123", institution=self.institution,
+            institution=self.institution,
         )
-        self.superuser = User.objects.create_superuser(
+        UserRole.objects.create(user=self.user_with_perm, role=self.role)
+        self.superuser = create_test_user(
             email="super@test.com", dni="1000000002",
             names="Super", last_names="User",
-            password="testpass123", institution=self.institution,
+            institution=self.institution, is_superuser=True,
         )
         self.mock_view = MockViewSet()
 
@@ -118,17 +119,17 @@ class RequirePermissionTest(TestCase):
         self.role = Role.objects.create(name="Test Role")
         RolePermission.objects.create(role=self.role, permission=self.permission)
 
-        self.user_with_perm = User.objects.create_user(
+        self.user_with_perm = create_test_user(
             email="withperm@test.com", dni="2000000000",
             names="With", last_names="Perm",
-            password="testpass123", institution=self.institution,
-            role=self.role,
+            institution=self.institution,
         )
-        self.user_without_perm = User.objects.create_user(
+        self.user_without_perm = create_test_user(
             email="noperm@test.com", dni="2000000001",
             names="No", last_names="Perm",
-            password="testpass123", institution=self.institution,
+            institution=self.institution,
         )
+        UserRole.objects.create(user=self.user_with_perm, role=self.role)
 
     def _make_request(self, user=None):
         request = self.factory.get("/mock/")

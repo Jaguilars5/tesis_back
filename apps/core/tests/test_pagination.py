@@ -2,6 +2,7 @@ from django.test import TestCase, RequestFactory
 from rest_framework.request import Request
 from apps.core.pagination import StandardResultsSetPagination
 from apps.accounts.models import Role, User
+from apps.core.tests.helpers import create_test_user
 from apps.institutions.models import Institution
 
 
@@ -15,7 +16,7 @@ class StandardResultsSetPaginationTest(TestCase):
             name="Test School", code="TS-001", address="Test St", city="Quito"
         )
         for i in range(25):
-            User.objects.create_user(
+            create_test_user(
                 email=f"user{i}@test.com",
                 dni=f"{1000000000 + i}",
                 names=f"User{i}",

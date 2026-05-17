@@ -7,7 +7,20 @@ e incidentes de conducta.
 
 from rest_framework import serializers
 
-from ..models import Attendance, ConductIncident, StudentNote
+from ..models import (
+    Attendance,
+    AttendanceStatus,
+    BehaviorEvaluation,
+    ClassAssignment,
+    ConductIncident,
+    EvaluationCriteria,
+    EvaluationMacro,
+    EvaluationSubcriteria,
+    GradeChangeHistory,
+    GradeType,
+    QualitativeScale,
+    StudentNote,
+)
 
 
 class StudentNoteSerializer(serializers.ModelSerializer):
@@ -37,5 +50,59 @@ class ConductIncidentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ConductIncident
+        fields = "__all__"
+
+
+class AttendanceStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AttendanceStatus
+        fields = "__all__"
+
+
+class GradeTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GradeType
+        fields = "__all__"
+
+
+class QualitativeScaleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = QualitativeScale
+        fields = "__all__"
+
+
+class BehaviorEvaluationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BehaviorEvaluation
+        fields = "__all__"
+
+
+class EvaluationMacroSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EvaluationMacro
+        fields = "__all__"
+
+
+class EvaluationCriteriaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EvaluationCriteria
+        fields = "__all__"
+
+
+class EvaluationSubcriteriaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EvaluationSubcriteria
+        fields = "__all__"
+
+
+class ClassAssignmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ClassAssignment
+        fields = "__all__"
+
+
+class GradeChangeHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GradeChangeHistory
         fields = "__all__"
 

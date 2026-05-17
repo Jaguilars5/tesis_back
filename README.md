@@ -45,7 +45,7 @@ Análisis de riesgo estudiantil basado en métricas de asistencia, rendimiento a
 
 El diseño de la base de datos se basa en un modelo relacional normalizado que asegura la integridad de la información académica. Las relaciones clave incluyen la vinculación entre periodos académicos, actividades de evaluación y registros de estudiantes.
 
-El esquema detallado de las entidades y sus relaciones puede visualizarse en el archivo de documentación técnica [Diagrama ER](bd.html).
+El esquema detallado de las entidades y sus relaciones puede visualizarse en el archivo de documentación técnica [Diagrama ER](bd_v3.html).
 
 ## Pruebas Automatizadas
 

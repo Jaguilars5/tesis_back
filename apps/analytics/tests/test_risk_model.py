@@ -5,20 +5,31 @@ from unittest.mock import patch
 from django.test import TestCase
 
 from apps.academic.models import (
-    Academic_Activity,
     Academic_Period,
     Config_Academic,
     Section,
     Subject,
+    SubjectAcademicConfig,
+    SubjectOffering,
     Teacher_Subject_Section,
 )
 from apps.accounts.models import Role, User
+from apps.core.tests.helpers import create_test_user, create_test_student
 from apps.analytics.models import StudentFeatureSnapshot, StudentRiskScore
 from apps.analytics.services.feature_builder import AcademicRiskFeatureBuilder
 from apps.analytics.tasks import calculate_academic_risk, calculate_student_academic_risk_task
-from apps.grading.models import Attendance, ConductIncident, StudentNote
-from apps.institutions.models import Institution, School_Year
-from apps.students.models import Student
+from apps.grading.models import (
+    Attendance,
+    AttendanceStatus,
+    ClassAssignment,
+    ConductIncident,
+    EvaluationCriteria,
+    EvaluationMacro,
+    EvaluationSubcriteria,
+    StudentNote,
+)
+from apps.institutions.models import AcademicLevel, AcademicGrade, Institution, School_Year
+from apps.students.models import Enrollment, EnrollmentStatus, Student
 
 
 class AcademicRiskModelTest(TestCase):
@@ -45,87 +56,108 @@ class AcademicRiskModelTest(TestCase):
         self.period = Academic_Period.objects.create(
             config_academic=self.config,
             name="P1",
-            number=1,
             start_date=date(2026, 1, 1),
             end_date=date(2026, 3, 31),
+        )
+        self.academic_level = AcademicLevel.objects.create(
+            institution=self.institution, name="Basica"
+        )
+        self.academic_grade = AcademicGrade.objects.create(
+            academic_level=self.academic_level, name="8", sequence_order=8
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
             timing_regime=None,
-            level="Basica",
-            grade="8",
+            academic_grade=self.academic_grade,
             parallel="A",
             capacity=30,
         )
         self.subject = Subject.objects.create(
-            school_year=self.school_year,
-            section=self.section,
             name="Matematica",
             code="MAT-8A",
-            weekly_hours=5,
-            approve_percentage=70,
         )
         self.role = Role.objects.create(name="Docente")
-        self.teacher = User.objects.create_user(
+        self.teacher = create_test_user(
             email="docente@example.com",
             dni="0102030405",
             names="Ana",
             last_names="Perez",
-            password="secret",
-            role=self.role,
             institution=self.institution,
         )
+        subj_config = SubjectAcademicConfig.objects.create(
+            subject=self.subject, academic_grade=self.academic_grade,
+            weekly_hours=5, pedagogical_order=1,
+        )
+        offering = SubjectOffering.objects.create(
+            school_year=self.school_year, section=self.section,
+            subject_academic_config=subj_config,
+        )
         self.teacher_subject_section = Teacher_Subject_Section.objects.create(
-            user=self.teacher,
-            subject=self.subject,
-            section=self.section,
-            school_year=self.school_year,
+            user=self.teacher, subject_offering=offering,
         )
-        self.exam = Academic_Activity.objects.create(
-            config_academic=self.config,
-            subject=self.subject,
-            name="Examen parcial",
-            value_max=10,
-            weight=1,
-            applies_to="all",
-            order=1,
-        )
-        self.homework = Academic_Activity.objects.create(
-            config_academic=self.config,
-            subject=self.subject,
-            name="Tarea 1",
-            value_max=10,
-            weight=1,
-            applies_to="all",
-            order=2,
-        )
-        self.student = Student.objects.create(
-            dni="0912345678",
+        self.student = create_test_student(
+            document_number="0912345678",
             names="Juan",
             last_names="Lopez",
             birth_date=date(2012, 1, 1),
+        )
+
+        status, _ = EnrollmentStatus.objects.get_or_create(
+            code="ACT", defaults={"name": "Activa"}
+        )
+        self.enrollment = Enrollment.objects.create(
+            student=self.student,
             section=self.section,
+            enrollment_status=status,
+        )
+        self.attendance_statuses = {}
+        for code, name in [("P","Presente"),("A","Ausente"),("T","Tardanza"),("J","Justificado")]:
+            s, _ = AttendanceStatus.objects.get_or_create(code=code, defaults={"name": name})
+            self.attendance_statuses[code] = s
+
+        self.exam = self._create_class_assignment("Examen parcial", 10)
+        self.homework = self._create_class_assignment("Tarea 1", 10)
+
+    def _create_class_assignment(self, title, max_score=10):
+        macro = EvaluationMacro.objects.create(
+            academic_period=self.period,
+            name=f"Macro-{title}",
+            weight_percentage=Decimal("100.00"),
+        )
+        criteria = EvaluationCriteria.objects.create(
+            evaluation_macro=macro,
+            name=f"Criterio-{title}",
+            internal_weight=Decimal("100.00"),
+        )
+        subcriteria = EvaluationSubcriteria.objects.create(
+            evaluation_criteria=criteria,
+            name=f"Subcriterio-{title}",
+            internal_weight=Decimal("100.00"),
+        )
+        return ClassAssignment.objects.create(
+            evaluation_subcriteria=subcriteria,
+            teacher_subject_section=self.teacher_subject_section,
+            title=title,
+            max_score=Decimal(str(max_score)),
+            due_date=date(2026, 2, 1),
         )
 
     def _create_attendance_sequence(self, statuses):
         start = date(2026, 1, 10)
         for index, status in enumerate(statuses):
             Attendance.objects.create(
-                student=self.student,
+                enrollment=self.enrollment,
                 teacher_subject_section=self.teacher_subject_section,
                 academic_period=self.period,
-                date=start + timedelta(days=index),
-                status=status,
+                attendance_date=start + timedelta(days=index),
+                attendance_status=self.attendance_statuses.get(status),
             )
 
-    def _create_note(self, activity, value):
+    def _create_note(self, class_assignment, value):
         StudentNote.objects.create(
-            student=self.student,
-            academic_activity=activity,
-            academic_period=self.period,
-            teacher_subject_section=self.teacher_subject_section,
-            note_value=Decimal(str(value)),
-            normalized_value=Decimal(str(value)),
+            enrollment=self.enrollment,
+            class_assignment=class_assignment,
+            numeric_score=Decimal(str(value)),
         )
 
     def _base_snapshot(self):
@@ -166,8 +198,8 @@ class AcademicRiskModelTest(TestCase):
         self._create_attendance_sequence(["P", "P", "A", "J", "T"])
         self._create_note(self.exam, 8)
         ConductIncident.objects.create(
-            student=self.student,
-            reported_by=self.teacher,
+            enrollment=self.enrollment,
+            reported_by_user=self.teacher,
             academic_period=self.period,
             incident_date=date(2026, 1, 20),
             category="disciplina",

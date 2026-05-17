@@ -2,6 +2,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.accounts.models import Permission, Role, RolePermission, User
+from apps.core.tests.helpers import create_test_user
 
 
 class SecurityHeadersTestCase(TestCase):
@@ -12,10 +13,9 @@ class SecurityHeadersTestCase(TestCase):
         role = Role.objects.create(name="Test Role")
         RolePermission.objects.create(role=role, permission=perm)
 
-        self.user = User.objects.create_user(
-            dni="1234567890", names="Test", last_names="User",
-            email="test@test.com", password="testpass123456",
-            role=role,
+        self.user = create_test_user(
+            email="test@test.com", dni="1234567890",
+            names="Test", last_names="User",
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)

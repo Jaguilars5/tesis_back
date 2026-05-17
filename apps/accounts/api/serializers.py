@@ -5,8 +5,18 @@ Validan el formato de entrada HTTP y controlan qué campos se exponen en la resp
 """
 
 from rest_framework import serializers
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
-from apps.accounts.models import User, Role, Permission, RolePermission, UserPermission
+from rest_framework_simplejwt.serializers import (
+    TokenObtainPairSerializer,
+    TokenRefreshSerializer,
+)
+from apps.accounts.models import (
+    Person,
+    User,
+    Role,
+    Permission,
+    RolePermission,
+    UserPermission,
+)
 
 
 class CustomTokenRefreshSerializer(TokenRefreshSerializer):
@@ -18,28 +28,26 @@ class CustomTokenRefreshSerializer(TokenRefreshSerializer):
 
         refresh = RefreshToken(attrs["refresh"])
         user_id = refresh.payload.get("user_id")
-        print(f"[DEBUG] Refresh - user_id from token: {user_id}, type: {type(user_id)}")
         if user_id:
             try:
                 user = User.objects.get(id=int(user_id))
-                print(f"[DEBUG] Refresh - user found: {user}, institution: {user.institution}")
+                person = user.person
+                first_role = user.user_roles.select_related("role").first()
                 data["user"] = {
                     "id": user.id,
-                    "dni": user.dni,
-                    "names": user.names,
-                    "last_names": user.last_names,
+                    "dni": person.document_number if person else "",
+                    "names": person.names if person else "",
+                    "last_names": person.last_names if person else "",
                     "email": user.email,
-                    "role": user.role.name if user.role else None,
-                    "role_id": user.role.id if user.role else None,
+                    "role": first_role.role.name if first_role else None,
+                    "role_id": first_role.role.id if first_role else None,
                     "institution": str(user.institution) if user.institution else None,
                     "institution_id": user.institution.id if user.institution else None,
                     "active": user.active,
                     "permissions": list(user.get_all_permissions()),
                 }
             except User.DoesNotExist:
-                print(f"[DEBUG] Refresh - user with id {user_id} not found")
-            except Exception as e:
-                print(f"[DEBUG] Refresh - error: {e}")
+                pass
         return data
 
 
@@ -49,14 +57,17 @@ class LoginSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
         user = self.user
+        person = user.person
+        print("User", user, "Person", person)
+        first_role = user.user_roles.select_related("role").first()
         data["user"] = {
             "id": user.id,
-            "dni": user.dni,
-            "names": user.names,
-            "last_names": user.last_names,
+            "dni": person.document_number if person else "",
+            "names": person.names if person else "",
+            "last_names": person.last_names if person else "",
             "email": user.email,
-            "role": user.role.name if user.role else None,
-            "role_id": user.role.id if user.role else None,
+            "role": first_role.role.name if first_role else None,
+            "role_id": first_role.role.id if first_role else None,
             "institution": str(user.institution) if user.institution else None,
             "institution_id": user.institution.id if user.institution else None,
             "active": user.active,
@@ -65,12 +76,18 @@ class LoginSerializer(TokenObtainPairSerializer):
         return data
 
 
+class PersonSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Person
+        fields = "__all__"
+
+
 class PermissionSerializer(serializers.ModelSerializer):
     """Serializer para Permission."""
 
     class Meta:
         model = Permission
-        fields = ["id", "codename", "description", "module", "created_at", "updated_at"]
+        fields = ["id", "code", "description", "module", "created_at", "updated_at"]
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
@@ -144,7 +161,10 @@ class UserPermissionSerializer(serializers.ModelSerializer):
 class UserListSerializer(serializers.ModelSerializer):
     """Serializer simplificado para User en listados."""
 
-    role_name = serializers.CharField(source="role.name", read_only=True)
+    dni = serializers.CharField(source="person.document_number", read_only=True)
+    names = serializers.CharField(source="person.names", read_only=True)
+    last_names = serializers.CharField(source="person.last_names", read_only=True)
+    role_name = serializers.SerializerMethodField(read_only=True)
     institution_name = serializers.CharField(source="institution.name", read_only=True)
 
     class Meta:
@@ -155,7 +175,6 @@ class UserListSerializer(serializers.ModelSerializer):
             "names",
             "last_names",
             "email",
-            "role",
             "role_name",
             "institution",
             "institution_name",
@@ -164,11 +183,18 @@ class UserListSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at"]
 
+    def get_role_name(self, obj):
+        first_role = obj.user_roles.select_related("role").first()
+        return first_role.role.name if first_role else None
+
 
 class UserDetailSerializer(serializers.ModelSerializer):
     """Serializer completo para User con sus permisos."""
 
-    role = RoleDetailSerializer(read_only=True)
+    dni = serializers.CharField(source="person.document_number", read_only=True)
+    names = serializers.CharField(source="person.names", read_only=True)
+    last_names = serializers.CharField(source="person.last_names", read_only=True)
+    role = serializers.SerializerMethodField(read_only=True)
     role_id = serializers.IntegerField(write_only=True, required=False)
     institution = serializers.StringRelatedField(read_only=True)
     institution_id = serializers.IntegerField(write_only=True, required=False)
@@ -192,9 +218,13 @@ class UserDetailSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
-        extra_kwargs = {
-            "password": {"write_only": True}  # Nunca exponemos el hash
-        }
+        extra_kwargs = {"password": {"write_only": True}}  # Nunca exponemos el hash
+
+    def get_role(self, obj):
+        first_role = obj.user_roles.select_related("role").first()
+        if first_role:
+            return RoleDetailSerializer(first_role.role, context=self.context).data
+        return None
 
     def validate_email(self, value):
         """Valida que el email sea único."""
@@ -208,24 +238,16 @@ class UserDetailSerializer(serializers.ModelSerializer):
         return value
 
 
-class UserCreateSerializer(serializers.ModelSerializer):
+class UserCreateSerializer(serializers.Serializer):
     """Serializer para crear usuarios (incluye password)."""
 
+    document_number = serializers.CharField(max_length=20)
+    names = serializers.CharField(max_length=100)
+    last_names = serializers.CharField(max_length=100)
+    email = serializers.EmailField()
     password = serializers.CharField(write_only=True, min_length=8)
     role_id = serializers.IntegerField()
     institution_id = serializers.IntegerField()
-
-    class Meta:
-        model = User
-        fields = [
-            "dni",
-            "names",
-            "last_names",
-            "email",
-            "password",
-            "role_id",
-            "institution_id",
-        ]
 
     def validate_email(self, value):
         """Valida que el email sea único."""
@@ -233,10 +255,12 @@ class UserCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Este email ya está registrado.")
         return value
 
-    def validate_dni(self, value):
-        """Valida que el DNI sea único."""
-        if User.objects.filter(dni=value).exists():
-            raise serializers.ValidationError("Este DNI ya está registrado.")
+    def validate_document_number(self, value):
+        """Valida que el documento sea único."""
+        from apps.accounts.models import Person
+
+        if Person.objects.filter(document_number=value).exists():
+            raise serializers.ValidationError("Este documento ya está registrado.")
         return value
 
     def create(self, validated_data):
@@ -244,15 +268,34 @@ class UserCreateSerializer(serializers.ModelSerializer):
         password = validated_data.pop("password")
         role_id = validated_data.pop("role_id")
         institution_id = validated_data.pop("institution_id")
+        document_number = validated_data.pop("document_number")
+        names = validated_data.pop("names")
+        last_names = validated_data.pop("last_names")
 
-        # Obtener relaciones
-        from apps.accounts.models import Role
-        from apps.institutions.models import Institution
+        from apps.accounts.models import Person, Role
+        from apps.institutions.models import DocumentType, Institution
 
-        role = Role.objects.get(id=role_id)
+        doc_type = DocumentType.objects.get_or_create(
+            code="CC", defaults={"name": "Cédula de Ciudadanía"}
+        )[0]
+        person = Person.objects.create(
+            document_type=doc_type,
+            document_number=document_number,
+            names=names,
+            last_names=last_names,
+            email=validated_data.get("email", ""),
+        )
         institution = Institution.objects.get(id=institution_id)
 
-        user = User(**validated_data, role=role, institution=institution)
-        user.set_password(password)
-        user.save()
+        user = User.objects.create_user(
+            person=person,
+            email=validated_data["email"],
+            password=password,
+            institution=institution,
+        )
+        if role_id:
+            from apps.accounts.models import UserRole
+
+            role = Role.objects.get(id=role_id)
+            UserRole.objects.create(user=user, role=role)
         return user

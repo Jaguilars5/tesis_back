@@ -5,10 +5,10 @@ Serializers de DRF para el módulo Scheduling.
 from rest_framework import serializers
 from ..models import (
     ScheduleTemplateConfig,
-    TimeSlot,
-    TeacherAvailability,
-    ScheduleSlot,
     SubjectConstraint,
+    ScheduleSlot,
+    TeacherAvailability,
+    TimeSlot,
 )
 
 

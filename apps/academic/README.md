@@ -1,8 +1,8 @@
 # Módulo `academic` — Gestión de Infraestructura Académica
 
-Este módulo gestiona la infraestructura académica del sistema, incluyendo configuraciones, períodos, secciones, asignaturas y el sistema de evaluación/calificaciones.
+Este módulo gestiona la infraestructura académica del sistema, incluyendo períodos académicos, secciones, ofertas de materias y asignaciones de docentes.
 
-Su diseño sigue una arquitectura desacoplada en capas (Modelos → Repositorios → Servicios → API), garantizando integridad referencial y cálculos centralizados de promedios.
+Su diseño sigue una arquitectura desacoplada en capas (Modelos → Repositorios → Servicios → API).
 
 ---
 
@@ -21,92 +21,98 @@ academic/
 
 ## Modelos de Datos
 
-### Config_Academic (Configuración Académica)
-Configuración global del año escolar e institución.
+### Academic_Period (Período Académico)
+Períodos dentro de un año escolar (Quimestres, parciales, etc.)
 
-| Campo | Tipo | Verbose Name |
-| :--- | :--- | :--- |
-| `school_year` | ForeignKey (School_Year) | Año Escolar |
-| `institution` | ForeignKey (Institution) | Institución |
-| `name` | CharField (80) | Nombre |
-| `academic_period_type` | CharField (20) | Tipo de Período |
-| `number_of_periods` | IntegerField | Cantidad de Períodos |
-| `description` | TextField | Descripción |
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `school_year` | ForeignKey (School_Year) | Año escolar |
+| `name` | CharField (80) | Nombre del período |
+| `start_date` | DateField | Fecha de inicio |
+| `end_date` | DateField | Fecha de fin |
+| `is_regular_period` | BooleanField | Período regular |
 | `active` | BooleanField | Activo |
-| `created_at` | DateTimeField | Fecha de Creación |
-| `updated_at` | DateTimeField | Fecha de Actualización |
 
 ### Timing_Regime (Régimen de Horario)
 Regímenes de asistencia (Matutina, Vespertina, Nocturna).
 
-| Campo | Tipo | Verbose Name |
-| :--- | :--- | :--- |
-| `school_year` | ForeignKey (School_Year) | Año Escolar |
-| `name` | CharField (100) | Nombre del Régimen |
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `institution` | ForeignKey (Institution) | Institución |
+| `name` | CharField (100) | Nombre del régimen |
 | `description` | TextField | Descripción |
 | `active` | BooleanField | Activo |
 
 ### Section (Sección)
-Representa un grado y paralelo específico.
+Representa un grado y paralelo específico dentro de un año escolar.
 
-| Campo | Tipo | Verbose Name |
-| :--- | :--- | :--- |
-| `school_year` | ForeignKey (School_Year) | Año Escolar |
-| `timing_regime` | ForeignKey (Timing_Regime) | Régimen de Horario |
-| `level` | CharField (255) | Nivel |
-| `grade` | CharField (255) | Grado |
-| `parallel` | CharField (255) | Paralelo |
-| `capacity` | IntegerField | Capacidad |
-| `created_at` | DateTimeField | Fecha de Creación |
-| `updated_at` | DateTimeField | Fecha de Actualización |
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `school_year` | ForeignKey (School_Year) | Año escolar |
+| `timing_regime` | ForeignKey (Timing_Regime) | Régimen de horario |
+| `academic_grade` | ForeignKey (AcademicGrade) | Grado académico |
+| `parallel` | CharField (255) | Paralelo (A, B, C...) |
+| `capacity` | IntegerField | Capacidad de alumnos |
+| `active` | BooleanField | Activo |
 
 ### Subject (Materia)
-Asignaturas vinculadas a una sección.
+Asignaturas disponibles en el sistema.
 
-| Campo | Tipo | Verbose Name |
-| :--- | :--- | :--- |
-| `school_year` | ForeignKey (School_Year) | Año Escolar |
-| `section` | ForeignKey (Section) | Sección |
-| `name` | CharField (255) | Nombre de la Materia |
-| `code` | CharField (100) | Código |
-| `weekly_hours` | IntegerField | Horas Semanales |
-| `approve_percentage` | DecimalField | Porcentaje de Aprobación |
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `name` | CharField (255) | Nombre de la materia |
+| `code` | CharField (100) | Código único |
 | `active` | BooleanField | Activo |
-| `created_at` | DateTimeField | Fecha de Creación |
-| `updated_at` | DateTimeField | Fecha de Actualización |
 
----
+### SubjectAcademicConfig (Configuración de Materia por Grado)
+Vincula una materia a un grado académico con parámetros pedagógicos.
 
-## Capa de Servicios
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `subject` | ForeignKey (Subject) | Materia |
+| `academic_grade` | ForeignKey (AcademicGrade) | Grado académico |
+| `weekly_hours` | IntegerField | Horas semanales |
+| `pedagogical_order` | IntegerField | Orden pedagógico |
+| `is_required` | BooleanField | Obligatoria |
+| `active` | BooleanField | Activo |
 
-### AcademicService (Orquestador principal)
+### SubjectOffering (Oferta de Materia)
+Instancia de una materia en una sección para un año escolar.
 
-- `create_config_academic`: Crea una nueva configuración académica para un año escolar e institución.
-- `update_config_academic`: Actualiza campos específicos de una configuración existente.
-- `create_section`: Registra un grado y paralelo validando que no existan duplicados y que la capacidad sea positiva.
-- `get_section_details`: Recupera el perfil completo de una sección, incluyendo sus materias, docentes asignados y número de alumnos.
-- `create_subject`: Crea una asignatura vinculada a una sección específica del año escolar.
-- `list_subjects_by_section`: Retorna la lista ordenada de materias para un grado/paralelo dado.
-- `create_academic_activity`: Define una actividad evaluativa (examen, tarea) con su peso y valor máximo permitido.
-- `assign_teacher`: Vincula a un docente con una materia y sección, evitando asignaciones duplicadas.
-- `record_student_note`: Registra la calificación de un alumno, calculando automáticamente su valor normalizado en base 10.
-- `calculate_period_average`: Realiza el cálculo ponderado del promedio de un estudiante en una materia para un período específico.
-- `calculate_section_average`: Obtiene el promedio grupal de toda una sección en una asignatura determinada.
-- `deactivate_student_note`: Realiza el borrado lógico de una calificación del sistema.
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `school_year` | ForeignKey (School_Year) | Año escolar |
+| `section` | ForeignKey (Section) | Sección |
+| `subject_academic_config` | ForeignKey (SubjectAcademicConfig) | Configuración de materia |
+| `active` | BooleanField | Activo |
+
+### Teacher_Subject_Section (Asignación Docente)
+Vincula un docente a una oferta de materia.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `user` | ForeignKey (User) | Docente |
+| `subject_offering` | ForeignKey (SubjectOffering) | Oferta de materia |
+| `active` | BooleanField | Activo |
+
+**Modelos Legacy** (managed=False, no usar):
+- `Config_Academic` — Reemplazado por School_Year → Academic_Period
+- `Academic_Activity` — Reemplazado por jerarquía EvaluationMacro → ClassAssignment
 
 ---
 
 ## API REST (Resumen)
 
-### Configuración y Regímenes
-- GET/POST `/api/academic/config-academic/`
+### Períodos y Regímenes
+- GET/POST `/api/academic/academic-period/`
 - GET/POST `/api/academic/timing-regime/`
 
-### Secciones y Asignaturas
+### Secciones y Materias
 - GET/POST `/api/academic/section/`
 - GET/POST `/api/academic/subject/`
-- GET `/api/academic/section/{id}/`
-- GET `/api/academic/subject/list_by_section/?section_id={id}`
+- GET/POST `/api/academic/subject-offering/`
+- GET/POST `/api/academic/subject-academic-config/`
+- GET/POST `/api/academic/teacher-subject-section/`
 
 ---
 
@@ -122,13 +128,13 @@ Permisos requeridos:
 
 | ViewSet | View | Create | Update | Delete |
 |---------|------|--------|--------|--------|
+| AcademicPeriod | `academic.view_period` | `academic.create_period` | `academic.update_period` | `academic.delete_period` |
 | Section | `academic.view_section` | `academic.create_section` | `academic.update_section` | `academic.delete_section` |
 | Subject | `academic.view_subject` | `academic.create_subject` | `academic.update_subject` | `academic.delete_subject` |
-| ConfigAcademic | `academic.view_config` | `academic.create_config` | `academic.update_config` | `academic.delete_config` |
-| AcademicPeriod | `academic.view_period` | `academic.create_period` | `academic.update_period` | `academic.delete_period` |
-| AcademicActivity | `academic.view_activity` | `academic.create_activity` | `academic.update_activity` | `academic.delete_activity` |
-| TimingRegime | `academic.view_regime` | `academic.create_regime` | `academic.update_regime` | `academic.delete_regime` |
+| SubjectOffering | `academic.view_subject_offering` | `academic.create_subject_offering` | `academic.update_subject_offering` | `academic.delete_subject_offering` |
+| SubjectAcademicConfig | `academic.view_subject_academic_config` | `academic.create_subject_academic_config` | `academic.update_subject_academic_config` | `academic.delete_subject_academic_config` |
 | TeacherSubjectSection | `academic.view_teacher_subject` | `academic.create_teacher_subject` | `academic.update_teacher_subject` | `academic.delete_teacher_subject` |
+| TimingRegime | `academic.view_regime` | `academic.create_regime` | `academic.update_regime` | `academic.delete_regime` |
 
 Seedear permisos:
 ```bash
@@ -139,14 +145,6 @@ python manage.py seed_permissions --module academic
 
 ## Pruebas
 
+```bash
+python manage.py test apps.academic --settings=config.settings.test
 ```
-python manage.py test apps.academic
-```
-
----
-
-## Lógica de Calificaciones
-
-1.  **Normalización**: Todas las notas se llevan a escala 10 automáticamente:
-    `normalized = (valor / valor_max) * 10`
-2.  **Promedios**: Se calculan multiplicando la nota normalizada por el peso de la actividad definido en `Academic_Activity`.
