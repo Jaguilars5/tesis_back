@@ -1,0 +1,49 @@
+Tabla,Clasificación,Bloque,Propósito,Frecuencia de escritura,Notas clave
+ESCALA_CUALITATIVA,Paramétrica,Catálogo,Escala A/B/C/D/E y equivalencias numéricas por subnivel,Baja,Normativa MinEduc; no debe modificarse en operación
+ESTADO_ASISTENCIA,Paramétrica,Catálogo,"Estados posibles de asistencia (presente, ausente, retraso)",Baja,Referenciada por REGISTRO_ASISTENCIA
+ESTADO_MATRICULA,Paramétrica,Catálogo,"Estados de matrícula (activa, retirada, egresada)",Baja,Referenciada por MATRICULA
+FACTOR_RIESGO,Paramétrica,Catálogo,Factores de riesgo de deserción catalogados para el módulo ML,Baja,Referenciada por DETALLE_FACTOR_PREDICCION
+HABILIDAD_SOCIOEMOCIONAL,Paramétrica,Catálogo,Habilidades socioemocionales priorizadas institucionalmente,Media,Puede actualizarse por año escolar
+TIPO_CALIFICACION,Paramétrica,Catálogo,"Tipos de calificación (formativa, sumativa, diagnóstica)",Baja,Referenciada por NOTA_ACTIVIDAD
+TIPO_DOCUMENTO,Paramétrica,Catálogo,"Tipos de documentos de identidad (cédula, pasaporte, etc.)",Baja,Solo lectura en producción
+TIPO_INCIDENTE,Paramétrica,Catálogo,Categorías de incidentes disciplinarios,Baja,Referenciada por INCIDENTE_DISCIPLINARIO
+CONFIG_SISTEMA,Paramétrica,Configuración,"Parámetros globales del sistema (régimen, porcentajes, etc.)",Media,Solo editable por administrador del sistema
+ANNO_ESCOLAR,Maestra,Estructura académica,Año lectivo; eje central de toda la configuración académica,Baja por período,Se crea uno por año; activo = solo 1 a la vez
+ASIGNATURA,Maestra,Estructura académica,Catálogo de asignaturas del currículo nacional,Baja,Independiente del año escolar
+CONFIGURACION_ASIGNATURA,Maestra,Estructura académica,Horas semanales y configuración pedagógica por grado,Baja,Relativamente estable entre años
+GRADO_ACADEMICO,Maestra,Estructura académica,Grados dentro de cada nivel y subnivel,Muy baja,Incluye subnivel para reglas de evaluación diferenciadas
+NIVEL_ACADEMICO,Maestra,Estructura académica,"Niveles educativos (Inicial, EGB, Bachillerato)",Muy baja,Cambia solo con reforma curricular
+OFERTA_ASIGNATURA,Maestra,Estructura académica,Instancia de asignatura activa en una sección y año escolar,Media,Se genera al configurar el año escolar
+PERIODO_ACADEMICO,Maestra,Estructura académica,Trimestres/bimestres del año escolar,Baja por año,Define ventana temporal de todas las transacciones
+SECCION,Maestra,Estructura académica,Sección/paralelo de un grado en un año escolar específico,Media,Se crea al inicio del año escolar
+BLOQUE_EVALUACION,Maestra,Evaluaciones,Bloques formativo/sumativo/diagnóstico por período académico,Baja por período,Se configura al inicio de cada período
+COMPONENTE_BLOQUE,Maestra,Evaluaciones,Componentes dentro de un bloque de evaluación,Baja por período,Configuración pedagógica del docente
+INDICADOR_COMPONENTE,Maestra,Evaluaciones,Indicadores de logro dentro de cada componente,Baja por período,Alineados al currículo nacional
+PROYECTO_ASIGNATURA,Maestra,Evaluaciones,Relación proyecto ↔ asignaturas involucradas,Baja,Tabla de unión M:N
+PROYECTO_INTERDISCIPLINAR,Maestra,Evaluaciones,Proyectos interdisciplinarios definidos por período,Media,Se crean por período; son referencia para NOTA_PROYECTO
+MATRICULA,Maestra,Matrículas,Inscripción del estudiante en una sección y año escolar,Media,Es el nodo central de todas las transacciones del estudiante
+ASIGNACION_DOCENTE,Maestra,Personas,Asignación de docente a una oferta de asignatura y sección,Media,Puede cambiar durante el año escolar
+PERFIL_ESTUDIANTE,Maestra,Personas,Perfil educativo del estudiante con datos socioeconómicos y NEE,Media,Un estudiante puede tener múltiples matrículas en el tiempo
+PERSONA,Maestra,Personas,Datos personales únicos de cualquier actor del sistema,Media,"Entidad raíz de USUARIO, PERFIL_ESTUDIANTE y VINCULO_FAMILIAR"
+VINCULO_FAMILIAR,Maestra,Personas,Relación representante-estudiante con permisos de contacto,Baja,Estable; se actualiza por cambio de tutela
+PERMISO,Maestra,Seguridad,Permisos granulares por módulo,Baja,Base del RBAC
+ROL,Maestra,Seguridad,"Roles del sistema (administrador, docente, estudiante, representante)",Baja,Base del RBAC
+ROL_PERMISO,Maestra,Seguridad,Permisos asociados a cada rol,Muy baja,Cambia solo con rediseño de roles
+USUARIO,Maestra,Seguridad,"Credenciales de acceso; incluye docentes, admin, estudiantes y representantes",Media,Cubre todos los tipos de usuario del sistema
+USUARIO_ROL,Maestra,Seguridad,Asignación de roles a usuarios con fecha de expiración,Media,Tabla de unión con vigencia temporal
+REGISTRO_ASISTENCIA,Transaccional,Asistencia,Registro diario de asistencia por asignatura y docente,Muy alta,Entidad de mayor frecuencia de escritura; soporte offline-first
+AUDITORIA_NOTA,Transaccional,Auditoría,Historial de cambios en calificaciones con usuario responsable,Media,Se genera automáticamente ante modificación de NOTA_ACTIVIDAD
+EVALUACION_HABILIDAD,Transaccional,Conducta,Evaluación cualitativa de habilidades socioemocionales por período,Media,Una evaluación por habilidad por período por matrícula
+INCIDENTE_DISCIPLINARIO,Transaccional,Conducta,Registro de incidentes de conducta por período,Media,Soporte offline-first; categoría por TIPO_INCIDENTE
+ACTIVIDAD_EVALUATIVA,Transaccional,Evaluaciones,"Tareas, lecciones, exámenes creados por el docente",Alta,Creación continua durante el período
+EVALUACION_DIAGNOSTICA,Transaccional,Evaluaciones,Diagnóstico socioemocional al inicio de cada período,Baja,Al menos una por período; exigida por el Instructivo
+NOTA_ACTIVIDAD,Transaccional,Evaluaciones,Calificación individual de un estudiante en una actividad,Muy alta,Entidad de mayor volumen; soporte offline-first
+NOTA_PROYECTO,Transaccional,Evaluaciones,Calificación de producto y exposición de proyecto interdisciplinar,Alta,Por período y por matrícula
+PROCESO_RECUPERACION,Transaccional,Evaluaciones,"Registro de mejora directa, con refuerzo o supletoria",Media,Máx. 3 (mejora directa) o 6 (refuerzo) por año
+COLA_SINCRONIZACION,Transaccional,Sincronización,Cola de operaciones pendientes de sincronización offline→servidor,Muy alta,Se consume y limpia continuamente
+ALERTA_TEMPRANA,Analítica / Derivada,Analítica,Alertas de bajo desempeño detectadas automáticamente,Media,Dispara intervención docente; trazable si fue atendida
+DETALLE_FACTOR_PREDICCION,Analítica / Derivada,Analítica,Factores que explican la puntuación de riesgo (explicabilidad del modelo),Media,Una fila por factor contribuyente a la predicción
+PREDICCION_DESERCION,Analítica / Derivada,Analítica,Puntuación y etiqueta de riesgo de deserción por matrícula-período,Media,Salida del modelo ML; versionada
+SNAPSHOT_FEATURES_ML,Analítica / Derivada,Analítica,Vector de características calculadas para el modelo predictivo,Media,Insumo directo del modelo ML de deserción
+RESUMEN_COMPORTAMIENTO_PERIODO,Analítica / Derivada,Conducta,Escala cualitativa final de comportamiento por período,Media,Calculada desde EVALUACION_HABILIDAD e INCIDENTE_DISCIPLINARIO
+RESUMEN_CALIFICACION_PERIODO,Analítica / Derivada,Evaluaciones,"Promedio formativo, sumativo y final truncado por asignatura-período",Alta,Calculada por el sistema; base para PROCESO_RECUPERACION

@@ -48,9 +48,8 @@ class StudentRepresentativeSerializer(serializers.ModelSerializer):
             "emergency_contact",
             "receives_notifications",
             "created_at",
-            "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at"]
 
 
 class StudentDetailSerializer(StudentSerializer):
@@ -82,4 +81,4 @@ class EnrollmentSerializer(serializers.ModelSerializer):
 class EnrollmentCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Enrollment
-        fields = ["student", "section", "enrollment_status", "enrollment_date", "device_origin"]
+        fields = ["student", "section", "enrollment_status", "enrollment_date"]

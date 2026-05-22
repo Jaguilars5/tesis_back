@@ -5,7 +5,6 @@ from django.test import TestCase
 
 from apps.academic.models import (
     Academic_Period,
-    Config_Academic,
     Section,
     Subject,
     SubjectAcademicConfig,
@@ -24,7 +23,7 @@ from apps.grading.models import (
     StudentNote,
 )
 from apps.grading.services.evaluation_service import EvaluationService
-from apps.institutions.models import AcademicGrade, AcademicLevel, Institution, School_Year
+from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year
 from apps.students.models import Enrollment, EnrollmentStatus
 
 
@@ -32,27 +31,13 @@ class EvaluationHierarchyTest(TestCase):
     """Tests para la jerarquia EvaluationMacro > EvaluationCriteria > EvaluationSubcriteria > ClassAssignment."""
 
     def setUp(self):
-        institution = Institution.objects.create(
-            name="Institucion",
-            code="INST-1",
-            address="Calle 1",
-            city="Quito",
-        )
         school_year = School_Year.objects.create(
-            institution=institution,
             name="2025",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 12, 31),
         )
-        config = Config_Academic.objects.create(
-            school_year=school_year,
-            institution=institution,
-            name="Año lectivo",
-            academic_period_type="trimestre",
-            number_of_periods=3,
-        )
         self.period = Academic_Period.objects.create(
-            config_academic=config,
+            school_year=school_year,
             name="P1",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 3, 31),
@@ -63,16 +48,13 @@ class EvaluationHierarchyTest(TestCase):
             dni="0102030405",
             names="Ana",
             last_names="Perez",
-            institution=institution,
         )
-        academic_level = AcademicLevel.objects.create(
-            institution=institution, name="Primaria",
-        )
+        academic_level = AcademicLevel.objects.create(name="Primaria")
         academic_grade = AcademicGrade.objects.create(
             academic_level=academic_level, name="7", sequence_order=1,
         )
         self.section = Section.objects.create(
-            school_year=school_year, timing_regime=None,
+            school_year=school_year,
             academic_grade=academic_grade, parallel="A", capacity=30,
         )
         subject = Subject.objects.create(name="Matematica", code="MAT-7A")
@@ -203,27 +185,13 @@ class EvaluationServiceTest(TestCase):
     """Tests para EvaluationService."""
 
     def setUp(self):
-        institution = Institution.objects.create(
-            name="Institucion",
-            code="INST-1",
-            address="Calle 1",
-            city="Quito",
-        )
         school_year = School_Year.objects.create(
-            institution=institution,
             name="2025",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 12, 31),
         )
-        config = Config_Academic.objects.create(
-            school_year=school_year,
-            institution=institution,
-            name="Año lectivo",
-            academic_period_type="trimestre",
-            number_of_periods=3,
-        )
         self.period = Academic_Period.objects.create(
-            config_academic=config,
+            school_year=school_year,
             name="P1",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 3, 31),
@@ -234,16 +202,13 @@ class EvaluationServiceTest(TestCase):
             dni="0102030405",
             names="Ana",
             last_names="Perez",
-            institution=institution,
         )
-        academic_level = AcademicLevel.objects.create(
-            institution=institution, name="Primaria",
-        )
+        academic_level = AcademicLevel.objects.create(name="Primaria")
         academic_grade = AcademicGrade.objects.create(
             academic_level=academic_level, name="7", sequence_order=1,
         )
         self.section = Section.objects.create(
-            school_year=school_year, timing_regime=None,
+            school_year=school_year,
             academic_grade=academic_grade, parallel="A", capacity=30,
         )
         subject = Subject.objects.create(name="Matematica", code="MAT-7A")

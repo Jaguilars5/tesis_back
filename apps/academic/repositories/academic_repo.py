@@ -1,7 +1,7 @@
 from django.db import models
 from ..models import (
     Academic_Period, Section, Subject, SubjectAcademicConfig, SubjectOffering,
-    Teacher_Subject_Section, Timing_Regime,
+    Teacher_Subject_Section,
 )
 
 
@@ -53,16 +53,6 @@ class AcademicPeriodRepository(BaseRepository):
         return cls.model.objects.filter(
             school_year_id=school_year_id, active=True
         ).order_by("start_date")
-
-
-class TimingRegimeRepository(BaseRepository):
-    model = Timing_Regime
-
-    @classmethod
-    def get_by_institution(cls, institution_id):
-        return cls.model.objects.filter(
-            institution_id=institution_id, active=True
-        )
 
 
 class TeacherSubjectSectionRepository(BaseRepository):

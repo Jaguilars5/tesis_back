@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Permission, Person, Role, RolePermission, User, UserPermission, UserRole
+from .models import Permission, Person, Role, RolePermission, User, UserRole
 
 
 @admin.register(Person)
@@ -60,17 +60,17 @@ class RolePermissionAdmin(admin.ModelAdmin):
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
-    list_display = ["email_display", "full_name", "institution", "active_status", "created_at"]
-    list_filter = ["active", "institution", "created_at"]
+    list_display = ["email_display", "full_name", "active_status", "created_at"]
+    list_filter = ["active", "created_at"]
     search_fields = ["person__names", "person__last_names", "person__email", "person__document_number"]
     readonly_fields = ["created_at", "updated_at"]
     fieldsets = (
         ("Persona", {"fields": ("person",)}),
-        ("Acceso", {"fields": ("institution", "active")}),
+        ("Acceso", {"fields": ("active",)}),
         ("Seguridad", {"fields": ("password",), "classes": ("collapse",)}),
         ("Auditoría", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )
-    raw_id_fields = ["person", "institution"]
+    raw_id_fields = ["person"]
 
     def email_display(self, obj):
         if obj.person and obj.person.email:
@@ -97,29 +97,3 @@ class UserRoleAdmin(admin.ModelAdmin):
     list_filter = ["role", "assigned_at"]
     raw_id_fields = ["user", "role"]
 
-
-@admin.register(UserPermission)
-class UserPermissionAdmin(admin.ModelAdmin):
-    list_display = ["user", "permission", "granted_status", "reason_preview", "expires_at", "created_at"]
-    list_filter = ["granted", "created_at", "expires_at"]
-    search_fields = ["user__person__email", "permission__code", "reason"]
-    readonly_fields = ["created_at", "updated_at"]
-    autocomplete_fields = ["permission"]
-    raw_id_fields = ["user", "granted_by"]
-    fieldsets = (
-        ("Relación", {"fields": ("user", "permission")}),
-        ("Detalles", {"fields": ("granted", "reason", "expires_at", "granted_by")}),
-        ("Auditoría", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
-    )
-
-    def granted_status(self, obj):
-        if obj.granted:
-            return format_html('<span style="color: green;">✓ Otorgado</span>')
-        return format_html('<span style="color: red;">✗ Revocado</span>')
-    granted_status.short_description = "Estado"
-
-    def reason_preview(self, obj):
-        if obj.reason:
-            return obj.reason[:50] + ("..." if len(obj.reason) > 50 else "")
-        return "-"
-    reason_preview.short_description = "Razón"

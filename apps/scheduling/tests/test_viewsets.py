@@ -11,7 +11,7 @@ class SchedulingViewSetTestCase(TestCase):
         self.client = APIClient()
 
         self.perm = Permission.objects.create(
-            codename="scheduling.view_schedule", module="scheduling",
+            code="scheduling.view_schedule", module="scheduling",
         )
         self.role = Role.objects.create(name="Test Role")
         RolePermission.objects.create(role=self.role, permission=self.perm)

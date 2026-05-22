@@ -35,7 +35,6 @@ class Student_Representative(models.Model):
     emergency_contact = models.BooleanField(default=False, verbose_name="Contacto de Emergencia")
     receives_notifications = models.BooleanField(default=True, verbose_name="Recibe Notificaciones")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Fecha de Actualización")
 
     class Meta:
         app_label = "students"

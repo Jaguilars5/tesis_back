@@ -3,13 +3,12 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 
 
 class UserManager(BaseUserManager):
-    def create_user(self, person, institution=None, password=None, **extra_fields):
+    def create_user(self, person, password=None, **extra_fields):
         if not person:
             raise ValueError("Person es obligatorio")
         email = self.normalize_email(person.email) if person.email else ""
         user = self.model(
-            person=person, email=email,
-            institution=institution, **extra_fields
+            person=person, email=email, **extra_fields
         )
         if password:
             user.set_password(password)
@@ -45,13 +44,6 @@ class User(AbstractBaseUser):
         unique=True, verbose_name="Correo Electrónico",
         help_text="Sincronizado desde Person.email",
     )
-    institution = models.ForeignKey(
-        "institutions.Institution",
-        on_delete=models.CASCADE,
-        related_name="users",
-        null=True, blank=True,
-        verbose_name="Institución",
-    )
     active = models.BooleanField(default=True, verbose_name="Activo")
     is_staff = models.BooleanField(default=False, verbose_name="Es Personal del Admin")
     is_superuser = models.BooleanField(default=False, verbose_name="Es Superusuario")
@@ -71,7 +63,6 @@ class User(AbstractBaseUser):
         ordering = ["id"]
         indexes = [
             models.Index(fields=["active"]),
-            models.Index(fields=["institution"]),
         ]
 
     def __str__(self):
@@ -86,19 +77,9 @@ class User(AbstractBaseUser):
     def has_perm(self, permission_code):
         if self.is_superuser:
             return True
-        from .permission import Permission
-        from .user_permission import UserPermission
-        try:
-            permission = Permission.objects.get(code=permission_code)
-        except Permission.DoesNotExist:
-            return False
-        try:
-            up = UserPermission.objects.get(user=self, permission=permission)
-            return up.granted
-        except UserPermission.DoesNotExist:
-            return self.user_roles.filter(
-                role__role_permissions__permission=permission
-            ).exists()
+        return self.user_roles.filter(
+            role__role_permissions__permission__code=permission_code
+        ).exists()
 
     def has_module_perms(self, app_label):
         if self.is_superuser:
@@ -106,15 +87,8 @@ class User(AbstractBaseUser):
         return False
 
     def get_all_permissions(self):
-        from .user_permission import UserPermission
-        role_perms = set(
+        return set(
             self.user_roles.values_list(
                 "role__role_permissions__permission__code", flat=True
             ).distinct()
         )
-        user_overrides = UserPermission.objects.filter(user=self).values_list(
-            "permission__code", "granted"
-        )
-        user_granted = {cn for cn, g in user_overrides if g}
-        user_revoked = {cn for cn, g in user_overrides if not g}
-        return (role_perms | user_granted) - user_revoked

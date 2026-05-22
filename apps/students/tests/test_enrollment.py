@@ -3,9 +3,9 @@ from django.test import TestCase
 from django.db import IntegrityError
 from apps.accounts.models import Person
 from apps.institutions.models import (
-    AcademicGrade, AcademicLevel, DocumentType, Institution, School_Year,
+    AcademicGrade, AcademicLevel, DocumentType, School_Year,
 )
-from apps.academic.models import Timing_Regime, Section
+from apps.academic.models import Section
 from apps.students.models import Enrollment, EnrollmentStatus, Student
 from apps.students.services.enrollment_service import EnrollmentService
 from apps.core.tests.helpers import create_test_student
@@ -15,27 +15,17 @@ class EnrollmentModelTest(TestCase):
     """Tests para el modelo Enrollment."""
 
     def setUp(self):
-        self.institution = Institution.objects.create(
-            name="Escuela Test", code="ET-001", address="Calle Test", city="Quito"
-        )
         self.school_year = School_Year.objects.create(
-            institution=self.institution,
             name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
-        self.timing_regime = Timing_Regime.objects.create(
-            institution=self.institution, name="Matutina"
-        )
-        self.academic_level = AcademicLevel.objects.create(
-            institution=self.institution, name="Primaria"
-        )
+        self.academic_level = AcademicLevel.objects.create(name="Primaria")
         self.academic_grade = AcademicGrade.objects.create(
             academic_level=self.academic_level, name="6to", sequence_order=1
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
-            timing_regime=self.timing_regime,
             academic_grade=self.academic_grade,
             parallel="A",
             capacity=40,
@@ -92,34 +82,23 @@ class EnrollmentServiceTest(TestCase):
     """Tests para EnrollmentService."""
 
     def setUp(self):
-        self.institution = Institution.objects.create(
-            name="Escuela Test", code="ET-001", address="Calle Test", city="Quito"
-        )
         self.school_year = School_Year.objects.create(
-            institution=self.institution,
             name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
-        self.timing_regime = Timing_Regime.objects.create(
-            institution=self.institution, name="Matutina"
-        )
-        self.academic_level = AcademicLevel.objects.create(
-            institution=self.institution, name="Primaria"
-        )
+        self.academic_level = AcademicLevel.objects.create(name="Primaria")
         self.academic_grade = AcademicGrade.objects.create(
             academic_level=self.academic_level, name="6to", sequence_order=1
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
-            timing_regime=self.timing_regime,
             academic_grade=self.academic_grade,
             parallel="A",
             capacity=40,
         )
         self.second_section = Section.objects.create(
             school_year=self.school_year,
-            timing_regime=self.timing_regime,
             academic_grade=self.academic_grade,
             parallel="B",
             capacity=40,

@@ -6,7 +6,6 @@ from django.test import TestCase
 
 from apps.academic.models import (
     Academic_Period,
-    Config_Academic,
     Section,
     Subject,
     SubjectAcademicConfig,
@@ -28,46 +27,29 @@ from apps.grading.models import (
     EvaluationSubcriteria,
     StudentNote,
 )
-from apps.institutions.models import AcademicLevel, AcademicGrade, Institution, School_Year
+from apps.institutions.models import AcademicLevel, AcademicGrade, School_Year
 from apps.students.models import Enrollment, EnrollmentStatus, Student
 
 
 class AcademicRiskModelTest(TestCase):
     def setUp(self):
-        self.institution = Institution.objects.create(
-            name="Colegio Test",
-            code="COL-001",
-            address="Calle 1",
-            city="Quito",
-        )
         self.school_year = School_Year.objects.create(
-            institution=self.institution,
             name="2026",
             start_date=date(2026, 1, 1),
             end_date=date(2026, 12, 31),
         )
-        self.config = Config_Academic.objects.create(
-            school_year=self.school_year,
-            institution=self.institution,
-            name="Config 2026",
-            academic_period_type="trimestre",
-            number_of_periods=3,
-        )
         self.period = Academic_Period.objects.create(
-            config_academic=self.config,
+            school_year=self.school_year,
             name="P1",
             start_date=date(2026, 1, 1),
             end_date=date(2026, 3, 31),
         )
-        self.academic_level = AcademicLevel.objects.create(
-            institution=self.institution, name="Basica"
-        )
+        self.academic_level = AcademicLevel.objects.create(name="Basica")
         self.academic_grade = AcademicGrade.objects.create(
             academic_level=self.academic_level, name="8", sequence_order=8
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
-            timing_regime=None,
             academic_grade=self.academic_grade,
             parallel="A",
             capacity=30,
@@ -82,7 +64,6 @@ class AcademicRiskModelTest(TestCase):
             dni="0102030405",
             names="Ana",
             last_names="Perez",
-            institution=self.institution,
         )
         subj_config = SubjectAcademicConfig.objects.create(
             subject=self.subject, academic_grade=self.academic_grade,

@@ -20,11 +20,11 @@ class StudentRepresentativeAdmin(admin.ModelAdmin):
     list_display = ("get_student", "get_person", "kinship", "is_primary")
     list_filter = ("kinship", "is_primary")
     search_fields = ("student__person__names", "person__names", "person__last_names")
-    readonly_fields = ("created_at", "updated_at")
+    readonly_fields = ("created_at",)
     fieldsets = (
         ("Relación", {"fields": ("student", "person", "kinship", "is_primary")}),
         ("Autorizaciones", {"fields": ("can_pickup", "emergency_contact", "receives_notifications")}),
-        ("Registro", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
+        ("Registro", {"fields": ("created_at",), "classes": ("collapse",)}),
     )
 
     def get_student(self, obj):

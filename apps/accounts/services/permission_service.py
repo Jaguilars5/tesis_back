@@ -72,7 +72,7 @@ class PermissionService:
         Lanza:
         - ValueError si el permiso está asignado a algún rol o usuario
         """
-        from apps.accounts.models import RolePermission, UserPermission
+        from apps.accounts.models import RolePermission
 
         permission = self.permission_repo.get_by_id(permission_id)
         if not permission:
@@ -83,13 +83,6 @@ class PermissionService:
         if role_count > 0:
             raise ValueError(
                 f"No se puede eliminar el permiso '{permission.code}' porque está asignado a {role_count} rol(es)"
-            )
-
-        # Verificar si está asignado a usuarios
-        user_count = UserPermission.objects.filter(permission_id=permission_id).count()
-        if user_count > 0:
-            raise ValueError(
-                f"No se puede eliminar el permiso '{permission.code}' porque está asignado a {user_count} usuario(s)"
             )
 
         self.permission_repo.delete(permission)

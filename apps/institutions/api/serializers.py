@@ -2,19 +2,11 @@ from rest_framework import serializers
 from ..models import (
     AcademicGrade,
     AcademicLevel,
-    AcademicRegime,
     Classroom,
     DocumentType,
-    Institution,
     RoomType,
     School_Year,
 )
-
-
-class InstitutionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Institution
-        fields = "__all__"
 
 
 class School_YearSerializer(serializers.ModelSerializer):
@@ -43,12 +35,6 @@ class DocumentTypeSerializer(serializers.ModelSerializer):
 class RoomTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = RoomType
-        fields = "__all__"
-
-
-class AcademicRegimeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = AcademicRegime
         fields = "__all__"
 
 

@@ -266,7 +266,6 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 student=serializer.validated_data["student"],
                 section=serializer.validated_data["section"],
                 enrollment_date=serializer.validated_data.get("enrollment_date"),
-                device_origin=serializer.validated_data.get("device_origin"),
             )
             return ok_response(
                 self.get_serializer(enrollment).data, status=201

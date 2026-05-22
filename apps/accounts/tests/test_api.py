@@ -9,7 +9,6 @@ from rest_framework.test import APIClient
 from rest_framework import status
 from apps.accounts.models import User, Role, Permission
 from apps.core.tests.helpers import create_test_user
-from apps.institutions.models import Institution
 
 
 class PermissionAPITest(TestCase):
@@ -17,16 +16,12 @@ class PermissionAPITest(TestCase):
 
     def setUp(self):
         self.client = APIClient()
-        self.institution = Institution.objects.create(
-            name="Institución de Prueba", code="INST001"
-        )
         self.role = Role.objects.create(name="Admin")
         self.admin_user = create_test_user(
             email="admin@example.com",
             dni="999999999",
             names="Admin",
             last_names="User",
-            institution=self.institution,
             is_superuser=True,
             password="adminpass",
         )
@@ -35,7 +30,7 @@ class PermissionAPITest(TestCase):
 
     def test_list_permissions(self):
         """Verifica que se pueden listar permisos."""
-        Permission.objects.create(codename="perm1", module="test")
+        Permission.objects.create(code="perm1", module="test")
 
         response = self.client.get("/api/accounts/permissions/")
 
@@ -44,7 +39,7 @@ class PermissionAPITest(TestCase):
     def test_create_permission(self):
         """Verifica que se puede crear un permiso."""
         data = {
-            "codename": "grading.create_note",
+            "code": "grading.create_note",
             "description": "Crear notas",
             "module": "grading",
         }
@@ -54,11 +49,11 @@ class PermissionAPITest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Permission.objects.count(), 1)
 
-    def test_create_permission_duplicate_codename(self):
-        """Verifica que no se puede crear permiso con codename duplicado."""
-        Permission.objects.create(codename="perm1")
+    def test_create_permission_duplicate_code(self):
+        """Verifica que no se puede crear permiso con code duplicado."""
+        Permission.objects.create(code="perm1")
 
-        data = {"codename": "perm1"}
+        data = {"code": "perm1"}
         response = self.client.post("/api/accounts/permissions/", data, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -69,16 +64,12 @@ class RoleAPITest(TestCase):
 
     def setUp(self):
         self.client = APIClient()
-        self.institution = Institution.objects.create(
-            name="Institución de Prueba", code="INST001"
-        )
         self.role = Role.objects.create(name="Admin")
         self.admin_user = create_test_user(
             email="admin@example.com",
             dni="999999999",
             names="Admin",
             last_names="User",
-            institution=self.institution,
             is_superuser=True,
         )
         self.client.force_authenticate(user=self.admin_user)
@@ -101,9 +92,9 @@ class RoleAPITest(TestCase):
     def test_add_permission_to_role(self):
         """Verifica que se puede agregar un permiso a un rol."""
         role = Role.objects.create(name="Docente")
-        permission = Permission.objects.create(codename="perm1", module="test")
+        permission = Permission.objects.create(code="perm1", module="test")
 
-        data = {"permission_codename": "perm1"}
+        data = {"permission_code": "perm1"}
         response = self.client.post(
             f"/api/accounts/roles/{role.id}/add-permission/", data, format="json"
         )
@@ -116,16 +107,12 @@ class UserAPITest(TestCase):
 
     def setUp(self):
         self.client = APIClient()
-        self.institution = Institution.objects.create(
-            name="Institución de Prueba", code="INST001"
-        )
         self.role = Role.objects.create(name="Admin")
         self.admin_user = create_test_user(
             email="admin@example.com",
             dni="999999999",
             names="Admin",
             last_names="User",
-            institution=self.institution,
             is_superuser=True,
         )
         self.client.force_authenticate(user=self.admin_user)
@@ -145,7 +132,6 @@ class UserAPITest(TestCase):
             "email": "juan@example.com",
             "password": "micontraseña123",
             "role_id": self.role.id,
-            "institution_id": self.institution.id,
         }
 
         response = self.client.post("/api/accounts/users/", data, format="json")
@@ -160,7 +146,6 @@ class UserAPITest(TestCase):
             dni="111111111",
             names="Otro",
             last_names="Usuario",
-            institution=self.institution,
         )
 
         data = {
@@ -170,7 +155,6 @@ class UserAPITest(TestCase):
             "email": "otro@example.com",
             "password": "micontraseña123",
             "role_id": self.role.id,
-            "institution_id": self.institution.id,
         }
 
         response = self.client.post("/api/accounts/users/", data, format="json")
@@ -184,7 +168,6 @@ class UserAPITest(TestCase):
             dni="123456789",
             names="Juan",
             last_names="Pérez",
-            institution=self.institution,
             password="micontraseña123",
         )
 
@@ -197,24 +180,6 @@ class UserAPITest(TestCase):
         user.refresh_from_db()
         self.assertTrue(user.check_password("nuevacontraseña456"))
 
-    def test_grant_permission(self):
-        """Verifica que se puede otorgar un permiso."""
-        user = create_test_user(
-            email="juan@example.com",
-            dni="123456789",
-            names="Juan",
-            last_names="Pérez",
-            institution=self.institution,
-        )
-        permission = Permission.objects.create(codename="perm1", module="test")
-
-        data = {"permission_codename": "perm1", "reason": "Prueba"}
-        response = self.client.post(
-            f"/api/accounts/users/{user.id}/grant-permission/", data, format="json"
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
     def test_get_user_permissions(self):
         """Verifica que se pueden obtener los permisos de un usuario."""
         user = create_test_user(
@@ -222,7 +187,6 @@ class UserAPITest(TestCase):
             dni="123456789",
             names="Juan",
             last_names="Pérez",
-            institution=self.institution,
         )
 
         response = self.client.get(f"/api/accounts/users/{user.id}/permissions/")

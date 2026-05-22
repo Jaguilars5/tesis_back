@@ -10,7 +10,7 @@ def _get_doc_type():
 
 def create_test_user(email, dni=None, names=None, last_names=None,
                      password="test_password_123", role=None,
-                     institution=None, is_superuser=False, **extra):
+                     is_superuser=False, **extra):
     doc_type = _get_doc_type()
     person = Person.objects.create(
         document_type=doc_type,
@@ -22,7 +22,6 @@ def create_test_user(email, dni=None, names=None, last_names=None,
     return User.objects.create_user(
         person=person,
         password=password,
-        institution=institution,
         is_superuser=is_superuser,
         **extra,
     )

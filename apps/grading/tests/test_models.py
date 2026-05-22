@@ -6,7 +6,6 @@ from django.test import TestCase
 
 from apps.academic.models import (
     Academic_Period,
-    Config_Academic,
     Section,
     Subject,
     SubjectAcademicConfig,
@@ -27,33 +26,19 @@ from apps.grading.models import (
     QualitativeScale,
     StudentNote,
 )
-from apps.institutions.models import AcademicGrade, AcademicLevel, Institution, School_Year
+from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year
 from apps.students.models import Enrollment, EnrollmentStatus, Student
 
 
 class GradingModelTest(TestCase):
     def setUp(self):
-        institution = Institution.objects.create(
-            name="Institucion",
-            code="INST-1",
-            address="Calle 1",
-            city="Quito",
-        )
         school_year = School_Year.objects.create(
-            institution=institution,
             name="2025",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 12, 31),
         )
-        self.config = Config_Academic.objects.create(
-            school_year=school_year,
-            institution=institution,
-            name="Año lectivo",
-            academic_period_type="trimestre",
-            number_of_periods=3,
-        )
         self.period = Academic_Period.objects.create(
-            config_academic=self.config,
+            school_year=school_year,
             name="P1",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 3, 31),
@@ -64,12 +49,8 @@ class GradingModelTest(TestCase):
             dni="0102030405",
             names="Ana",
             last_names="Perez",
-            institution=institution,
         )
-        self.academic_level = AcademicLevel.objects.create(
-            institution=institution,
-            name="Primaria",
-        )
+        self.academic_level = AcademicLevel.objects.create(name="Primaria")
         self.academic_grade = AcademicGrade.objects.create(
             academic_level=self.academic_level,
             name="7",
@@ -77,7 +58,6 @@ class GradingModelTest(TestCase):
         )
         self.section = Section.objects.create(
             school_year=school_year,
-            timing_regime=None,
             academic_grade=self.academic_grade,
             parallel="A",
             capacity=30,

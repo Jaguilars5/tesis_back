@@ -30,10 +30,10 @@ class SeedPermissionsTest(TestCase):
         grading_count = len(PERMISSIONS_CATALOG["grading"])
         self.assertEqual(Permission.objects.count(), grading_count)
         self.assertTrue(
-            Permission.objects.filter(codename__startswith="grading.").exists()
+            Permission.objects.filter(code__startswith="grading.").exists()
         )
         self.assertFalse(
-            Permission.objects.filter(codename__startswith="accounts.").exists()
+            Permission.objects.filter(code__startswith="accounts.").exists()
         )
 
     def test_seed_inexistent_module(self):

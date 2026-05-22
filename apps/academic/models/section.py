@@ -5,12 +5,6 @@ class Section(models.Model):
     school_year = models.ForeignKey(
         "institutions.School_Year", on_delete=models.CASCADE, verbose_name="Año Escolar"
     )
-    timing_regime = models.ForeignKey(
-        "academic.Timing_Regime",
-        on_delete=models.SET_NULL,
-        null=True,
-        verbose_name="Régimen de Horario",
-    )
     academic_grade = models.ForeignKey(
         "institutions.AcademicGrade",
         on_delete=models.CASCADE,
@@ -20,12 +14,6 @@ class Section(models.Model):
     parallel = models.CharField(max_length=255, verbose_name="Paralelo")
     capacity = models.IntegerField(verbose_name="Capacidad")
     active = models.BooleanField(default=True, verbose_name="Activo")
-    created_at = models.DateTimeField(
-        auto_now_add=True, verbose_name="Fecha de Creación"
-    )
-    updated_at = models.DateTimeField(
-        auto_now=True, verbose_name="Fecha de Actualización"
-    )
 
     class Meta:
         app_label = "academic"
@@ -34,5 +22,5 @@ class Section(models.Model):
 
     def __str__(self):
         if self.academic_grade:
-            return f"{self.school_year.institution.name} - {self.academic_grade.name} {self.parallel}"
-        return f"{self.school_year.institution.name} - {self.parallel}"
+            return f"{self.school_year.name} - {self.academic_grade.name} {self.parallel}"
+        return f"{self.school_year.name} - {self.parallel}"

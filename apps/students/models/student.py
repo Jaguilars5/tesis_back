@@ -11,6 +11,13 @@ class Student(models.Model):
     student_code = models.CharField(
         max_length=50, unique=True, verbose_name="Código de Estudiante"
     )
+    residential_zone = models.CharField(
+        max_length=50, blank=True, verbose_name="Zona Residencial"
+    )
+    distance_to_school_km = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        verbose_name="Distancia al Colegio (km)",
+    )
     active = models.BooleanField(default=True, verbose_name="Activo")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
 

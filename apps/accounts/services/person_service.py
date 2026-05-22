@@ -6,7 +6,7 @@ from apps.institutions.models import DocumentType
 class PersonService:
     @staticmethod
     @transaction.atomic
-    def create_person_with_user(person_data, password=None, institution=None, **user_extra):
+    def create_person_with_user(person_data, password=None, **user_extra):
         doc_type_id = person_data.pop("document_type_id", None)
         if not doc_type_id:
             cc_type = DocumentType.objects.get_or_create(
@@ -21,7 +21,6 @@ class PersonService:
         user = User.objects.create_user(
             person=person,
             password=password,
-            institution=institution,
             **user_extra,
         )
         return person, user

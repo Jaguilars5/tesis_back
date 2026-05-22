@@ -14,13 +14,13 @@ from .models import (
 
 @admin.register(ScheduleTemplateConfig)
 class ScheduleTemplateConfigAdmin(admin.ModelAdmin):
-    list_display = ("id", "timing_regime", "day_start_time", "total_slots_per_day")
+    list_display = ("id", "day_start_time", "total_slots_per_day")
 
 
 @admin.register(TimeSlot)
 class TimeSlotAdmin(admin.ModelAdmin):
-    list_display = ("id", "timing_regime", "name", "day_of_week", "start_time", "end_time")
-    list_filter = ("day_of_week", "timing_regime")
+    list_display = ("id", "name", "day_of_week", "start_time", "end_time")
+    list_filter = ("day_of_week",)
 
 
 @admin.register(TeacherAvailability)

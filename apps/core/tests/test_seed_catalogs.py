@@ -5,7 +5,7 @@ from django.test import TestCase
 
 from apps.analytics.models import RiskFactor
 from apps.grading.models import AttendanceStatus, GradeType, QualitativeScale
-from apps.institutions.models import AcademicRegime, DocumentType, RoomType
+from apps.institutions.models import DocumentType, RoomType
 from apps.students.models import EnrollmentStatus
 
 
@@ -15,13 +15,12 @@ class SeedCatalogsTest(TestCase):
         call_command("seed_catalogs", stdout=out)
         self.assertEqual(DocumentType.objects.count(), 6)
         self.assertEqual(RoomType.objects.count(), 6)
-        self.assertEqual(AcademicRegime.objects.count(), 3)
         self.assertEqual(AttendanceStatus.objects.count(), 4)
         self.assertEqual(GradeType.objects.count(), 3)
         self.assertEqual(QualitativeScale.objects.count(), 4)
         self.assertEqual(EnrollmentStatus.objects.count(), 5)
         self.assertEqual(RiskFactor.objects.count(), 5)
-        self.assertIn("34 created, 2 already existed", out.getvalue())
+        self.assertIn("33 created", out.getvalue())
 
     def test_idempotent_double_execution(self):
         call_command("seed_catalogs", stdout=StringIO())

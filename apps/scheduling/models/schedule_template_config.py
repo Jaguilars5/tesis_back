@@ -6,7 +6,6 @@ class ScheduleTemplateConfig(models.Model):
     Configuración de la plantilla base para la generación de horarios.
     Define la duración de clases, recreos y la estructura diaria.
 
-    timing_regime: Régimen horario (Matutino, Vespertino, etc.) al que aplica
     day_start_time: Hora de inicio de la jornada
     class_duration_minutes: Duración de cada hora de clase
     break_duration_minutes: Duración del recreo
@@ -14,12 +13,6 @@ class ScheduleTemplateConfig(models.Model):
     total_slots_per_day: Cantidad total de horas pedagógicas por día
     """
 
-    timing_regime = models.OneToOneField(
-        "academic.Timing_Regime",
-        on_delete=models.CASCADE,
-        verbose_name="Régimen de Horario",
-        help_text="Régimen horario al que aplica esta configuración",
-    )
     day_start_time = models.TimeField(
         verbose_name="Hora de Inicio del Día",
         help_text="Hora de inicio de la jornada escolar",
@@ -47,4 +40,4 @@ class ScheduleTemplateConfig(models.Model):
         verbose_name_plural = "Configuraciones de Plantilla de Horarios"
 
     def __str__(self):
-        return f"Config for {self.timing_regime.name}"
+        return f"ScheduleTemplateConfig #{self.pk}"

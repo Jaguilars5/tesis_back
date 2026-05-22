@@ -6,69 +6,16 @@ from apps.core.permissions import HasPermission
 from apps.core.constants.permissions import institutions
 
 from ..services.institution_service import InstitutionService
-from ..models import AcademicGrade, AcademicLevel, AcademicRegime, Classroom, DocumentType, Institution, RoomType, School_Year
+from ..models import AcademicGrade, AcademicLevel, Classroom, DocumentType, RoomType, School_Year
 from .serializers import (
     AcademicGradeSerializer,
     AcademicLevelSerializer,
-    AcademicRegimeSerializer,
     ClassroomSerializer,
     DocumentTypeSerializer,
-    InstitutionSerializer,
     RoomTypeSerializer,
     School_YearSerializer,
 )
 from apps.core.utils import ok_response, error_response
-
-
-class InstitutionViewSet(viewsets.ModelViewSet):
-    serializer_class = InstitutionSerializer
-    permission_classes = [permissions.IsAuthenticated, HasPermission]
-    action_permissions = {
-        "list": institutions.VIEW_INSTITUTION,
-        "retrieve": institutions.VIEW_INSTITUTION,
-        "create": institutions.CREATE_INSTITUTION,
-        "update": institutions.UPDATE_INSTITUTION,
-        "partial_update": institutions.UPDATE_INSTITUTION,
-        "destroy": institutions.DELETE_INSTITUTION,
-    }
-
-    def get_queryset(self):
-        return InstitutionService.get_all_institutions().order_by("name")
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        try:
-            institution = InstitutionService.create_institution(
-                name=serializer.validated_data["name"],
-                code=serializer.validated_data["code"],
-                address=serializer.validated_data["address"],
-                city=serializer.validated_data["city"],
-            )
-            return ok_response(self.get_serializer(institution).data, status=201)
-        except ValueError as e:
-            return error_response(e)
-
-    def update(self, request, *args, **kwargs):
-        partial = kwargs.pop("partial", False)
-        serializer = self.get_serializer(
-            self.get_object(), data=request.data, partial=partial
-        )
-        serializer.is_valid(raise_exception=True)
-        try:
-            institution = InstitutionService.update_institution(
-                kwargs["pk"], **serializer.validated_data
-            )
-            return ok_response(self.get_serializer(institution).data)
-        except ValueError as e:
-            return error_response(e)
-
-    def destroy(self, request, *args, **kwargs):
-        try:
-            InstitutionService.deactivate_institution(kwargs["pk"])
-            return ok_response({"id": kwargs["pk"], "active": False})
-        except ValueError as e:
-            return error_response(e)
 
 
 class SchoolYearViewSet(viewsets.ModelViewSet):
@@ -93,13 +40,7 @@ class SchoolYearViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="list")
     def list_by_institution(self, request):
-        institution_id = request.data.get("institution")
-        if not institution_id:
-            return error_response('Se requiere "institution"')
-        school_years = School_Year.objects.filter(
-            institution_id=institution_id, active=True
-        ).order_by("-start_date")
-        return ok_response(self.get_serializer(school_years, many=True).data)
+        return ok_response(self.get_serializer(self.get_queryset(), many=True).data)
 
     @action(detail=False, methods=["post"], url_path="get")
     def get_by_id(self, request):
@@ -118,7 +59,6 @@ class SchoolYearViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         try:
             school_year = InstitutionService.create_school_year(
-                institution_id=serializer.validated_data["institution"].id,
                 name=serializer.validated_data["name"],
                 start_date=serializer.validated_data["start_date"],
                 end_date=serializer.validated_data["end_date"],
@@ -136,7 +76,6 @@ class SchoolYearViewSet(viewsets.ModelViewSet):
             school_year = School_Year.objects.get(id=school_year_id)
         except School_Year.DoesNotExist:
             return error_response("Año escolar no encontrado")
-
         data = {k: v for k, v in request.data.items() if k != "id"}
         serializer = self.get_serializer(school_year, data=data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -164,7 +103,6 @@ class SchoolYearViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         try:
             school_year = InstitutionService.create_school_year(
-                institution_id=serializer.validated_data["institution"].id,
                 name=serializer.validated_data["name"],
                 start_date=serializer.validated_data["start_date"],
                 end_date=serializer.validated_data["end_date"],
@@ -217,13 +155,7 @@ class ClassroomViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="list")
     def list_by_institution(self, request):
-        institution_id = request.data.get("institution")
-        if not institution_id:
-            return error_response('Se requiere "institution"')
-        classrooms = Classroom.objects.filter(
-            institution_id=institution_id, active=True
-        ).order_by("name")
-        return ok_response(self.get_serializer(classrooms, many=True).data)
+        return ok_response(self.get_serializer(self.get_queryset(), many=True).data)
 
     @action(detail=False, methods=["post"], url_path="get")
     def get_by_id(self, request):
@@ -242,7 +174,6 @@ class ClassroomViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         try:
             classroom = InstitutionService.create_classroom(
-                institution_id=serializer.validated_data["institution"].id,
                 name=serializer.validated_data["name"],
                 room_type_id=serializer.validated_data["room_type"].id,
                 capacity=serializer.validated_data["capacity"],
@@ -260,7 +191,6 @@ class ClassroomViewSet(viewsets.ModelViewSet):
             classroom = Classroom.objects.get(id=classroom_id)
         except Classroom.DoesNotExist:
             return error_response("Aula no encontrada")
-
         data = {k: v for k, v in request.data.items() if k != "id"}
         serializer = self.get_serializer(classroom, data=data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -288,7 +218,6 @@ class ClassroomViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         try:
             classroom = InstitutionService.create_classroom(
-                institution_id=serializer.validated_data["institution"].id,
                 name=serializer.validated_data["name"],
                 room_type_id=serializer.validated_data["room_type"].id,
                 capacity=serializer.validated_data["capacity"],
@@ -354,31 +283,6 @@ class RoomTypeViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         return RoomType.objects.all().order_by("name")
-
-    def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
-        return ok_response(serializer.data)
-
-    def retrieve(self, request, *args, **kwargs):
-        try:
-            instance = self.get_object()
-            serializer = self.get_serializer(instance)
-            return ok_response(serializer.data)
-        except Exception as e:
-            return error_response(e)
-
-
-class AcademicRegimeViewSet(viewsets.ReadOnlyModelViewSet):
-    serializer_class = AcademicRegimeSerializer
-    permission_classes = [permissions.IsAuthenticated, HasPermission]
-    action_permissions = {
-        "list": institutions.VIEW_ACADEMIC_REGIME,
-        "retrieve": institutions.VIEW_ACADEMIC_REGIME,
-    }
-
-    def get_queryset(self):
-        return AcademicRegime.objects.all().order_by("name")
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()

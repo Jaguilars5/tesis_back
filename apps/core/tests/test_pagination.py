@@ -3,7 +3,6 @@ from rest_framework.request import Request
 from apps.core.pagination import StandardResultsSetPagination
 from apps.accounts.models import Role, User
 from apps.core.tests.helpers import create_test_user
-from apps.institutions.models import Institution
 
 
 class StandardResultsSetPaginationTest(TestCase):
@@ -12,9 +11,6 @@ class StandardResultsSetPaginationTest(TestCase):
     def setUp(self):
         self.pagination = StandardResultsSetPagination()
         self.factory = RequestFactory()
-        self.institution = Institution.objects.create(
-            name="Test School", code="TS-001", address="Test St", city="Quito"
-        )
         for i in range(25):
             create_test_user(
                 email=f"user{i}@test.com",
@@ -22,7 +18,6 @@ class StandardResultsSetPaginationTest(TestCase):
                 names=f"User{i}",
                 last_names="Test",
                 password="testpass123",
-                institution=self.institution,
             )
 
     def test_default_page_size(self):

@@ -5,9 +5,8 @@ Prueban validaciones de campo, propiedades calculadas y restricciones de BD.
 """
 
 from django.test import TestCase
-from apps.accounts.models import User, Role, Permission, RolePermission, UserPermission
+from apps.accounts.models import User, Role, Permission, RolePermission
 from apps.core.tests.helpers import create_test_user
-from apps.institutions.models import Institution
 
 
 class PermissionModelTest(TestCase):
@@ -15,22 +14,22 @@ class PermissionModelTest(TestCase):
 
     def setUp(self):
         self.permission = Permission.objects.create(
-            codename="grading.create_note", description="Crear notas", module="grading"
+            code="grading.create_note", description="Crear notas", module="grading"
         )
 
     def test_create_permission(self):
         """Verifica que se crea un permiso correctamente."""
-        self.assertEqual(self.permission.codename, "grading.create_note")
+        self.assertEqual(self.permission.code, "grading.create_note")
         self.assertEqual(self.permission.description, "Crear notas")
         self.assertEqual(self.permission.module, "grading")
 
-    def test_permission_unique_codename(self):
-        """Verifica que el codename es único."""
+    def test_permission_unique_code(self):
+        """Verifica que el code es único."""
         from django.db import IntegrityError
 
         with self.assertRaises(IntegrityError):
             Permission.objects.create(
-                codename="grading.create_note", description="Duplicado"
+                code="grading.create_note", description="Duplicado"
             )
 
     def test_permission_str(self):
@@ -46,7 +45,7 @@ class RoleModelTest(TestCase):
             name="Docente", description="Rol de docente", active=True
         )
         self.permission = Permission.objects.create(
-            codename="grading.create_note", module="grading"
+            code="grading.create_note", module="grading"
         )
         RolePermission.objects.create(role=self.role, permission=self.permission)
 
@@ -77,16 +76,12 @@ class UserModelTest(TestCase):
     """Tests para el modelo User."""
 
     def setUp(self):
-        self.institution = Institution.objects.create(
-            name="Institución de Prueba", code="INST001"
-        )
         self.role = Role.objects.create(name="Docente", description="Rol de docente")
         self.user = create_test_user(
             email="juan@example.com",
             dni="123456789",
             names="Juan",
             last_names="Pérez",
-            institution=self.institution,
         )
 
     def test_create_user(self):
@@ -105,11 +100,10 @@ class UserModelTest(TestCase):
                 dni="987654321",
                 names="Pedro",
                 last_names="García",
-                institution=self.institution,
             )
 
-    def test_user_dni_unique_per_institution(self):
-        """Verifica que el DNI es único por institución."""
+    def test_user_dni_unique(self):
+        """Verifica que el DNI es único."""
         from django.db import IntegrityError
 
         with self.assertRaises(IntegrityError):
@@ -118,7 +112,6 @@ class UserModelTest(TestCase):
                 dni="123456789",
                 names="Pedro",
                 last_names="García",
-                institution=self.institution,
             )
 
     def test_set_password(self):
@@ -143,123 +136,10 @@ class UserModelTest(TestCase):
 
         UserRole.objects.create(user=self.user, role=self.role)
         permission = Permission.objects.create(
-            codename="grading.create_note", module="grading"
+            code="grading.create_note", module="grading"
         )
         RolePermission.objects.create(role=self.role, permission=permission)
 
         self.assertTrue(self.user.has_perm("grading.create_note"))
 
-    def test_has_perm_override_granted(self):
-        """Verifica que UserPermission granted=True otorga permiso."""
-        permission = Permission.objects.create(
-            codename="grading.delete_note", module="grading"
-        )
-        UserPermission.objects.create(
-            user=self.user, permission=permission, granted=True
-        )
 
-        self.assertTrue(self.user.has_perm("grading.delete_note"))
-
-    def test_has_perm_override_revoked(self):
-        """Verifica que UserPermission granted=False revoca permiso."""
-        from apps.accounts.models import UserRole
-
-        UserRole.objects.create(user=self.user, role=self.role)
-        permission = Permission.objects.create(
-            codename="grading.create_note", module="grading"
-        )
-        RolePermission.objects.create(role=self.role, permission=permission)
-        UserPermission.objects.create(
-            user=self.user, permission=permission, granted=False
-        )
-
-        self.assertFalse(self.user.has_perm("grading.create_note"))
-
-    def test_get_all_permissions(self):
-        """Verifica que se obtienen todos los permisos del usuario."""
-        from apps.accounts.models import UserRole
-
-        UserRole.objects.create(user=self.user, role=self.role)
-        perm1 = Permission.objects.create(codename="perm1", module="test")
-        perm2 = Permission.objects.create(codename="perm2", module="test")
-        perm3 = Permission.objects.create(codename="perm3", module="test")
-
-        # Agregar perm1 al rol
-        RolePermission.objects.create(role=self.role, permission=perm1)
-
-        # Agregar perm2 directamente al usuario
-        UserPermission.objects.create(user=self.user, permission=perm2, granted=True)
-
-        # Revocar perm1 al usuario
-        UserPermission.objects.create(user=self.user, permission=perm1, granted=False)
-
-        perms = self.user.get_all_permissions()
-        self.assertIn("perm2", perms)
-        self.assertNotIn("perm1", perms)
-
-
-class UserPermissionModelTest(TestCase):
-    """Tests para el modelo UserPermission."""
-
-    def setUp(self):
-        self.institution = Institution.objects.create(
-            name="Institución de Prueba", code="INST001"
-        )
-        self.role = Role.objects.create(name="Docente")
-        self.user = create_test_user(
-            email="juan@example.com",
-            dni="123456789",
-            names="Juan",
-            last_names="Pérez",
-            institution=self.institution,
-        )
-        self.permission = Permission.objects.create(
-            codename="grading.create_note", module="grading"
-        )
-
-    def test_create_user_permission(self):
-        """Verifica que se crea un UserPermission correctamente."""
-        up = UserPermission.objects.create(
-            user=self.user, permission=self.permission, granted=True, reason="Prueba"
-        )
-        self.assertEqual(up.user, self.user)
-        self.assertEqual(up.permission, self.permission)
-        self.assertTrue(up.granted)
-
-    def test_user_permission_unique_together(self):
-        """Verifica que (user, permission) es único."""
-        from django.db import IntegrityError
-
-        UserPermission.objects.create(
-            user=self.user, permission=self.permission, granted=True
-        )
-        with self.assertRaises(IntegrityError):
-            UserPermission.objects.create(
-                user=self.user, permission=self.permission, granted=False
-            )
-
-    def test_is_expired(self):
-        """Verifica que is_expired() funciona."""
-        from django.utils import timezone
-        from datetime import timedelta
-
-        # Sin expiración
-        up = UserPermission.objects.create(
-            user=self.user, permission=self.permission, granted=True
-        )
-        self.assertFalse(up.is_expired())
-
-        # Expirado
-        up_expired = UserPermission.objects.create(
-            user=create_test_user(
-                email="pedro@example.com",
-                dni="987654321",
-                names="Pedro",
-                last_names="García",
-                institution=self.institution,
-            ),
-            permission=self.permission,
-            granted=True,
-            expires_at=timezone.now() - timedelta(days=1),
-        )
-        self.assertTrue(up_expired.is_expired())

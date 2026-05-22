@@ -6,12 +6,10 @@ from django.db import IntegrityError
 
 from apps.academic.models import (
     Academic_Period,
-    Config_Academic,
     Section,
-    Timing_Regime,
 )
 from apps.core.tests.helpers import create_test_student
-from apps.institutions.models import AcademicGrade, AcademicLevel, Institution, School_Year
+from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year
 from apps.analytics.models import RiskFactor, StudentRiskFactor, StudentRiskScore
 from apps.students.models import Student
 
@@ -20,33 +18,20 @@ class StudentRiskScoreModelTest(TestCase):
     """Tests para el modelo StudentRiskScore."""
 
     def setUp(self):
-        self.institution = Institution.objects.create(
-            name="Test School", code="TS-001", address="Test St", city="Quito",
-        )
         self.school_year = School_Year.objects.create(
-            institution=self.institution, name="2024-2025",
+            name="2024-2025",
             start_date=date(2024, 9, 1), end_date=date(2025, 7, 31),
         )
-        config = Config_Academic.objects.create(
-            school_year=self.school_year, institution=self.institution,
-            name="Config 2024", academic_period_type="Trimestral",
-            number_of_periods=3,
-        )
         self.period = Academic_Period.objects.create(
-            config_academic=config, name="Periodo 1",
+            school_year=self.school_year, name="Periodo 1",
             start_date=date(2024, 9, 1), end_date=date(2024, 12, 15),
         )
-        timing = Timing_Regime.objects.create(
-            institution=self.institution, name="Matutina",
-        )
-        academic_level = AcademicLevel.objects.create(
-            institution=self.institution, name="Primaria",
-        )
+        academic_level = AcademicLevel.objects.create(name="Primaria")
         academic_grade = AcademicGrade.objects.create(
             academic_level=academic_level, name="6to", sequence_order=6,
         )
         self.section = Section.objects.create(
-            school_year=self.school_year, timing_regime=timing,
+            school_year=self.school_year,
             academic_grade=academic_grade, parallel="A", capacity=40,
         )
         self.student = create_test_student(
@@ -100,33 +85,20 @@ class StudentRiskFactorModelTest(TestCase):
     """Tests para el modelo StudentRiskFactor."""
 
     def setUp(self):
-        self.institution = Institution.objects.create(
-            name="Test School", code="TS-001", address="Test St", city="Quito",
-        )
         self.school_year = School_Year.objects.create(
-            institution=self.institution, name="2024-2025",
+            name="2024-2025",
             start_date=date(2024, 9, 1), end_date=date(2025, 7, 31),
         )
-        config = Config_Academic.objects.create(
-            school_year=self.school_year, institution=self.institution,
-            name="Config 2024", academic_period_type="Trimestral",
-            number_of_periods=3,
-        )
         self.period = Academic_Period.objects.create(
-            config_academic=config, name="Periodo 1",
+            school_year=self.school_year, name="Periodo 1",
             start_date=date(2024, 9, 1), end_date=date(2024, 12, 15),
         )
-        timing = Timing_Regime.objects.create(
-            institution=self.institution, name="Matutina",
-        )
-        academic_level = AcademicLevel.objects.create(
-            institution=self.institution, name="Primaria",
-        )
+        academic_level = AcademicLevel.objects.create(name="Primaria")
         academic_grade = AcademicGrade.objects.create(
             academic_level=academic_level, name="6to", sequence_order=6,
         )
         self.section = Section.objects.create(
-            school_year=self.school_year, timing_regime=timing,
+            school_year=self.school_year,
             academic_grade=academic_grade, parallel="A", capacity=40,
         )
         self.student = create_test_student(

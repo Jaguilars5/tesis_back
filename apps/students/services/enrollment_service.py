@@ -7,7 +7,7 @@ from ..repositories.enrollment_repo import EnrollmentRepository
 class EnrollmentService:
     @staticmethod
     @transaction.atomic
-    def enroll_student(student, section, enrollment_date=None, device_origin=None):
+    def enroll_student(student, section, enrollment_date=None):
         if EnrollmentRepository.has_active_enrollment(student):
             raise ValueError("El estudiante ya tiene una matrícula activa")
 
@@ -27,7 +27,6 @@ class EnrollmentService:
             section=section,
             enrollment_status=active_status,
             enrollment_date=enrollment_date or date.today(),
-            device_origin=device_origin,
         )
         enrollment.save()
         return enrollment

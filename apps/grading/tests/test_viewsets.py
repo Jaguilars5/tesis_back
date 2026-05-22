@@ -11,7 +11,7 @@ class GradingViewSetTestCase(TestCase):
         self.client = APIClient()
 
         self.perm_view = Permission.objects.create(
-            codename="grading.view_note", module="grading",
+            code="grading.view_note", module="grading",
         )
         self.role = Role.objects.create(name="Test Role")
         RolePermission.objects.create(role=self.role, permission=self.perm_view)

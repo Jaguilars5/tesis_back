@@ -2,7 +2,7 @@ from django.core.management.base import BaseCommand
 
 from apps.analytics.models import RiskFactor
 from apps.grading.models import AttendanceStatus, GradeType, QualitativeScale
-from apps.institutions.models import AcademicRegime, DocumentType, RoomType
+from apps.institutions.models import DocumentType, RoomType
 from apps.students.models import EnrollmentStatus
 
 
@@ -16,14 +16,6 @@ CATALOGS = {
             {"code": "RC", "name": "Registro Civil"},
             {"code": "TI", "name": "Tarjeta de Identidad"},
             {"code": "NIT", "name": "NIT"},
-        ],
-    },
-    "academic_regimes": {
-        "model": AcademicRegime,
-        "data": [
-            {"code": "SIERRA", "name": "Régimen Sierra"},
-            {"code": "COSTA", "name": "Régimen Costa"},
-            {"code": "GALAPAGOS", "name": "Régimen Galápagos"},
         ],
     },
     "room_types": {

@@ -4,9 +4,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.academic.models import (
-    Academic_Activity,
     Academic_Period,
-    Config_Academic,
     Section,
     Subject,
     SubjectAcademicConfig,
@@ -20,49 +18,24 @@ from apps.grading.models import (
     GradeType,
     QualitativeScale,
 )
-from apps.institutions.models import AcademicGrade, AcademicLevel, Institution, School_Year
+from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year
 from apps.students.models import Enrollment, EnrollmentStatus, Student
 
 
 class GradingAPITest(APITestCase):
     def setUp(self):
-        institution = Institution.objects.create(
-            name="Institucion",
-            code="INST-1",
-            address="Calle 1",
-            city="Quito",
-        )
         school_year = School_Year.objects.create(
-            institution=institution,
             name="2025",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 12, 31),
         )
-        config = Config_Academic.objects.create(
-            school_year=school_year,
-            institution=institution,
-            name="Año lectivo",
-            academic_period_type="trimestre",
-            number_of_periods=3,
-        )
         self.period = Academic_Period.objects.create(
-            config_academic=config,
+            school_year=school_year,
             name="P1",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 3, 31),
         )
-        self.activity = Academic_Activity.objects.create(
-            config_academic=config,
-            name="Examen",
-            value_max=20,
-            weight=1,
-            applies_to="all",
-            order=1,
-        )
-        self.academic_level = AcademicLevel.objects.create(
-            institution=institution,
-            name="Primaria",
-        )
+        self.academic_level = AcademicLevel.objects.create(name="Primaria")
         self.academic_grade = AcademicGrade.objects.create(
             academic_level=self.academic_level,
             name="7",
@@ -70,7 +43,6 @@ class GradingAPITest(APITestCase):
         )
         self.section = Section.objects.create(
             school_year=school_year,
-            timing_regime=None,
             academic_grade=self.academic_grade,
             parallel="A",
             capacity=30,
@@ -85,7 +57,6 @@ class GradingAPITest(APITestCase):
             dni="0102030405",
             names="Ana",
             last_names="Perez",
-            institution=institution,
             is_superuser=True,
         )
         self.client.force_authenticate(user=self.user)

@@ -16,7 +16,6 @@ class UserRepository:
 
     @staticmethod
     def get_by_id(user_id):
-        """Obtiene un usuario por ID."""
         try:
             return User.objects.get(id=user_id)
         except User.DoesNotExist:
@@ -24,80 +23,40 @@ class UserRepository:
 
     @staticmethod
     def get_by_email(email):
-        """Obtiene un usuario por email."""
         try:
             return User.objects.get(email=email)
         except User.DoesNotExist:
             return None
 
     @staticmethod
-    def get_by_dni(dni, institution_id=None):
-        """
-        Obtiene un usuario por DNI.
-        Si institution_id se proporciona, filtra también por institución.
-        """
+    def get_by_dni(dni):
         query = User.objects.filter(person__document_number=dni)
-        if institution_id:
-            query = query.filter(institution_id=institution_id)
         try:
             return query.get()
         except User.DoesNotExist:
             return None
 
     @staticmethod
-    def get_all_active(institution_id=None):
-        """
-        Obtiene todos los usuarios activos.
-        Si institution_id se proporciona, filtra por institución.
-        """
-        query = User.objects.filter(active=True).select_related("institution")
-        if institution_id:
-            query = query.filter(institution_id=institution_id)
-        return query.order_by("email")
+    def get_all_active():
+        return User.objects.filter(active=True).order_by("email")
 
     @staticmethod
-    def get_by_role(role_id, institution_id=None):
-        """
-        Obtiene todos los usuarios con un rol específico.
-        """
-        query = User.objects.filter(
+    def get_by_role(role_id):
+        return User.objects.filter(
             user_roles__role_id=role_id, active=True
-        ).select_related("institution").distinct()
-        if institution_id:
-            query = query.filter(institution_id=institution_id)
-        return query.order_by("email")
+        ).distinct().order_by("email")
 
     @staticmethod
-    def get_by_institution(institution_id):
-        """Obtiene todos los usuarios de una institución."""
-        return (
-            User.objects.filter(institution_id=institution_id, active=True)
-            .select_related("institution")
-            .order_by("email")
-        )
-
-    @staticmethod
-    def create(person, password, institution=None, is_superuser=False, **extra_fields):
-        """
-        Crea un nuevo usuario a partir de una Person.
-        Email is handled from person.email by UserManager.
-        """
+    def create(person, password, is_superuser=False, **extra_fields):
         return User.objects.create_user(
             person=person,
             password=password,
-            institution=institution,
             is_superuser=is_superuser,
             **extra_fields,
         )
 
     @staticmethod
     def update(user, **kwargs):
-        """
-        Actualiza un usuario con los campos provistos.
-
-        Campos soportados: email, active
-        (Person fields must be updated via Person model directly)
-        """
         allowed_fields = {"email", "active"}
         for key, value in kwargs.items():
             if key in allowed_fields and value is not None:
@@ -107,45 +66,27 @@ class UserRepository:
 
     @staticmethod
     def delete(user):
-        """
-        Soft-delete (marca como inactivo) o hard-delete.
-        Por defecto hace soft-delete.
-        """
         user.active = False
         user.save()
 
     @staticmethod
     def bulk_create(user_list):
-        """
-        Crea múltiples usuarios en una sola query.
-
-        user_list: lista de dictionaries con claves:
-          {'person': ..., 'email': ..., 'password': ..., 'institution': ..., ...}
-        """
         users = []
         for user_data in user_list:
             user = User(
                 person=user_data["person"],
                 email=user_data["email"],
-                institution=user_data.get("institution"),
             )
             user.set_password(user_data["password"])
             users.append(user)
         return User.objects.bulk_create(users)
 
     @staticmethod
-    def search(query_string, institution_id=None):
-        """
-        Búsqueda por nombre, apellido o email (case-insensitive).
-        """
+    def search(query_string):
         from django.db.models import Q
-
-        query = User.objects.filter(
+        return User.objects.filter(
             Q(person__names__icontains=query_string)
             | Q(person__last_names__icontains=query_string)
             | Q(email__icontains=query_string),
             active=True,
-        ).select_related("institution")
-        if institution_id:
-            query = query.filter(institution_id=institution_id)
-        return query.order_by("email")
+        ).order_by("email")

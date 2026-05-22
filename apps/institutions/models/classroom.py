@@ -2,9 +2,6 @@ from django.db import models
 
 
 class Classroom(models.Model):
-    institution = models.ForeignKey(
-        "institutions.Institution", on_delete=models.CASCADE, verbose_name="Institución"
-    )
     name = models.CharField(max_length=100, verbose_name="Nombre del Salón")
     room_type = models.ForeignKey(
         "institutions.RoomType",

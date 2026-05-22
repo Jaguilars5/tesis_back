@@ -2,15 +2,6 @@ from django.db import models
 
 
 class School_Year(models.Model):
-    institution = models.ForeignKey(
-        "institutions.Institution", on_delete=models.CASCADE, verbose_name="Institución"
-    )
-    academic_regime = models.ForeignKey(
-        "institutions.AcademicRegime",
-        on_delete=models.CASCADE,
-        verbose_name="Régimen Académico",
-        null=True,
-    )
     name = models.CharField(max_length=255, verbose_name="Nombre del Año Escolar")
     start_date = models.DateField(verbose_name="Fecha de Inicio")
     end_date = models.DateField(verbose_name="Fecha de Fin")
@@ -28,4 +19,4 @@ class School_Year(models.Model):
         verbose_name_plural = "Años Escolares"
 
     def __str__(self):
-        return f"{self.institution.name} - {self.start_date} - {self.end_date}"
+        return f"{self.name} - {self.start_date} - {self.end_date}"

@@ -11,7 +11,7 @@ class AnalyticsViewSetTestCase(TestCase):
         self.client = APIClient()
 
         self.perm = Permission.objects.create(
-            codename="analytics.view_risk_score", module="analytics",
+            code="analytics.view_risk_score", module="analytics",
         )
         self.role = Role.objects.create(name="Test Role")
         RolePermission.objects.create(role=self.role, permission=self.perm)

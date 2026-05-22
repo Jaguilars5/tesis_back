@@ -23,15 +23,17 @@ class Enrollment(models.Model):
         verbose_name="Fecha de Matrícula",
         auto_now_add=True,
     )
-
-    # Sync fields
-    sync_status = models.CharField(max_length=20, default="pending", verbose_name="Estado de Sincronización")
-    synced_at = models.DateTimeField(null=True, blank=True, verbose_name="Sincronizado en")
+    final_status = models.CharField(
+        max_length=50, blank=True, null=True, verbose_name="Estado Final"
+    )
+    withdrawal_date = models.DateField(
+        null=True, blank=True, verbose_name="Fecha de Retiro"
+    )
+    withdrawal_reason = models.TextField(
+        blank=True, null=True, verbose_name="Motivo de Retiro"
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Fecha de Actualización")
-    deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de Eliminación")
-    sync_version = models.PositiveIntegerField(default=0, verbose_name="Versión de Sincronización")
-    device_origin = models.CharField(max_length=40, null=True, blank=True, verbose_name="Dispositivo de Origen")
 
     class Meta:
         app_label = "students"

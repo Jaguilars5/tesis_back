@@ -8,17 +8,13 @@ from django.test import TestCase
 from apps.accounts.services.user_service import UserService
 from apps.accounts.services.role_service import RoleService
 from apps.accounts.services.permission_service import PermissionService
-from apps.accounts.models import User, Role, Permission, UserPermission
-from apps.institutions.models import Institution
+from apps.accounts.models import User, Role, Permission
 
 
 class UserServiceTest(TestCase):
     """Tests para UserService."""
 
     def setUp(self):
-        self.institution = Institution.objects.create(
-            name="Institución de Prueba", code="INST001"
-        )
         self.role = Role.objects.create(name="Docente", description="Rol de docente")
         self.service = UserService()
 
@@ -31,7 +27,6 @@ class UserServiceTest(TestCase):
             email="juan@example.com",
             password="micontraseña123",
             role_id=self.role.id,
-            institution_id=self.institution.id,
         )
 
         self.assertEqual(user.email, "juan@example.com")
@@ -46,7 +41,6 @@ class UserServiceTest(TestCase):
             email="juan@example.com",
             password="micontraseña123",
             role_id=self.role.id,
-            institution_id=self.institution.id,
         )
 
         with self.assertRaises(ValueError) as context:
@@ -57,7 +51,6 @@ class UserServiceTest(TestCase):
                 email="juan@example.com",
                 password="micontraseña123",
                 role_id=self.role.id,
-                institution_id=self.institution.id,
             )
 
         self.assertIn("ya está registrado", str(context.exception))
@@ -72,7 +65,6 @@ class UserServiceTest(TestCase):
                 email="juan@example.com",
                 password="micontraseña123",
                 role_id=9999,
-                institution_id=self.institution.id,
             )
 
         self.assertIn("no existe", str(context.exception))
@@ -86,7 +78,6 @@ class UserServiceTest(TestCase):
             email="juan@example.com",
             password="micontraseña123",
             role_id=self.role.id,
-            institution_id=self.institution.id,
         )
 
         retrieved = self.service.get_user(user.id)
@@ -101,63 +92,11 @@ class UserServiceTest(TestCase):
             email="juan@example.com",
             password="micontraseña123",
             role_id=self.role.id,
-            institution_id=self.institution.id,
         )
 
         self.service.change_password(user.id, "nuevacontraseña456")
         user.refresh_from_db()
         self.assertTrue(user.check_password("nuevacontraseña456"))
-
-    def test_grant_permission(self):
-        """Verifica que grant_permission otorga un permiso."""
-        user = self.service.create_user(
-            document_number="123456789",
-            names="Juan",
-            last_names="Pérez",
-            email="juan@example.com",
-            password="micontraseña123",
-            role_id=self.role.id,
-            institution_id=self.institution.id,
-        )
-
-        permission = Permission.objects.create(
-            codename="grading.delete_note", module="grading"
-        )
-
-        up = self.service.grant_permission(user.id, "grading.delete_note", "Prueba")
-
-        self.assertTrue(up.granted)
-        self.assertTrue(self.service.has_permission(user.id, "grading.delete_note"))
-
-    def test_revoke_permission(self):
-        """Verifica que revoke_permission revoca un permiso."""
-        user = self.service.create_user(
-            document_number="123456789",
-            names="Juan",
-            last_names="Pérez",
-            email="juan@example.com",
-            password="micontraseña123",
-            role_id=self.role.id,
-            institution_id=self.institution.id,
-        )
-
-        permission = Permission.objects.create(
-            codename="grading.create_note", module="grading"
-        )
-
-        # Agregar permiso al rol
-        from apps.accounts.models import RolePermission, UserRole
-
-        UserRole.objects.create(user=user, role=self.role)
-        RolePermission.objects.create(role=self.role, permission=permission)
-
-        # Revocar al usuario
-        up = self.service.revoke_permission(
-            user.id, "grading.create_note", "Sin acceso"
-        )
-
-        self.assertFalse(up.granted)
-        self.assertFalse(self.service.has_permission(user.id, "grading.create_note"))
 
 
 class RoleServiceTest(TestCase):
@@ -186,7 +125,7 @@ class RoleServiceTest(TestCase):
         """Verifica que add_permission_to_role funciona."""
         role = self.service.create_role(name="Docente")
         permission = Permission.objects.create(
-            codename="grading.create_note", module="grading"
+            code="grading.create_note", module="grading"
         )
 
         rp, created = self.service.add_permission_to_role(
@@ -200,9 +139,9 @@ class RoleServiceTest(TestCase):
     def test_assign_permissions_to_role(self):
         """Verifica que assign_permissions_to_role funciona."""
         role = self.service.create_role(name="Docente")
-        perm1 = Permission.objects.create(codename="perm1", module="test")
-        perm2 = Permission.objects.create(codename="perm2", module="test")
-        perm3 = Permission.objects.create(codename="perm3", module="test")
+        perm1 = Permission.objects.create(code="perm1", module="test")
+        perm2 = Permission.objects.create(code="perm2", module="test")
+        perm3 = Permission.objects.create(code="perm3", module="test")
 
         count = self.service.assign_permissions_to_role(role.id, ["perm1", "perm2"])
 
@@ -220,25 +159,25 @@ class PermissionServiceTest(TestCase):
     def test_create_permission(self):
         """Verifica que create_permission funciona correctamente."""
         permission = self.service.create_permission(
-            codename="grading.create_note", description="Crear notas", module="grading"
+            code="grading.create_note", description="Crear notas", module="grading"
         )
 
-        self.assertEqual(permission.codename, "grading.create_note")
+        self.assertEqual(permission.code, "grading.create_note")
 
-    def test_create_permission_duplicate_codename(self):
-        """Verifica que create_permission lanza error con codename duplicado."""
-        self.service.create_permission(codename="grading.create_note")
+    def test_create_permission_duplicate_code(self):
+        """Verifica que create_permission lanza error con code duplicado."""
+        self.service.create_permission(code="grading.create_note")
 
         with self.assertRaises(ValueError) as context:
-            self.service.create_permission(codename="grading.create_note")
+            self.service.create_permission(code="grading.create_note")
 
         self.assertIn("ya existe", str(context.exception))
 
     def test_create_permissions_bulk(self):
         """Verifica que create_permissions_bulk funciona."""
         permission_list = [
-            {"codename": "perm1", "description": "Permiso 1", "module": "test"},
-            {"codename": "perm2", "description": "Permiso 2", "module": "test"},
+            {"code": "perm1", "description": "Permiso 1", "module": "test"},
+            {"code": "perm2", "description": "Permiso 2", "module": "test"},
         ]
 
         perms = self.service.create_permissions_bulk(permission_list)

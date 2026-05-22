@@ -5,7 +5,6 @@ class TimeSlot(models.Model):
     """
     Franja horaria específica dentro de un régimen horario.
 
-    timing_regime: Régimen horario al que pertenece
     name: Nombre descriptivo (ej: '1ra Hora', 'Recreo')
     day_of_week: Día de la semana (1=Lunes, ..., 7=Domingo)
     start_time: Hora de inicio
@@ -13,12 +12,6 @@ class TimeSlot(models.Model):
     is_break: Indica si es un tiempo de recreo/descanso
     """
 
-    timing_regime = models.ForeignKey(
-        "academic.Timing_Regime",
-        on_delete=models.CASCADE,
-        verbose_name="Régimen de Horario",
-        help_text="Régimen horario que contiene este slot",
-    )
     name = models.CharField(
         max_length=50, verbose_name="Nombre", help_text="Nombre de la hora/periodo"
     )

@@ -1,0 +1,1722 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERD SIGAE v3 - Ecuador Model</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            background-color: #1a1a2e;
+            color: #e0e0e0;
+        }
+
+        h2 {
+            text-align: center;
+            color: #e0e0e0;
+            padding: 20px 0 10px;
+            margin: 0;
+            font-size: 1.4rem;
+        }
+
+        /* ===== FILTER BAR ===== */
+        .filter-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 20px;
+            background: #16213e;
+            border-bottom: 1px solid #0f3460;
+            flex-wrap: wrap;
+        }
+
+        .filter-bar button {
+            background: #0f3460;
+            color: #e0e0e0;
+            border: 1px solid #533483;
+            border-radius: 6px;
+            padding: 6px 14px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .filter-bar button:hover {
+            background: #533483;
+        }
+
+        .filter-bar button.active {
+            background: #533483;
+            border-color: #a78bfa;
+            box-shadow: 0 0 6px rgba(167, 139, 250, 0.4);
+        }
+
+        .filter-divider {
+            width: 1px;
+            height: 24px;
+            background: #0f3460;
+            margin: 0 4px;
+        }
+
+        /* ===== LEGEND ===== */
+        .legend-bar {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 8px 20px;
+            background: #16213e;
+            border-bottom: 1px solid #0f3460;
+            font-size: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: all 0.2s;
+            user-select: none;
+            border: 1px solid transparent;
+        }
+
+        .legend-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .legend-item.disabled {
+            opacity: 0.3;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            display: inline-block;
+            transition: all 0.2s;
+        }
+
+        .legend-item.disabled .legend-dot {
+            filter: grayscale(100%);
+        }
+
+        .legend-check {
+            font-size: 10px;
+            color: #4ade80;
+            margin-left: 2px;
+            display: none;
+        }
+
+        .legend-item:not(.disabled) .legend-check {
+            display: inline;
+        }
+
+        /* ===== ZOOM CONTROLS ===== */
+        .controls-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 20px;
+            background: #16213e;
+            border-bottom: 1px solid #0f3460;
+            flex-wrap: wrap;
+        }
+
+        .controls-bar button {
+            background: #0f3460;
+            color: #e0e0e0;
+            border: 1px solid #533483;
+            border-radius: 6px;
+            padding: 6px 14px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .controls-bar button:hover {
+            background: #533483;
+        }
+
+        .controls-bar .zoom-level {
+            color: #a0a0c0;
+            font-size: 13px;
+            min-width: 50px;
+            text-align: center;
+        }
+
+        /* ===== VIEWPORT ===== */
+        #erd-viewport {
+            width: 100%;
+            height: calc(100vh - 210px);
+            overflow: hidden;
+            cursor: grab;
+            position: relative;
+            background-color: #1a1a2e;
+        }
+
+        #erd-viewport.grabbing {
+            cursor: grabbing;
+        }
+
+        #erd-wrap {
+            position: absolute;
+            top: 0;
+            left: 0;
+            transform-origin: 0 0;
+            transition: transform 0.1s ease-out;
+            padding: 20px;
+            min-width: 100%;
+        }
+
+        #erd svg {
+            width: 100%;
+        }
+
+        /* ===== TABLE TRANSITIONS ===== */
+        #erd svg.erDiagram .node {
+            transition: opacity 0.3s ease, filter 0.3s ease;
+            cursor: pointer;
+        }
+
+        #erd svg.erDiagram .relationship,
+        #erd svg.erDiagram .relationshipLabel {
+            transition: opacity 0.3s ease;
+        }
+
+        /* ===== FOCUS MODE ===== */
+        #erd svg.erDiagram .node.focused {
+            filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.6)) brightness(1.2);
+        }
+
+        #erd svg.erDiagram .node.connected {
+            filter: drop-shadow(0 0 6px rgba(167, 139, 250, 0.4));
+        }
+
+        #erd svg.erDiagram .relationship.highlighted {
+            stroke: #a78bfa !important;
+            stroke-width: 2.5 !important;
+            filter: drop-shadow(0 0 4px rgba(167, 139, 250, 0.5));
+        }
+
+        #erd svg.erDiagram .relationshipLabel.highlighted {
+            fill: #a78bfa !important;
+            font-weight: 700;
+        }
+
+        /* ===== FOCUS INFO BAR ===== */
+        #focus-info {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(22, 33, 62, 0.95);
+            border: 1px solid #a78bfa;
+            border-radius: 12px;
+            padding: 10px 20px;
+            color: #e0e0e0;
+            font-size: 13px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            max-width: 600px;
+            text-align: center;
+        }
+
+        #focus-info.visible {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        #focus-info .focus-table-name {
+            font-weight: 700;
+            color: #a78bfa;
+            font-size: 14px;
+        }
+
+        #focus-info .focus-connections {
+            color: #a0a0c0;
+        }
+
+        #focus-info .focus-close-btn {
+            background: #533483;
+            border: none;
+            color: #e0e0e0;
+            border-radius: 6px;
+            padding: 4px 12px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+
+        #focus-info .focus-close-btn:hover {
+            background: #a78bfa;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            border: 0;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2>ERD SIGAE — Academic System (Ecuador Model 2025-2026)</h2>
+
+    <!-- FILTER BUTTONS -->
+    <div class="filter-bar">
+        <button id="filter-all" class="active" title="Show all groups">📋 All</button>
+        <button id="filter-isolate" title="Isolate selected group">🔍 Isolate</button>
+        <div class="filter-divider"></div>
+        <span style="color:#a0a0c0; font-size:12px; padding-right:8px;">Quick filter:</span>
+        <button id="filter-catalogos" data-group="catalogos">Catalogs</button>
+        <button id="filter-estructura" data-group="estructura">Structure</button>
+        <button id="filter-personas" data-group="personas">People</button>
+        <button id="filter-evaluaciones" data-group="evaluaciones">Evaluations</button>
+        <button id="filter-asistencia" data-group="asistencia">Attendance</button>
+        <button id="filter-analitica" data-group="analitica">Analytics</button>
+    </div>
+
+    <!-- LEGEND (clickable to toggle groups) -->
+    <div class="legend-bar">
+        <div class="legend-item" data-group="catalogos"><span class="legend-dot"
+                style="background:#6c757d"></span>Catalogs<span class="legend-check">✓</span></div>
+        <div class="legend-item" data-group="configuracion"><span class="legend-dot"
+                style="background:#5a4a42"></span>Configuration<span class="legend-check">✓</span></div>
+        <div class="legend-item" data-group="estructura"><span class="legend-dot"
+                style="background:#2d6a4f"></span>Academic Structure<span class="legend-check">✓</span></div>
+        <div class="legend-item" data-group="personas"><span class="legend-dot" style="background:#7b2cbf"></span>People
+            & Security<span class="legend-check">✓</span></div>
+        <div class="legend-item" data-group="matriculas"><span class="legend-dot"
+                style="background:#457b9d"></span>Enrollments<span class="legend-check">✓</span></div>
+        <div class="legend-item" data-group="evaluaciones-maestra"><span class="legend-dot"
+                style="background:#e09f3e"></span>Evaluations (Master)<span class="legend-check">✓</span></div>
+        <div class="legend-item" data-group="evaluaciones-transaccional"><span class="legend-dot"
+                style="background:#e63946"></span>Evaluations (Transactional)<span class="legend-check">✓</span></div>
+        <div class="legend-item" data-group="asistencia-conducta"><span class="legend-dot"
+                style="background:#f4a261"></span>Attendance & Behavior<span class="legend-check">✓</span></div>
+        <div class="legend-item" data-group="auditoria"><span class="legend-dot"
+                style="background:#9d0208"></span>Audit<span class="legend-check">✓</span></div>
+        <div class="legend-item" data-group="sincronizacion"><span class="legend-dot"
+                style="background:#00b4d8"></span>Sync<span class="legend-check">✓</span></div>
+        <div class="legend-item" data-group="analitica"><span class="legend-dot"
+                style="background:#06d6a0"></span>Predictive Analytics<span class="legend-check">✓</span></div>
+    </div>
+
+    <!-- ZOOM CONTROLS -->
+    <div class="controls-bar">
+        <button id="zoom-in" title="Zoom In">🔍+</button>
+        <button id="zoom-out" title="Zoom Out">🔍−</button>
+        <button id="zoom-reset" title="Reset">↺ Reset</button>
+        <span class="zoom-level" id="zoom-level">100%</span>
+        <button id="fit-view" title="Fit to screen">⊞ Fit</button>
+    </div>
+
+    <div id="erd-viewport">
+        <div id="erd-wrap">
+            <div id="erd"></div>
+        </div>
+    </div>
+
+    <!-- FOCUS INFO BAR -->
+    <div id="focus-info">
+        <span class="focus-table-name" id="focus-table-name"></span>
+        <span class="focus-connections" id="focus-connections"></span>
+        <button class="focus-close-btn" id="focus-close-btn" title="Exit focus mode (ESC)">✕ Close</button>
+    </div>
+
+    <script type="module">
+        import mermaid from 'https://esm.sh/mermaid@11/dist/mermaid.esm.min.mjs';
+        await document.fonts.ready;
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'base',
+            fontFamily: '"Anthropic Sans", sans-serif',
+            themeVariables: {
+                fontSize: '13px',
+                fontFamily: '"Anthropic Sans", sans-serif',
+                lineColor: '#73726c',
+                textColor: '#e0e0e0',
+            },
+        });
+
+        // ===== GROUP DEFINITIONS =====
+        // Each entity belongs to one or more groups for filtering
+        const ENTITY_GROUPS = {
+            // Catalogs
+            'TIPO_DOCUMENTO': ['catalogos'],
+            'TIPO_CALIFICACION': ['catalogos'],
+            'ESTADO_ASISTENCIA': ['catalogos'],
+            'ESTADO_MATRICULA': ['catalogos'],
+            'FACTOR_RIESGO': ['catalogos'],
+            'ESCALA_CUALITATIVA': ['catalogos'],
+            'TIPO_INCIDENTE': ['catalogos'],
+            'HABILIDAD_SOCIOEMOCIONAL': ['catalogos'],
+            // Configuration
+            'CONFIG_SISTEMA': ['configuracion'],
+            // Academic Structure
+            'ANNO_ESCOLAR': ['estructura'],
+            'NIVEL_ACADEMICO': ['estructura'],
+            'GRADO_ACADEMICO': ['estructura'],
+            'PARALELO': ['estructura'],
+            'ASIGNATURA': ['estructura'],
+            'CONFIGURACION_ASIGNATURA': ['estructura'],
+            'OFERTA_ASIGNATURA': ['estructura'],
+            'PERIODO_ACADEMICO': ['estructura'],
+            // People & Security
+            'PERSONA': ['personas'],
+            'USUARIO': ['personas'],
+            'PERFIL_ESTUDIANTE': ['personas'],
+            'VINCULO_FAMILIAR': ['personas'],
+            'ASIGNACION_DOCENTE': ['personas'],
+            'ROL': ['personas'],
+            'PERMISO': ['personas'],
+            'USUARIO_ROL': ['personas'],
+            'ROL_PERMISO': ['personas'],
+            // Enrollments
+            'MATRICULA': ['matriculas'],
+            // Evaluations Master
+            'BLOQUE_EVALUACION': ['evaluaciones-maestra'],
+            'COMPONENTE_BLOQUE': ['evaluaciones-maestra'],
+            'INDICADOR_COMPONENTE': ['evaluaciones-maestra'],
+            'PROYECTO_ASIGNATURA': ['evaluaciones-maestra'],
+            'PROYECTO_INTERDISCIPLINAR': ['evaluaciones-maestra'],
+            // Evaluations Transactional
+            'ACTIVIDAD_EVALUATIVA': ['evaluaciones-transaccional'],
+            'EVALUACION_DIAGNOSTICA': ['evaluaciones-transaccional'],
+            'NOTA_ACTIVIDAD': ['evaluaciones-transaccional'],
+            'NOTA_PROYECTO': ['evaluaciones-transaccional'],
+            'PROCESO_RECUPERACION': ['evaluaciones-transaccional'],
+            'RESUMEN_CALIFICACION_PERIODO': ['evaluaciones-transaccional'],
+            // Attendance & Behavior
+            'REGISTRO_ASISTENCIA': ['asistencia-conducta'],
+            'INCIDENTE_DISCIPLINARIO': ['asistencia-conducta'],
+            'EVALUACION_HABILIDAD': ['asistencia-conducta'],
+            'RESUMEN_COMPORTAMIENTO_PERIODO': ['asistencia-conducta'],
+            // Audit
+            'AUDITORIA_NOTA': ['auditoria'],
+            // Sync
+            'COLA_SINCRONIZACION': ['sincronizacion'],
+            // Predictive Analytics
+            'ALERTA_TEMPRANA': ['analitica'],
+            'DETALLE_FACTOR_PREDICCION': ['analitica'],
+            'PREDICCION_DESERCION': ['analitica'],
+            'SNAPSHOT_FEATURES_ML': ['analitica'],
+        };
+
+        // Map from filter button group to entity groups
+        const FILTER_GROUP_MAP = {
+            'catalogos': ['catalogos'],
+            'estructura': ['estructura'],
+            'personas': ['personas'],
+            'evaluaciones': ['evaluaciones-maestra', 'evaluaciones-transaccional'],
+            'asistencia': ['asistencia-conducta'],
+            'analitica': ['analitica'],
+        };
+
+        // Domain color map based on classification matrix
+        const DOMAIN_COLORS = {
+            // Parametric - Catalog
+            'TIPO_DOCUMENTO': '#6c757d',
+            'TIPO_CALIFICACION': '#6c757d',
+            'ESTADO_ASISTENCIA': '#6c757d',
+            'ESTADO_MATRICULA': '#6c757d',
+            'FACTOR_RIESGO': '#6c757d',
+            'ESCALA_CUALITATIVA': '#6c757d',
+            'TIPO_INCIDENTE': '#6c757d',
+            'HABILIDAD_SOCIOEMOCIONAL': '#6c757d',
+            // Parametric - Configuration
+            'CONFIG_SISTEMA': '#5a4a42',
+            // Master - Academic structure
+            'ANNO_ESCOLAR': '#2d6a4f',
+            'NIVEL_ACADEMICO': '#2d6a4f',
+            'GRADO_ACADEMICO': '#2d6a4f',
+            'PARALELO': '#2d6a4f',
+            'ASIGNATURA': '#2d6a4f',
+            'CONFIGURACION_ASIGNATURA': '#2d6a4f',
+            'OFERTA_ASIGNATURA': '#2d6a4f',
+            'PERIODO_ACADEMICO': '#2d6a4f',
+            // Master - Evaluations
+            'BLOQUE_EVALUACION': '#e09f3e',
+            'COMPONENTE_BLOQUE': '#e09f3e',
+            'INDICADOR_COMPONENTE': '#e09f3e',
+            'PROYECTO_ASIGNATURA': '#e09f3e',
+            'PROYECTO_INTERDISCIPLINAR': '#e09f3e',
+            // Master - Enrollments
+            'MATRICULA': '#457b9d',
+            // Master - People
+            'PERSONA': '#7b2cbf',
+            'USUARIO': '#7b2cbf',
+            'PERFIL_ESTUDIANTE': '#7b2cbf',
+            'VINCULO_FAMILIAR': '#7b2cbf',
+            'ASIGNACION_DOCENTE': '#7b2cbf',
+            // Master - Security
+            'ROL': '#7b2cbf',
+            'PERMISO': '#7b2cbf',
+            'USUARIO_ROL': '#7b2cbf',
+            'ROL_PERMISO': '#7b2cbf',
+            // Transactional - Attendance
+            'REGISTRO_ASISTENCIA': '#f4a261',
+            // Transactional - Audit
+            'AUDITORIA_NOTA': '#9d0208',
+            // Transactional - Behavior
+            'EVALUACION_HABILIDAD': '#f4a261',
+            'INCIDENTE_DISCIPLINARIO': '#f4a261',
+            // Transactional - Evaluations
+            'ACTIVIDAD_EVALUATIVA': '#e63946',
+            'EVALUACION_DIAGNOSTICA': '#e63946',
+            'NOTA_ACTIVIDAD': '#e63946',
+            'NOTA_PROYECTO': '#e63946',
+            'PROCESO_RECUPERACION': '#e63946',
+            // Transactional - Sync
+            'COLA_SINCRONIZACION': '#00b4d8',
+            // Analytic / Derived - Analytics
+            'ALERTA_TEMPRANA': '#06d6a0',
+            'DETALLE_FACTOR_PREDICCION': '#06d6a0',
+            'PREDICCION_DESERCION': '#06d6a0',
+            'SNAPSHOT_FEATURES_ML': '#06d6a0',
+            // Analytic / Derived - Behavior
+            'RESUMEN_COMPORTAMIENTO_PERIODO': '#f4a261',
+            // Analytic / Derived - Evaluations
+            'RESUMEN_CALIFICACION_PERIODO': '#e63946',
+        };
+
+        function getLighterColor(hex) {
+            let r = parseInt(hex.slice(1, 3), 16);
+            let g = parseInt(hex.slice(3, 5), 16);
+            let b = parseInt(hex.slice(5, 7), 16);
+            r = Math.min(255, r + 40);
+            g = Math.min(255, g + 40);
+            b = Math.min(255, b + 40);
+            return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+        }
+
+        function getDarkerColor(hex) {
+            let r = parseInt(hex.slice(1, 3), 16);
+            let g = parseInt(hex.slice(3, 5), 16);
+            let b = parseInt(hex.slice(5, 7), 16);
+            r = Math.max(0, r - 30);
+            g = Math.max(0, g - 30);
+            b = Math.max(0, b - 30);
+            return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+        }
+
+        // ===== DIAGRAM DEFINITION =====
+        // Organized to minimize arrow crossings - related entities placed near each other
+        const diagram = `erDiagram
+
+%% ============================================================
+%% GROUP 1 — CATALOGS (top left)
+%% ============================================================
+
+TIPO_DOCUMENTO ||--o{ PERSONA : "identifies"
+TIPO_CALIFICACION ||--o{ NOTA_ACTIVIDAD : "categorizes"
+ESTADO_ASISTENCIA ||--o{ REGISTRO_ASISTENCIA : "defines"
+ESTADO_MATRICULA ||--o{ MATRICULA : "classifies"
+FACTOR_RIESGO ||--o{ DETALLE_FACTOR_PREDICCION : "categorizes"
+ESCALA_CUALITATIVA ||--o{ NOTA_ACTIVIDAD : "references"
+ESCALA_CUALITATIVA ||--o{ EVALUACION_HABILIDAD : "uses"
+ESCALA_CUALITATIVA ||--o{ RESUMEN_COMPORTAMIENTO_PERIODO : "uses"
+TIPO_INCIDENTE ||--o{ INCIDENTE_DISCIPLINARIO : "classifies"
+HABILIDAD_SOCIOEMOCIONAL ||--o{ EVALUACION_HABILIDAD : "evaluated in"
+
+%% ============================================================
+%% GROUP 2 — GLOBAL CONFIGURATION
+%% ============================================================
+
+%% CONFIG_SISTEMA (standalone table, no FK relationships)
+
+%% ============================================================
+%% GROUP 3 — ACADEMIC STRUCTURE (top center)
+%% ============================================================
+
+ANNO_ESCOLAR ||--o{ PARALELO : "hosts"
+ANNO_ESCOLAR ||--o{ PERIODO_ACADEMICO : "divides"
+ANNO_ESCOLAR ||--o{ OFERTA_ASIGNATURA : "offers"
+ANNO_ESCOLAR ||--o{ MATRICULA : "belongs to"
+
+NIVEL_ACADEMICO ||--o{ GRADO_ACADEMICO : "contains"
+GRADO_ACADEMICO ||--o{ PARALELO : "groups"
+GRADO_ACADEMICO ||--o{ CONFIGURACION_ASIGNATURA : "defines"
+
+PARALELO ||--o{ OFERTA_ASIGNATURA : "contains"
+PARALELO ||--o{ MATRICULA : "contains"
+
+ASIGNATURA ||--o{ CONFIGURACION_ASIGNATURA : "configured"
+CONFIGURACION_ASIGNATURA ||--o{ OFERTA_ASIGNATURA : "instantiates"
+
+PERIODO_ACADEMICO ||--o{ BLOQUE_EVALUACION : "contains"
+PERIODO_ACADEMICO ||--o{ PROYECTO_INTERDISCIPLINAR : "frames"
+PERIODO_ACADEMICO ||--o{ REGISTRO_ASISTENCIA : "during"
+PERIODO_ACADEMICO ||--o{ INCIDENTE_DISCIPLINARIO : "during"
+PERIODO_ACADEMICO ||--o{ EVALUACION_HABILIDAD : "during"
+PERIODO_ACADEMICO ||--o{ RESUMEN_COMPORTAMIENTO_PERIODO : "during"
+PERIODO_ACADEMICO ||--o{ ALERTA_TEMPRANA : "during"
+PERIODO_ACADEMICO ||--o{ SNAPSHOT_FEATURES_ML : "during"
+PERIODO_ACADEMICO ||--o{ PREDICCION_DESERCION : "during"
+PERIODO_ACADEMICO ||--o{ RESUMEN_CALIFICACION_PERIODO : "in period"
+PERIODO_ACADEMICO ||--o{ EVALUACION_DIAGNOSTICA : "at start of"
+
+%% ============================================================
+%% GROUP 4 — PEOPLE AND SECURITY (left)
+%% ============================================================
+
+PERSONA ||--o| USUARIO : "can be"
+PERSONA ||--o| PERFIL_ESTUDIANTE : "can be"
+PERSONA ||--o{ VINCULO_FAMILIAR : "represents"
+
+USUARIO ||--o{ USUARIO_ROL : "assigned"
+USUARIO ||--o{ ASIGNACION_DOCENTE : "teaches"
+USUARIO ||--o{ INCIDENTE_DISCIPLINARIO : "registered by"
+USUARIO ||--o{ EVALUACION_DIAGNOSTICA : "applies"
+USUARIO ||--o{ PROCESO_RECUPERACION : "manages"
+USUARIO ||--o{ AUDITORIA_NOTA : "modifies"
+USUARIO ||--o| ALERTA_TEMPRANA : "addresses"
+USUARIO ||--o{ COLA_SINCRONIZACION : "originates"
+
+ROL ||--o{ USUARIO_ROL : "grants"
+ROL ||--o{ ROL_PERMISO : "has"
+PERMISO ||--o{ ROL_PERMISO : "belongs to"
+
+%% ============================================================
+%% GROUP 5 — FAMILY LINKS
+%% ============================================================
+
+PERFIL_ESTUDIANTE ||--o{ VINCULO_FAMILIAR : "linked"
+PERFIL_ESTUDIANTE ||--o{ MATRICULA : "enrolled"
+
+%% ============================================================
+%% GROUP 6 — TEACHER ASSIGNMENTS
+%% ============================================================
+
+OFERTA_ASIGNATURA ||--o{ ASIGNACION_DOCENTE : "assigned"
+
+%% ============================================================
+%% GROUP 7 — ENROLLMENTS (center)
+%% ============================================================
+
+MATRICULA ||--o{ NOTA_ACTIVIDAD : "receives"
+MATRICULA ||--o{ NOTA_PROYECTO : "receives"
+MATRICULA ||--o{ REGISTRO_ASISTENCIA : "has"
+MATRICULA ||--o{ INCIDENTE_DISCIPLINARIO : "reports"
+MATRICULA ||--o{ EVALUACION_HABILIDAD : "for"
+MATRICULA ||--o{ RESUMEN_COMPORTAMIENTO_PERIODO : "evaluates"
+MATRICULA ||--o{ ALERTA_TEMPRANA : "generates"
+MATRICULA ||--o{ SNAPSHOT_FEATURES_ML : "captures"
+MATRICULA ||--o{ PREDICCION_DESERCION : "scores"
+MATRICULA ||--o{ RESUMEN_CALIFICACION_PERIODO : "consolidates"
+MATRICULA ||--o{ EVALUACION_DIAGNOSTICA : "has"
+
+%% ============================================================
+%% GROUP 8 — EVALUATIONS (right)
+%% ============================================================
+
+BLOQUE_EVALUACION ||--o{ COMPONENTE_BLOQUE : "groups"
+COMPONENTE_BLOQUE ||--o{ INDICADOR_COMPONENTE : "contains"
+INDICADOR_COMPONENTE ||--o{ ACTIVIDAD_EVALUATIVA : "generates"
+ASIGNACION_DOCENTE ||--o{ ACTIVIDAD_EVALUATIVA : "creates"
+
+ACTIVIDAD_EVALUATIVA ||--o{ NOTA_ACTIVIDAD : "grades"
+
+PROYECTO_INTERDISCIPLINAR ||--o{ PROYECTO_ASIGNATURA : "involves"
+OFERTA_ASIGNATURA ||--o{ PROYECTO_ASIGNATURA : "participates"
+PROYECTO_INTERDISCIPLINAR ||--o{ NOTA_PROYECTO : "grades"
+
+OFERTA_ASIGNATURA ||--o{ RESUMEN_CALIFICACION_PERIODO : "of subject"
+
+RESUMEN_CALIFICACION_PERIODO ||--o{ PROCESO_RECUPERACION : "originates"
+
+%% ============================================================
+%% GROUP 9 — AUDIT
+%% ============================================================
+
+NOTA_ACTIVIDAD ||--o{ AUDITORIA_NOTA : "tracks"
+
+%% ============================================================
+%% GROUP 10 — PREDICTIVE ANALYTICS
+%% ============================================================
+
+PREDICCION_DESERCION ||--o{ DETALLE_FACTOR_PREDICCION : "explains"
+
+%% ============================================================
+%% CATALOGS - DEFINITIONS
+%% ============================================================
+
+    TIPO_DOCUMENTO {
+        int id PK
+        string codigo UK
+        string nombre
+    }
+
+    TIPO_CALIFICACION {
+        int id PK
+        string codigo UK
+        string nombre
+        string aplica_subnivel
+    }
+
+    ESTADO_ASISTENCIA {
+        int id PK
+        string codigo UK
+        string nombre
+        string tipo
+    }
+
+    ESTADO_MATRICULA {
+        int id PK
+        string codigo UK
+        string nombre
+    }
+
+    FACTOR_RIESGO {
+        int id PK
+        string codigo UK
+        string nombre
+        string descripcion
+    }
+
+    ESCALA_CUALITATIVA {
+        int id PK
+        string codigo UK
+        string descripcion
+        decimal equivalencia_numerica
+        string subnivel_aplicable
+    }
+
+    TIPO_INCIDENTE {
+        int id PK
+        string codigo UK
+        string nombre
+        string descripcion
+    }
+
+    HABILIDAD_SOCIOEMOCIONAL {
+        int id PK
+        string codigo UK
+        string nombre
+        string descripcion
+        boolean activa
+    }
+
+%% ============================================================
+%% GLOBAL CONFIGURATION
+%% ============================================================
+
+    CONFIG_SISTEMA {
+        string clave PK
+        string valor
+        string descripcion
+        datetime actualizado_en
+    }
+
+%% ============================================================
+%% ACADEMIC STRUCTURE
+%% ============================================================
+
+    ANNO_ESCOLAR {
+        int id PK
+        string nombre
+        date fecha_inicio
+        date fecha_fin
+        boolean activo
+    }
+
+    NIVEL_ACADEMICO {
+        int id PK
+        string nombre
+        boolean activo
+    }
+
+    GRADO_ACADEMICO {
+        int id PK
+        int nivel_academico_id FK
+        string nombre
+        string subnivel
+        int orden_secuencia
+        boolean activo
+    }
+
+    PARALELO {
+        int id PK
+        int anno_escolar_id FK
+        int grado_academico_id FK
+        string letra
+        int capacidad
+        boolean activa
+    }
+
+%% ============================================================
+%% PEOPLE AND SECURITY
+%% ============================================================
+
+    PERSONA {
+        int id PK
+        int tipo_documento_id FK
+        string numero_documento UK
+        string nombres
+        string apellidos
+        date fecha_nacimiento
+        string correo
+        string telefono
+        boolean activa
+        datetime fecha_creacion
+        datetime fecha_actualizacion
+    }
+
+    USUARIO {
+        int id PK
+        int persona_id FK
+        string hash_contrasena
+        string tipo_usuario
+        boolean activo
+        datetime ultimo_acceso
+    }
+
+    PERFIL_ESTUDIANTE {
+        int id PK
+        int persona_id FK
+        string codigo_estudiante UK
+        string zona_residencia
+        decimal distancia_institucion_km
+        boolean tiene_nee
+        string tipo_nee
+        boolean activo
+    }
+
+    ROL {
+        int id PK
+        string codigo UK
+        string nombre
+        string descripcion
+    }
+
+    PERMISO {
+        int id PK
+        string codigo UK
+        string modulo
+        string descripcion
+    }
+
+    USUARIO_ROL {
+        int id PK
+        int usuario_id FK
+        int rol_id FK
+        datetime asignado_en
+        datetime expira_en
+    }
+
+    ROL_PERMISO {
+        int id PK
+        int rol_id FK
+        int permiso_id FK
+    }
+
+%% ============================================================
+%% FAMILY LINKS
+%% ============================================================
+
+    VINCULO_FAMILIAR {
+        int id PK
+        int perfil_estudiante_id FK
+        int persona_id FK
+        string parentesco
+        boolean es_principal
+        boolean puede_retirar
+        boolean contacto_emergencia
+        boolean recibe_notificaciones
+        datetime fecha_creacion
+    }
+
+%% ============================================================
+%% SUBJECTS
+%% ============================================================
+
+    ASIGNATURA {
+        int id PK
+        string codigo UK
+        string nombre
+        boolean activa
+    }
+
+    CONFIGURACION_ASIGNATURA {
+        int id PK
+        int asignatura_id FK
+        int grado_academico_id FK
+        int horas_semanales
+        int orden_pedagogico
+        boolean es_obligatoria
+        boolean activa
+    }
+
+    OFERTA_ASIGNATURA {
+        int id PK
+        int anno_escolar_id FK
+        int paralelo_id FK
+        int configuracion_asignatura_id FK
+        boolean activa
+    }
+
+    ASIGNACION_DOCENTE {
+        int id PK
+        int usuario_id FK
+        int oferta_asignatura_id FK
+        boolean activa
+    }
+
+%% ============================================================
+%% ENROLLMENTS
+%% ============================================================
+
+    MATRICULA {
+        int id PK
+        int perfil_estudiante_id FK
+        int paralelo_id FK
+        int anno_escolar_id FK
+        int estado_matricula_id FK
+        date fecha_matricula
+        boolean es_repitente
+        int anno_escolar_repitencia_id FK
+        date fecha_retiro
+        string motivo_retiro
+    }
+
+%% ============================================================
+%% PERIODS AND EVALUATION BLOCKS
+%% ============================================================
+
+    PERIODO_ACADEMICO {
+        int id PK
+        int anno_escolar_id FK
+        string nombre
+        string tipo_periodo
+        date fecha_inicio
+        date fecha_fin
+        boolean es_periodo_regular
+    }
+
+    BLOQUE_EVALUACION {
+        int id PK
+        int periodo_academico_id FK
+        string nombre
+        string tipo_evaluacion
+        decimal porcentaje_ponderacion
+        boolean activa
+    }
+
+    COMPONENTE_BLOQUE {
+        int id PK
+        int bloque_evaluacion_id FK
+        string nombre
+        decimal ponderacion_interna
+    }
+
+    INDICADOR_COMPONENTE {
+        int id PK
+        int componente_bloque_id FK
+        string nombre
+        decimal ponderacion_interna
+    }
+
+    ACTIVIDAD_EVALUATIVA {
+        int id PK
+        int indicador_componente_id FK
+        int asignacion_docente_id FK
+        string titulo
+        string tipo_actividad
+        decimal puntuacion_maxima
+        date fecha_vencimiento
+        boolean es_proyecto_interdisciplinar
+    }
+
+    NOTA_ACTIVIDAD {
+        int id PK
+        string uuid UK
+        int matricula_id FK
+        int actividad_evaluativa_id FK
+        int tipo_calificacion_id FK
+        int escala_cualitativa_id FK
+        decimal puntuacion_numerica
+        boolean anulada_manualmente
+        string observacion_docente
+        string estado_sincronizacion
+        datetime sincronizada_en
+        datetime fecha_creacion
+        datetime fecha_actualizacion
+        int version_sincronizacion
+        string origen_dispositivo
+    }
+
+    RESUMEN_CALIFICACION_PERIODO {
+        int id PK
+        int matricula_id FK
+        int oferta_asignatura_id FK
+        int periodo_academico_id FK
+        decimal promedio_formativo
+        decimal promedio_sumativo
+        decimal promedio_final_truncado
+        int escala_cualitativa_id FK
+        boolean requiere_recuperacion
+        string estado_promocion
+        datetime calculado_en
+    }
+
+%% ============================================================
+%% INTERDISCIPLINARY PROJECTS
+%% ============================================================
+
+    PROYECTO_INTERDISCIPLINAR {
+        int id PK
+        int periodo_academico_id FK
+        string titulo
+        string descripcion
+        date fecha_inicio
+        date fecha_entrega
+        boolean activo
+    }
+
+    PROYECTO_ASIGNATURA {
+        int id PK
+        int proyecto_interdisciplinar_id FK
+        int oferta_asignatura_id FK
+    }
+
+    NOTA_PROYECTO {
+        int id PK
+        string uuid UK
+        int matricula_id FK
+        int proyecto_interdisciplinar_id FK
+        decimal nota_producto
+        decimal nota_exposicion
+        decimal nota_final
+        string observacion
+        string estado_sincronizacion
+        datetime sincronizada_en
+        datetime fecha_creacion
+        int version_sincronizacion
+        string origen_dispositivo
+    }
+
+%% ============================================================
+%% SOCIOEMOTIONAL DIAGNOSTIC EVALUATION
+%% ============================================================
+
+    EVALUACION_DIAGNOSTICA {
+        int id PK
+        int matricula_id FK
+        int periodo_academico_id FK
+        int aplicada_por_usuario_id FK
+        string area_socioemocional
+        string descripcion_hallazgos
+        string nivel_desarrollo
+        date fecha_aplicacion
+        string recomendaciones
+    }
+
+%% ============================================================
+%% RECOVERY PROCESSES
+%% ============================================================
+
+    PROCESO_RECUPERACION {
+        int id PK
+        int resumen_calificacion_periodo_id FK
+        int gestionado_por_usuario_id FK
+        string tipo_proceso
+        decimal nota_inicial
+        decimal nota_refuerzo
+        decimal nota_evaluacion_mejora
+        decimal nota_final_calculada
+        boolean familia_notificada
+        date fecha_inicio
+        date fecha_fin
+        string observaciones
+    }
+
+%% ============================================================
+%% GRADE AUDIT
+%% ============================================================
+
+    AUDITORIA_NOTA {
+        int id PK
+        int nota_actividad_id FK
+        int modificada_por_usuario_id FK
+        decimal puntuacion_anterior
+        decimal puntuacion_nueva
+        string razon
+        datetime modificada_en
+    }
+
+%% ============================================================
+%% ATTENDANCE AND BEHAVIOR
+%% ============================================================
+
+    REGISTRO_ASISTENCIA {
+        int id PK
+        string uuid UK
+        int matricula_id FK
+        int asignacion_docente_id FK
+        int periodo_academico_id FK
+        int estado_asistencia_id FK
+        string tipo_ausencia
+        date fecha_asistencia
+        string observacion
+        string estado_sincronizacion
+        datetime sincronizada_en
+        datetime fecha_creacion
+        datetime fecha_actualizacion
+        int version_sincronizacion
+        string origen_dispositivo
+    }
+
+    INCIDENTE_DISCIPLINARIO {
+        int id PK
+        string uuid UK
+        int matricula_id FK
+        int reportado_por_usuario_id FK
+        int periodo_academico_id FK
+        int tipo_incidente_id FK
+        date fecha_incidente
+        int severidad
+        string descripcion
+        string acciones_tomadas
+        boolean familia_notificada
+        string estado_sincronizacion
+        datetime sincronizada_en
+        datetime fecha_creacion
+        datetime fecha_actualizacion
+        int version_sincronizacion
+        string origen_dispositivo
+    }
+
+    EVALUACION_HABILIDAD {
+        int id PK
+        int matricula_id FK
+        int periodo_academico_id FK
+        int habilidad_socioemocional_id FK
+        int escala_cualitativa_id FK
+        string observacion
+        datetime fecha_evaluacion
+    }
+
+    RESUMEN_COMPORTAMIENTO_PERIODO {
+        int id PK
+        int matricula_id FK
+        int periodo_academico_id FK
+        int escala_calculada_id FK
+        int escala_final_id FK
+        string observacion_general
+        string razon_anulacion
+    }
+
+%% ============================================================
+%% EARLY ALERTS
+%% ============================================================
+
+    ALERTA_TEMPRANA {
+        int id PK
+        int matricula_id FK
+        int periodo_academico_id FK
+        string tipo_alerta
+        string descripcion
+        string nivel_urgencia
+        boolean atendida
+        int atendida_por_usuario_id FK
+        datetime fecha_deteccion
+        datetime fecha_atencion
+        string acciones_respuesta
+    }
+
+%% ============================================================
+%% PREDICTIVE ANALYTICS
+%% ============================================================
+
+    SNAPSHOT_FEATURES_ML {
+        int id PK
+        int matricula_id FK
+        int periodo_academico_id FK
+        decimal tasa_asistencia
+        int max_ausencias_consecutivas
+        int cantidad_retrasos
+        int ausencias_justificadas
+        int ausencias_injustificadas
+        decimal promedio_formativo_normalizado
+        decimal promedio_sumativo_normalizado
+        decimal pendiente_tendencia_calificacion
+        int cantidad_asignaturas_en_recuperacion
+        decimal puntuacion_conducta
+        int cantidad_incidentes_graves
+        decimal razon_familia_notificada
+        decimal promedio_periodo_anterior
+        int brecha_edad_grado
+        boolean es_repitente
+        boolean tiene_nee
+        string zona_residencia
+        decimal distancia_institucion_km
+        int alertas_activas
+        datetime calculada_en
+    }
+
+    PREDICCION_DESERCION {
+        int id PK
+        int matricula_id FK
+        int periodo_academico_id FK
+        decimal puntuacion_riesgo
+        string etiqueta_riesgo
+        string version_modelo
+        datetime calculada_en
+    }
+
+    DETALLE_FACTOR_PREDICCION {
+        int id PK
+        int prediccion_desercion_id FK
+        int factor_riesgo_id FK
+        decimal ponderacion_contribucion
+    }
+
+%% ============================================================
+%% OFFLINE SYNC
+%% ============================================================
+
+    COLA_SINCRONIZACION {
+        int id PK
+        string uuid UK
+        int usuario_id FK
+        string tabla_origen
+        string registro_uuid
+        string operacion
+        json payload
+        int intentos
+        string ultimo_error
+        string estado
+        datetime creada_en
+        datetime procesada_en
+    }
+`;
+
+        // ===== RENDER DIAGRAM =====
+        const { svg } = await mermaid.render('erd-main', diagram);
+        document.getElementById('erd').innerHTML = svg;
+
+        // Parse entity names from diagram definition
+        const entityDefRegex = /^\s*([A-Z_]+)\s*\{/gm;
+        const entityNamesFromDef = [...diagram.matchAll(entityDefRegex)].map(m => m[1]);
+        entityNamesFromDef.sort((a, b) => b.length - a.length);
+
+        // Build entity -> color map
+        const entityColorMap = {};
+        for (const [entity, color] of Object.entries(DOMAIN_COLORS)) {
+            entityColorMap[entity] = color;
+        }
+
+        // ===== APPLY DOMAIN COLORS =====
+        function applyColors() {
+            const allNodes = document.querySelectorAll('#erd svg.erDiagram .node');
+            allNodes.forEach(node => {
+                const textContent = node.textContent || '';
+                let entityName = null;
+                for (const name of entityNamesFromDef) {
+                    if (textContent.includes(name)) {
+                        entityName = name;
+                        break;
+                    }
+                }
+
+                const domainColor = entityName ? entityColorMap[entityName] : null;
+                if (!domainColor) return;
+
+                const firstPath = node.querySelector('path[d]');
+                if (firstPath) {
+                    const d = firstPath.getAttribute('d');
+                    const nums = d.match(/-?[\d.]+/g)?.map(Number);
+                    if (nums && nums.length >= 8) {
+                        const xs = [nums[0], nums[2], nums[4], nums[6]];
+                        const ys = [nums[1], nums[3], nums[5], nums[7]];
+                        const x = Math.min(...xs), y = Math.min(...ys);
+                        const w = Math.max(...xs) - x, h = Math.max(...ys) - y;
+                        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                        rect.setAttribute('x', x);
+                        rect.setAttribute('y', y);
+                        rect.setAttribute('width', w);
+                        rect.setAttribute('height', h);
+                        rect.setAttribute('rx', '8');
+                        rect.setAttribute('fill', getDarkerColor(domainColor));
+                        rect.setAttribute('stroke', domainColor);
+                        rect.setAttribute('stroke-width', '2');
+                        firstPath.replaceWith(rect);
+                    }
+                }
+
+                const textEls = node.querySelectorAll('text tspan');
+                if (textEls.length > 0) {
+                    textEls[0].setAttribute('fill', '#fff');
+                    textEls[0].setAttribute('font-weight', '700');
+                }
+
+                node.querySelectorAll('.row-rect-odd path, .row-rect-even path').forEach(p => {
+                    p.setAttribute('stroke', 'none');
+                    p.setAttribute('fill', getLighterColor(domainColor));
+                });
+            });
+
+            document.querySelectorAll('#erd svg.erDiagram .relationship, #erd svg.erDiagram .relationshipLabel').forEach(el => {
+                el.setAttribute('stroke', '#555');
+                el.setAttribute('fill', '#aaa');
+            });
+        }
+
+        applyColors();
+
+        // ===== FILTERING SYSTEM =====
+        // Track which entity groups are visible
+        let activeGroups = new Set([
+            'catalogos', 'configuracion', 'estructura', 'personas', 'matriculas',
+            'evaluaciones-maestra', 'evaluaciones-transaccional', 'asistencia-conducta',
+            'auditoria', 'sincronizacion', 'analitica'
+        ]);
+
+        let isolateMode = false;
+
+        // Map entity name to its DOM node
+        const entityNodeMap = {};
+
+        function buildEntityNodeMap() {
+            const allNodes = document.querySelectorAll('#erd svg.erDiagram .node');
+            allNodes.forEach(node => {
+                const textContent = node.textContent || '';
+                for (const name of entityNamesFromDef) {
+                    if (textContent.includes(name)) {
+                        entityNodeMap[name] = node;
+                        break;
+                    }
+                }
+            });
+        }
+
+        buildEntityNodeMap();
+
+        function applyFilter() {
+            // Determine which entities should be visible
+            const visibleEntities = new Set();
+            for (const [entity, groups] of Object.entries(ENTITY_GROUPS)) {
+                for (const group of groups) {
+                    if (activeGroups.has(group)) {
+                        visibleEntities.add(entity);
+                        break;
+                    }
+                }
+            }
+
+            // Show/hide entity nodes
+            for (const [entity, node] of Object.entries(entityNodeMap)) {
+                if (visibleEntities.has(entity)) {
+                    node.style.opacity = '1';
+                    node.style.pointerEvents = 'auto';
+                } else {
+                    node.style.opacity = '0.08';
+                    node.style.pointerEvents = 'none';
+                }
+            }
+
+            // Dim relationships that connect to hidden entities
+            const allRelationships = document.querySelectorAll('#erd svg.erDiagram .relationship, #erd svg.erDiagram .relationshipLabel');
+            allRelationships.forEach(rel => {
+                const text = rel.textContent || '';
+                // Check if relationship involves any visible entity
+                let hasVisible = false;
+                for (const entity of visibleEntities) {
+                    if (text.includes(entity)) {
+                        hasVisible = true;
+                        break;
+                    }
+                }
+                rel.style.opacity = hasVisible ? '0.6' : '0.05';
+            });
+
+            // Update legend UI
+            document.querySelectorAll('.legend-item').forEach(item => {
+                const group = item.dataset.group;
+                if (activeGroups.has(group)) {
+                    item.classList.remove('disabled');
+                } else {
+                    item.classList.add('disabled');
+                }
+            });
+        }
+
+        // Legend click handlers
+        document.querySelectorAll('.legend-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const group = item.dataset.group;
+                if (activeGroups.has(group)) {
+                    activeGroups.delete(group);
+                } else {
+                    activeGroups.add(group);
+                }
+                isolateMode = false;
+                document.getElementById('filter-isolate').classList.remove('active');
+                document.getElementById('filter-all').classList.toggle('active', activeGroups.size === Object.keys(ENTITY_GROUPS).length);
+                applyFilter();
+            });
+        });
+
+        // Filter button: show all
+        document.getElementById('filter-all').addEventListener('click', () => {
+            isolateMode = false;
+            document.getElementById('filter-isolate').classList.remove('active');
+            document.getElementById('filter-all').classList.add('active');
+            activeGroups = new Set([
+                'catalogos', 'configuracion', 'estructura', 'personas', 'matriculas',
+                'evaluaciones-maestra', 'evaluaciones-transaccional', 'asistencia-conducta',
+                'auditoria', 'sincronizacion', 'analitica'
+            ]);
+            applyFilter();
+        });
+
+        // Filter button: isolate mode
+        document.getElementById('filter-isolate').addEventListener('click', function () {
+            isolateMode = !isolateMode;
+            this.classList.toggle('active', isolateMode);
+        });
+
+        // Quick filter buttons
+        document.querySelectorAll('.filter-bar button[data-group]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const filterGroup = btn.dataset.group;
+                const targetGroups = FILTER_GROUP_MAP[filterGroup];
+                if (!targetGroups) return;
+
+                if (isolateMode) {
+                    // Isolate: only show this group
+                    activeGroups = new Set(targetGroups);
+                } else {
+                    // Toggle: add/remove this group
+                    const allTargetActive = targetGroups.every(g => activeGroups.has(g));
+                    if (allTargetActive) {
+                        targetGroups.forEach(g => activeGroups.delete(g));
+                    } else {
+                        targetGroups.forEach(g => activeGroups.add(g));
+                    }
+                }
+
+                document.getElementById('filter-all').classList.remove('active');
+                applyFilter();
+            });
+        });
+
+        // ===================== FOCUS MODE =====================
+        let focusMode = false;
+        let focusedEntity = null;
+
+        // Build relationship adjacency map from diagram definition
+        function buildRelationshipMap() {
+            const relMap = {}; // entity -> Set of connected entities
+            // Mermaid relationship connector pattern: ||--o{, ||--||, }o--||, etc.
+            const connectorPattern = /\s*\|?\|?--o?\|?\{?\s*/;
+
+            const relLines = diagram.split('\n').filter(line => {
+                const trimmed = line.trim();
+                return (trimmed.includes('||--') || trimmed.includes('}o--') || trimmed.includes('}|--')) && !trimmed.startsWith('%%');
+            });
+
+            for (const line of relLines) {
+                const parts = line.split(connectorPattern);
+                if (parts.length >= 2) {
+                    const entityA = parts[0].trim().split(/\s/)[0];
+                    // Entity B is everything after the connector, before the colon (label)
+                    const afterConnector = parts[1].trim();
+                    const entityB = afterConnector.split(/\s*:/)[0].trim().split(/\s/)[0];
+
+                    if (entityA && entityB && /^[A-Z_]+$/.test(entityA) && /^[A-Z_]+$/.test(entityB)) {
+                        if (!relMap[entityA]) relMap[entityA] = new Set();
+                        if (!relMap[entityB]) relMap[entityB] = new Set();
+                        relMap[entityA].add(entityB);
+                        relMap[entityB].add(entityA);
+                    }
+                }
+            }
+            return relMap;
+        }
+
+        const relationshipMap = buildRelationshipMap();
+
+        function getConnectedEntities(entityName) {
+            return relationshipMap[entityName] || new Set();
+        }
+
+        function enterFocusMode(entityName) {
+            focusMode = true;
+            focusedEntity = entityName;
+            const connected = getConnectedEntities(entityName);
+
+            // Highlight the focused entity
+            for (const [entity, node] of Object.entries(entityNodeMap)) {
+                node.classList.remove('focused', 'connected');
+                if (entity === entityName) {
+                    node.style.opacity = '1';
+                    node.style.pointerEvents = 'auto';
+                    node.classList.add('focused');
+                } else if (connected.has(entity)) {
+                    node.style.opacity = '1';
+                    node.style.pointerEvents = 'auto';
+                    node.classList.add('connected');
+                } else {
+                    node.style.opacity = '0.06';
+                    node.style.pointerEvents = 'none';
+                }
+            }
+
+            // Highlight relationships involving the focused entity or its connections
+            const allRelationships = document.querySelectorAll('#erd svg.erDiagram .relationship, #erd svg.erDiagram .relationshipLabel');
+            allRelationships.forEach(rel => {
+                const text = rel.textContent || '';
+                let isRelevant = false;
+
+                // Check if this relationship involves the focused entity
+                if (text.includes(entityName)) {
+                    isRelevant = true;
+                }
+
+                // Check if this relationship is between two connected entities
+                for (const connEntity of connected) {
+                    if (text.includes(connEntity)) {
+                        // Only highlight if the other end is the focused entity or another connected entity
+                        for (const otherEntity of [...connected, entityName]) {
+                            if (text.includes(otherEntity) && otherEntity !== connEntity) {
+                                isRelevant = true;
+                                break;
+                            }
+                        }
+                        if (isRelevant) break;
+                    }
+                }
+
+                if (isRelevant) {
+                    rel.style.opacity = '1';
+                    rel.classList.add('highlighted');
+                } else {
+                    rel.style.opacity = '0.04';
+                    rel.classList.remove('highlighted');
+                }
+            });
+
+            // Update focus info bar
+            const focusInfo = document.getElementById('focus-info');
+            const focusName = document.getElementById('focus-table-name');
+            const focusConns = document.getElementById('focus-connections');
+
+            focusName.textContent = `📌 ${entityName}`;
+            const connArray = Array.from(connected);
+            focusConns.textContent = `(${connArray.length} connections: ${connArray.join(', ')})`;
+            focusInfo.classList.add('visible');
+        }
+
+        function exitFocusMode() {
+            focusMode = false;
+            focusedEntity = null;
+
+            // Remove focus classes
+            document.querySelectorAll('#erd svg.erDiagram .node').forEach(node => {
+                node.classList.remove('focused', 'connected');
+            });
+            document.querySelectorAll('#erd svg.erDiagram .relationship, #erd svg.erDiagram .relationshipLabel').forEach(rel => {
+                rel.classList.remove('highlighted');
+            });
+
+            // Hide focus info bar
+            document.getElementById('focus-info').classList.remove('visible');
+
+            // Re-apply the current filter
+            applyFilter();
+        }
+
+        // Add click handlers to table nodes
+        function addTableClickHandlers() {
+            for (const [entity, node] of Object.entries(entityNodeMap)) {
+                node.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (focusMode && focusedEntity === entity) {
+                        exitFocusMode();
+                    } else {
+                        enterFocusMode(entity);
+                    }
+                });
+            }
+        }
+
+        addTableClickHandlers();
+
+        // Exit focus mode on ESC key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && focusMode) {
+                exitFocusMode();
+            }
+        });
+
+        // Exit focus mode when clicking on background (viewport)
+        document.getElementById('erd-viewport').addEventListener('click', (e) => {
+            if (focusMode && !e.target.closest('.node')) {
+                exitFocusMode();
+            }
+        });
+
+        // Close button handler
+        document.getElementById('focus-close-btn').addEventListener('click', () => {
+            exitFocusMode();
+        });
+
+        // ===================== PAN & ZOOM =====================
+        const viewport = document.getElementById('erd-viewport');
+        const wrap = document.getElementById('erd-wrap');
+        const zoomLevelEl = document.getElementById('zoom-level');
+
+        let scale = 1;
+        let panX = 0;
+        let panY = 0;
+        let isDragging = false;
+        let startX = 0;
+        let startY = 0;
+
+        function updateTransform() {
+            wrap.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+            zoomLevelEl.textContent = `${Math.round(scale * 100)}%`;
+        }
+
+        function setZoom(newScale, cx, cy) {
+            const prevScale = scale;
+            scale = Math.min(3, Math.max(0.1, newScale));
+            if (cx !== undefined && cy !== undefined) {
+                panX = cx - (cx - panX) * (scale / prevScale);
+                panY = cy - (cy - panY) * (scale / prevScale);
+            }
+            updateTransform();
+        }
+
+        // Mouse drag
+        viewport.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return;
+            isDragging = true;
+            startX = e.clientX - panX;
+            startY = e.clientY - panY;
+            viewport.classList.add('grabbing');
+            e.preventDefault();
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            panX = e.clientX - startX;
+            panY = e.clientY - startY;
+            updateTransform();
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+            viewport.classList.remove('grabbing');
+        });
+
+        // Scroll zoom
+        viewport.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const rect = viewport.getBoundingClientRect();
+            const cx = e.clientX - rect.left;
+            const cy = e.clientY - rect.top;
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            setZoom(scale * delta, cx, cy);
+        }, { passive: false });
+
+        // Touch support
+        let lastTouchDist = 0;
+        let lastTouchCenter = null;
+
+        viewport.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                isDragging = true;
+                startX = e.touches[0].clientX - panX;
+                startY = e.touches[0].clientY - panY;
+            } else if (e.touches.length === 2) {
+                isDragging = false;
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                lastTouchDist = Math.sqrt(dx * dx + dy * dy);
+                lastTouchCenter = {
+                    x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+                    y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+                };
+            }
+            e.preventDefault();
+        }, { passive: false });
+
+        viewport.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 1 && isDragging) {
+                panX = e.touches[0].clientX - startX;
+                panY = e.touches[0].clientY - startY;
+                updateTransform();
+            } else if (e.touches.length === 2) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const rect = viewport.getBoundingClientRect();
+                const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+                const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+                if (lastTouchDist > 0) {
+                    const delta = dist / lastTouchDist;
+                    setZoom(scale * delta, cx, cy);
+                }
+                lastTouchDist = dist;
+            }
+            e.preventDefault();
+        }, { passive: false });
+
+        viewport.addEventListener('touchend', () => {
+            isDragging = false;
+            lastTouchDist = 0;
+        });
+
+        // Buttons
+        document.getElementById('zoom-in').addEventListener('click', () => {
+            const rect = viewport.getBoundingClientRect();
+            setZoom(scale * 1.25, rect.width / 2, rect.height / 2);
+        });
+
+        document.getElementById('zoom-out').addEventListener('click', () => {
+            const rect = viewport.getBoundingClientRect();
+            setZoom(scale / 1.25, rect.width / 2, rect.height / 2);
+        });
+
+        document.getElementById('zoom-reset').addEventListener('click', () => {
+            scale = 1;
+            panX = 0;
+            panY = 0;
+            updateTransform();
+        });
+
+        document.getElementById('fit-view').addEventListener('click', () => {
+            const svgEl = document.querySelector('#erd svg');
+            if (!svgEl) return;
+            const svgW = svgEl.scrollWidth || svgEl.clientWidth;
+            const svgH = svgEl.scrollHeight || svgEl.clientHeight;
+            const vpW = viewport.clientWidth;
+            const vpH = viewport.clientHeight;
+            scale = Math.min(vpW / svgW, vpH / svgH, 1) * 0.95;
+            panX = 0;
+            panY = 0;
+            updateTransform();
+        });
+
+        updateTransform();
+    </script>
+</body>
+
+</html>

@@ -1,15 +1,8 @@
 from django.contrib import admin
 from .models import (
-    Section, Subject, Academic_Period, Timing_Regime, Teacher_Subject_Section,
+    Section, Subject, Academic_Period, Teacher_Subject_Section,
     SubjectAcademicConfig, SubjectOffering,
 )
-
-
-@admin.register(Timing_Regime)
-class TimingRegimeAdmin(admin.ModelAdmin):
-    list_display = ("name", "institution", "active")
-    list_filter = ("institution", "active")
-    search_fields = ("name",)
 
 
 @admin.register(Section)
@@ -28,8 +21,8 @@ class SubjectAdmin(admin.ModelAdmin):
 
 @admin.register(Academic_Period)
 class AcademicPeriodAdmin(admin.ModelAdmin):
-    list_display = ("name", "school_year", "start_date", "end_date", "is_regular_period", "active")
-    list_filter = ("school_year", "active")
+    list_display = ("name", "school_year", "start_date", "end_date", "is_regular_period")
+    list_filter = ("school_year",)
     search_fields = ("name",)
 
 

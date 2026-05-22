@@ -38,21 +38,9 @@ class BaseRepository:
 class ScheduleTemplateConfigRepository(BaseRepository):
     model = ScheduleTemplateConfig
 
-    @classmethod
-    def get_by_timing_regime(cls, timing_regime_id):
-        """Obtiene la configuración para un régimen horario específico."""
-        return cls.model.objects.filter(timing_regime_id=timing_regime_id).first()
-
 
 class TimeSlotRepository(BaseRepository):
     model = TimeSlot
-
-    @classmethod
-    def list_by_regime(cls, timing_regime_id):
-        """Lista los slots de un régimen horario, ordenados por día y hora."""
-        return cls.model.objects.filter(timing_regime_id=timing_regime_id).order_by(
-            "day_of_week", "start_time"
-        )
 
 
 class TeacherAvailabilityRepository(BaseRepository):

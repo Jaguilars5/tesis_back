@@ -2,8 +2,8 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 from datetime import date
 from decimal import Decimal
-from apps.institutions.models import AcademicGrade, AcademicLevel, Institution, School_Year
-from apps.academic.models import Config_Academic, Academic_Period, Timing_Regime, Section
+from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year
+from apps.academic.models import Academic_Period, Section
 from apps.students.models import Student
 from apps.accounts.models import Role, User
 from apps.core.tests.helpers import create_test_user, create_test_student
@@ -14,41 +14,23 @@ class StudentRiskAPITest(APITestCase):
     """Tests para endpoints de StudentRiskScore"""
 
     def setUp(self):
-        self.institution = Institution.objects.create(
-            name="Test School", code="TS-001", address="Test St", city="Quito"
-        )
         self.school_year = School_Year.objects.create(
-            institution=self.institution,
             name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
-        self.config = Config_Academic.objects.create(
-            school_year=self.school_year,
-            institution=self.institution,
-            name="Config 2024",
-            academic_period_type="Trimestral",
-            number_of_periods=3,
-        )
         self.period = Academic_Period.objects.create(
-            config_academic=self.config,
+            school_year=self.school_year,
             name="Periodo 1",
-
             start_date=date(2024, 9, 1),
             end_date=date(2024, 12, 15),
         )
-        self.timing = Timing_Regime.objects.create(
-            institution=self.institution, name="Matutina"
-        )
-        self.academic_level = AcademicLevel.objects.create(
-            institution=self.institution, name="Primaria"
-        )
+        self.academic_level = AcademicLevel.objects.create(name="Primaria")
         self.academic_grade = AcademicGrade.objects.create(
             academic_level=self.academic_level, name="6to", sequence_order=6
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
-            timing_regime=self.timing,
             academic_grade=self.academic_grade,
             parallel="A",
             capacity=40,
@@ -73,7 +55,6 @@ class StudentRiskAPITest(APITestCase):
             dni="1717171717",
             names="Test",
             last_names="User",
-            institution=self.institution,
             is_superuser=True,
         )
         self.client.force_authenticate(user=self.user)
@@ -102,41 +83,23 @@ class FeatureSnapshotAPITest(APITestCase):
     """Tests para endpoints de StudentFeatureSnapshot"""
 
     def setUp(self):
-        self.institution = Institution.objects.create(
-            name="Test School", code="TS-001", address="Test St", city="Quito"
-        )
         self.school_year = School_Year.objects.create(
-            institution=self.institution,
             name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
-        self.config = Config_Academic.objects.create(
-            school_year=self.school_year,
-            institution=self.institution,
-            name="Config 2024",
-            academic_period_type="Trimestral",
-            number_of_periods=3,
-        )
         self.period = Academic_Period.objects.create(
-            config_academic=self.config,
+            school_year=self.school_year,
             name="Periodo 1",
-
             start_date=date(2024, 9, 1),
             end_date=date(2024, 12, 15),
         )
-        self.timing = Timing_Regime.objects.create(
-            institution=self.institution, name="Matutina"
-        )
-        self.academic_level = AcademicLevel.objects.create(
-            institution=self.institution, name="Primaria"
-        )
+        self.academic_level = AcademicLevel.objects.create(name="Primaria")
         self.academic_grade = AcademicGrade.objects.create(
             academic_level=self.academic_level, name="6to", sequence_order=6
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
-            timing_regime=self.timing,
             academic_grade=self.academic_grade,
             parallel="A",
             capacity=40,
@@ -167,7 +130,6 @@ class FeatureSnapshotAPITest(APITestCase):
             dni="1717171717",
             names="Test",
             last_names="User",
-            institution=self.institution,
             is_superuser=True,
         )
         self.client.force_authenticate(user=self.user)

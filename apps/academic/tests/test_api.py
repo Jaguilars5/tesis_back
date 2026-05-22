@@ -1,8 +1,8 @@
 from rest_framework.test import APITestCase
 from rest_framework import status
 from datetime import date
-from apps.institutions.models import AcademicGrade, AcademicLevel, Institution, School_Year
-from apps.academic.models import Section, Subject, Timing_Regime
+from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year
+from apps.academic.models import Section, Subject
 from apps.accounts.models import Role, User
 from apps.core.tests.helpers import create_test_user
 
@@ -11,21 +11,12 @@ class AcademicAPITest(APITestCase):
     """Tests para los endpoints API de Academic"""
 
     def setUp(self):
-        self.institution = Institution.objects.create(
-            name="Colegio Test", code="CT-001", address="Calle Test", city="Quito"
-        )
         self.school_year = School_Year.objects.create(
-            institution=self.institution,
             name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
-        self.timing_regime = Timing_Regime.objects.create(
-            institution=self.institution, name="Matutina"
-        )
-        self.academic_level = AcademicLevel.objects.create(
-            institution=self.institution, name="Primaria"
-        )
+        self.academic_level = AcademicLevel.objects.create(name="Primaria")
         self.academic_grade = AcademicGrade.objects.create(
             academic_level=self.academic_level, name="6to", sequence_order=6
         )
@@ -36,7 +27,6 @@ class AcademicAPITest(APITestCase):
             names="Academic",
             last_names="Tester",
             password="test_password_123",
-            institution=self.institution,
             is_superuser=True,
         )
         self.client.force_authenticate(user=self.user)
@@ -45,7 +35,6 @@ class AcademicAPITest(APITestCase):
     def test_list_sections(self):
         Section.objects.create(
             school_year=self.school_year,
-            timing_regime=self.timing_regime,
             academic_grade=self.academic_grade,
             parallel="A",
             capacity=40,
@@ -56,7 +45,6 @@ class AcademicAPITest(APITestCase):
     def test_create_section(self):
         data = {
             "school_year": self.school_year.id,
-            "timing_regime": self.timing_regime.id,
             "academic_grade": self.academic_grade.id,
             "parallel": "A",
             "capacity": 40,
@@ -67,7 +55,6 @@ class AcademicAPITest(APITestCase):
     def test_retrieve_section(self):
         section = Section.objects.create(
             school_year=self.school_year,
-            timing_regime=self.timing_regime,
             academic_grade=self.academic_grade,
             parallel="A",
             capacity=40,
@@ -78,7 +65,6 @@ class AcademicAPITest(APITestCase):
     def test_update_section(self):
         section = Section.objects.create(
             school_year=self.school_year,
-            timing_regime=self.timing_regime,
             academic_grade=self.academic_grade,
             parallel="A",
             capacity=40,
@@ -106,21 +92,4 @@ class AcademicAPITest(APITestCase):
         subject = Subject.objects.create(name="Historia", code="HIS-001")
         data = {"name": "Historia Universal"}
         response = self.client.patch(f"/api/academic/subject/{subject.id}/", data)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-    def test_list_timing_regimes(self):
-        response = self.client.get("/api/academic/timing-regime/")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-    def test_create_timing_regime(self):
-        data = {"institution": self.institution.id, "name": "Nocturna"}
-        response = self.client.post(
-            "/api/academic/timing-regime/", data, format="json"
-        )
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-
-    def test_retrieve_timing_regime(self):
-        response = self.client.get(
-            f"/api/academic/timing-regime/{self.timing_regime.id}/"
-        )
         self.assertEqual(response.status_code, status.HTTP_200_OK)

@@ -9,10 +9,7 @@ from apps.core.utils import ok_response, error_response
 from ..models import (
     Section,
     Subject,
-    Config_Academic,
     Academic_Period,
-    Academic_Activity,
-    Timing_Regime,
     Teacher_Subject_Section,
     SubjectAcademicConfig,
     SubjectOffering,
@@ -20,10 +17,7 @@ from ..models import (
 from .serializers import (
     SectionSerializer,
     SubjectSerializer,
-    Config_AcademicSerializer,
     Academic_PeriodSerializer,
-    Academic_ActivitySerializer,
-    Timing_RegimeSerializer,
     Teacher_Subject_SectionSerializer,
     SubjectAcademicConfigSerializer,
     SubjectOfferingSerializer,
@@ -89,20 +83,6 @@ class SubjectViewSet(BaseAcademicViewSet):
     }
 
 
-class ConfigAcademicViewSet(BaseAcademicViewSet):
-    queryset = Config_Academic.objects.all()
-    serializer_class = Config_AcademicSerializer
-    action_permissions = {
-        "list": academic.VIEW_CONFIG,
-        "retrieve": academic.VIEW_CONFIG,
-        "create": academic.CREATE_CONFIG,
-        "update": academic.UPDATE_CONFIG,
-        "partial_update": academic.UPDATE_CONFIG,
-        "destroy": academic.DELETE_CONFIG,
-        "soft_delete": academic.DELETE_CONFIG,
-    }
-
-
 class AcademicPeriodViewSet(BaseAcademicViewSet):
     queryset = Academic_Period.objects.all()
     serializer_class = Academic_PeriodSerializer
@@ -114,34 +94,6 @@ class AcademicPeriodViewSet(BaseAcademicViewSet):
         "partial_update": academic.UPDATE_PERIOD,
         "destroy": academic.DELETE_PERIOD,
         "soft_delete": academic.DELETE_PERIOD,
-    }
-
-
-class AcademicActivityViewSet(BaseAcademicViewSet):
-    queryset = Academic_Activity.objects.all()
-    serializer_class = Academic_ActivitySerializer
-    action_permissions = {
-        "list": academic.VIEW_ACTIVITY,
-        "retrieve": academic.VIEW_ACTIVITY,
-        "create": academic.CREATE_ACTIVITY,
-        "update": academic.UPDATE_ACTIVITY,
-        "partial_update": academic.UPDATE_ACTIVITY,
-        "destroy": academic.DELETE_ACTIVITY,
-        "soft_delete": academic.DELETE_ACTIVITY,
-    }
-
-
-class TimingRegimeViewSet(BaseAcademicViewSet):
-    queryset = Timing_Regime.objects.all()
-    serializer_class = Timing_RegimeSerializer
-    action_permissions = {
-        "list": academic.VIEW_REGIME,
-        "retrieve": academic.VIEW_REGIME,
-        "create": academic.CREATE_REGIME,
-        "update": academic.UPDATE_REGIME,
-        "partial_update": academic.UPDATE_REGIME,
-        "destroy": academic.DELETE_REGIME,
-        "soft_delete": academic.DELETE_REGIME,
     }
 
 

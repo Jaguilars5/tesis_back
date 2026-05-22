@@ -15,7 +15,6 @@ from apps.accounts.models import (
     Role,
     Permission,
     RolePermission,
-    UserPermission,
 )
 
 
@@ -41,8 +40,6 @@ class CustomTokenRefreshSerializer(TokenRefreshSerializer):
                     "email": user.email,
                     "role": first_role.role.name if first_role else None,
                     "role_id": first_role.role.id if first_role else None,
-                    "institution": str(user.institution) if user.institution else None,
-                    "institution_id": user.institution.id if user.institution else None,
                     "active": user.active,
                     "permissions": list(user.get_all_permissions()),
                 }
@@ -68,8 +65,6 @@ class LoginSerializer(TokenObtainPairSerializer):
             "email": user.email,
             "role": first_role.role.name if first_role else None,
             "role_id": first_role.role.id if first_role else None,
-            "institution": str(user.institution) if user.institution else None,
-            "institution_id": user.institution.id if user.institution else None,
             "active": user.active,
             "permissions": list(user.get_all_permissions()),
         }
@@ -130,34 +125,6 @@ class RoleDetailSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
-class UserPermissionSerializer(serializers.ModelSerializer):
-    """Serializer para UserPermission (excepciones de usuario)."""
-
-    permission = PermissionSerializer(read_only=True)
-    granted_by_email = serializers.SerializerMethodField()
-
-    class Meta:
-        model = UserPermission
-        fields = [
-            "id",
-            "user",
-            "permission",
-            "granted",
-            "reason",
-            "expires_at",
-            "granted_by",
-            "granted_by_email",
-            "created_at",
-            "updated_at",
-        ]
-        read_only_fields = ["id", "created_at", "updated_at"]
-
-    def get_granted_by_email(self, obj):
-        if obj.granted_by:
-            return obj.granted_by.email
-        return None
-
-
 class UserListSerializer(serializers.ModelSerializer):
     """Serializer simplificado para User en listados."""
 
@@ -165,7 +132,6 @@ class UserListSerializer(serializers.ModelSerializer):
     names = serializers.CharField(source="person.names", read_only=True)
     last_names = serializers.CharField(source="person.last_names", read_only=True)
     role_name = serializers.SerializerMethodField(read_only=True)
-    institution_name = serializers.CharField(source="institution.name", read_only=True)
 
     class Meta:
         model = User
@@ -176,8 +142,6 @@ class UserListSerializer(serializers.ModelSerializer):
             "last_names",
             "email",
             "role_name",
-            "institution",
-            "institution_name",
             "active",
             "created_at",
         ]
@@ -196,9 +160,6 @@ class UserDetailSerializer(serializers.ModelSerializer):
     last_names = serializers.CharField(source="person.last_names", read_only=True)
     role = serializers.SerializerMethodField(read_only=True)
     role_id = serializers.IntegerField(write_only=True, required=False)
-    institution = serializers.StringRelatedField(read_only=True)
-    institution_id = serializers.IntegerField(write_only=True, required=False)
-    user_permissions_set = UserPermissionSerializer(many=True, read_only=True)
 
     class Meta:
         model = User
@@ -210,15 +171,12 @@ class UserDetailSerializer(serializers.ModelSerializer):
             "email",
             "role",
             "role_id",
-            "institution",
-            "institution_id",
             "active",
-            "user_permissions_set",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
-        extra_kwargs = {"password": {"write_only": True}}  # Nunca exponemos el hash
+        extra_kwargs = {"password": {"write_only": True}}
 
     def get_role(self, obj):
         first_role = obj.user_roles.select_related("role").first()
@@ -227,7 +185,6 @@ class UserDetailSerializer(serializers.ModelSerializer):
         return None
 
     def validate_email(self, value):
-        """Valida que el email sea único."""
         instance = self.instance
         if (
             User.objects.filter(email=value)
@@ -247,16 +204,13 @@ class UserCreateSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True, min_length=8)
     role_id = serializers.IntegerField()
-    institution_id = serializers.IntegerField()
 
     def validate_email(self, value):
-        """Valida que el email sea único."""
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("Este email ya está registrado.")
         return value
 
     def validate_document_number(self, value):
-        """Valida que el documento sea único."""
         from apps.accounts.models import Person
 
         if Person.objects.filter(document_number=value).exists():
@@ -264,16 +218,14 @@ class UserCreateSerializer(serializers.Serializer):
         return value
 
     def create(self, validated_data):
-        """Crea el usuario y hashea la contraseña."""
         password = validated_data.pop("password")
         role_id = validated_data.pop("role_id")
-        institution_id = validated_data.pop("institution_id")
         document_number = validated_data.pop("document_number")
         names = validated_data.pop("names")
         last_names = validated_data.pop("last_names")
 
         from apps.accounts.models import Person, Role
-        from apps.institutions.models import DocumentType, Institution
+        from apps.institutions.models import DocumentType
 
         doc_type = DocumentType.objects.get_or_create(
             code="CC", defaults={"name": "Cédula de Ciudadanía"}
@@ -285,13 +237,11 @@ class UserCreateSerializer(serializers.Serializer):
             last_names=last_names,
             email=validated_data.get("email", ""),
         )
-        institution = Institution.objects.get(id=institution_id)
 
         user = User.objects.create_user(
             person=person,
             email=validated_data["email"],
             password=password,
-            institution=institution,
         )
         if role_id:
             from apps.accounts.models import UserRole

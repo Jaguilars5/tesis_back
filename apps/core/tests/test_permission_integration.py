@@ -2,7 +2,7 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from apps.accounts.models import Permission, Role, RolePermission, User, UserPermission, UserRole
+from apps.accounts.models import Permission, Role, RolePermission, User, UserRole
 from apps.core.tests.helpers import create_test_user
 
 
@@ -12,25 +12,25 @@ class PermissionIntegrationTestCase(TestCase):
 
         self.role = Role.objects.create(name="Test Role")
         self.perm_grading = Permission.objects.create(
-            codename="grading.view_note", module="grading"
+            code="grading.view_note", module="grading"
         )
         self.perm_scheduling = Permission.objects.create(
-            codename="scheduling.view_schedule", module="scheduling"
+            code="scheduling.view_schedule", module="scheduling"
         )
         self.perm_analytics = Permission.objects.create(
-            codename="analytics.view_risk_score", module="analytics"
+            code="analytics.view_risk_score", module="analytics"
         )
         self.perm_academic = Permission.objects.create(
-            codename="academic.view_section", module="academic"
+            code="academic.view_section", module="academic"
         )
         self.perm_students = Permission.objects.create(
-            codename="students.view_student", module="students"
+            code="students.view_student", module="students"
         )
         self.perm_institutions = Permission.objects.create(
-            codename="institutions.view_institution", module="institutions"
+            code="institutions.view_school_year", module="institutions"
         )
         self.perm_accounts = Permission.objects.create(
-            codename="accounts.view_permission", module="accounts"
+            code="accounts.view_permission", module="accounts"
         )
 
         RolePermission.objects.create(
@@ -101,7 +101,7 @@ class PermissionIntegrationTestCase(TestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_institutions_list_without_auth(self):
-        response = self.client.get("/api/institutions/institution/")
+        response = self.client.get("/api/institutions/school-year/")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_accounts_list_without_auth(self):
@@ -137,7 +137,7 @@ class PermissionIntegrationTestCase(TestCase):
 
     def test_institutions_list_no_permission(self):
         self.client.force_authenticate(user=self.user_no_perms)
-        response = self.client.get("/api/institutions/institution/")
+        response = self.client.get("/api/institutions/school-year/")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_accounts_list_no_permission(self):
@@ -174,7 +174,7 @@ class PermissionIntegrationTestCase(TestCase):
 
     def test_institutions_list_with_permission(self):
         self.client.force_authenticate(user=self.user_with_perms)
-        response = self.client.get("/api/institutions/institution/")
+        response = self.client.get("/api/institutions/school-year/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_accounts_list_with_permission(self):
@@ -193,18 +193,6 @@ class PermissionIntegrationTestCase(TestCase):
         self.client.force_authenticate(user=self.superuser)
         response = self.client.get("/api/accounts/permissions/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-    # ─── Permiso revocado via UserPermission → 403 ────────────
-
-    def test_permission_revoked_via_user_permission(self):
-        UserPermission.objects.create(
-            user=self.user_with_perms,
-            permission=self.perm_grading,
-            granted=False,
-        )
-        self.client.force_authenticate(user=self.user_with_perms)
-        response = self.client.post("/api/grading/student-notes/")
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     # ─── Usuario inactivo → 401/403 ───────────────────────────
 

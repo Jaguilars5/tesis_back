@@ -32,10 +32,9 @@ class UserFilter(django_filters.FilterSet):
     """Filtros para User."""
 
     active = django_filters.BooleanFilter(field_name="active")
-    institution_id = django_filters.NumberFilter(field_name="institution_id")
     role_id = django_filters.NumberFilter(field_name="user_roles__role_id")
     dni = django_filters.CharFilter(field_name="person__document_number", lookup_expr="iexact")
 
     class Meta:
         model = User
-        fields = ["active", "institution_id", "role_id", "dni"]
+        fields = ["active", "role_id", "dni"]

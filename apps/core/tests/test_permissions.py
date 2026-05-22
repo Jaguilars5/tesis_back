@@ -4,10 +4,9 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.test import APIRequestFactory
 
-from apps.accounts.models import Permission, Role, RolePermission, User, UserPermission, UserRole
+from apps.accounts.models import Permission, Role, RolePermission, User, UserRole
 from apps.core.permissions import HasPermission, require_permission
 from apps.core.tests.helpers import create_test_user
-from apps.institutions.models import Institution
 
 
 class MockViewSet:
@@ -21,15 +20,11 @@ class MockViewSet:
 class HasPermissionTest(TestCase):
     def setUp(self):
         self.factory = APIRequestFactory()
-        self.institution = Institution.objects.create(
-            name="Test Institution", code="TST-001",
-            address="Test St", city="Quito",
-        )
         self.permission = Permission.objects.create(
-            codename="test.view_mock", description="View mock", module="test",
+            code="test.view_mock", description="View mock", module="test",
         )
         self.perm_create = Permission.objects.create(
-            codename="test.create_mock", description="Create mock", module="test",
+            code="test.create_mock", description="Create mock", module="test",
         )
         self.role = Role.objects.create(name="Test Role")
         RolePermission.objects.create(role=self.role, permission=self.permission)
@@ -37,18 +32,16 @@ class HasPermissionTest(TestCase):
         self.user_with_perm = create_test_user(
             email="withperm@test.com", dni="1000000000",
             names="With", last_names="Perm",
-            institution=self.institution,
         )
         self.user_without_perm = create_test_user(
             email="noperm@test.com", dni="1000000001",
             names="No", last_names="Perm",
-            institution=self.institution,
         )
         UserRole.objects.create(user=self.user_with_perm, role=self.role)
         self.superuser = create_test_user(
             email="super@test.com", dni="1000000002",
             names="Super", last_names="User",
-            institution=self.institution, is_superuser=True,
+            is_superuser=True,
         )
         self.mock_view = MockViewSet()
 
@@ -83,36 +76,12 @@ class HasPermissionTest(TestCase):
         result = HasPermission().has_permission(request, self.mock_view)
         self.assertFalse(result)
 
-    def test_permission_via_user_permission_override(self):
-        UserPermission.objects.create(
-            user=self.user_without_perm,
-            permission=self.permission,
-            granted=True,
-        )
-        request = self._make_request(user=self.user_without_perm)
-        result = HasPermission().has_permission(request, self.mock_view)
-        self.assertTrue(result)
-
-    def test_permission_revoked_via_user_permission(self):
-        UserPermission.objects.create(
-            user=self.user_with_perm,
-            permission=self.permission,
-            granted=False,
-        )
-        request = self._make_request(user=self.user_with_perm)
-        result = HasPermission().has_permission(request, self.mock_view)
-        self.assertFalse(result)
-
 
 class RequirePermissionTest(TestCase):
     def setUp(self):
         self.factory = APIRequestFactory()
-        self.institution = Institution.objects.create(
-            name="Test Institution", code="TST-001",
-            address="Test St", city="Quito",
-        )
         self.permission = Permission.objects.create(
-            codename="test.require_perm",
+            code="test.require_perm",
             description="Require perm",
             module="test",
         )
@@ -122,12 +91,10 @@ class RequirePermissionTest(TestCase):
         self.user_with_perm = create_test_user(
             email="withperm@test.com", dni="2000000000",
             names="With", last_names="Perm",
-            institution=self.institution,
         )
         self.user_without_perm = create_test_user(
             email="noperm@test.com", dni="2000000001",
             names="No", last_names="Perm",
-            institution=self.institution,
         )
         UserRole.objects.create(user=self.user_with_perm, role=self.role)
 

@@ -5,7 +5,7 @@ from django.db import IntegrityError
 from apps.accounts.models import Person, User, Role, UserRole
 from apps.accounts.services.person_service import PersonService
 from apps.core.tests.helpers import create_test_user
-from apps.institutions.models import DocumentType, Institution
+from apps.institutions.models import DocumentType
 
 
 class PersonModelTest(TestCase):
@@ -53,9 +53,6 @@ class PersonServiceTest(TestCase):
     """Tests para PersonService."""
 
     def setUp(self):
-        self.institution = Institution.objects.create(
-            name="Institucion Test", code="INST-TEST"
-        )
         self.role = Role.objects.create(name="Docente")
 
     def test_create_person_with_user(self):
@@ -67,7 +64,6 @@ class PersonServiceTest(TestCase):
                 "email": "maria@example.com",
             },
             password="securepass123",
-            institution=self.institution,
         )
 
         self.assertIsNotNone(person.id)
@@ -85,7 +81,6 @@ class PersonServiceTest(TestCase):
                 "email": "carlos@example.com",
             },
             password="pass12345",
-            institution=self.institution,
         )
         UserRole.objects.create(user=user, role=self.role)
 
@@ -144,15 +139,11 @@ class UserLoginTest(TestCase):
 
     def setUp(self):
         self.client = APIClient()
-        self.institution = Institution.objects.create(
-            name="Institucion Test", code="INST-TEST"
-        )
         self.user = create_test_user(
             email="login@example.com",
             dni="9999999999",
             names="Login",
             last_names="User",
-            institution=self.institution,
             password="test_password_123",
         )
 

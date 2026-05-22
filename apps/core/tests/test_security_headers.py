@@ -8,7 +8,7 @@ from apps.core.tests.helpers import create_test_user
 class SecurityHeadersTestCase(TestCase):
     def setUp(self):
         perm = Permission.objects.create(
-            codename="accounts.view_permission", module="accounts"
+            code="accounts.view_permission", module="accounts"
         )
         role = Role.objects.create(name="Test Role")
         RolePermission.objects.create(role=role, permission=perm)

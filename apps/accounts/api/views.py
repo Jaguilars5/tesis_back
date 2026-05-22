@@ -26,7 +26,6 @@ from apps.accounts.api.serializers import (
     RoleDetailSerializer,
     PermissionSerializer,
     PersonSerializer,
-    UserPermissionSerializer,
     LoginSerializer,
     CustomTokenRefreshSerializer,
 )
@@ -260,8 +259,6 @@ class UserViewSet(viewsets.ModelViewSet):
         "partial_update": accounts.UPDATE_USER,
         "destroy": accounts.DELETE_USER,
         "change_password": accounts.UPDATE_USER,
-        "grant_permission": accounts.UPDATE_USER,
-        "revoke_permission": accounts.UPDATE_USER,
         "permissions": accounts.VIEW_USER,
         "search": accounts.VIEW_USER,
     }
@@ -281,7 +278,7 @@ class UserViewSet(viewsets.ModelViewSet):
         self.service = UserService()
 
     def get_queryset(self):
-        return User.objects.select_related("institution")
+        return User.objects.all()
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -303,7 +300,6 @@ class UserViewSet(viewsets.ModelViewSet):
                 email=serializer.validated_data["email"],
                 password=serializer.validated_data["password"],
                 role_id=serializer.validated_data["role_id"],
-                institution_id=serializer.validated_data["institution_id"],
             )
             return ok_response(UserDetailSerializer(user).data, status=201)
         except ValueError as e:
@@ -319,40 +315,6 @@ class UserViewSet(viewsets.ModelViewSet):
         try:
             user = self.service.change_password(pk, new_password)
             return ok_response({"message": "Contraseña actualizada"})
-        except ValueError as e:
-            return error_response(e)
-
-    @action(detail=True, methods=["post"], url_path="grant-permission")
-    def grant_permission(self, request, pk=None):
-        """Otorga un permiso específico a un usuario."""
-        permission_code = request.data.get("permission_code")
-        reason = request.data.get("reason", "")
-
-        if not permission_code:
-            return error_response('Se requiere "permission_code"')
-
-        try:
-            up = self.service.grant_permission(
-                pk, permission_code, reason, request.user.id
-            )
-            return ok_response(UserPermissionSerializer(up).data)
-        except ValueError as e:
-            return error_response(e)
-
-    @action(detail=True, methods=["post"], url_path="revoke-permission")
-    def revoke_permission(self, request, pk=None):
-        """Revoca un permiso específico a un usuario."""
-        permission_code = request.data.get("permission_code")
-        reason = request.data.get("reason", "")
-
-        if not permission_code:
-            return error_response('Se requiere "permission_code"')
-
-        try:
-            up = self.service.revoke_permission(
-                pk, permission_code, reason, request.user.id
-            )
-            return ok_response(UserPermissionSerializer(up).data)
         except ValueError as e:
             return error_response(e)
 
@@ -374,6 +336,6 @@ class UserViewSet(viewsets.ModelViewSet):
         if not query:
             return error_response('Se requiere el parámetro "q"')
 
-        users = self.service.search_users(query, institution_id)
+        users = self.service.search_users(query)
         serializer = UserListSerializer(users, many=True)
         return ok_response(serializer.data)

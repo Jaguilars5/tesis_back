@@ -1,9 +1,9 @@
 from django.test import TestCase
 from datetime import date
 from apps.accounts.models import Person
-from apps.institutions.models import AcademicGrade, AcademicLevel, DocumentType, Institution, School_Year
-from apps.academic.models import Timing_Regime, Section
-from ..models import EnrollmentStatus, Representative, Student, Student_Representative
+from apps.institutions.models import AcademicGrade, AcademicLevel, DocumentType, School_Year
+from apps.academic.models import Section
+from ..models import EnrollmentStatus, Student, Student_Representative
 from apps.core.tests.helpers import create_test_student
 
 
@@ -25,27 +25,17 @@ class StudentModelTest(TestCase):
 
     def setUp(self):
         """Crear datos de prueba"""
-        self.institution = Institution.objects.create(
-            name="Escuela Test", code="ET-001", address="Calle Test", city="Quito"
-        )
         self.school_year = School_Year.objects.create(
-            institution=self.institution,
             name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
-        self.timing_regime = Timing_Regime.objects.create(
-            institution=self.institution, name="Matutina"
-        )
-        self.academic_level = AcademicLevel.objects.create(
-            institution=self.institution, name="Primaria"
-        )
+        self.academic_level = AcademicLevel.objects.create(name="Primaria")
         self.academic_grade = AcademicGrade.objects.create(
             academic_level=self.academic_level, name="6to", sequence_order=1
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
-            timing_regime=self.timing_regime,
             academic_grade=self.academic_grade,
             parallel="A",
             capacity=40,
@@ -117,87 +107,22 @@ class StudentModelTest(TestCase):
         self.assertLessEqual(age, 15)
 
 
-class RepresentativeModelTest(TestCase):
-    """Tests para el modelo Representative"""
-
-    def test_representative_creation(self):
-        """Probar creación de representante"""
-        rep = Representative.objects.create(
-            dni="9876543210",
-            names="María",
-            last_names="Pérez García",
-            phone="0987654321",
-        )
-
-        self.assertIsNotNone(rep.id)
-        self.assertTrue(rep.active)
-
-    def test_representative_dni_unique(self):
-        """Probar que DNI es único"""
-        Representative.objects.create(
-            dni="9876543210",
-            names="María",
-            last_names="Pérez",
-            phone="0987654321",
-        )
-
-        with self.assertRaises(Exception):
-            Representative.objects.create(
-                dni="9876543210",  # Mismo DNI
-                names="Ana",
-                last_names="García",
-                phone="0987654322",
-            )
-
-    def test_representative_full_name(self):
-        """Probar get_full_name"""
-        rep = Representative.objects.create(
-            dni="9876543210",
-            names="María",
-            last_names="Pérez García",
-            phone="0987654321",
-        )
-
-        self.assertEqual(rep.get_full_name(), "María Pérez García")
-
-    def test_representative_str(self):
-        """Probar representación en string"""
-        rep = Representative.objects.create(
-            dni="9876543210",
-            names="María",
-            last_names="Pérez García",
-            phone="0987654321",
-        )
-
-        self.assertEqual(str(rep), "María Pérez García")
-
-
 class StudentRepresentativeModelTest(TestCase):
     """Tests para el modelo Student_Representative"""
 
     def setUp(self):
         """Crear datos de prueba"""
-        self.institution = Institution.objects.create(
-            name="Escuela Test", code="ET-001", address="Calle Test", city="Quito"
-        )
         self.school_year = School_Year.objects.create(
-            institution=self.institution,
             name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
-        self.timing_regime = Timing_Regime.objects.create(
-            institution=self.institution, name="Matutina"
-        )
-        self.academic_level = AcademicLevel.objects.create(
-            institution=self.institution, name="Primaria"
-        )
+        self.academic_level = AcademicLevel.objects.create(name="Primaria")
         self.academic_grade = AcademicGrade.objects.create(
             academic_level=self.academic_level, name="6to", sequence_order=1
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
-            timing_regime=self.timing_regime,
             academic_grade=self.academic_grade,
             parallel="A",
             capacity=40,
