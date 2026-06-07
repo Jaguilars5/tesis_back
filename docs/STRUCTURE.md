@@ -19,13 +19,13 @@ Cada módulo (app) del sistema se divide en las siguientes capas funcionales:
 
 ```
 apps/
-├── academic/     # Períodos, secciones, materias, ofertas, asignaciones docente
+├── academic/     # Períodos, secciones, materias, ofertas, asignaciones docente, proyectos
 ├── accounts/      # Usuarios, personas, roles, permisos, auth JWT
-├── analytics/    # Scores de riesgo, snapshots de métricas, factores
+├── analytics/    # Scores de riesgo, snapshots de métricas, factores, alertas
+├── attendance/   # Asistencia, incidentes conductuales, evaluaciones socioemocionales
 ├── core/         # Utilidades transversales, permisos, respuestas estándar
-├── grading/      # Notas, asistencia, incidentes, evaluaciones de conducta
-├── institutions/ # Instituciones, años escolares, aulas, tipos de sala
-├── scheduling/   # Horarios, franjas, disponibilidad, restricciones
+├── grading/      # Notas, bloques de evaluación, escalas cualitativas, recuperaciones
+├── institutions/ # Años escolares, niveles académicos, grados, secciones
 └── students/     # Estudiantes, matrículas, representantes
 ```
 
@@ -55,7 +55,8 @@ nombre_modulo/
 ├── admin.py
 ├── apps.py
 ├── urls.py
-└── README.md             # Documentación del módulo
+├── README.md             # Documentación del módulo
+└── STRUCTURE.md          # Estructura técnica del módulo
 ```
 
 ## Convenciones de Nomenclatura

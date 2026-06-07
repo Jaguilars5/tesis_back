@@ -8,7 +8,7 @@ class SubjectOffering(models.Model):
         verbose_name="Año Escolar",
     )
     section = models.ForeignKey(
-        "academic.Section",
+        "institutions.Section",
         on_delete=models.CASCADE,
         verbose_name="Sección",
     )

@@ -1,7 +1,7 @@
 from django.test import TestCase
 from rest_framework.exceptions import ValidationError, PermissionDenied, NotFound
 from rest_framework.views import APIView
-from apps.core.exceptions import custom_exception_handler
+from apps.core.api.exceptions import custom_exception_handler
 
 
 class CustomExceptionHandlerTest(TestCase):

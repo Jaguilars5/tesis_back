@@ -11,7 +11,8 @@ from decimal import Decimal
 from django.db import transaction
 from django.db import models
 
-from ..models import Attendance, ConductIncident, StudentNote
+from ..models import StudentNote
+from apps.attendance.models import Attendance, ConductIncident
 from ..repositories import (
     AttendanceRepository,
     ConductIncidentRepository,
@@ -40,28 +41,26 @@ class GradingService:
     @transaction.atomic
     def create_student_note(
         enrollment_id,
-        class_assignment_id,
+        evaluative_activity_id,
         numeric_score,
         grade_type_id=None,
         qualitative_scale_id=None,
         teacher_observation="",
-        administrative_observation="",
         device_origin=None,
     ):
         """
         Crea o actualiza una nota de estudiante.
-        Si ya existe una nota para la misma matrícula y asignación de clase,
+        Si ya existe una nota para la misma matrícula y actividad evaluativa,
         se actualiza el valor existente.
         """
         existing = StudentNoteRepository.get_by_composite_key(
             enrollment_id,
-            class_assignment_id,
+            evaluative_activity_id,
         )
         if existing:
             existing.numeric_score = numeric_score
             existing.teacher_observation = teacher_observation
-            existing.administrative_observation = administrative_observation
-            existing.sync_status = "pending"
+            existing.sync_status = "PENDIENTE"
             existing.device_origin = device_origin
             if grade_type_id:
                 existing.grade_type_id = grade_type_id
@@ -73,13 +72,12 @@ class GradingService:
 
         note = StudentNote(
             enrollment_id=enrollment_id,
-            class_assignment_id=class_assignment_id,
+            evaluative_activity_id=evaluative_activity_id,
             numeric_score=numeric_score,
             grade_type_id=grade_type_id,
             qualitative_scale_id=qualitative_scale_id,
             teacher_observation=teacher_observation,
-            administrative_observation=administrative_observation,
-            sync_status="pending",
+            sync_status="PENDIENTE",
             device_origin=device_origin,
         )
         note.full_clean()
@@ -127,10 +125,10 @@ class GradingService:
     @staticmethod
     def deactivate_student_note(note_id):
         """
-        Realiza un borrado lógico de una nota.
+        Marca la nota como anulada manualmente.
         """
         note = GradingService.get_student_note(note_id)
-        note.deleted_at = None
+        note.manually_overridden = True
         note.save()
         return note
 

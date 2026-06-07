@@ -29,13 +29,13 @@ Gestión integral de la información del estudiante, incluyendo su historial de 
 
 ### Calificaciones y Seguimiento Diario (Grading)
 
-Módulo encargado del registro de notas, control de asistencia y bitácora de incidentes conductuales. Soporta la sincronización de datos para operaciones en entornos con conectividad limitada.
+Módulo encargado del registro de calificaciones estructurado en bloques de evaluación. Gestiona tipos de calificación, escalas cualitativas y procesos de recuperación académica.
 [Documentación del Módulo Grading](apps/grading/README.md)
 
-### Planificación y Horarios (Scheduling)
+### Asistencia y Comportamiento (Attendance)
 
-Gestión de la disponibilidad docente y generación de horarios de clase, optimizando el uso de recursos físicos y temporales.
-[Documentación del Módulo Scheduling](apps/scheduling/README.md)
+Gestión de asistencia diaria, incidentes conductuales, evaluaciones socioemocionales y cálculo de promedios de comportamiento. Sincroniza datos para operaciones en entornos con conectividad limitada.
+[Documentación del Módulo Attendance](apps/attendance/README.md)
 
 ### Analítica y Riesgo Académico (Analytics)
 
@@ -45,7 +45,7 @@ Análisis de riesgo estudiantil basado en métricas de asistencia, rendimiento a
 
 El diseño de la base de datos se basa en un modelo relacional normalizado que asegura la integridad de la información académica. Las relaciones clave incluyen la vinculación entre periodos académicos, actividades de evaluación y registros de estudiantes.
 
-El esquema detallado de las entidades y sus relaciones puede visualizarse en el archivo de documentación técnica [Diagrama ER](bd_v3.html).
+El esquema detallado de las entidades y sus relaciones puede visualizarse en el archivo de documentación técnica [Diagrama ER](docs/bd_en.html).
 
 ## Pruebas Automatizadas
 

@@ -1,13 +1,9 @@
 from datetime import date
 from decimal import Decimal
-
 from django.test import TestCase
 from django.db import IntegrityError
-
-from apps.academic.models import (
-    Academic_Period,
-    Section,
-)
+from apps.institutions.models import Section
+from apps.academic.models import Academic_Period
 from apps.core.tests.helpers import create_test_student
 from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year
 from apps.analytics.models import RiskFactor, StudentRiskFactor, StudentRiskScore
@@ -20,28 +16,44 @@ class StudentRiskScoreModelTest(TestCase):
     def setUp(self):
         self.school_year = School_Year.objects.create(
             name="2024-2025",
-            start_date=date(2024, 9, 1), end_date=date(2025, 7, 31),
+            start_date=date(2024, 9, 1),
+            end_date=date(2025, 7, 31),
         )
         self.period = Academic_Period.objects.create(
-            school_year=self.school_year, name="Periodo 1",
-            start_date=date(2024, 9, 1), end_date=date(2024, 12, 15),
+            school_year=self.school_year,
+            name="Periodo 1",
+            start_date=date(2024, 9, 1),
+            end_date=date(2024, 12, 15),
         )
         academic_level = AcademicLevel.objects.create(name="Primaria")
         academic_grade = AcademicGrade.objects.create(
-            academic_level=academic_level, name="6to", sequence_order=6,
+            academic_level=academic_level,
+            name="6to",
+            sequence_order=6,
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
-            academic_grade=academic_grade, parallel="A", capacity=40,
+            academic_grade=academic_grade,
+            parallel="A",
+            capacity=40,
         )
         self.student = create_test_student(
-            document_number="1234567890", names="Juan",
-            last_names="Perez", birth_date=date(2012, 5, 15),
+            document_number="1234567890",
+            names="Juan",
+            last_names="Perez",
+            birth_date=date(2012, 5, 15),
+        )
+        from apps.students.models import EnrollmentStatus, Enrollment
+        act_status, _ = EnrollmentStatus.objects.get_or_create(code="ACT", defaults={"name": "Activa"})
+        self.enrollment = Enrollment.objects.create(
+            student=self.student,
+            section=self.section,
+            enrollment_status=act_status,
         )
 
     def test_create_student_risk_score(self):
         risk = StudentRiskScore.objects.create(
-            student=self.student,
+            enrollment=self.enrollment,
             academic_period=self.period,
             risk_score=Decimal("75.50"),
             risk_label="Alto",
@@ -55,7 +67,7 @@ class StudentRiskScoreModelTest(TestCase):
 
     def test_student_risk_score_str(self):
         risk = StudentRiskScore.objects.create(
-            student=self.student,
+            enrollment=self.enrollment,
             academic_period=self.period,
             risk_score=Decimal("45.00"),
             risk_label="Medio",
@@ -67,17 +79,21 @@ class StudentRiskScoreModelTest(TestCase):
 
     def test_student_risk_score_ordering(self):
         StudentRiskScore.objects.create(
-            student=self.student, academic_period=self.period,
-            risk_score=Decimal("30.00"), risk_label="Bajo",
+            enrollment=self.enrollment,
+            academic_period=self.period,
+            risk_score=Decimal("30.00"),
+            risk_label="Bajo",
             model_version="v1.0",
         )
         StudentRiskScore.objects.create(
-            student=self.student, academic_period=self.period,
-            risk_score=Decimal("80.00"), risk_label="Alto",
+            enrollment=self.enrollment,
+            academic_period=self.period,
+            risk_score=Decimal("80.00"),
+            risk_label="Alto",
             model_version="v1.0",
         )
 
-        scores = StudentRiskScore.objects.filter(student=self.student)
+        scores = StudentRiskScore.objects.filter(enrollment=self.enrollment)
         self.assertEqual(scores.first().risk_score, Decimal("80.00"))
 
 
@@ -87,26 +103,42 @@ class StudentRiskFactorModelTest(TestCase):
     def setUp(self):
         self.school_year = School_Year.objects.create(
             name="2024-2025",
-            start_date=date(2024, 9, 1), end_date=date(2025, 7, 31),
+            start_date=date(2024, 9, 1),
+            end_date=date(2025, 7, 31),
         )
         self.period = Academic_Period.objects.create(
-            school_year=self.school_year, name="Periodo 1",
-            start_date=date(2024, 9, 1), end_date=date(2024, 12, 15),
+            school_year=self.school_year,
+            name="Periodo 1",
+            start_date=date(2024, 9, 1),
+            end_date=date(2024, 12, 15),
         )
         academic_level = AcademicLevel.objects.create(name="Primaria")
         academic_grade = AcademicGrade.objects.create(
-            academic_level=academic_level, name="6to", sequence_order=6,
+            academic_level=academic_level,
+            name="6to",
+            sequence_order=6,
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
-            academic_grade=academic_grade, parallel="A", capacity=40,
+            academic_grade=academic_grade,
+            parallel="A",
+            capacity=40,
         )
         self.student = create_test_student(
-            document_number="1234567890", names="Juan",
-            last_names="Perez", birth_date=date(2012, 5, 15),
+            document_number="1234567890",
+            names="Juan",
+            last_names="Perez",
+            birth_date=date(2012, 5, 15),
+        )
+        from apps.students.models import EnrollmentStatus, Enrollment
+        act_status, _ = EnrollmentStatus.objects.get_or_create(code="ACT", defaults={"name": "Activa"})
+        self.enrollment = Enrollment.objects.create(
+            student=self.student,
+            section=self.section,
+            enrollment_status=act_status,
         )
         self.risk_score = StudentRiskScore.objects.create(
-            student=self.student,
+            enrollment=self.enrollment,
             academic_period=self.period,
             risk_score=Decimal("75.50"),
             risk_label="Alto",
@@ -161,9 +193,7 @@ class StudentRiskFactorModelTest(TestCase):
             contribution_weight=Decimal("60.00"),
         )
 
-        factors = StudentRiskFactor.objects.filter(
-            student_risk_score=self.risk_score
-        )
+        factors = StudentRiskFactor.objects.filter(student_risk_score=self.risk_score)
         self.assertEqual(factors.count(), 2)
 
     def test_student_risk_factor_str(self):
@@ -184,9 +214,7 @@ class StudentRiskFactorModelTest(TestCase):
         )
 
         self.risk_score.delete()
-        self.assertFalse(
-            StudentRiskFactor.objects.filter(pk=srf.pk).exists()
-        )
+        self.assertFalse(StudentRiskFactor.objects.filter(pk=srf.pk).exists())
 
 
 class RiskFactorModelTest(TestCase):
@@ -206,7 +234,8 @@ class RiskFactorModelTest(TestCase):
     def test_risk_factor_code_unique(self):
         with self.assertRaises(IntegrityError):
             RiskFactor.objects.create(
-                code="CONDUCTA", name="Duplicado",
+                code="CONDUCTA",
+                name="Duplicado",
             )
 
     def test_risk_factor_str(self):

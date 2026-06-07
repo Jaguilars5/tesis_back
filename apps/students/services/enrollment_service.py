@@ -25,6 +25,7 @@ class EnrollmentService:
         enrollment = Enrollment(
             student=student,
             section=section,
+            school_year=section.school_year,
             enrollment_status=active_status,
             enrollment_date=enrollment_date or date.today(),
         )
@@ -38,6 +39,8 @@ class EnrollmentService:
             code="RET", defaults={"name": "Retirado"}
         )
         enrollment.enrollment_status = withdrawn_status
+        enrollment.withdrawal_reason = reason
+        enrollment.withdrawal_date = date.today()
         enrollment.save()
         return enrollment
 

@@ -5,7 +5,6 @@ from django.test import TestCase
 
 from apps.academic.models import (
     Academic_Period,
-    Section,
     Subject,
     SubjectAcademicConfig,
     SubjectOffering,
@@ -13,9 +12,16 @@ from apps.academic.models import (
 )
 from apps.accounts.models import Role, User
 from apps.core.tests.helpers import create_test_user, create_test_student
-from apps.grading.models import AttendanceStatus, ClassAssignment, EvaluationCriteria, EvaluationMacro, EvaluationSubcriteria, GradeType
+from apps.grading.models import (
+    EvaluativeActivity,
+    BlockComponent,
+    EvaluationBlock,
+    ComponentIndicator,
+    GradeType,
+)
+from apps.attendance.models import AttendanceStatus
 from apps.grading.services import GradingService
-from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year
+from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year, Section
 from apps.students.models import Enrollment, EnrollmentStatus, Student
 
 
@@ -84,36 +90,38 @@ class GradingServiceTest(TestCase):
         )
 
     def _create_class_assignment(self):
-        macro = EvaluationMacro.objects.create(
+        macro = EvaluationBlock.objects.create(
             academic_period=self.period,
             name="Macro 1",
+            evaluation_type="FORMATIVA",
             weight_percentage=Decimal("100.00"),
         )
-        criteria = EvaluationCriteria.objects.create(
-            evaluation_macro=macro,
+        criteria = BlockComponent.objects.create(
+            evaluation_block=macro,
             name="Criterio 1",
             internal_weight=Decimal("100.00"),
         )
-        subcriteria = EvaluationSubcriteria.objects.create(
-            evaluation_criteria=criteria,
+        subcriteria = ComponentIndicator.objects.create(
+            block_component=criteria,
             name="Subcriterio 1",
             internal_weight=Decimal("100.00"),
         )
-        return ClassAssignment.objects.create(
-            evaluation_subcriteria=subcriteria,
+        return EvaluativeActivity.objects.create(
+            component_indicator=subcriteria,
             teacher_subject_section=self.teacher_subject_section,
             title="Examen",
+            activity_type="EXAMEN",
             max_score=Decimal("20"),
             due_date=date(2025, 2, 1),
         )
 
     def test_create_student_note(self):
         enrollment = self._create_enrollment()
-        class_assignment = self._create_class_assignment()
+        evaluative_activity = self._create_class_assignment()
         grade_type = GradeType.objects.create(code="NUM", name="Numérica")
         note = GradingService.create_student_note(
             enrollment_id=enrollment.id,
-            class_assignment_id=class_assignment.id,
+            evaluative_activity_id=evaluative_activity.id,
             numeric_score=Decimal("10"),
             grade_type_id=grade_type.id,
         )

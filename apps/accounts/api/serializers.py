@@ -18,6 +18,35 @@ from apps.accounts.models import (
 )
 
 
+class UserLoginDataSerializer(serializers.Serializer):
+    """Datos del usuario retornados en login/refresh."""
+
+    id = serializers.IntegerField(read_only=True)
+    dni = serializers.CharField(read_only=True)
+    names = serializers.CharField(read_only=True)
+    last_names = serializers.CharField(read_only=True)
+    email = serializers.EmailField(read_only=True)
+    role = serializers.CharField(read_only=True, allow_null=True)
+    role_id = serializers.IntegerField(read_only=True, allow_null=True)
+    active = serializers.BooleanField(read_only=True)
+    permissions = serializers.ListField(child=serializers.CharField(), read_only=True)
+
+
+class LoginResponseSerializer(serializers.Serializer):
+    """Respuesta de login con tokens JWT y datos del usuario."""
+
+    access = serializers.CharField(read_only=True)
+    refresh = serializers.CharField(read_only=True)
+    user = UserLoginDataSerializer(read_only=True)
+
+
+class TokenRefreshResponseSerializer(serializers.Serializer):
+    """Respuesta de refresh con nuevo token y datos del usuario."""
+
+    access = serializers.CharField(read_only=True)
+    user = UserLoginDataSerializer(read_only=True)
+
+
 class CustomTokenRefreshSerializer(TokenRefreshSerializer):
     """Serializer personalizado para refresh que incluye datos del usuario."""
 
@@ -38,7 +67,7 @@ class CustomTokenRefreshSerializer(TokenRefreshSerializer):
                     "names": person.names if person else "",
                     "last_names": person.last_names if person else "",
                     "email": user.email,
-                    "role": first_role.role.name if first_role else None,
+                    "role": first_role.role.code if first_role else None,
                     "role_id": first_role.role.id if first_role else None,
                     "active": user.active,
                     "permissions": list(user.get_all_permissions()),
@@ -55,7 +84,6 @@ class LoginSerializer(TokenObtainPairSerializer):
         data = super().validate(attrs)
         user = self.user
         person = user.person
-        print("User", user, "Person", person)
         first_role = user.user_roles.select_related("role").first()
         data["user"] = {
             "id": user.id,
@@ -63,7 +91,7 @@ class LoginSerializer(TokenObtainPairSerializer):
             "names": person.names if person else "",
             "last_names": person.last_names if person else "",
             "email": user.email,
-            "role": first_role.role.name if first_role else None,
+            "role": first_role.role.code if first_role else None,
             "role_id": first_role.role.id if first_role else None,
             "active": user.active,
             "permissions": list(user.get_all_permissions()),
@@ -131,7 +159,7 @@ class UserListSerializer(serializers.ModelSerializer):
     dni = serializers.CharField(source="person.document_number", read_only=True)
     names = serializers.CharField(source="person.names", read_only=True)
     last_names = serializers.CharField(source="person.last_names", read_only=True)
-    role_name = serializers.SerializerMethodField(read_only=True)
+    role = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = User
@@ -141,15 +169,15 @@ class UserListSerializer(serializers.ModelSerializer):
             "names",
             "last_names",
             "email",
-            "role_name",
+            "role",
             "active",
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]
 
-    def get_role_name(self, obj):
+    def get_role(self, obj):
         first_role = obj.user_roles.select_related("role").first()
-        return first_role.role.name if first_role else None
+        return first_role.role.code if first_role else None
 
 
 class UserDetailSerializer(serializers.ModelSerializer):

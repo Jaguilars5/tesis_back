@@ -1,7 +1,8 @@
 from django.test import TestCase
 from datetime import date
 from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year
-from ..models import Section, Subject, Academic_Period
+from apps.institutions.models import Section
+from ..models import Subject, Academic_Period
 
 
 class SectionModelTest(TestCase):
@@ -34,7 +35,6 @@ class SectionModelTest(TestCase):
         """Probar representación en string"""
         expected = f"2024-2025 - 6to A"
         self.assertEqual(str(self.section), expected)
-
 
 
 class SubjectModelTest(TestCase):

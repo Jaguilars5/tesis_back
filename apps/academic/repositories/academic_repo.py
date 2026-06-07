@@ -1,62 +1,44 @@
-from django.db import models
+from apps.core.repositories.base import BaseRepository
 from ..models import (
-    Academic_Period, Section, Subject, SubjectAcademicConfig, SubjectOffering,
+    Academic_Period,
+    Subject,
+    SubjectAcademicConfig,
+    SubjectOffering,
     Teacher_Subject_Section,
 )
 
 
-class BaseRepository:
-    model = None
+class SubjectRepository(BaseRepository):
+    model = Subject
 
     @classmethod
     def get_all(cls, active_only=True):
-        queryset = cls.model.objects.all()
-        if active_only and hasattr(cls.model, 'active'):
-            queryset = queryset.filter(active=True)
-        return queryset
-
-    @classmethod
-    def get_by_id(cls, pk):
-        try:
-            return cls.model.objects.get(pk=pk)
-        except cls.model.DoesNotExist:
-            return None
-
-
-class SectionRepository(BaseRepository):
-    model = Section
-
-    @classmethod
-    def get_by_school_year(cls, school_year_id):
-        return cls.model.objects.filter(
-            school_year_id=school_year_id
-        ).select_related("academic_grade__academic_level").order_by(
-            "academic_grade__sequence_order", "parallel"
-        )
-
-    @classmethod
-    def get_by_grade(cls, academic_grade_id):
-        return cls.model.objects.filter(
-            academic_grade_id=academic_grade_id
-        ).select_related("school_year", "academic_grade")
-
-
-class SubjectRepository(BaseRepository):
-    model = Subject
+        queryset = super().get_all(active_only=active_only)
+        return queryset.order_by("name")
 
 
 class AcademicPeriodRepository(BaseRepository):
     model = Academic_Period
 
     @classmethod
+    def get_all(cls, active_only=True):
+        queryset = super().get_all(active_only=active_only)
+        return queryset.order_by("-start_date")
+
+    @classmethod
     def get_by_school_year(cls, school_year_id):
         return cls.model.objects.filter(
-            school_year_id=school_year_id, active=True
+            school_year_id=school_year_id
         ).order_by("start_date")
 
 
 class TeacherSubjectSectionRepository(BaseRepository):
     model = Teacher_Subject_Section
+
+    @classmethod
+    def get_all(cls, active_only=True):
+        queryset = super().get_all(active_only=active_only)
+        return queryset.order_by("-id")
 
     @classmethod
     def get_by_user(cls, user_id, school_year_id=None):
@@ -88,6 +70,11 @@ class SubjectAcademicConfigRepository(BaseRepository):
     model = SubjectAcademicConfig
 
     @classmethod
+    def get_all(cls, active_only=True):
+        queryset = super().get_all(active_only=active_only)
+        return queryset.order_by("-id")
+
+    @classmethod
     def get_by_subject(cls, subject_id):
         return cls.model.objects.filter(subject_id=subject_id).select_related(
             "academic_grade", "subject"
@@ -104,9 +91,15 @@ class SubjectOfferingRepository(BaseRepository):
     model = SubjectOffering
 
     @classmethod
+    def get_all(cls, active_only=True):
+        queryset = super().get_all(active_only=active_only)
+        return queryset.order_by("-id")
+
+    @classmethod
     def get_by_section(cls, section_id, school_year_id=None):
         qs = cls.model.objects.filter(section_id=section_id).select_related(
-            "school_year", "subject_academic_config__subject",
+            "school_year",
+            "subject_academic_config__subject",
             "subject_academic_config__academic_grade",
         )
         if school_year_id:
@@ -115,8 +108,6 @@ class SubjectOfferingRepository(BaseRepository):
 
     @classmethod
     def get_by_school_year(cls, school_year_id):
-        return cls.model.objects.filter(
-            school_year_id=school_year_id
-        ).select_related(
+        return cls.model.objects.filter(school_year_id=school_year_id).select_related(
             "section", "subject_academic_config__subject"
         )

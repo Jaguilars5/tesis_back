@@ -1,61 +1,39 @@
 """
 Serializers de DRF para el módulo Grading.
 
-Controlan la representación JSON de los modelos de calificaciones, asistencia
-e incidentes de conducta.
+Controlan la representación JSON de los modelos de calificaciones y evaluaciones.
 """
 
 from rest_framework import serializers
 
 from ..models import (
-    Attendance,
-    AttendanceStatus,
-    BehaviorEvaluation,
-    ClassAssignment,
-    ConductIncident,
-    EvaluationCriteria,
-    EvaluationMacro,
-    EvaluationSubcriteria,
+    BlockComponent,
+    ComponentIndicator,
+    DiagnosticEvaluation,
+    EvaluationBlock,
+    EvaluativeActivity,
     GradeChangeHistory,
     GradeType,
+    PeriodGradeSummary,
+    ProjectNote,
     QualitativeScale,
+    RecoveryProcess,
     StudentNote,
 )
 
 
 class StudentNoteSerializer(serializers.ModelSerializer):
-    """
-    Serializer para el modelo StudentNote.
-    """
+    enrollment_name = serializers.CharField(source="enrollment.__str__", read_only=True)
+    evaluative_activity_title = serializers.CharField(
+        source="evaluative_activity.title", read_only=True
+    )
+    grade_type_name = serializers.CharField(source="grade_type.name", read_only=True)
+    qualitative_scale_name = serializers.CharField(
+        source="qualitative_scale.name", read_only=True
+    )
 
     class Meta:
         model = StudentNote
-        fields = "__all__"
-
-
-class AttendanceSerializer(serializers.ModelSerializer):
-    """
-    Serializer para el modelo Attendance.
-    """
-
-    class Meta:
-        model = Attendance
-        fields = "__all__"
-
-
-class ConductIncidentSerializer(serializers.ModelSerializer):
-    """
-    Serializer para el modelo ConductIncident.
-    """
-
-    class Meta:
-        model = ConductIncident
-        fields = "__all__"
-
-
-class AttendanceStatusSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = AttendanceStatus
         fields = "__all__"
 
 
@@ -71,38 +49,112 @@ class QualitativeScaleSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class BehaviorEvaluationSerializer(serializers.ModelSerializer):
+class EvaluationBlockSerializer(serializers.ModelSerializer):
+    academic_period_name = serializers.CharField(
+        source="academic_period.name", read_only=True
+    )
+
     class Meta:
-        model = BehaviorEvaluation
+        model = EvaluationBlock
         fields = "__all__"
 
 
-class EvaluationMacroSerializer(serializers.ModelSerializer):
+class BlockComponentSerializer(serializers.ModelSerializer):
+    evaluation_block_name = serializers.CharField(
+        source="evaluation_block.name", read_only=True
+    )
+
     class Meta:
-        model = EvaluationMacro
+        model = BlockComponent
         fields = "__all__"
 
 
-class EvaluationCriteriaSerializer(serializers.ModelSerializer):
+class ComponentIndicatorSerializer(serializers.ModelSerializer):
+    block_component_name = serializers.CharField(
+        source="block_component.name", read_only=True
+    )
+
     class Meta:
-        model = EvaluationCriteria
+        model = ComponentIndicator
         fields = "__all__"
 
 
-class EvaluationSubcriteriaSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = EvaluationSubcriteria
-        fields = "__all__"
+class EvaluativeActivitySerializer(serializers.ModelSerializer):
+    component_indicator_name = serializers.CharField(
+        source="component_indicator.name", read_only=True
+    )
+    teacher_subject_section_name = serializers.CharField(
+        source="teacher_subject_section.__str__", read_only=True
+    )
 
-
-class ClassAssignmentSerializer(serializers.ModelSerializer):
     class Meta:
-        model = ClassAssignment
+        model = EvaluativeActivity
         fields = "__all__"
 
 
 class GradeChangeHistorySerializer(serializers.ModelSerializer):
+    student_note_name = serializers.CharField(
+        source="student_note.__str__", read_only=True
+    )
+    modified_by_user_name = serializers.CharField(
+        source="modified_by_user.person.get_full_name", read_only=True
+    )
+
     class Meta:
         model = GradeChangeHistory
         fields = "__all__"
 
+
+class PeriodGradeSummarySerializer(serializers.ModelSerializer):
+    enrollment_name = serializers.CharField(source="enrollment.__str__", read_only=True)
+    subject_offering_name = serializers.CharField(
+        source="subject_offering.__str__", read_only=True
+    )
+    academic_period_name = serializers.CharField(
+        source="academic_period.name", read_only=True
+    )
+    qualitative_scale_name = serializers.CharField(
+        source="qualitative_scale.name", read_only=True
+    )
+
+    class Meta:
+        model = PeriodGradeSummary
+        fields = "__all__"
+
+
+class RecoveryProcessSerializer(serializers.ModelSerializer):
+    period_grade_summary_name = serializers.CharField(
+        source="period_grade_summary.__str__", read_only=True
+    )
+    managed_by_user_name = serializers.CharField(
+        source="managed_by_user.person.get_full_name", read_only=True
+    )
+
+    class Meta:
+        model = RecoveryProcess
+        fields = "__all__"
+
+
+class DiagnosticEvaluationSerializer(serializers.ModelSerializer):
+    enrollment_name = serializers.CharField(source="enrollment.__str__", read_only=True)
+    academic_period_name = serializers.CharField(
+        source="academic_period.name", read_only=True
+    )
+    applied_by_user_name = serializers.CharField(
+        source="applied_by_user.person.get_full_name", read_only=True
+    )
+
+    class Meta:
+        model = DiagnosticEvaluation
+        fields = "__all__"
+
+
+class ProjectNoteSerializer(serializers.ModelSerializer):
+    enrollment_name = serializers.CharField(source="enrollment.__str__", read_only=True)
+    interdisciplinary_project_title = serializers.CharField(
+        source="interdisciplinary_project.title", read_only=True
+    )
+
+    class Meta:
+        model = ProjectNote
+        fields = "__all__"

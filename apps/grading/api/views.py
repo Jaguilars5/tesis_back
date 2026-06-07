@@ -1,38 +1,46 @@
 """
 Vistas de API para el módulo Grading.
 
-Utiliza ViewSets de DRF para operaciones CRUD RESTful sobre calificaciones,
-asistencia e incidentes de conducta.
+Utiliza ViewSets de DRF para operaciones CRUD RESTful sobre calificaciones y evaluaciones.
 """
 
 from drf_spectacular.utils import extend_schema, extend_schema_view
 
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
-from apps.core.pagination import StandardResultsSetPagination
-from apps.core.permissions import HasPermission
+from apps.core.api.pagination import StandardResultsSetPagination
+from apps.core.api.permissions import HasPermission
 from apps.core.constants.permissions import grading
-from apps.core.utils import ok_response, error_response
 
-from ..models import Attendance, AttendanceStatus, BehaviorEvaluation, ClassAssignment, ConductIncident, EvaluationCriteria, EvaluationMacro, EvaluationSubcriteria, GradeChangeHistory, GradeType, QualitativeScale, StudentNote
-from ..repositories import (
-    AttendanceRepository,
-    ConductIncidentRepository,
-    StudentNoteRepository,
+from ..models import (
+    BlockComponent,
+    ComponentIndicator,
+    DiagnosticEvaluation,
+    EvaluationBlock,
+    EvaluativeActivity,
+    GradeChangeHistory,
+    GradeType,
+    PeriodGradeSummary,
+    ProjectNote,
+    QualitativeScale,
+    RecoveryProcess,
+    StudentNote,
 )
+from ..repositories import StudentNoteRepository
 from .serializers import (
-    AttendanceSerializer,
-    AttendanceStatusSerializer,
-    BehaviorEvaluationSerializer,
-    ClassAssignmentSerializer,
-    ConductIncidentSerializer,
-    EvaluationCriteriaSerializer,
-    EvaluationMacroSerializer,
-    EvaluationSubcriteriaSerializer,
+    BlockComponentSerializer,
+    ComponentIndicatorSerializer,
+    DiagnosticEvaluationSerializer,
+    EvaluationBlockSerializer,
+    EvaluativeActivitySerializer,
     GradeChangeHistorySerializer,
     GradeTypeSerializer,
+    PeriodGradeSummarySerializer,
+    ProjectNoteSerializer,
     QualitativeScaleSerializer,
+    RecoveryProcessSerializer,
     StudentNoteSerializer,
 )
 
@@ -53,32 +61,32 @@ class BaseGradingViewSet(viewsets.ModelViewSet):
         try:
             instance = self.repository.get_by_id(kwargs.get("pk"))
             if not instance:
-                return error_response(
+                return Response(
                     f"{self.serializer_class.Meta.model.__name__} not found",
-                    404,
+                    status=404,
                 )
             serializer = self.get_serializer(instance)
-            return ok_response(serializer.data)
+            return Response(serializer.data)
         except Exception as e:
-            return error_response(e)
+            return Response(str(e), status=400)
 
     def create(self, request, *args, **kwargs):
         try:
             serializer = self.get_serializer(data=request.data)
             if serializer.is_valid():
                 serializer.save()
-                return ok_response(serializer.data, status=201)
-            return error_response(serializer.errors)
+                return Response(serializer.data, status=201)
+            return Response(serializer.errors, status=400)
         except Exception as e:
-            return error_response(e)
+            return Response(str(e), status=400)
 
     def update(self, request, *args, **kwargs):
         try:
             instance = self.repository.get_by_id(kwargs.get("pk"))
             if not instance:
-                return error_response(
+                return Response(
                     f"{self.serializer_class.Meta.model.__name__} not found",
-                    404,
+                    status=404,
                 )
             partial = kwargs.pop("partial", False)
             serializer = self.get_serializer(
@@ -86,28 +94,29 @@ class BaseGradingViewSet(viewsets.ModelViewSet):
             )
             if serializer.is_valid():
                 serializer.save()
-                return ok_response(serializer.data)
-            return error_response(serializer.errors)
+                return Response(serializer.data)
+            return Response(serializer.errors, status=400)
         except Exception as e:
-            return error_response(e)
+            return Response(str(e), status=400)
 
     def destroy(self, request, *args, **kwargs):
         try:
             instance = self.repository.get_by_id(kwargs.get("pk"))
             if not instance:
-                return error_response(
+                return Response(
                     f"{self.serializer_class.Meta.model.__name__} not found",
-                    404,
+                    status=404,
                 )
             if hasattr(instance, "active"):
                 instance.active = False
                 instance.save()
-                return ok_response({"id": kwargs.get("pk"), "active": False})
-            return error_response(
-                f"{self.serializer_class.Meta.model.__name__} does not support soft delete."
+                return Response({"id": kwargs.get("pk"), "active": False})
+            return Response(
+                f"{self.serializer_class.Meta.model.__name__} does not support soft delete.",
+                status=400,
             )
         except Exception as e:
-            return error_response(e)
+            return Response(str(e), status=400)
 
 
 class StudentNoteViewSet(BaseGradingViewSet):
@@ -129,69 +138,10 @@ class StudentNoteViewSet(BaseGradingViewSet):
         return self.repository.get_all()
 
 
-class AttendanceViewSet(BaseGradingViewSet):
-    serializer_class = AttendanceSerializer
-    action_permissions = {
-        "list": grading.VIEW_ATTENDANCE,
-        "retrieve": grading.VIEW_ATTENDANCE,
-        "create": grading.CREATE_ATTENDANCE,
-        "update": grading.UPDATE_ATTENDANCE,
-        "partial_update": grading.UPDATE_ATTENDANCE,
-        "destroy": grading.DELETE_ATTENDANCE,
-    }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.repository = AttendanceRepository()
-
-    def get_queryset(self):
-        return self.repository.get_all()
-
-
-class ConductIncidentViewSet(BaseGradingViewSet):
-    serializer_class = ConductIncidentSerializer
-    action_permissions = {
-        "list": grading.VIEW_INCIDENT,
-        "retrieve": grading.VIEW_INCIDENT,
-        "create": grading.CREATE_INCIDENT,
-        "update": grading.UPDATE_INCIDENT,
-        "partial_update": grading.UPDATE_INCIDENT,
-        "destroy": grading.DELETE_INCIDENT,
-    }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.repository = ConductIncidentRepository()
-
-    def get_queryset(self):
-        return self.repository.get_all()
-
-
-class AttendanceStatusViewSet(viewsets.ReadOnlyModelViewSet):
-    serializer_class = AttendanceStatusSerializer
-    permission_classes = [IsAuthenticated, HasPermission]
-    action_permissions = {
-        "list": grading.VIEW_ATTENDANCE_STATUS,
-        "retrieve": grading.VIEW_ATTENDANCE_STATUS,
-    }
-
-    def get_queryset(self):
-        return AttendanceStatus.objects.all().order_by("name")
-
-    def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
-        return ok_response(serializer.data)
-
-    def retrieve(self, request, *args, **kwargs):
-        try:
-            instance = self.get_object()
-            serializer = self.get_serializer(instance)
-            return ok_response(serializer.data)
-        except Exception as e:
-            return error_response(e)
-
-
+@extend_schema_view(
+    list=extend_schema(summary="Listar tipos de calificación", tags=["grading"]),
+    retrieve=extend_schema(summary="Obtener tipo de calificación", tags=["grading"]),
+)
 class GradeTypeViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = GradeTypeSerializer
     permission_classes = [IsAuthenticated, HasPermission]
@@ -206,17 +156,21 @@ class GradeTypeViewSet(viewsets.ReadOnlyModelViewSet):
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
-        return ok_response(serializer.data)
+        return Response(serializer.data)
 
     def retrieve(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
             serializer = self.get_serializer(instance)
-            return ok_response(serializer.data)
+            return Response(serializer.data)
         except Exception as e:
-            return error_response(e)
+            return Response(str(e), status=400)
 
 
+@extend_schema_view(
+    list=extend_schema(summary="Listar escalas cualitativas", tags=["grading"]),
+    retrieve=extend_schema(summary="Obtener escala cualitativa", tags=["grading"]),
+)
 class QualitativeScaleViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = QualitativeScaleSerializer
     permission_classes = [IsAuthenticated, HasPermission]
@@ -231,38 +185,31 @@ class QualitativeScaleViewSet(viewsets.ReadOnlyModelViewSet):
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
-        return ok_response(serializer.data)
+        return Response(serializer.data)
 
     def retrieve(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
             serializer = self.get_serializer(instance)
-            return ok_response(serializer.data)
+            return Response(serializer.data)
         except Exception as e:
-            return error_response(e)
+            return Response(str(e), status=400)
 
 
-class BehaviorEvaluationViewSet(viewsets.ModelViewSet):
-    serializer_class = BehaviorEvaluationSerializer
+@extend_schema_view(
+    list=extend_schema(summary="Listar bloques de evaluación", tags=["grading"]),
+    retrieve=extend_schema(summary="Obtener bloque de evaluación", tags=["grading"]),
+    create=extend_schema(summary="Crear bloque de evaluación", tags=["grading"]),
+    update=extend_schema(summary="Actualizar bloque de evaluación", tags=["grading"]),
+    partial_update=extend_schema(
+        summary="Actualizar bloque parcialmente", tags=["grading"]
+    ),
+    destroy=extend_schema(summary="Eliminar bloque de evaluación", tags=["grading"]),
+)
+class EvaluationBlockViewSet(viewsets.ModelViewSet):
+    serializer_class = EvaluationBlockSerializer
     permission_classes = [IsAuthenticated, HasPermission]
-    action_permissions = {
-        "list": grading.VIEW_BEHAVIOR_EVALUATION,
-        "retrieve": grading.VIEW_BEHAVIOR_EVALUATION,
-        "create": grading.CREATE_BEHAVIOR_EVALUATION,
-        "update": grading.UPDATE_BEHAVIOR_EVALUATION,
-        "partial_update": grading.UPDATE_BEHAVIOR_EVALUATION,
-        "destroy": grading.DELETE_BEHAVIOR_EVALUATION,
-    }
-
-    def get_queryset(self):
-        return BehaviorEvaluation.objects.all().select_related(
-            "enrollment__student__person", "academic_period", "calculated_scale", "final_scale"
-        )
-
-
-class EvaluationMacroViewSet(viewsets.ModelViewSet):
-    serializer_class = EvaluationMacroSerializer
-    permission_classes = [IsAuthenticated, HasPermission]
+    pagination_class = StandardResultsSetPagination
     action_permissions = {
         "list": grading.VIEW_EVALUATION_MACRO,
         "retrieve": grading.VIEW_EVALUATION_MACRO,
@@ -273,12 +220,23 @@ class EvaluationMacroViewSet(viewsets.ModelViewSet):
     }
 
     def get_queryset(self):
-        return EvaluationMacro.objects.all().select_related("academic_period")
+        return EvaluationBlock.objects.all().select_related("academic_period")
 
 
-class EvaluationCriteriaViewSet(viewsets.ModelViewSet):
-    serializer_class = EvaluationCriteriaSerializer
+@extend_schema_view(
+    list=extend_schema(summary="Listar componentes de bloque", tags=["grading"]),
+    retrieve=extend_schema(summary="Obtener componente de bloque", tags=["grading"]),
+    create=extend_schema(summary="Crear componente de bloque", tags=["grading"]),
+    update=extend_schema(summary="Actualizar componente de bloque", tags=["grading"]),
+    partial_update=extend_schema(
+        summary="Actualizar componente parcialmente", tags=["grading"]
+    ),
+    destroy=extend_schema(summary="Eliminar componente de bloque", tags=["grading"]),
+)
+class BlockComponentViewSet(viewsets.ModelViewSet):
+    serializer_class = BlockComponentSerializer
     permission_classes = [IsAuthenticated, HasPermission]
+    pagination_class = StandardResultsSetPagination
     action_permissions = {
         "list": grading.VIEW_EVALUATION_CRITERIA,
         "retrieve": grading.VIEW_EVALUATION_CRITERIA,
@@ -289,12 +247,23 @@ class EvaluationCriteriaViewSet(viewsets.ModelViewSet):
     }
 
     def get_queryset(self):
-        return EvaluationCriteria.objects.all().select_related("evaluation_macro")
+        return BlockComponent.objects.all().select_related("evaluation_block")
 
 
-class EvaluationSubcriteriaViewSet(viewsets.ModelViewSet):
-    serializer_class = EvaluationSubcriteriaSerializer
+@extend_schema_view(
+    list=extend_schema(summary="Listar indicadores", tags=["grading"]),
+    retrieve=extend_schema(summary="Obtener indicador", tags=["grading"]),
+    create=extend_schema(summary="Crear indicador", tags=["grading"]),
+    update=extend_schema(summary="Actualizar indicador", tags=["grading"]),
+    partial_update=extend_schema(
+        summary="Actualizar indicador parcialmente", tags=["grading"]
+    ),
+    destroy=extend_schema(summary="Eliminar indicador", tags=["grading"]),
+)
+class ComponentIndicatorViewSet(viewsets.ModelViewSet):
+    serializer_class = ComponentIndicatorSerializer
     permission_classes = [IsAuthenticated, HasPermission]
+    pagination_class = StandardResultsSetPagination
     action_permissions = {
         "list": grading.VIEW_EVALUATION_SUBCRITERIA,
         "retrieve": grading.VIEW_EVALUATION_SUBCRITERIA,
@@ -305,12 +274,23 @@ class EvaluationSubcriteriaViewSet(viewsets.ModelViewSet):
     }
 
     def get_queryset(self):
-        return EvaluationSubcriteria.objects.all().select_related("evaluation_criteria")
+        return ComponentIndicator.objects.all().select_related("block_component")
 
 
-class ClassAssignmentViewSet(viewsets.ModelViewSet):
-    serializer_class = ClassAssignmentSerializer
+@extend_schema_view(
+    list=extend_schema(summary="Listar actividades evaluativas", tags=["grading"]),
+    retrieve=extend_schema(summary="Obtener actividad evaluativa", tags=["grading"]),
+    create=extend_schema(summary="Crear actividad evaluativa", tags=["grading"]),
+    update=extend_schema(summary="Actualizar actividad evaluativa", tags=["grading"]),
+    partial_update=extend_schema(
+        summary="Actualizar actividad parcialmente", tags=["grading"]
+    ),
+    destroy=extend_schema(summary="Eliminar actividad evaluativa", tags=["grading"]),
+)
+class EvaluativeActivityViewSet(viewsets.ModelViewSet):
+    serializer_class = EvaluativeActivitySerializer
     permission_classes = [IsAuthenticated, HasPermission]
+    pagination_class = StandardResultsSetPagination
     action_permissions = {
         "list": grading.VIEW_CLASS_ASSIGNMENT,
         "retrieve": grading.VIEW_CLASS_ASSIGNMENT,
@@ -321,11 +301,15 @@ class ClassAssignmentViewSet(viewsets.ModelViewSet):
     }
 
     def get_queryset(self):
-        return ClassAssignment.objects.all().select_related(
-            "evaluation_subcriteria", "teacher_subject_section"
+        return EvaluativeActivity.objects.all().select_related(
+            "component_indicator", "teacher_subject_section"
         )
 
 
+@extend_schema_view(
+    list=extend_schema(summary="Listar historial de cambios", tags=["grading"]),
+    retrieve=extend_schema(summary="Obtener cambio de nota", tags=["grading"]),
+)
 class GradeChangeHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = GradeChangeHistorySerializer
     permission_classes = [IsAuthenticated, HasPermission]
@@ -338,3 +322,105 @@ class GradeChangeHistoryViewSet(viewsets.ReadOnlyModelViewSet):
         return GradeChangeHistory.objects.all().select_related(
             "student_note", "modified_by_user"
         )
+
+
+@extend_schema_view(
+    list=extend_schema(summary="Listar resúmenes de notas", tags=["grading"]),
+    retrieve=extend_schema(summary="Obtener resumen de notas", tags=["grading"]),
+    create=extend_schema(summary="Crear resumen de notas", tags=["grading"]),
+    update=extend_schema(summary="Actualizar resumen de notas", tags=["grading"]),
+    partial_update=extend_schema(
+        summary="Actualizar resumen parcialmente", tags=["grading"]
+    ),
+    destroy=extend_schema(summary="Eliminar resumen de notas", tags=["grading"]),
+)
+class PeriodGradeSummaryViewSet(viewsets.ModelViewSet):
+    queryset = PeriodGradeSummary.objects.all().order_by("-id")
+    serializer_class = PeriodGradeSummarySerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = [IsAuthenticated, HasPermission]
+    action_permissions = {
+        "list": grading.VIEW_GRADE_SUMMARY,
+        "retrieve": grading.VIEW_GRADE_SUMMARY,
+        "create": grading.CREATE_GRADE_SUMMARY,
+        "update": grading.UPDATE_GRADE_SUMMARY,
+        "partial_update": grading.UPDATE_GRADE_SUMMARY,
+        "destroy": grading.DELETE_GRADE_SUMMARY,
+    }
+
+
+@extend_schema_view(
+    list=extend_schema(summary="Listar procesos de recuperación", tags=["grading"]),
+    retrieve=extend_schema(summary="Obtener proceso de recuperación", tags=["grading"]),
+    create=extend_schema(summary="Crear proceso de recuperación", tags=["grading"]),
+    update=extend_schema(
+        summary="Actualizar proceso de recuperación", tags=["grading"]
+    ),
+    partial_update=extend_schema(
+        summary="Actualizar proceso parcialmente", tags=["grading"]
+    ),
+    destroy=extend_schema(summary="Eliminar proceso de recuperación", tags=["grading"]),
+)
+class RecoveryProcessViewSet(viewsets.ModelViewSet):
+    queryset = RecoveryProcess.objects.all()
+    serializer_class = RecoveryProcessSerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = [IsAuthenticated, HasPermission]
+    action_permissions = {
+        "list": grading.VIEW_RECOVERY_PROCESS,
+        "retrieve": grading.VIEW_RECOVERY_PROCESS,
+        "create": grading.CREATE_RECOVERY_PROCESS,
+        "update": grading.UPDATE_RECOVERY_PROCESS,
+        "partial_update": grading.UPDATE_RECOVERY_PROCESS,
+        "destroy": grading.DELETE_RECOVERY_PROCESS,
+    }
+
+
+@extend_schema_view(
+    list=extend_schema(summary="Listar evaluaciones diagnósticas", tags=["grading"]),
+    retrieve=extend_schema(summary="Obtener evaluación diagnóstica", tags=["grading"]),
+    create=extend_schema(summary="Crear evaluación diagnóstica", tags=["grading"]),
+    update=extend_schema(summary="Actualizar evaluación diagnóstica", tags=["grading"]),
+    partial_update=extend_schema(
+        summary="Actualizar evaluación parcialmente", tags=["grading"]
+    ),
+    destroy=extend_schema(summary="Eliminar evaluación diagnóstica", tags=["grading"]),
+)
+class DiagnosticEvaluationViewSet(viewsets.ModelViewSet):
+    queryset = DiagnosticEvaluation.objects.all()
+    serializer_class = DiagnosticEvaluationSerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = [IsAuthenticated, HasPermission]
+    action_permissions = {
+        "list": grading.VIEW_DIAGNOSTIC_EVALUATION,
+        "retrieve": grading.VIEW_DIAGNOSTIC_EVALUATION,
+        "create": grading.CREATE_DIAGNOSTIC_EVALUATION,
+        "update": grading.UPDATE_DIAGNOSTIC_EVALUATION,
+        "partial_update": grading.UPDATE_DIAGNOSTIC_EVALUATION,
+        "destroy": grading.DELETE_DIAGNOSTIC_EVALUATION,
+    }
+
+
+@extend_schema_view(
+    list=extend_schema(summary="Listar notas de proyecto", tags=["grading"]),
+    retrieve=extend_schema(summary="Obtener nota de proyecto", tags=["grading"]),
+    create=extend_schema(summary="Crear nota de proyecto", tags=["grading"]),
+    update=extend_schema(summary="Actualizar nota de proyecto", tags=["grading"]),
+    partial_update=extend_schema(
+        summary="Actualizar nota parcialmente", tags=["grading"]
+    ),
+    destroy=extend_schema(summary="Eliminar nota de proyecto", tags=["grading"]),
+)
+class ProjectNoteViewSet(viewsets.ModelViewSet):
+    queryset = ProjectNote.objects.all().order_by("-id")
+    serializer_class = ProjectNoteSerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = [IsAuthenticated, HasPermission]
+    action_permissions = {
+        "list": grading.VIEW_PROJECT_NOTE,
+        "retrieve": grading.VIEW_PROJECT_NOTE,
+        "create": grading.CREATE_PROJECT_NOTE,
+        "update": grading.UPDATE_PROJECT_NOTE,
+        "partial_update": grading.UPDATE_PROJECT_NOTE,
+        "destroy": grading.DELETE_PROJECT_NOTE,
+    }

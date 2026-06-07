@@ -4,9 +4,9 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
+from apps.institutions.models import Section
 from apps.academic.models import (
     Academic_Period,
-    Section,
     Subject,
     SubjectAcademicConfig,
     SubjectOffering,
@@ -16,17 +16,18 @@ from apps.accounts.models import Role, User
 from apps.core.tests.helpers import create_test_user, create_test_student
 from apps.analytics.models import StudentFeatureSnapshot, StudentRiskScore
 from apps.analytics.services.feature_builder import AcademicRiskFeatureBuilder
-from apps.analytics.tasks import calculate_academic_risk, calculate_student_academic_risk_task
+from apps.analytics.tasks import (
+    calculate_academic_risk,
+    calculate_student_academic_risk_task,
+)
 from apps.grading.models import (
-    Attendance,
-    AttendanceStatus,
-    ClassAssignment,
-    ConductIncident,
-    EvaluationCriteria,
-    EvaluationMacro,
-    EvaluationSubcriteria,
+    BlockComponent,
+    ComponentIndicator,
+    EvaluationBlock,
+    EvaluativeActivity,
     StudentNote,
 )
+from apps.attendance.models import Attendance, AttendanceStatus, ConductIncident, IncidentType
 from apps.institutions.models import AcademicLevel, AcademicGrade, School_Year
 from apps.students.models import Enrollment, EnrollmentStatus, Student
 
@@ -66,15 +67,19 @@ class AcademicRiskModelTest(TestCase):
             last_names="Perez",
         )
         subj_config = SubjectAcademicConfig.objects.create(
-            subject=self.subject, academic_grade=self.academic_grade,
-            weekly_hours=5, pedagogical_order=1,
+            subject=self.subject,
+            academic_grade=self.academic_grade,
+            weekly_hours=5,
+            pedagogical_order=1,
         )
         offering = SubjectOffering.objects.create(
-            school_year=self.school_year, section=self.section,
+            school_year=self.school_year,
+            section=self.section,
             subject_academic_config=subj_config,
         )
         self.teacher_subject_section = Teacher_Subject_Section.objects.create(
-            user=self.teacher, subject_offering=offering,
+            user=self.teacher,
+            subject_offering=offering,
         )
         self.student = create_test_student(
             document_number="0912345678",
@@ -89,36 +94,46 @@ class AcademicRiskModelTest(TestCase):
         self.enrollment = Enrollment.objects.create(
             student=self.student,
             section=self.section,
+            school_year=self.school_year,
             enrollment_status=status,
         )
         self.attendance_statuses = {}
-        for code, name in [("P","Presente"),("A","Ausente"),("T","Tardanza"),("J","Justificado")]:
-            s, _ = AttendanceStatus.objects.get_or_create(code=code, defaults={"name": name})
+        for code, name in [
+            ("P", "Presente"),
+            ("A", "Ausente"),
+            ("T", "Tardanza"),
+            ("J", "Justificado"),
+        ]:
+            s, _ = AttendanceStatus.objects.get_or_create(
+                code=code, defaults={"name": name}
+            )
             self.attendance_statuses[code] = s
 
-        self.exam = self._create_class_assignment("Examen parcial", 10)
-        self.homework = self._create_class_assignment("Tarea 1", 10)
+        self.exam = self._create_evaluative_activity("Examen parcial", 10)
+        self.homework = self._create_evaluative_activity("Tarea 1", 10)
 
-    def _create_class_assignment(self, title, max_score=10):
-        macro = EvaluationMacro.objects.create(
+    def _create_evaluative_activity(self, title, max_score=10):
+        block = EvaluationBlock.objects.create(
             academic_period=self.period,
-            name=f"Macro-{title}",
+            name=f"Bloque-{title}",
+            evaluation_type="FORMATIVA",
             weight_percentage=Decimal("100.00"),
         )
-        criteria = EvaluationCriteria.objects.create(
-            evaluation_macro=macro,
-            name=f"Criterio-{title}",
+        component = BlockComponent.objects.create(
+            evaluation_block=block,
+            name=f"Componente-{title}",
             internal_weight=Decimal("100.00"),
         )
-        subcriteria = EvaluationSubcriteria.objects.create(
-            evaluation_criteria=criteria,
-            name=f"Subcriterio-{title}",
+        indicator = ComponentIndicator.objects.create(
+            block_component=component,
+            name=f"Indicador-{title}",
             internal_weight=Decimal("100.00"),
         )
-        return ClassAssignment.objects.create(
-            evaluation_subcriteria=subcriteria,
+        return EvaluativeActivity.objects.create(
+            component_indicator=indicator,
             teacher_subject_section=self.teacher_subject_section,
             title=title,
+            activity_type="EXAMEN",
             max_score=Decimal(str(max_score)),
             due_date=date(2026, 2, 1),
         )
@@ -134,10 +149,10 @@ class AcademicRiskModelTest(TestCase):
                 attendance_status=self.attendance_statuses.get(status),
             )
 
-    def _create_note(self, class_assignment, value):
+    def _create_note(self, evaluative_activity, value):
         StudentNote.objects.create(
             enrollment=self.enrollment,
-            class_assignment=class_assignment,
+            evaluative_activity=evaluative_activity,
             numeric_score=Decimal(str(value)),
         )
 
@@ -176,14 +191,15 @@ class AcademicRiskModelTest(TestCase):
         }
 
     def test_feature_builder_creates_complete_snapshot(self):
+        inc_type = IncidentType.objects.create(code="disciplina", name="Disciplina")
         self._create_attendance_sequence(["P", "P", "A", "J", "T"])
         self._create_note(self.exam, 8)
         ConductIncident.objects.create(
             enrollment=self.enrollment,
             reported_by_user=self.teacher,
             academic_period=self.period,
+            incident_type=inc_type,
             incident_date=date(2026, 1, 20),
-            category="disciplina",
             severity=1,
             description="Llega sin materiales",
             family_notified=True,
@@ -194,17 +210,27 @@ class AcademicRiskModelTest(TestCase):
         self.assertEqual(snapshot["estudiante_id"], str(self.student.id))
         self.assertEqual(snapshot["variables"]["conducta"]["faltas_leves"], 1)
         self.assertEqual(snapshot["variables"]["asistencia"]["total_faltas"], 2)
-        self.assertEqual(snapshot["variables"]["asistencia"]["porcentaje_asistencia"], 40.0)
-        self.assertEqual(snapshot["variables"]["calificaciones"]["promedio_actual"], 8.0)
+        self.assertEqual(
+            snapshot["variables"]["asistencia"]["porcentaje_asistencia"], 40.0
+        )
+        self.assertEqual(
+            snapshot["variables"]["calificaciones"]["promedio_actual"], 8.0
+        )
         self.assertEqual(snapshot["variables"]["calificaciones"]["ultimo_examen"], 8.0)
 
     def test_feature_builder_imputes_missing_data(self):
         snapshot = AcademicRiskFeatureBuilder(self.student.id, self.period.id).build()
 
         self.assertEqual(snapshot["variables"]["conducta"]["faltas_graves"], 0)
-        self.assertEqual(snapshot["variables"]["asistencia"]["porcentaje_asistencia"], 0)
-        self.assertEqual(snapshot["variables"]["calificaciones"]["promedio_actual"], 0.0)
-        self.assertEqual(snapshot["variables"]["calificaciones"]["tareas_pendientes"], 0)
+        self.assertEqual(
+            snapshot["variables"]["asistencia"]["porcentaje_asistencia"], 0
+        )
+        self.assertEqual(
+            snapshot["variables"]["calificaciones"]["promedio_actual"], 0.0
+        )
+        self.assertEqual(
+            snapshot["variables"]["calificaciones"]["tareas_pendientes"], 0
+        )
 
     def test_risk_rules_red_by_low_attendance(self):
         snapshot = self._base_snapshot()
@@ -251,7 +277,9 @@ class AcademicRiskModelTest(TestCase):
         result = calculate_student_academic_risk_task(self.student.id, self.period.id)
 
         self.assertEqual(result["semaforo_riesgo"]["nivel"], "verde")
-        self.assertTrue(StudentFeatureSnapshot.objects.filter(student=self.student).exists())
-        self.assertTrue(StudentRiskScore.objects.filter(student=self.student).exists())
+        self.assertTrue(
+            StudentFeatureSnapshot.objects.filter(enrollment__student=self.student).exists()
+        )
+        self.assertTrue(StudentRiskScore.objects.filter(enrollment__student=self.student).exists())
         self.assertNotIn("model_version", result)
         mocked_predict.assert_called_once()

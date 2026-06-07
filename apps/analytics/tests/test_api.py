@@ -3,7 +3,8 @@ from rest_framework import status
 from datetime import date
 from decimal import Decimal
 from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year
-from apps.academic.models import Academic_Period, Section
+from apps.institutions.models import Section
+from apps.academic.models import Academic_Period
 from apps.students.models import Student
 from apps.accounts.models import Role, User
 from apps.core.tests.helpers import create_test_user, create_test_student
@@ -41,8 +42,15 @@ class StudentRiskAPITest(APITestCase):
             last_names="Perez",
             birth_date=date(2012, 5, 15),
         )
-        self.risk = StudentRiskScore.objects.create(
+        from apps.students.models import EnrollmentStatus, Enrollment
+        act_status, _ = EnrollmentStatus.objects.get_or_create(code="ACT", defaults={"name": "Activa"})
+        self.enrollment = Enrollment.objects.create(
             student=self.student,
+            section=self.section,
+            enrollment_status=act_status,
+        )
+        self.risk = StudentRiskScore.objects.create(
+            enrollment=self.enrollment,
             academic_period=self.period,
             risk_score=Decimal("75.50"),
             risk_label="Alto",
@@ -110,13 +118,21 @@ class FeatureSnapshotAPITest(APITestCase):
             last_names="Lopez",
             birth_date=date(2012, 3, 10),
         )
-        self.snapshot = StudentFeatureSnapshot.objects.create(
+        from apps.students.models import EnrollmentStatus, Enrollment
+        act_status, _ = EnrollmentStatus.objects.get_or_create(code="ACT", defaults={"name": "Activa"})
+        self.enrollment = Enrollment.objects.create(
             student=self.student,
+            section=self.section,
+            enrollment_status=act_status,
+        )
+        self.snapshot = StudentFeatureSnapshot.objects.create(
+            enrollment=self.enrollment,
             academic_period=self.period,
             attendance_rate=Decimal("85.00"),
             consecutive_absences_max=3,
             tardiness_count=5,
-            avg_grade_normalized=Decimal("7.50"),
+            formative_avg_normalized=Decimal("7.50"),
+            summative_avg_normalized=Decimal("7.50"),
             grade_trend_slope=Decimal("-0.10"),
             failing_subjects_count=2,
             conduct_score=Decimal("8.00"),

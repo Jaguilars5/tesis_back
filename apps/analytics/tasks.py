@@ -320,6 +320,27 @@ def _score_for_label(label):
     return 20
 
 
+@shared_task(bind=True)
+def batch_calculate_academic_risk(self, academic_period_id, student_ids):
+    total = len(student_ids)
+    results = {"total": total, "processed": 0, "failed": 0, "errors": []}
+
+    for student_id in student_ids:
+        try:
+            calculate_student_academic_risk_task(student_id, academic_period_id)
+            results["processed"] += 1
+        except Exception as exc:
+            results["failed"] += 1
+            results["errors"].append({"student_id": student_id, "error": str(exc)})
+            logger.error("Error calculando riesgo para estudiante %s: %s", student_id, exc)
+
+    logger.info(
+        "Batch risk calculation completed: %d/%d processed, %d failed (task_id=%s)",
+        results["processed"], total, results["failed"], getattr(self.request, "id", None),
+    )
+    return results
+
+
 def _feature_vector(snapshot):
     variables = snapshot["variables"]
     conducta = variables["conducta"]

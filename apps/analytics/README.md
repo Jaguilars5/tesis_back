@@ -1,198 +1,198 @@
-# Módulo `analytics` — Procesamiento de Datos y Riesgo
+# Módulo `analytics` — Procesamiento de Datos y Riesgo Académico
 
-Este módulo se encarga del análisis de datos académicos y disciplinarios para generar perfiles de riesgo y snapshots de métricas, permitiendo la identificación temprana de estudiantes que requieren intervención.
-
-Su diseño utiliza un motor de procesamiento que captura el estado del estudiante en momentos específicos para facilitar el seguimiento histórico.
+El módulo `analytics` se encarga del análisis de datos académicos, de asistencia y disciplinarios del sistema para generar instantáneas históricas de métricas y calcular perfiles de riesgo en tiempo real. Adicionalmente, cuenta con un sistema de alertas tempranas para facilitar las intervenciones tempranas por parte de docentes, psicólogos e inspectores.
 
 ---
 
-## Estructura del Módulo
+## 🏛️ Arquitectura del Módulo
+
+El módulo sigue la arquitectura en capas estándar del sistema:
 
 ```
 analytics/
-├── models/         # Scores de riesgo y snapshots de variables
-├── repositories/   # Consultas de alta prioridad y tendencias
-├── services/       # Lógica de cálculo de perfiles de riesgo
-├── api/            # Endpoints para consulta de métricas
-└── tests/          # Validación de algoritmos de score
+├── models/         # Definición de esquemas de BD (Riesgos, Snapshots y Alertas)
+├── repositories/   # Encapsulamiento de queries complejas y ordenamiento ORM
+├── services/       # Algoritmos de cálculo de riesgo y orquestación del motor ML/Reglas
+├── api/            # Serializadores y ViewSets de Django REST Framework (DRF)
+└── tests/          # Suite de pruebas unitarias e integración de cobertura de brechas
 ```
 
 ---
 
-## Modelos de Datos
+## 🗃️ Modelos de Datos Factibles
 
-### RiskFactor (Factor de Riesgo)
-Catálogo de factores de riesgo.
+### 1. `RiskFactor` (Factor de Riesgo)
 
-| Campo | Tipo | Descripción |
-|-------|------|-------------|
-| `code` | CharField (30) | Código único |
-| `name` | CharField (100) | Nombre |
-| `description` | TextField | Descripción |
+Catálogo maestro de factores de riesgo definidos a nivel del sistema.
 
-### StudentFeatureSnapshot (Instantánea de Métricas)
-Métricas de un estudiante para un período específico.
+| Campo         | Tipo Django      | Descripción                                     |
+| :------------ | :--------------- | :---------------------------------------------- |
+| `code`        | `CharField(30)`  | Código único identificador (ej: `ABSENTEEISM`). |
+| `name`        | `CharField(100)` | Nombre descriptivo del factor.                  |
+| `description` | `TextField`      | Explicación del comportamiento o causa.         |
 
-| Campo | Tipo | Descripción |
-|-------|------|-------------|
-| `student` | ForeignKey (Student) | Estudiante |
-| `academic_period` | ForeignKey (Academic_Period) | Período académico |
-| `attendance_rate` | DecimalField | Tasa de asistencia (0-1) |
-| `consecutive_absences_max` | IntegerField | Máximo de faltas consecutivas |
-| `tardiness_count` | IntegerField | Cantidad de atrasos |
-| `avg_grade_normalized` | DecimalField | Promedio normalizado (base 10) |
-| `grade_trend_slope` | DecimalField | Tendencia de notas |
-| `failing_subjects_count` | IntegerField | Materias reprobadas |
-| `conduct_score` | DecimalField | Puntaje de conducta |
-| `family_notified_ratio` | DecimalField | Ratio de notificación familiar |
-| `prev_period_avg_grade` | DecimalField | Promedio período anterior |
-| `age_grade_gap` | IntegerField | Brecha edad-grado |
-| `calculated_at` | DateTimeField | Fecha de cálculo |
+### 2. `StudentFeatureSnapshot` (Instantánea de Métricas)
 
-### StudentRiskScore (Puntaje de Riesgo)
-Puntuación de riesgo calculada para un estudiante.
+Captura el estado de las variables críticas de un estudiante para un periodo académico específico.
 
-| Campo | Tipo | Descripción |
-|-------|------|-------------|
-| `student` | ForeignKey (Student) | Estudiante |
-| `academic_period` | ForeignKey (Academic_Period) | Período académico |
-| `risk_score` | DecimalField | Puntaje de riesgo |
-| `risk_label` | CharField (20) | Etiqueta de riesgo |
-| `model_version` | CharField (50) | Versión del modelo |
-| `calculated_at` | DateTimeField | Fecha de cálculo |
+| Campo                      | Tipo Django     | Relación / Significado                                                 |
+| :------------------------- | :-------------- | :--------------------------------------------------------------------- |
+| `enrollment`               | `ForeignKey`    | `students.Enrollment` (Matrícula del estudiante).                      |
+| `academic_period`          | `ForeignKey`    | `academic.Academic_Period` (Periodo correspondiente).                  |
+| `attendance_rate`          | `DecimalField`  | Tasa de asistencia general (`0.00` a `100.00`).                        |
+| `consecutive_absences_max` | `IntegerField`  | Pico máximo de faltas seguidas en el periodo.                          |
+| `tardiness_count`          | `IntegerField`  | Contador acumulado de atrasos injustificados.                          |
+| `justified_absences`       | `IntegerField`  | Total de inasistencias justificadas.                                   |
+| `unjustified_absences`     | `IntegerField`  | Total de inasistencias injustificadas.                                 |
+| `formative_avg_normalized` | `DecimalField`  | Promedio de notas formativas normalizado sobre 10.                     |
+| `summative_avg_normalized` | `DecimalField`  | Promedio de notas sumativas normalizado sobre 10.                      |
+| `grade_trend_slope`        | `DecimalField`  | Pendiente lineal de la tendencia académica actual.                     |
+| `failing_subjects_count`   | `IntegerField`  | Cantidad de asignaturas con promedio menor al mínimo aprobatorio.      |
+| `conduct_score`            | `DecimalField`  | Nota de conducta registrada en el periodo.                             |
+| `severe_incidents_count`   | `IntegerField`  | Cantidad de incidentes conductuales calificados como graves.           |
+| `family_notified_ratio`    | `DecimalField`  | Ratio de notificaciones enviadas y atendidas por los padres.           |
+| `prev_period_avg_grade`    | `DecimalField`  | Promedio general del periodo anterior (para tendencias inter-periodo). |
+| `age_grade_gap`            | `IntegerField`  | Brecha de edad del alumno en relación con su nivel escolar.            |
+| `is_repeat`                | `BooleanField`  | Indica si el alumno está repitiendo el grado.                          |
+| `has_special_needs`        | `BooleanField`  | Registra si cuenta con necesidades educativas especiales (NEE).        |
+| `residential_zone`         | `CharField`     | Ubicación o sector geográfico de residencia.                           |
+| `distance_to_school_km`    | `DecimalField`  | Distancia en kilómetros hasta el centro educativo.                     |
+| `active_alerts`            | `IntegerField`  | Cantidad de alertas tempranas activas asociadas.                       |
+| `calculated_at`            | `DateTimeField` | Timestamp de inserción automática del registro de snapshot.            |
 
-### StudentRiskFactor (Factor de Riesgo del Estudiante)
-Asociación entre puntaje de riesgo y factor.
+### 3. `StudentRiskScore` (Puntaje de Riesgo del Estudiante)
 
-| Campo | Tipo | Descripción |
-|-------|------|-------------|
-| `student_risk_score` | ForeignKey (StudentRiskScore) | Puntaje de riesgo |
-| `risk_factor` | ForeignKey (RiskFactor) | Factor de riesgo |
-| `contribution_weight` | DecimalField | Peso de contribución (%) |
+Puntuación de riesgo acumulada ponderada calculada por el motor de inferencia analítica.
 
----
+| Campo             | Tipo Django     | Relación / Significado                                       |
+| :---------------- | :-------------- | :----------------------------------------------------------- |
+| `enrollment`      | `ForeignKey`    | `students.Enrollment` (Matrícula del estudiante).            |
+| `academic_period` | `ForeignKey`    | `academic.Academic_Period` (Periodo correspondiente).        |
+| `risk_score`      | `DecimalField`  | Puntaje numérico calculado (`0.00` a `100.00`).              |
+| `risk_label`      | `CharField(20)` | Nivel semafórico resultante: `"bajo"`, `"medio"` o `"alto"`. |
+| `model_version`   | `CharField(50)` | Versión del modelo matemático/ML utilizado para el cálculo.  |
+| `calculated_at`   | `DateTimeField` | Fecha y hora en que se calculó e ingresó el puntaje.         |
 
-## Capa de Servicios
+### 4. `StudentRiskFactor` (Factor de Riesgo Activo del Estudiante)
 
-### AnalyticsService (Orquestador)
+Detalle explicativo que asocia un puntaje de riesgo determinado con los factores gatillantes de dicho estado.
 
-- `get_student_risk_profile`: Genera un reporte consolidado que incluye el puntaje de riesgo más reciente del estudiante y la instantánea (snapshot) de métricas académicas utilizadas para dicho cálculo.
-- `list_priority_students`: Proporciona una lista de estudiantes ordenados por nivel de criticidad (riesgo alto), permitiendo a las instituciones priorizar sus intervenciones pedagógicas.
+| Campo                 | Tipo Django    | Relación / Significado                                                    |
+| :-------------------- | :------------- | :------------------------------------------------------------------------ |
+| `student_risk_score`  | `ForeignKey`   | `StudentRiskScore` (Puntaje de riesgo asociado).                          |
+| `risk_factor`         | `ForeignKey`   | `RiskFactor` (Factor de riesgo identificado).                             |
+| `contribution_weight` | `DecimalField` | Grado de influencia del factor en el cálculo final (`0.00%` a `100.00%`). |
 
----
+### 5. `EarlyAlert` (Alerta Temprana)
 
-## Endpoints
+Alertas generadas automáticamente por el motor analítico o manualmente por docentes para gatillar flujos de atención y apoyo psicopedagógico.
 
-### StudentRiskScore
-
-| Método | Endpoint | Descripción | Permiso |
-|--------|----------|-------------|---------|
-| GET | `/api/analytics/student-risk-scores/` | Listar puntajes de riesgo | analytics.view_risk_score |
-| GET | `/api/analytics/student-risk-scores/{id}/` | Detalle | analytics.view_risk_score |
-
-### StudentFeatureSnapshot
-
-| Método | Endpoint | Descripción | Permiso |
-|--------|----------|-------------|---------|
-| GET | `/api/analytics/feature-snapshots/` | Listar snapshots | analytics.view_feature_snapshot |
-| GET | `/api/analytics/feature-snapshots/{id}/` | Detalle | analytics.view_feature_snapshot |
-
-### StudentRiskFactor
-
-| Método | Endpoint | Descripción | Permiso |
-|--------|----------|-------------|---------|
-| GET | `/api/analytics/student-risk-factors/` | Listar factores | analytics.view_risk_factor |
-| GET | `/api/analytics/student-risk-factors/{id}/` | Detalle | analytics.view_risk_factor |
-
-### RiskFactor
-
-| Método | Endpoint | Descripción | Permiso |
-|--------|----------|-------------|---------|
-| GET | `/api/analytics/risk-factors/` | Listar factores | analytics.view_risk_factor |
-| POST | `/api/analytics/risk-factors/` | Crear factor | analytics.create_risk_factor |
+| Campo              | Tipo Django     | Relación / Significado                                                                                        |
+| :----------------- | :-------------- | :------------------------------------------------------------------------------------------------------------ |
+| `enrollment`       | `ForeignKey`    | `students.Enrollment` (Matrícula del estudiante).                                                             |
+| `academic_period`  | `ForeignKey`    | `academic.Academic_Period` (Periodo correspondiente).                                                         |
+| `alert_type`       | `CharField(50)` | Tipo de alerta: `"low_attendance"`, `"failing_grades"`, `"behavioral"`, `"dropout_risk"`, `"socioemotional"`. |
+| `description`      | `TextField`     | Justificación descriptiva del incidente o anomalía detectada.                                                 |
+| `urgency_level`    | `CharField(20)` | Criticidad inicial de la alerta: `"low"`, `"medium"`, `"high"`, `"critical"`.                                 |
+| `attended`         | `BooleanField`  | Flag que determina si ya recibió atención institucional (`True`/`False`).                                     |
+| `attended_by_user` | `ForeignKey`    | `accounts.User` (Docente, tutor o psicólogo que atendió el caso).                                             |
+| `detected_at`      | `DateTimeField` | Fecha de creación del registro.                                                                               |
+| `attended_at`      | `DateTimeField` | Fecha y hora en que se ejecutó la acción de atención de la alerta.                                            |
+| `response_actions` | `TextField`     | Detalle textual de las medidas y compromisos acordados al cerrar la alerta.                                   |
 
 ---
 
-## Seguridad
+## 🚦 Motor de Cálculo de Riesgo Académico (Reglas v1)
 
-### Autenticación y Permisos
+El motor combina el estado consolidado de la matrícula escolar del periodo a través de `AcademicRiskFeatureBuilder` y decide el puntaje de riesgo final basándose en reglas semafóricas o en un clasificador supervisado ML.
 
-Todos los endpoints requieren:
-1. Header `Authorization: Bearer <token>`
-2. Permiso específico del usuario
+### Reglas Semafóricas del Semáforo de Riesgo (Lógica del Fallback)
 
-### Permisos por modelo
+Si no se encuentra cargado el modelo clasificador ML en formato `risk_model.joblib`, se activa el cálculo determinista por regla de umbrales prioritarios:
 
-| Modelo | Ver |
-|--------|-----|
-| StudentRiskScore | analytics.view_risk_score |
-| StudentFeatureSnapshot | analytics.view_feature_snapshot |
+1.  🔴 **Rojo (Riesgo Alto)**:
+    - Tasa de asistencia inferior al **70%**.
+    - **O** Promedio académico global formativo o sumativo inferior a **6.0 / 10.0**.
+    - **O** Presencia de **3 o más incidentes conductuales graves** registrados.
+2.  🟡 **Amarillo (Riesgo Medio)**:
+    - Tasa de asistencia situada entre **70%** y **85%**.
+    - **O** Promedio académico global situado entre **6.0** y **7.0 / 10.0**.
+    - **O** Presencia de **5 o más incidentes conductuales leves o moderados**.
+3.  🟢 **Verde (Riesgo Bajo)**:
+    - Tasa de asistencia superior al **85%**.
+    - **Y** Promedio académico global superior a **7.0 / 10.0**.
+    - **Y** Ningún incidente conductual de carácter grave registrado.
 
-Seedear permisos:
+### Algoritmo de Puntuación Numérica de Fallback (`0 - 100`)
+
+Cuando se calcula el puntaje numérico sin modelo ML, se aplica la siguiente ponderación matricial:
+$$\text{Score} = (100 - \text{Tasa de Asistencia}) \times 0.35 + (10 - \text{Nota Promedio}) \times 10 \times 0.35 + \min(\text{Incidentes} \times 10, 100) \times 0.30$$
+
+- **Asistencia**: Peso del $35\%$.
+- **Rendimiento Académico**: Peso del $35\%$.
+- **Conducta/Incidentes**: Peso del $30\%$.
+
+---
+
+## 🔌 API Endpoints y Mapeo de Permisos (RBAC)
+
+Todos los endpoints exigen autenticación por token JWT (`Authorization: Bearer <token>`) y están controlados de manera estricta por permisos de nivel de vista a través de la clase `HasPermission`.
+
+| Recurso REST                                      | Método   | Acción ViewSet  | Descripción                                           | Cód. Permiso Requerido               |
+| :------------------------------------------------ | :------- | :-------------- | :---------------------------------------------------- | :----------------------------------- |
+| `/api/analytics/student-risk-scores/`             | `GET`    | `list`          | Listar puntajes de riesgo (paginado)                  | `analytics.view_risk_score`          |
+| `/api/analytics/student-risk-scores/{id}/`        | `GET`    | `retrieve`      | Obtener detalle de un puntaje de riesgo               | `analytics.view_risk_score`          |
+| `/api/analytics/feature-snapshots/`               | `GET`    | `list`          | Listar snapshots históricas (paginado)                | `analytics.view_feature_snapshot`    |
+| `/api/analytics/feature-snapshots/{id}/`          | `GET`    | `retrieve`      | Obtener detalle de snapshot académica                 | `analytics.view_feature_snapshot`    |
+| `/api/analytics/risk-factors/`                    | `GET`    | `list`          | Listar catálogo de factores (sin paginar)             | `analytics.view_risk_factor`         |
+| `/api/analytics/risk-factors/{id}/`               | `GET`    | `retrieve`      | Ver detalle de factor de riesgo maestro               | `analytics.view_risk_factor`         |
+| `/api/analytics/student-risk-factors/`            | `GET`    | `list`          | Listar factores mapeados a alumnos (paginado)         | `analytics.view_student_risk_factor` |
+| `/api/analytics/student-risk-factors/{id}/`       | `GET`    | `retrieve`      | Detalle del factor de riesgo del alumno               | `analytics.view_student_risk_factor` |
+| `/api/analytics/early-alerts/`                    | `GET`    | `list`          | Listar alertas tempranas registradas (paginado)       | `analytics.view_earlyalert`          |
+| `/api/analytics/early-alerts/`                    | `POST`   | `create`        | Crear una nueva alerta (manual)                       | `analytics.create_earlyalert`        |
+| `/api/analytics/early-alerts/{id}/`               | `PUT`    | `update`        | Actualizar los campos generales de una alerta         | `analytics.update_earlyalert`        |
+| `/api/analytics/early-alerts/{id}/`               | `DELETE` | `destroy`       | Remover alerta del registro físico                    | `analytics.delete_earlyalert`        |
+| `/api/analytics/early-alerts/{id}/mark_attended/` | `POST`   | `mark_attended` | Acción custom para cerrar alerta con acciones tomadas | `analytics.update_earlyalert`        |
+
+---
+
+## Formato de Respuestas Enriquecidas
+
+Los serializers del módulo incluyen campos de solo lectura con los nombres relacionados a las ForeignKeys.
+
+| Serializer                         | Campos enriquecidos                                                |
+| ---------------------------------- | ------------------------------------------------------------------ |
+| `StudentRiskScoreSerializer`       | `enrollment_name`, `academic_period_name`                          |
+| `StudentFeatureSnapshotSerializer` | `enrollment_name`, `academic_period_name`                          |
+| `StudentRiskFactorSerializer`      | `risk_factor_name` (ya existente)                                  |
+| `EarlyAlertSerializer`             | `enrollment_name`, `academic_period_name`, `attended_by_user_name` |
+
+Ejemplo de respuesta en `EarlyAlert`:
+
+```json
+{
+  "id": 1,
+  "enrollment": 5,
+  "enrollment_name": "Juan Pérez - 5to EGB A (Activo)",
+  "academic_period": 1,
+  "academic_period_name": "Primer Trimestre",
+  "alert_type": "ACADEMIC",
+  "urgency_level": "HIGH",
+  "attended_by_user": 3,
+  "attended_by_user_name": "María López",
+  "description": "Bajo rendimiento en Matemáticas"
+}
+```
+
+---
+
+## 🧪 Suite de Pruebas de Integración y Calidad
+
+Para validar de manera confiable las políticas de control de acceso a nivel de fila (RLS), la denegación de accesos no autorizados (RBAC) y la integridad de las acciones específicas en bases de datos virtuales aisladas, ejecute la suite de pruebas mediante el comando recomendado del proyecto:
+
 ```bash
-python manage.py seed_permissions --module analytics
+python manage.py test apps.analytics --settings=config.settings.test
 ```
 
----
-
-## Pruebas
-
-```
-DJANGO_SETTINGS_MODULE=config.settings.test python manage.py test apps.analytics
-```
-
----
-
-## Modelo de Riesgo Academico
-
-El flujo v1 de riesgo academico se implementa dentro de `apps.analytics` y
-combina snapshots desde `grading`, reglas de negocio y un modelo ML opcional.
-
-### Construccion del snapshot
-
-`apps.analytics.services.feature_builder.AcademicRiskFeatureBuilder` construye
-el JSON de entrada del modelo usando datos de:
-
-- `StudentNote`: promedio actual, materias reprobadas y ultimo examen.
-- `Attendance`: porcentaje de asistencia, faltas justificadas, faltas
-  injustificadas, tardanzas y maximo de faltas consecutivas.
-- `ConductIncident`: faltas leves, moderadas, graves, observaciones recientes
-  y ratio de notificacion familiar.
-
-El builder tambien genera las metricas persistibles para
-`StudentFeatureSnapshot` y valida rangos basicos: asistencia `0-100`, notas
-`0-10` y contadores no negativos.
-
-### Calculo asincrono
-
-La task principal es:
-
-```python
-calculate_student_academic_risk_task.delay(student_id, academic_period_id)
-```
-
-Flujo:
-
-1. Construye snapshot.
-2. Persiste `StudentFeatureSnapshot`.
-3. Intenta cargar `apps/analytics/ml/risk_model.joblib`.
-4. Si el modelo no existe o falla, usa fallback de reglas + puntaje ponderado.
-5. Persiste `StudentRiskScore`.
-6. Retorna el JSON estandarizado de salida.
-
-### Reglas v1 del semaforo
-
-- `rojo`: asistencia menor a 70%, promedio menor a 6.0 o mas de 3 faltas graves.
-- `amarillo`: asistencia entre 70% y 85%, promedio entre 6.0 y 7.0 o mas de 5 faltas leves.
-- `verde`: asistencia mayor a 85%, promedio mayor a 7.0 y sin faltas graves.
-
-### Puntaje fallback
-
-Si no existe un modelo `.joblib`, el sistema calcula un puntaje `0-100` con:
-
-- Conducta: 30%.
-- Asistencia: 35%.
-- Calificaciones: 35%.
-
-El resultado mantiene explicabilidad mediante `factores_criticos`,
-`recomendaciones` y `detalle_por_variable`.
+> [!NOTE]
+> Las pruebas en entorno aislado emplean base de datos SQLite en memoria, Celery en modo asíncrono inmediato (`task_always_eager=True`) y hashing de contraseñas de velocidad acelerada (`MD5Hasher`).

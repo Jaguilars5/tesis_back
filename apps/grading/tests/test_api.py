@@ -5,7 +5,6 @@ from rest_framework.test import APITestCase
 
 from apps.academic.models import (
     Academic_Period,
-    Section,
     Subject,
     SubjectAcademicConfig,
     SubjectOffering,
@@ -14,11 +13,10 @@ from apps.academic.models import (
 from apps.accounts.models import Role, User
 from apps.core.tests.helpers import create_test_user, create_test_student
 from apps.grading.models import (
-    AttendanceStatus,
     GradeType,
     QualitativeScale,
 )
-from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year
+from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year, Section
 from apps.students.models import Enrollment, EnrollmentStatus, Student
 
 
@@ -61,15 +59,19 @@ class GradingAPITest(APITestCase):
         )
         self.client.force_authenticate(user=self.user)
         subj_config = SubjectAcademicConfig.objects.create(
-            subject=self.subject, academic_grade=self.academic_grade,
-            weekly_hours=5, pedagogical_order=1,
+            subject=self.subject,
+            academic_grade=self.academic_grade,
+            weekly_hours=5,
+            pedagogical_order=1,
         )
         offering = SubjectOffering.objects.create(
-            school_year=school_year, section=self.section,
+            school_year=school_year,
+            section=self.section,
             subject_academic_config=subj_config,
         )
         self.teacher_subject_section = Teacher_Subject_Section.objects.create(
-            user=self.user, subject_offering=offering,
+            user=self.user,
+            subject_offering=offering,
         )
         self.student = create_test_student(
             document_number="0912345678",
@@ -86,77 +88,12 @@ class GradingAPITest(APITestCase):
             section=self.section,
             enrollment_status=status,
         )
-        self.att_status = AttendanceStatus.objects.create(code="P", name="Presente")
 
         self.student_note_url = "/api/grading/student-notes/"
-        self.attendance_url = "/api/grading/attendance/"
-        self.conduct_url = "/api/grading/conduct-incidents/"
 
     def test_list_student_notes(self):
         response = self.client.get(self.student_note_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-    def test_create_attendance(self):
-        response = self.client.post(
-            self.attendance_url,
-            {
-                "enrollment": self.enrollment.id,
-                "teacher_subject_section": self.teacher_subject_section.id,
-                "academic_period": self.period.id,
-                "attendance_date": "2025-02-01",
-                "attendance_status": self.att_status.id,
-            },
-        )
-        self.assertIn(
-            response.status_code,
-            [status.HTTP_200_OK, status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST],
-        )
-
-    def test_create_conduct_incident(self):
-        response = self.client.post(
-            self.conduct_url,
-            {
-                "enrollment": self.enrollment.id,
-                "reported_by_user": self.user.id,
-                "academic_period": self.period.id,
-                "incident_date": "2025-02-01",
-                "category": "disciplina",
-                "severity": 3,
-            },
-        )
-        self.assertIn(
-            response.status_code,
-            [status.HTTP_200_OK, status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST],
-        )
-
-
-class AttendanceStatusAPITest(APITestCase):
-    def setUp(self):
-        self.role = Role.objects.create(name="Admin")
-        self.user = create_test_user(
-            email="attstatus@test.com",
-            dni="3030303030",
-            names="AttStatus",
-            last_names="Tester",
-            is_superuser=True,
-        )
-        self.client.force_authenticate(user=self.user)
-        AttendanceStatus.objects.create(code="P", name="Presente")
-        AttendanceStatus.objects.create(code="A", name="Ausente")
-        self.url = "/api/grading/attendance-statuses/"
-
-    def test_list(self):
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-    def test_retrieve(self):
-        obj = AttendanceStatus.objects.first()
-        response = self.client.get(f"{self.url}{obj.id}/")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-    def test_create_not_allowed(self):
-        response = self.client.post(self.url, {"code": "J", "name": "Justificado"})
-        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 class GradeTypeAPITest(APITestCase):

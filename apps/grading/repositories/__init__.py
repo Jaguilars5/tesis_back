@@ -1,6 +1,9 @@
 from .grading_repo import (
-    AttendanceRepository,
     BaseRepository,
-    ConductIncidentRepository,
     StudentNoteRepository,
 )
+from apps.attendance.repositories import (
+    AttendanceRepository,
+    ConductIncidentRepository,
+)
+

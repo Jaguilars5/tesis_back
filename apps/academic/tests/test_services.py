@@ -2,7 +2,8 @@ from django.test import TestCase
 from datetime import date
 from decimal import Decimal
 from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year
-from ..models import Section, Subject
+from apps.institutions.models import Section
+from ..models import Subject
 from ..services.academic_service import AcademicService
 
 
@@ -65,18 +66,14 @@ class AcademicServiceTest(TestCase):
 
     def test_get_subject(self):
         """Probar obtención de asignatura"""
-        subject = AcademicService.create_subject(
-            name="Matemática", code="MAT-002"
-        )
+        subject = AcademicService.create_subject(name="Matemática", code="MAT-002")
         retrieved = AcademicService.get_subject(subject.id)
         self.assertEqual(retrieved.id, subject.id)
 
     def test_update_subject(self):
         """Probar actualización de asignatura"""
-        subject = AcademicService.create_subject(
-            name="Matemática", code="MAT-003"
+        subject = AcademicService.create_subject(name="Matemática", code="MAT-003")
+        updated = AcademicService.update_subject(
+            subject.id, name="Matemáticas Avanzadas"
         )
-        updated = AcademicService.update_subject(subject.id, name="Matemáticas Avanzadas")
         self.assertEqual(updated.name, "Matemáticas Avanzadas")
-
-

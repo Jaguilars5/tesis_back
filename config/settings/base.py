@@ -19,6 +19,7 @@ load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = os.getenv("SECRET_KEY")
 if not SECRET_KEY:
     from django.core.exceptions import ImproperlyConfigured
+
     raise ImproperlyConfigured("SECRET_KEY environment variable is required")
 
 # ─── Aplicaciones ────────────────────────────────────────────────────────────
@@ -43,9 +44,9 @@ LOCAL_APPS = [
     "apps.academic",
     "apps.grading",
     "apps.institutions",
-    "apps.scheduling",
     "apps.students",
     "apps.analytics",
+    "apps.attendance",  # 🆕 Asistencia, conducta y socioemocional
 ]
 
 INSTALLED_APPS = DEFAULT_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -87,7 +88,9 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 # ─── Validación de contraseñas ────────────────────────────────────────────────
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
+    },
     {
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
         "OPTIONS": {"min_length": 12},
@@ -112,18 +115,17 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
-    "DEFAULT_PERMISSION_CLASSES": (
-        "rest_framework.permissions.IsAuthenticated",
-    ),
-    "DEFAULT_PAGINATION_CLASS": "apps.core.pagination.StandardResultsSetPagination",
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+    "DEFAULT_PAGINATION_CLASS": "apps.core.api.pagination.StandardResultsSetPagination",
     "DEFAULT_RENDERER_CLASSES": (
-        "apps.core.renderers.StandardResponseRenderer",
+        "apps.core.api.renderers.StandardResponseRenderer",
         "rest_framework.renderers.JSONRenderer",
         "rest_framework.renderers.BrowsableAPIRenderer",
     ),
     "DEFAULT_FILTER_BACKENDS": (
         "django_filters.rest_framework.DjangoFilterBackend",
         "rest_framework.filters.OrderingFilter",
+        "apps.core.api.filters.RoleBasedFilterBackend",
     ),
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
@@ -134,8 +136,8 @@ REST_FRAMEWORK = {
         "user": "1000/day",
         "login": "10/hour",
     },
-    "DEFAULT_SCHEMA_CLASS": "apps.core.schema.StandardResponseAutoSchema",
-    "EXCEPTION_HANDLER": "apps.core.exceptions.custom_exception_handler",
+    "DEFAULT_SCHEMA_CLASS": "apps.core.api.schema.StandardResponseAutoSchema",
+    "EXCEPTION_HANDLER": "apps.core.api.exceptions.custom_exception_handler",
 }
 
 # ─── DRF Spectacular (OpenAPI) ───────────────────────────────────────────────
@@ -171,12 +173,20 @@ Todas las respuestas siguen el formato:
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
     "TAGS": [
-        {"name": "accounts", "description": "Gesti\u00f3n de usuarios, roles y permisos"},
-        {"name": "institutions", "description": "Instituciones, a\u00f1os escolares y aulas"},
-        {"name": "academic", "description": "Secciones, materias, per\u00edodos y actividades"},
+        {
+            "name": "accounts",
+            "description": "Gesti\u00f3n de usuarios, roles y permisos",
+        },
+        {
+            "name": "institutions",
+            "description": "Instituciones, a\u00f1os escolares y aulas",
+        },
+        {
+            "name": "academic",
+            "description": "Secciones, materias, per\u00edodos y actividades",
+        },
         {"name": "students", "description": "Estudiantes y representantes"},
         {"name": "grading", "description": "Calificaciones, asistencia e incidentes"},
-        {"name": "scheduling", "description": "Horarios y disponibilidad docente"},
         {"name": "analytics", "description": "An\u00e1lisis de riesgo estudiantil"},
     ],
 }
@@ -205,9 +215,9 @@ SIMPLE_JWT = {
 
 
 # ─── CSRF ─────────────────────────────────────────────────────────────────────
-CSRF_TRUSTED_ORIGINS = os.getenv(
-    "CSRF_TRUSTED_ORIGINS", "http://localhost:3000"
-).split(",")
+CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "http://localhost:3000").split(
+    ","
+)
 
 # ─── Celery ──────────────────────────────────────────────────────────────────
 CELERY_TASK_SERIALIZER = "json"
@@ -216,3 +226,13 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
+
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    "process-pending-sync-items": {
+        "task": "apps.core.tasks.process_pending_sync_batch",
+        "schedule": 300.0,
+        "description": "Procesa items pendientes de SyncQueue cada 5 minutos",
+    },
+}

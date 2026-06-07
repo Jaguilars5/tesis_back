@@ -1,6 +1,6 @@
 # API - Módulo Institutions
 
-Esta API gestiona las entidades base del sistema: instituciones, años escolares y aulas.
+Esta API gestiona las entidades base del sistema: años escolares, tipos de documento, niveles académicos y grados.
 
 ---
 
@@ -21,403 +21,177 @@ Todas las peticiones siguen el formato estandarizado:
 ## Autenticación y Permisos
 
 Header requerido:
+
 ```
 Authorization: Bearer <access_token>
 ```
 
-Todos los ViewSets usan `HasPermission` con `action_permissions`. Ver tabla de permisos en `apps/institutions/README.md`.
-
----
-
-## Patrón de Endpoints
-
-El módulo `institutions` utiliza un patrón de endpoints fijos basados en acciones POST.
-
-### Instituciones (`/api/institutions/institution/`)
-
-#### Listar
-**POST** `/api/institutions/institution/list/`
-
-Response:
-```json
-{
-  "ok": true,
-  "data": [
-    {
-      "id": 1,
-      "name": "Colegio Nacional",
-      "code": "CN-001",
-      "city": "Quito"
-    }
-  ],
-  "msg": ""
-}
-```
-
-#### Obtener Detalle
-**POST** `/api/institutions/institution/get/`
-
-Request:
-```json
-{
-  "id": 1
-}
-```
-
-Response:
-```json
-{
-  "ok": true,
-  "data": {
-    "id": 1,
-    "name": "Colegio Nacional",
-    "code": "CN-001"
-  },
-  "msg": ""
-}
-```
-
-#### Agregar
-**POST** `/api/institutions/institution/add/`
-
-Request:
-```json
-{
-  "name": "Colegio Nacional",
-  "code": "CN-001",
-  "address": "Av. Amazonas",
-  "city": "Quito"
-}
-```
-
-Response:
-```json
-{
-  "ok": true,
-  "data": {
-    "id": 1,
-    "name": "Colegio Nacional"
-  },
-  "msg": ""
-}
-```
-
-#### Actualizar
-**POST** `/api/institutions/institution/update/`
-
-Request:
-```json
-{
-  "id": 1,
-  "name": "Nuevo Nombre"
-}
-```
-
-Response:
-```json
-{
-  "ok": true,
-  "data": {
-    "id": 1,
-    "name": "Nuevo Nombre"
-  },
-  "msg": ""
-}
-```
-
-#### Borrado Lógico
-**POST** `/api/institutions/institution/soft-delete/`
-
-Request:
-```json
-{
-  "id": 1
-}
-```
-
-Response:
-```json
-{
-  "ok": true,
-  "data": {
-    "id": 1,
-    "active": false
-  },
-  "msg": ""
-}
-```
+| Endpoint                | Método | Permiso                              |
+| ----------------------- | ------ | ------------------------------------ |
+| `school-year/`          | GET    | `institutions.view_school_year`      |
+| `school-year/`          | POST   | `institutions.create_school_year`    |
+| `school-year/{id}/`     | GET    | `institutions.view_school_year`      |
+| `school-year/{id}/`     | PATCH  | `institutions.update_school_year`    |
+| `school-year/{id}/`     | DELETE | `institutions.delete_school_year`    |
+| `document-types/`       | GET    | `institutions.view_document_type`    |
+| `document-types/{id}/`  | GET    | `institutions.view_document_type`    |
+| `academic-levels/`      | GET    | `institutions.view_academic_level`   |
+| `academic-levels/`      | POST   | `institutions.create_academic_level` |
+| `academic-levels/{id}/` | GET    | `institutions.view_academic_level`   |
+| `academic-levels/{id}/` | PATCH  | `institutions.update_academic_level` |
+| `academic-levels/{id}/` | DELETE | `institutions.delete_academic_level` |
+| `academic-grades/`      | GET    | `institutions.view_academic_grade`   |
+| `academic-grades/`      | POST   | `institutions.create_academic_grade` |
+| `academic-grades/{id}/` | GET    | `institutions.view_academic_grade`   |
+| `academic-grades/{id}/` | PATCH  | `institutions.update_academic_grade` |
+| `academic-grades/{id}/` | DELETE | `institutions.delete_academic_grade` |
 
 ---
 
 ## Años Escolares (`/api/institutions/school-year/`)
 
-#### Listar por Institución
-**POST** `/api/institutions/school-year/list/`
+### Listar
 
-Request:
-```json
-{
-  "institution": 1
-}
-```
+**GET** `/api/institutions/school-year/`
 
 Response:
-```json
-{
-  "ok": true,
-  "data": [
-    {
-      "id": 1,
-      "institution": 1,
-      "name": "2024-2025",
-      "start_date": "2024-09-01",
-      "end_date": "2025-07-31",
-      "active": true
-    }
-  ],
-  "msg": ""
-}
-```
 
-#### Obtener Detalle
-**POST** `/api/institutions/school-year/get/`
-
-Request:
-```json
-{
-  "id": 1
-}
-```
-
-Response:
 ```json
 {
   "ok": true,
   "data": {
-    "id": 1,
-    "institution": 1,
-    "name": "2024-2025",
-    "start_date": "2024-09-01",
-    "end_date": "2025-07-31",
-    "active": true
+    "count": 1,
+    "next": null,
+    "previous": null,
+    "results": [
+      {
+        "id": 1,
+        "name": "2024-2025",
+        "start_date": "2024-09-01",
+        "end_date": "2025-07-31",
+        "active": true
+      }
+    ]
   },
   "msg": ""
 }
 ```
 
-#### Agregar
-**POST** `/api/institutions/school-year/add/`
+### Crear
+
+**POST** `/api/institutions/school-year/`
 
 Request:
+
 ```json
 {
-  "institution": 1,
   "name": "2024-2025",
   "start_date": "2024-09-01",
   "end_date": "2025-07-31"
 }
 ```
 
+### Actualizar
+
+**PATCH** `/api/institutions/school-year/{id}/`
+
+### Eliminar (Soft Delete)
+
+**DELETE** `/api/institutions/school-year/{id}/`
+
+---
+
+## Tipos de Documento (`/api/institutions/document-types/`)
+
+Solo lectura (ReadOnlyModelViewSet).
+
+### Listar
+
+**GET** `/api/institutions/document-types/`
+
 Response:
+
 ```json
 {
   "ok": true,
-  "data": {
-    "id": 1,
-    "institution": 1,
-    "name": "2024-2025",
-    "start_date": "2024-09-01",
-    "end_date": "2025-07-31",
-    "active": true
-  },
-  "msg": ""
-}
-```
-
-#### Actualizar
-**POST** `/api/institutions/school-year/update/`
-
-Request:
-```json
-{
-  "id": 1,
-  "name": "2025-2026",
-  "start_date": "2025-09-01",
-  "end_date": "2026-07-31"
-}
-```
-
-Response:
-```json
-{
-  "ok": true,
-  "data": {
-    "id": 1,
-    "institution": 1,
-    "name": "2025-2026",
-    "start_date": "2025-09-01",
-    "end_date": "2026-07-31",
-    "active": true
-  },
-  "msg": ""
-}
-```
-
-#### Borrado Lógico
-**POST** `/api/institutions/school-year/soft-delete/`
-
-Request:
-```json
-{
-  "id": 1
-}
-```
-
-Response:
-```json
-{
-  "ok": true,
-  "data": {
-    "id": 1,
-    "active": false
-  },
+  "data": [
+    { "id": 1, "code": "CC", "name": "Cédula de Ciudadanía" },
+    { "id": 2, "code": "PAS", "name": "Pasaporte" }
+  ],
   "msg": ""
 }
 ```
 
 ---
 
-## Aulas (`/api/institutions/classroom/`)
+## Niveles Académicos (`/api/institutions/academic-levels/`)
 
-#### Listar por Institución
-**POST** `/api/institutions/classroom/list/`
+### Listar
 
-Request:
-```json
-{
-  "institution": 1
-}
-```
+**GET** `/api/institutions/academic-levels/`
 
-Response:
-```json
-{
-  "ok": true,
-  "data": [
-    {
-      "id": 1,
-      "institution": 1,
-      "name": "Aula 101",
-      "room_type": "Aula de clase",
-      "capacity": 40,
-      "active": true
-    }
-  ],
-  "msg": ""
-}
-```
+### Crear
 
-#### Obtener Detalle
-**POST** `/api/institutions/classroom/get/`
+**POST** `/api/institutions/academic-levels/`
 
 Request:
+
 ```json
 {
-  "id": 1
+  "name": "Educación General Básica",
+  "active": true
 }
 ```
 
+---
+
+## Grados Académicos (`/api/institutions/academic-grades/`)
+
+### Listar
+
+**GET** `/api/institutions/academic-grades/`
+
 Response:
+
 ```json
 {
   "ok": true,
   "data": {
-    "id": 1,
-    "institution": 1,
-    "name": "Aula 101",
-    "room_type": "Aula de clase",
-    "capacity": 40,
-    "active": true
+    "count": 2,
+    "results": [
+      {
+        "id": 1,
+        "academic_level": 1,
+        "name": "8vo EGB",
+        "subnivel": "ELEMENTAL",
+        "sequence_order": 8,
+        "active": true
+      }
+    ]
   },
   "msg": ""
 }
 ```
 
-#### Agregar
-**POST** `/api/institutions/classroom/add/`
+### Crear
+
+**POST** `/api/institutions/academic-grades/`
 
 Request:
+
 ```json
 {
-  "institution": 1,
-  "name": "Aula 101",
-  "room_type": "Aula de clase",
-  "capacity": 40
+  "academic_level": 1,
+  "name": "8vo EGB",
+  "subnivel": "ELEMENTAL",
+  "sequence_order": 8
 }
 ```
 
-Response:
-```json
-{
-  "ok": true,
-  "data": {
-    "id": 1,
-    "institution": 1,
-    "name": "Aula 101",
-    "room_type": "Aula de clase",
-    "capacity": 40,
-    "active": true
-  },
-  "msg": ""
-}
-```
+---
 
-#### Actualizar
-**POST** `/api/institutions/classroom/update/`
+## Notas
 
-Request:
-```json
-{
-  "id": 1,
-  "name": "Aula 201",
-  "capacity": 35
-}
-```
-
-Response:
-```json
-{
-  "ok": true,
-  "data": {
-    "id": 1,
-    "institution": 1,
-    "name": "Aula 201",
-    "room_type": "Aula de clase",
-    "capacity": 35,
-    "active": true
-  },
-  "msg": ""
-}
-```
-
-#### Borrado Lógico
-**POST** `/api/institutions/classroom/soft-delete/`
-
-Request:
-```json
-{
-  "id": 1
-}
-```
-
-Response:
-```json
-{
-  "ok": true,
-  "data": {
-    "id": 1,
-    "active": false
-  },
-  "msg": ""
-}
-```
+- No existe el modelo `Institution` en este módulo. La gestión institucional se realiza a través de `School_Year` (años escolares).
+- El patrón usado es RESTful con `DefaultRouter`, no el patrón POST-based (list/, get/, add/) que aparece en documentación antigua.
+- `Section` (secciones/Paralelos) no tiene ViewSet en institutions; se gestiona a través de la matrícula del estudiante en `students`.

@@ -1,3 +1,5 @@
+from drf_spectacular.utils import extend_schema, extend_schema_view
+
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -6,14 +8,13 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 
 from apps.core.constants.permissions import students
-from apps.core.permissions import HasPermission
-from apps.core.utils import ok_response, error_response
+from apps.core.api.permissions import HasPermission
 
 from ..models import Enrollment, EnrollmentStatus, Student, Student_Representative
 from ..services.students_service import StudentService
 from ..services.enrollment_service import EnrollmentService
 from ..repositories.enrollment_repo import EnrollmentRepository
-from .serializers import (
+from .serializers.serializers import (
     EnrollmentCreateSerializer,
     EnrollmentSerializer,
     EnrollmentStatusSerializer,
@@ -21,9 +22,24 @@ from .serializers import (
     StudentDetailSerializer,
     StudentRepresentativeSerializer,
 )
-from .filters import StudentFilter
+from .filters.filters import StudentFilter
 
 
+@extend_schema_view(
+    list=extend_schema(summary="Listar estudiantes", tags=["students"]),
+    retrieve=extend_schema(summary="Obtener estudiante", tags=["students"]),
+    create=extend_schema(summary="Crear estudiante", tags=["students"]),
+    update=extend_schema(summary="Actualizar estudiante", tags=["students"]),
+    partial_update=extend_schema(
+        summary="Actualizar estudiante parcialmente", tags=["students"]
+    ),
+    destroy=extend_schema(summary="Desactivar estudiante", tags=["students"]),
+    by_section=extend_schema(summary="Estudiantes por sección", tags=["students"]),
+    search=extend_schema(summary="Buscar estudiantes", tags=["students"]),
+    representatives=extend_schema(
+        summary="Representantes del estudiante", tags=["students"]
+    ),
+)
 class StudentViewSet(viewsets.ModelViewSet):
     """ViewSet para Student"""
 
@@ -31,7 +47,12 @@ class StudentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, HasPermission]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = StudentFilter
-    search_fields = ["person__names", "person__last_names", "person__document_number", "student_code"]
+    search_fields = [
+        "person__names",
+        "person__last_names",
+        "person__document_number",
+        "student_code",
+    ]
     ordering_fields = ["person__last_names", "active"]
     ordering = ["person__last_names"]
     action_permissions = {
@@ -65,51 +86,52 @@ class StudentViewSet(viewsets.ModelViewSet):
                 phone=request.data.get("phone", ""),
             )
             serializer = self.get_serializer(student)
-            return ok_response(serializer.data, status=201)
+            return Response(serializer.data, status=201)
         except ValueError as e:
-            return error_response(e)
+            return Response(str(e), status=400)
 
     def update(self, request, *args, **kwargs):
         try:
             student = StudentService.update_student(kwargs.get("pk"), **request.data)
             serializer = self.get_serializer(student)
-            return ok_response(serializer.data)
+            return Response(serializer.data)
         except ValueError as e:
-            return error_response(e)
+            return Response(str(e), status=400)
+
     def destroy(self, request, *args, **kwargs):
         """Desactiva un estudiante (soft delete)"""
         try:
             StudentService.deactivate_student(kwargs.get("pk"))
-            return ok_response({"id": kwargs.get("pk"), "deleted": True})
+            return Response({"id": kwargs.get("pk"), "deleted": True})
         except ValueError as e:
-            return error_response(e)
+            return Response(str(e), status=400)
 
     @action(detail=False, methods=["get"])
     def by_section(self, request):
         """Estudiantes de una sección"""
         section_id = request.query_params.get("section_id")
         if not section_id:
-            return error_response("section_id requerido")
+            return Response("section_id requerido", status=400)
 
         students = StudentService.list_students_by_section(section_id)
         serializer = self.get_serializer(students, many=True)
-        return ok_response(serializer.data)
+        return Response(serializer.data)
 
     @action(detail=False, methods=["get"])
     def search(self, request):
         """Búsqueda de estudiantes"""
         query = request.query_params.get("q", "")
         if not query:
-            return error_response("Parámetro q requerido")
+            return Response("Parámetro q requerido", status=400)
 
         students = StudentService.search_students(query)
         serializer = self.get_serializer(students, many=True)
-        return ok_response(serializer.data)
+        return Response(serializer.data)
 
     @action(detail=True, methods=["get"])
     def representatives(self, request, pk=None):
         """Representantes de un estudiante"""
-        from .serializers import StudentRepresentativeSerializer
+        from .serializers.serializers import StudentRepresentativeSerializer
 
         relationships = (
             Student_Representative.objects.filter(student_id=pk)
@@ -118,12 +140,23 @@ class StudentViewSet(viewsets.ModelViewSet):
         )
 
         serializer = StudentRepresentativeSerializer(relationships, many=True)
-        return ok_response(serializer.data)
+        return Response(serializer.data)
 
 
-
-
-
+@extend_schema_view(
+    list=extend_schema(summary="Listar representantes", tags=["students"]),
+    retrieve=extend_schema(summary="Obtener representante", tags=["students"]),
+    create=extend_schema(summary="Asignar representante", tags=["students"]),
+    update=extend_schema(summary="Actualizar representante", tags=["students"]),
+    partial_update=extend_schema(
+        summary="Actualizar representante parcialmente", tags=["students"]
+    ),
+    destroy=extend_schema(summary="Eliminar representante", tags=["students"]),
+    set_primary=extend_schema(
+        summary="Establecer representante principal", tags=["students"]
+    ),
+    unlink=extend_schema(summary="Desasignar representante", tags=["students"]),
+)
 class StudentRepresentativeViewSet(viewsets.ModelViewSet):
     """ViewSet para Student_Representative"""
 
@@ -161,21 +194,27 @@ class StudentRepresentativeViewSet(viewsets.ModelViewSet):
                 receives_notifications=request.data.get("receives_notifications", True),
             )
             serializer = self.get_serializer(relationship)
-            return ok_response(serializer.data, status=201)
+            return Response(serializer.data, status=201)
         except ValueError as e:
-            return error_response(e)
+            return Response(str(e), status=400)
 
     def update(self, request, *args, **kwargs):
         relationship = self.get_object()
 
         # Actualizar campos
-        for field in ["kinship", "can_pickup", "emergency_contact", "receives_notifications", "is_primary"]:
+        for field in [
+            "kinship",
+            "can_pickup",
+            "emergency_contact",
+            "receives_notifications",
+            "is_primary",
+        ]:
             if field in request.data:
                 setattr(relationship, field, request.data.get(field))
 
         relationship.save()
         serializer = self.get_serializer(relationship)
-        return ok_response(serializer.data)
+        return Response(serializer.data)
 
     @action(detail=False, methods=["post"])
     def set_primary(self, request):
@@ -185,9 +224,9 @@ class StudentRepresentativeViewSet(viewsets.ModelViewSet):
                 student_id=request.data.get("student"),
                 person_id=request.data.get("person"),
             )
-            return ok_response({"status": "Principal actualizado"})
+            return Response({"status": "Principal actualizado"})
         except ValueError as e:
-            return error_response(e)
+            return Response(str(e), status=400)
 
     @action(detail=True, methods=["delete"])
     def unlink(self, request, pk=None):
@@ -198,11 +237,15 @@ class StudentRepresentativeViewSet(viewsets.ModelViewSet):
                 student_id=relationship.student_id,
                 person_id=relationship.person_id,
             )
-            return ok_response({"unlinked": True})
+            return Response({"unlinked": True})
         except ValueError as e:
-            return error_response(e)
+            return Response(str(e), status=400)
 
 
+@extend_schema_view(
+    list=extend_schema(summary="Listar estados de matrícula", tags=["students"]),
+    retrieve=extend_schema(summary="Obtener estado de matrícula", tags=["students"]),
+)
 class EnrollmentStatusViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = EnrollmentStatusSerializer
     permission_classes = [IsAuthenticated, HasPermission]
@@ -217,23 +260,48 @@ class EnrollmentStatusViewSet(viewsets.ReadOnlyModelViewSet):
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
-        return ok_response(serializer.data)
+        return Response(serializer.data)
 
     def retrieve(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
             serializer = self.get_serializer(instance)
-            return ok_response(serializer.data)
+            return Response(serializer.data)
         except Exception as e:
-            return error_response(e)
+            return Response(str(e), status=400)
 
 
+@extend_schema_view(
+    list=extend_schema(summary="Listar matrículas", tags=["students"]),
+    retrieve=extend_schema(summary="Obtener matrícula", tags=["students"]),
+    create=extend_schema(summary="Crear matrícula", tags=["students"]),
+    update=extend_schema(summary="Actualizar matrícula", tags=["students"]),
+    partial_update=extend_schema(
+        summary="Actualizar matrícula parcialmente", tags=["students"]
+    ),
+    destroy=extend_schema(summary="Eliminar matrícula", tags=["students"]),
+    withdraw=extend_schema(summary="Retirar estudiante", tags=["students"]),
+    transfer=extend_schema(summary="Transferir estudiante", tags=["students"]),
+    by_section=extend_schema(summary="Matrículas por sección", tags=["students"]),
+    by_student=extend_schema(
+        summary="Matrícula activa del estudiante", tags=["students"]
+    ),
+)
 class EnrollmentViewSet(viewsets.ModelViewSet):
     serializer_class = EnrollmentSerializer
     permission_classes = [IsAuthenticated, HasPermission]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ["student", "section", "enrollment_status", "enrollment_status__code"]
-    search_fields = ["student__person__names", "student__person__last_names", "student__student_code"]
+    filterset_fields = [
+        "student",
+        "section",
+        "enrollment_status",
+        "enrollment_status__code",
+    ]
+    search_fields = [
+        "student__person__names",
+        "student__person__last_names",
+        "student__student_code",
+    ]
     ordering = ["-enrollment_date"]
     action_permissions = {
         "list": students.VIEW_ENROLLMENT,
@@ -267,60 +335,56 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 section=serializer.validated_data["section"],
                 enrollment_date=serializer.validated_data.get("enrollment_date"),
             )
-            return ok_response(
-                self.get_serializer(enrollment).data, status=201
-            )
+            return Response(self.get_serializer(enrollment).data, status=201)
         except ValueError as e:
-            return error_response(e)
+            return Response(str(e), status=400)
 
     @action(detail=True, methods=["post"], url_path="withdraw")
     def withdraw(self, request, pk=None):
         try:
             enrollment = self.get_object()
-            EnrollmentService.withdraw_student(enrollment)
-            return ok_response(
-                self.get_serializer(enrollment).data
-            )
+            reason = request.data.get("reason", "")
+            EnrollmentService.withdraw_student(enrollment, reason=reason)
+            return Response(self.get_serializer(enrollment).data)
         except ValueError as e:
-            return error_response(e)
+            return Response(str(e), status=400)
 
     @action(detail=True, methods=["post"], url_path="transfer")
     def transfer(self, request, pk=None):
         new_section_id = request.data.get("section_id")
         if not new_section_id:
-            return error_response('Se requiere "section_id"')
-        from ..models import Section
+            return Response('Se requiere "section_id"', status=400)
+        from apps.institutions.models import Section
+
         try:
             new_section = Section.objects.get(id=new_section_id)
         except Section.DoesNotExist:
-            return error_response("Sección no encontrada", 404)
+            return Response("Sección no encontrada", status=404)
         try:
             enrollment = self.get_object()
             EnrollmentService.transfer_student(enrollment, new_section)
-            return ok_response(
-                self.get_serializer(enrollment).data
-            )
+            return Response(self.get_serializer(enrollment).data)
         except ValueError as e:
-            return error_response(e)
+            return Response(str(e), status=400)
 
     @action(detail=False, methods=["get"], url_path="by-section")
     def by_section(self, request):
         section_id = request.query_params.get("section_id")
         if not section_id:
-            return error_response('Se requiere "section_id"')
+            return Response('Se requiere "section_id"', status=400)
         status_code = request.query_params.get("status", "ACT")
         enrollments = EnrollmentRepository.get_students_by_section(
             section_id, status_code
         )
         serializer = self.get_serializer(enrollments, many=True)
-        return ok_response(serializer.data)
+        return Response(serializer.data)
 
     @action(detail=False, methods=["get"], url_path="by-student")
     def by_student(self, request):
         student_id = request.query_params.get("student_id")
         if not student_id:
-            return error_response('Se requiere "student_id"')
+            return Response('Se requiere "student_id"', status=400)
         enrollment = EnrollmentRepository.get_active_by_student(student_id)
         if not enrollment:
-            return error_response("No tiene matrícula activa", 404)
-        return ok_response(self.get_serializer(enrollment).data)
+            return Response("No tiene matrícula activa", status=404)
+        return Response(self.get_serializer(enrollment).data)

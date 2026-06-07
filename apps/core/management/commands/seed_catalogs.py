@@ -1,8 +1,9 @@
 from django.core.management.base import BaseCommand
 
 from apps.analytics.models import RiskFactor
-from apps.grading.models import AttendanceStatus, GradeType, QualitativeScale
-from apps.institutions.models import DocumentType, RoomType
+from apps.grading.models import GradeType, QualitativeScale
+from apps.attendance.models import AttendanceStatus
+from apps.institutions.models import DocumentType
 from apps.students.models import EnrollmentStatus
 
 
@@ -18,17 +19,7 @@ CATALOGS = {
             {"code": "NIT", "name": "NIT"},
         ],
     },
-    "room_types": {
-        "model": RoomType,
-        "data": [
-            {"code": "AULA", "name": "Aula de Clase"},
-            {"code": "LAB", "name": "Laboratorio"},
-            {"code": "AUDIT", "name": "Auditorio"},
-            {"code": "CANCH", "name": "Cancha"},
-            {"code": "SALA_PROF", "name": "Sala de Profesores"},
-            {"code": "BIB", "name": "Biblioteca"},
-        ],
-    },
+
     "attendance_statuses": {
         "model": AttendanceStatus,
         "data": [

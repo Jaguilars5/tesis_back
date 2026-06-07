@@ -1,8 +1,13 @@
 from django.test import TestCase
 from datetime import date
 from apps.accounts.models import Person
-from apps.institutions.models import AcademicGrade, AcademicLevel, DocumentType, School_Year
-from apps.academic.models import Section
+from apps.institutions.models import (
+    AcademicGrade,
+    AcademicLevel,
+    DocumentType,
+    School_Year,
+)
+from apps.institutions.models import Section
 from ..models import EnrollmentStatus, Student, Student_Representative
 from apps.core.tests.helpers import create_test_student
 
@@ -99,7 +104,7 @@ class StudentModelTest(TestCase):
             document_number="1234567890",
             names="Juan",
             last_names="Pérez",
-            birth_date=date(2010, 5, 15),  # ~14 años
+            birth_date=date(date.today().year - 14, 5, 15),  # ~14 años
         )
 
         age = student.get_age()

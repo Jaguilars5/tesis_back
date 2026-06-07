@@ -6,7 +6,6 @@ from apps.core.constants.permissions import (
     analytics,
     grading,
     institutions,
-    scheduling,
     students,
 )
 
@@ -18,7 +17,6 @@ def _all_modules():
         academic,
         students,
         grading,
-        scheduling,
         analytics,
     ]
 

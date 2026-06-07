@@ -1,0 +1,51 @@
+from django.db import models
+
+
+class RecoveryProcess(models.Model):
+    period_grade_summary = models.ForeignKey(
+        "grading.PeriodGradeSummary",
+        on_delete=models.CASCADE,
+        related_name="recovery_processes",
+        verbose_name="Resumen de Calificaciones",
+    )
+    managed_by_user = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="recovery_processes",
+        verbose_name="Gestionado por",
+    )
+    process_type = models.CharField(
+        max_length=30,
+        choices=[
+            ("MEJORA_DIRECTA", "Mejora Directa"),
+            ("MEJORA_CON_REFUERZO", "Mejora con Refuerzo"),
+            ("SUPLETORIA", "Supletoria"),
+        ],
+        verbose_name="Tipo de proceso",
+    )
+    initial_grade = models.DecimalField(max_digits=5, decimal_places=2, verbose_name="Nota Inicial")
+    reinforcement_grade = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        verbose_name="Nota de Refuerzo",
+    )
+    improvement_eval_grade = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        verbose_name="Nota de Evaluación de Mejora",
+    )
+    final_calculated_grade = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        verbose_name="Nota Final Calculada",
+    )
+    family_notified = models.BooleanField(default=False, verbose_name="Familia Notificada")
+    start_date = models.DateField(verbose_name="Fecha de inicio")
+    end_date = models.DateField(null=True, blank=True, verbose_name="Fecha de fin")
+    observations = models.TextField(null=True, blank=True, verbose_name="Observaciones")
+
+    class Meta:
+        app_label = "grading"
+        verbose_name = "Proceso de Recuperación"
+        verbose_name_plural = "Procesos de Recuperación"
+        ordering = ["-start_date"]
+
+    def __str__(self):
+        return f"{self.period_grade_summary} - {self.process_type}"

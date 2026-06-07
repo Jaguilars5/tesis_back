@@ -29,10 +29,13 @@ Authorization: Bearer <access_token>
 | `student-risk-scores/{id}/` | GET | `analytics.view_risk_score` |
 | `feature-snapshots/` | GET | `analytics.view_feature_snapshot` |
 | `feature-snapshots/{id}/` | GET | `analytics.view_feature_snapshot` |
+| `risk-factors/` | GET | `analytics.view_risk_factor` |
+| `risk-factors/{id}/` | GET | `analytics.view_risk_factor` |
 | `student-risk-factors/` | GET | `analytics.view_risk_factor` |
 | `student-risk-factors/{id}/` | GET | `analytics.view_risk_factor` |
-| `risk-factors/` | GET | `analytics.view_risk_factor` |
-| `risk-factors/` | POST | `analytics.create_risk_factor` |
+| `early-alerts/` | GET | `analytics.view_early_alert` |
+| `early-alerts/{id}/` | GET | `analytics.view_early_alert` |
+| `early-alerts/{id}/mark_attended/` | POST | `analytics.update_early_alert` |
 
 ---
 

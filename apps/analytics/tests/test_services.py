@@ -2,7 +2,8 @@ from django.test import TestCase
 from datetime import date
 from decimal import Decimal
 from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year
-from apps.academic.models import Academic_Period, Section
+from apps.institutions.models import Section
+from apps.academic.models import Academic_Period
 from apps.core.tests.helpers import create_test_student
 from apps.students.models import Student
 from apps.analytics.models import StudentRiskScore, StudentFeatureSnapshot
@@ -46,10 +47,24 @@ class AnalyticsServiceTest(TestCase):
             last_names="Lopez",
             birth_date=date(2012, 3, 10),
         )
+        from apps.students.models import EnrollmentStatus, Enrollment
+        act_status, _ = EnrollmentStatus.objects.get_or_create(code="ACT", defaults={"name": "Activa"})
+        self.enrollment = Enrollment.objects.create(
+            student=self.student,
+            section=self.section,
+            enrollment_status=act_status,
+        )
+        self.enrollment2 = Enrollment.objects.create(
+            student=self.student2,
+            section=self.section,
+            enrollment_status=act_status,
+        )
 
     def _create_risk(self, student, period, score, label):
+        from apps.students.models import Enrollment
+        enrollment = Enrollment.objects.filter(student=student, section__school_year=period.school_year).first()
         return StudentRiskScore.objects.create(
-            student=student,
+            enrollment=enrollment,
             academic_period=period,
             risk_score=score,
             risk_label=label,
@@ -57,13 +72,16 @@ class AnalyticsServiceTest(TestCase):
         )
 
     def _create_snapshot(self, student, period):
+        from apps.students.models import Enrollment
+        enrollment = Enrollment.objects.filter(student=student, section__school_year=period.school_year).first()
         return StudentFeatureSnapshot.objects.create(
-            student=student,
+            enrollment=enrollment,
             academic_period=period,
             attendance_rate=Decimal("85.00"),
             consecutive_absences_max=3,
             tardiness_count=5,
-            avg_grade_normalized=Decimal("7.50"),
+            formative_avg_normalized=Decimal("7.50"),
+            summative_avg_normalized=Decimal("7.50"),
             grade_trend_slope=Decimal("-0.10"),
             failing_subjects_count=2,
             conduct_score=Decimal("8.00"),

@@ -1,5 +1,5 @@
 from django.test import TestCase
-from apps.core.renderers import StandardResponseRenderer
+from apps.core.api.renderers import StandardResponseRenderer
 
 
 class MockResponse:

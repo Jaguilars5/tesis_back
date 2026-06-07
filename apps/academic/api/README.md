@@ -1,6 +1,6 @@
 # API - Módulo Academic
 
-Esta API gestiona la infraestructura académica, permitiendo la configuración de períodos, secciones, asignaturas y la asignación de docentes.
+Esta API gestiona la infraestructura académica: períodos académicos, asignaturas, configuraciones por nivel, ofertas de materia y asignación de docentes.
 
 ---
 
@@ -26,56 +26,36 @@ Se requiere un token JWT válido en el header de cada petición:
 Authorization: Bearer <access_token>
 ```
 
-Todos los ViewSets usan `HasPermission` con `action_permissions`. Ver tabla de permisos en `apps/academic/README.md`.
+| Endpoint | Método | Permiso |
+|---------|--------|---------|
+| `subject/` | GET | `academic.view_subject` |
+| `subject/` | POST | `academic.create_subject` |
+| `academic-period/` | GET | `academic.view_academic_period` |
+| `academic-period/` | POST | `academic.create_academic_period` |
+| `subject-academic-configs/` | GET | `academic.view_subject_academic_config` |
+| `subject-offerings/` | GET | `academic.view_subject_offering` |
+| `teacher-subject-section/` | GET | `academic.view_teacher_subject_section` |
+| `teacher-subject-section/` | POST | `academic.create_teacher_subject_section` |
+| `interdisciplinary-projects/` | GET | `academic.view_interdisciplinary_project` |
+| `subject-projects/` | GET | `academic.view_subject_project` |
 
 ---
 
-## Secciones (`/api/academic/section/`)
+## Períodos Académicos (`/api/academic/academic-period/`)
 
-### Listar Secciones
-**GET** `/api/academic/section/`
+### Listar
+**GET** `/api/academic/academic-period/`
 
-Response:
-```json
-{
-  "ok": true,
-  "data": [
-    {
-      "id": 1,
-      "level": "Secundaria",
-      "grade": "10mo",
-      "parallel": "A",
-      "capacity": 35
-    }
-  ],
-  "msg": ""
-}
-```
-
-### Crear Sección
-**POST** `/api/academic/section/`
+### Crear
+**POST** `/api/academic/academic-period/`
 
 Request:
 ```json
 {
   "school_year": 1,
-  "timing_regime": 1,
-  "level": "Secundaria",
-  "grade": "10mo",
-  "parallel": "A",
-  "capacity": 35
-}
-```
-
-Response:
-```json
-{
-  "ok": true,
-  "data": {
-    "id": 1,
-    "level": "Secundaria"
-  },
-  "msg": ""
+  "name": "Quimestre 1",
+  "start_date": "2024-09-01",
+  "end_date": "2024-11-30"
 }
 ```
 
@@ -83,63 +63,56 @@ Response:
 
 ## Asignaturas (`/api/academic/subject/`)
 
-### Crear Asignatura
+### Listar
+**GET** `/api/academic/subject/`
+
+### Crear
 **POST** `/api/academic/subject/`
 
 Request:
 ```json
 {
-  "school_year": 1,
-  "section": 1,
   "name": "Matemáticas",
-  "code": "MAT-10A",
-  "weekly_hours": 5,
-  "approve_percentage": 70
-}
-```
-
-Response:
-```json
-{
-  "ok": true,
-  "data": {
-    "id": 1,
-    "name": "Matemáticas"
-  },
-  "msg": ""
+  "code": "MAT"
 }
 ```
 
 ---
 
-## Actividades Académicas (`/api/academic/academic-activity/`)
+## Configuración de Asignatura por Nivel (`/api/academic/subject-academic-configs/`)
 
-### Crear Actividad
-**POST** `/api/academic/academic-activity/`
+### Listar
+**GET** `/api/academic/subject-academic-configs/`
+
+### Crear
+**POST** `/api/academic/subject-academic-configs/`
 
 Request:
 ```json
 {
-  "config_academic": 1,
   "subject": 1,
-  "name": "Examen Primer Quimestre",
-  "value_max": 20,
-  "weight": 0.5,
-  "applies_to": "all",
-  "is_recoverable": true,
+  "academic_level": 1,
+  "hours_weekly": 5,
   "order": 1
 }
 ```
 
-Response:
+---
+
+## Ofertas de Asignatura (`/api/academic/subject-offerings/`)
+
+### Listar
+**GET** `/api/academic/subject-offerings/`
+
+### Crear
+**POST** `/api/academic/subject-offerings/`
+
+Request:
 ```json
 {
-  "ok": true,
-  "data": {
-    "id": 1,
-    "name": "Examen Primer Quimestre"
-  },
-  "msg": ""
+  "subject_academic_config": 1,
+  "section": 1,
+  "school_year": 1
 }
 ```
 
@@ -147,47 +120,51 @@ Response:
 
 ## Asignación Docente (`/api/academic/teacher-subject-section/`)
 
-### Asignar Docente
+### Listar
+**GET** `/api/academic/teacher-subject-section/`
+
+### Crear
 **POST** `/api/academic/teacher-subject-section/`
 
 Request:
 ```json
 {
   "user": 5,
-  "subject": 1,
-  "section": 1,
-  "school_year": 1
-}
-```
-
-Response:
-```json
-{
-  "ok": true,
-  "data": {
-    "id": 1,
-    "user": 5,
-    "subject": 1
-  },
-  "msg": ""
+  "subject_offering": 1
 }
 ```
 
 ---
 
-## Acciones Comunes
+## Proyectos Interdisciplinarios (`/api/academic/interdisciplinary-projects/`)
 
-### Borrado Lógico (Soft Delete)
-**POST** `/api/academic/{recurso}/{id}/soft-delete/`
+### Listar
+**GET** `/api/academic/interdisciplinary-projects/`
 
-Response:
+### Crear
+**POST** `/api/academic/interdisciplinary-projects/`
+
+Request:
 ```json
 {
-  "ok": true,
-  "data": {
-    "id": 1,
-    "active": false
-  },
-  "msg": ""
+  "name": "Proyecto Ambiental",
+  "academic_period": 1,
+  "description": "Proyecto sobre medio ambiente"
 }
 ```
+
+---
+
+## Proyectos de Asignatura (`/api/academic/subject-projects/`)
+
+### Listar
+**GET** `/api/academic/subject-projects/`
+
+---
+
+## Notas
+
+- `Section` ya no existe en `academic` - fue movido a `institutions`. Las secciones ahora se crean vía matrícula en `students`.
+- Los campos `level`, `grade`, `timing_regime` en secciones son **legacy** (ya no se usan).
+- `academic-activity/` es un endpoint **legacy** - fue reemplazado por `evaluative-activities/` en `grading`.
+- La estructura actual usa `SubjectOffering` (oferta de materia por sección) en lugar de asignatura directa por sección.

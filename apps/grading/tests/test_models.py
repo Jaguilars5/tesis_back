@@ -6,7 +6,6 @@ from django.test import TestCase
 
 from apps.academic.models import (
     Academic_Period,
-    Section,
     Subject,
     SubjectAcademicConfig,
     SubjectOffering,
@@ -15,18 +14,15 @@ from apps.academic.models import (
 from apps.accounts.models import Role, User
 from apps.core.tests.helpers import create_test_user, create_test_student
 from apps.grading.models import (
-    Attendance,
-    AttendanceStatus,
-    ClassAssignment,
-    ConductIncident,
-    EvaluationCriteria,
-    EvaluationMacro,
-    EvaluationSubcriteria,
+    EvaluativeActivity,
+    BlockComponent,
+    EvaluationBlock,
+    ComponentIndicator,
     GradeType,
     QualitativeScale,
     StudentNote,
 )
-from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year
+from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year, Section
 from apps.students.models import Enrollment, EnrollmentStatus, Student
 
 
@@ -67,15 +63,19 @@ class GradingModelTest(TestCase):
             code="MAT-7A",
         )
         subj_config = SubjectAcademicConfig.objects.create(
-            subject=self.subject, academic_grade=self.academic_grade,
-            weekly_hours=5, pedagogical_order=1,
+            subject=self.subject,
+            academic_grade=self.academic_grade,
+            weekly_hours=5,
+            pedagogical_order=1,
         )
         offering = SubjectOffering.objects.create(
-            school_year=school_year, section=self.section,
+            school_year=school_year,
+            section=self.section,
             subject_academic_config=subj_config,
         )
         self.teacher_subject_section = Teacher_Subject_Section.objects.create(
-            user=self.user, subject_offering=offering,
+            user=self.user,
+            subject_offering=offering,
         )
         self.student = create_test_student(
             document_number="0912345678",
@@ -95,88 +95,46 @@ class GradingModelTest(TestCase):
         )
 
     def _create_class_assignment(self, max_score=20):
-        macro = EvaluationMacro.objects.create(
+        macro = EvaluationBlock.objects.create(
             academic_period=self.period,
             name="Macro 1",
+            evaluation_type="FORMATIVA",
             weight_percentage=Decimal("100.00"),
         )
-        criteria = EvaluationCriteria.objects.create(
-            evaluation_macro=macro,
+        criteria = BlockComponent.objects.create(
+            evaluation_block=macro,
             name="Criterio 1",
             internal_weight=Decimal("100.00"),
         )
-        subcriteria = EvaluationSubcriteria.objects.create(
-            evaluation_criteria=criteria,
+        subcriteria = ComponentIndicator.objects.create(
+            block_component=criteria,
             name="Subcriterio 1",
             internal_weight=Decimal("100.00"),
         )
-        return ClassAssignment.objects.create(
-            evaluation_subcriteria=subcriteria,
+        return EvaluativeActivity.objects.create(
+            component_indicator=subcriteria,
             teacher_subject_section=self.teacher_subject_section,
             title="Examen",
+            activity_type="EXAMEN",
             max_score=Decimal(str(max_score)),
             due_date=date(2025, 2, 1),
         )
 
     def test_student_note_validation(self):
         enrollment = self._create_enrollment()
-        class_assignment = self._create_class_assignment(max_score=20)
+        evaluative_activity = self._create_class_assignment(max_score=20)
         note = StudentNote(
             enrollment=enrollment,
-            class_assignment=class_assignment,
+            evaluative_activity=evaluative_activity,
             numeric_score=Decimal("25"),
         )
         with self.assertRaises(ValidationError):
             note.full_clean()
 
-    def test_attendance_string(self):
-        enrollment = self._create_enrollment()
-        att_status = AttendanceStatus.objects.create(code="P", name="Presente")
-        attendance = Attendance(
-            enrollment=enrollment,
-            teacher_subject_section=self.teacher_subject_section,
-            academic_period=self.period,
-            attendance_date=date(2025, 2, 1),
-            attendance_status=att_status,
-        )
-        self.assertIn("Juan", str(attendance))
-
-    def test_conduct_incident_string(self):
-        enrollment = self._create_enrollment()
-        incident = ConductIncident(
-            enrollment=enrollment,
-            reported_by_user=self.user,
-            academic_period=self.period,
-            incident_date=date(2025, 2, 1),
-            category="disciplina",
-            severity=3,
-        )
-        self.assertIn("disciplina", str(incident))
-
-
-class AttendanceStatusModelTest(TestCase):
-    def setUp(self):
-        self.status = AttendanceStatus.objects.create(
-            code="P", name="Presente"
-        )
-
-    def test_creation(self):
-        self.assertEqual(self.status.code, "P")
-        self.assertEqual(self.status.name, "Presente")
-
-    def test_code_unique(self):
-        with self.assertRaises(Exception):
-            AttendanceStatus.objects.create(code="P", name="Duplicado")
-
-    def test_str(self):
-        self.assertEqual(str(self.status), "Presente")
-
 
 class GradeTypeModelTest(TestCase):
     def setUp(self):
-        self.grade_type = GradeType.objects.create(
-            code="NUM", name="Numérica"
-        )
+        self.grade_type = GradeType.objects.create(code="NUM", name="Numérica")
 
     def test_creation(self):
         self.assertEqual(self.grade_type.code, "NUM")
@@ -208,4 +166,4 @@ class QualitativeScaleModelTest(TestCase):
             )
 
     def test_str(self):
-        self.assertEqual(str(self.scale), "Superior")
+        self.assertEqual(str(self.scale), "SE — Superior")

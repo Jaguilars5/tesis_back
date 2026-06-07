@@ -3,8 +3,8 @@ from io import StringIO
 from django.core.management import call_command
 from django.test import TestCase
 
-from apps.accounts.models import Permission
-from apps.accounts.management.commands.seed_permissions import PERMISSIONS_CATALOG
+from apps.iam.models import Permission
+from apps.iam.management.commands.seed_permissions import PERMISSIONS_CATALOG
 
 
 class SeedPermissionsTest(TestCase):
@@ -29,9 +29,7 @@ class SeedPermissionsTest(TestCase):
         call_command("seed_permissions", "--module", "grading", stdout=out)
         grading_count = len(PERMISSIONS_CATALOG["grading"])
         self.assertEqual(Permission.objects.count(), grading_count)
-        self.assertTrue(
-            Permission.objects.filter(code__startswith="grading.").exists()
-        )
+        self.assertTrue(Permission.objects.filter(code__startswith="grading.").exists())
         self.assertFalse(
             Permission.objects.filter(code__startswith="accounts.").exists()
         )
@@ -39,6 +37,8 @@ class SeedPermissionsTest(TestCase):
     def test_seed_inexistent_module(self):
         out = StringIO()
         err = StringIO()
-        call_command("seed_permissions", "--module", "inexistente", stdout=out, stderr=err)
+        call_command(
+            "seed_permissions", "--module", "inexistente", stdout=out, stderr=err
+        )
         self.assertEqual(Permission.objects.count(), 0)
         self.assertIn("not found", err.getvalue())

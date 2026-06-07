@@ -149,10 +149,10 @@ Payload:
 }
 ```
 
-### Registro de Asistencia
+### Registro de Asistencia y Comportamiento
 
 ```
-POST /api/grading/attendance/
+POST /api/attendance/attendance/
 ```
 Payload:
 ```json
@@ -165,33 +165,16 @@ Payload:
 }
 ```
 
-### Gestión de Horarios
-
-**Configurar régimen de horario**:
+Registrar incidente conductual:
 ```
-POST /api/academic/timing-regime/
-```
-
-**Crear franjas horarias**:
-```
-POST /api/scheduling/time-slots/
-```
-
-**Asignar disponibilidad docente**:
-```
-POST /api/scheduling/teacher-availability/
-```
-
-**Crear bloques de horario**:
-```
-POST /api/scheduling/schedule-slots/
+POST /api/attendance/conduct-incidents/
 ```
 
 ---
 
 ## Sincronización Offline
 
-Los modelos `StudentNote`, `Attendance`, `ConductIncident` y `Enrollment` incluyen campos para operación offline:
+Los modelos `StudentNote`, `Enrollment`, `Attendance`, `ConductIncident` y `EvaluationBlock` incluyen campos para operación offline:
 
 | Campo | Descripción |
 |-------|-------------|
@@ -224,9 +207,9 @@ Los modelos `StudentNote`, `Attendance`, `ConductIncident` y `Enrollment` incluy
 | Módulo | Endpoints principales |
 |--------|----------------------|
 | **accounts** | `/api/accounts/login/`, `/api/accounts/refresh/`, `/api/accounts/users/`, `/api/accounts/roles/` |
-| **institutions** | `/api/institutions/institution/`, `/api/institutions/school-year/`, `/api/institutions/classroom/` |
-| **academic** | `/api/academic/section/`, `/api/academic/subject/`, `/api/academic/academic-period/`, `/api/academic/timing-regime/` |
+| **institutions** | `/api/institutions/school-year/`, `/api/institutions/document-type/`, `/api/institutions/academic-level/`, `/api/institutions/academic-grade/` |
+| **academic** | `/api/academic/subject/`, `/api/academic/academic-period/`, `/api/academic/subject-offering/`, `/api/academic/teacher-subject-section/` |
 | **students** | `/api/students/student/`, `/api/students/enrollment/`, `/api/students/student-representative/` |
-| **grading** | `/api/grading/student-notes/`, `/api/grading/attendance/`, `/api/grading/conduct-incidents/` |
-| **scheduling** | `/api/scheduling/schedule-slots/`, `/api/scheduling/time-slots/`, `/api/scheduling/teacher-availability/` |
-| **analytics** | `/api/analytics/student-risk-scores/`, `/api/analytics/feature-snapshots/`, `/api/analytics/risk-factors/` |
+| **grading** | `/api/grading/student-notes/`, `/api/grading/evaluation-blocks/`, `/api/grading/grade-types/`, `/api/grading/recovery-processes/` |
+| **attendance** | `/api/attendance/attendance/`, `/api/attendance/conduct-incidents/`, `/api/attendance/behavior-evaluations/`, `/api/attendance/socioemotional-skills/` |
+| **analytics** | `/api/analytics/student-risk-scores/`, `/api/analytics/feature-snapshots/`, `/api/analytics/risk-factors/`, `/api/analytics/early-alerts/` |

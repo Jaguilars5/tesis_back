@@ -1,10 +1,7 @@
 from datetime import date
 from django.db import transaction
-from ..models import School_Year, Classroom
-from ..repositories.institution_repo import (
-    SchoolYearRepository,
-    ClassroomRepository,
-)
+from ..models import School_Year
+from ..repositories.institution_repo import SchoolYearRepository
 
 
 class InstitutionService:
@@ -79,60 +76,3 @@ class InstitutionService:
         school_year.active = False
         school_year.save()
         return school_year
-
-    # =====================
-    # CLASSROOM METHODS
-    # =====================
-
-    @staticmethod
-    def create_classroom(name, room_type_id, capacity):
-        if capacity <= 0:
-            raise ValueError("Capacidad debe ser mayor a 0")
-        classroom = Classroom(name=name, room_type_id=room_type_id, capacity=capacity)
-        classroom.save()
-        return classroom
-
-    @staticmethod
-    def get_classroom(classroom_id):
-        classroom = ClassroomRepository.get_by_id(classroom_id)
-        if not classroom:
-            raise ValueError(f"Aula {classroom_id} no encontrada")
-        return classroom
-
-    @staticmethod
-    def list_classrooms(active_only=True):
-        query = Classroom.objects.all()
-        if active_only:
-            query = query.filter(active=True)
-        return query.order_by("name")
-
-    @staticmethod
-    def list_classrooms_by_type(room_type_id):
-        return Classroom.objects.filter(
-            room_type_id=room_type_id, active=True
-        ).order_by("name")
-
-    @staticmethod
-    def update_classroom(classroom_id, **kwargs):
-        classroom = InstitutionService.get_classroom(classroom_id)
-        if "capacity" in kwargs and kwargs["capacity"] <= 0:
-            raise ValueError("Capacidad debe ser mayor a 0")
-        for key, value in kwargs.items():
-            if hasattr(classroom, key):
-                setattr(classroom, key, value)
-        classroom.save()
-        return classroom
-
-    @staticmethod
-    def deactivate_classroom(classroom_id):
-        classroom = InstitutionService.get_classroom(classroom_id)
-        classroom.active = False
-        classroom.save()
-        return classroom
-
-    @staticmethod
-    def get_available_classrooms(capacity_min=None):
-        query = Classroom.objects.filter(active=True)
-        if capacity_min:
-            query = query.filter(capacity__gte=capacity_min)
-        return query.order_by("-capacity")

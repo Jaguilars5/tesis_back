@@ -1,49 +1,57 @@
+from drf_spectacular.utils import extend_schema, extend_schema_view
+
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.core.permissions import HasPermission
+from apps.core.api.permissions import HasPermission
 from apps.core.constants.permissions import academic
-from apps.core.utils import ok_response, error_response
-from ..models import (
-    Section,
-    Subject,
-    Academic_Period,
-    Teacher_Subject_Section,
-    SubjectAcademicConfig,
-    SubjectOffering,
+from ..repositories import (
+    SubjectRepository,
+    AcademicPeriodRepository,
+    TeacherSubjectSectionRepository,
+    SubjectAcademicConfigRepository,
+    SubjectOfferingRepository,
+    InterdisciplinaryProjectRepository,
+    SubjectProjectRepository,
 )
 from .serializers import (
-    SectionSerializer,
     SubjectSerializer,
     Academic_PeriodSerializer,
     Teacher_Subject_SectionSerializer,
     SubjectAcademicConfigSerializer,
     SubjectOfferingSerializer,
+    InterdisciplinaryProjectSerializer,
+    SubjectProjectSerializer,
 )
 
 
+@extend_schema_view(
+    list=extend_schema(summary="Listar registros", tags=["academic"]),
+    retrieve=extend_schema(summary="Obtener registro", tags=["academic"]),
+    create=extend_schema(summary="Crear registro", tags=["academic"]),
+    update=extend_schema(summary="Actualizar registro", tags=["academic"]),
+    partial_update=extend_schema(summary="Actualizar parcialmente", tags=["academic"]),
+    destroy=extend_schema(summary="Eliminar registro", tags=["academic"]),
+    soft_delete=extend_schema(summary="Desactivar registro", tags=["academic"]),
+)
 class BaseAcademicViewSet(viewsets.ModelViewSet):
     """ViewSet base para modelos académicos con soporte de StandardResponse"""
 
     permission_classes = [IsAuthenticated, HasPermission]
 
     def list(self, request, *args, **kwargs):
-        response = super().list(request, *args, **kwargs)
-        return ok_response(response.data)
+        return super().list(request, *args, **kwargs)
 
     def retrieve(self, request, *args, **kwargs):
-        response = super().retrieve(request, *args, **kwargs)
-        return ok_response(response.data)
+        return super().retrieve(request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
-        response = super().create(request, *args, **kwargs)
-        return ok_response(response.data, status=201)
+        return super().create(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
-        response = super().update(request, *args, **kwargs)
-        return ok_response(response.data)
+        return super().update(request, *args, **kwargs)
 
     @action(detail=True, methods=["post"], url_path="soft-delete")
     def soft_delete(self, request, pk=None):
@@ -51,26 +59,11 @@ class BaseAcademicViewSet(viewsets.ModelViewSet):
         if hasattr(instance, "active"):
             instance.active = False
             instance.save()
-            return ok_response({"id": instance.id, "active": False})
-        return error_response("Este modelo no soporta borrado lógico", status=400)
-
-
-class SectionViewSet(BaseAcademicViewSet):
-    queryset = Section.objects.all()
-    serializer_class = SectionSerializer
-    action_permissions = {
-        "list": academic.VIEW_SECTION,
-        "retrieve": academic.VIEW_SECTION,
-        "create": academic.CREATE_SECTION,
-        "update": academic.UPDATE_SECTION,
-        "partial_update": academic.UPDATE_SECTION,
-        "destroy": academic.DELETE_SECTION,
-        "soft_delete": academic.DELETE_SECTION,
-    }
+            return Response({"id": instance.id, "active": False})
+        return Response("Este modelo no soporta borrado lógico", status=400)
 
 
 class SubjectViewSet(BaseAcademicViewSet):
-    queryset = Subject.objects.all()
     serializer_class = SubjectSerializer
     action_permissions = {
         "list": academic.VIEW_SUBJECT,
@@ -82,9 +75,15 @@ class SubjectViewSet(BaseAcademicViewSet):
         "soft_delete": academic.DELETE_SUBJECT,
     }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.repository = SubjectRepository()
+
+    def get_queryset(self):
+        return self.repository.get_all()
+
 
 class AcademicPeriodViewSet(BaseAcademicViewSet):
-    queryset = Academic_Period.objects.all()
     serializer_class = Academic_PeriodSerializer
     action_permissions = {
         "list": academic.VIEW_PERIOD,
@@ -96,9 +95,15 @@ class AcademicPeriodViewSet(BaseAcademicViewSet):
         "soft_delete": academic.DELETE_PERIOD,
     }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.repository = AcademicPeriodRepository()
+
+    def get_queryset(self):
+        return self.repository.get_all()
+
 
 class TeacherSubjectSectionViewSet(BaseAcademicViewSet):
-    queryset = Teacher_Subject_Section.objects.all()
     serializer_class = Teacher_Subject_SectionSerializer
     action_permissions = {
         "list": academic.VIEW_TEACHER_SUBJECT,
@@ -110,9 +115,15 @@ class TeacherSubjectSectionViewSet(BaseAcademicViewSet):
         "soft_delete": academic.DELETE_TEACHER_SUBJECT,
     }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.repository = TeacherSubjectSectionRepository()
+
+    def get_queryset(self):
+        return self.repository.get_all()
+
 
 class SubjectAcademicConfigViewSet(BaseAcademicViewSet):
-    queryset = SubjectAcademicConfig.objects.all()
     serializer_class = SubjectAcademicConfigSerializer
     action_permissions = {
         "list": academic.VIEW_SUBJECT,
@@ -124,9 +135,15 @@ class SubjectAcademicConfigViewSet(BaseAcademicViewSet):
         "soft_delete": academic.DELETE_SUBJECT,
     }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.repository = SubjectAcademicConfigRepository()
+
+    def get_queryset(self):
+        return self.repository.get_all()
+
 
 class SubjectOfferingViewSet(BaseAcademicViewSet):
-    queryset = SubjectOffering.objects.all()
     serializer_class = SubjectOfferingSerializer
     action_permissions = {
         "list": academic.VIEW_SUBJECT,
@@ -137,3 +154,50 @@ class SubjectOfferingViewSet(BaseAcademicViewSet):
         "destroy": academic.DELETE_SUBJECT,
         "soft_delete": academic.DELETE_SUBJECT,
     }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.repository = SubjectOfferingRepository()
+
+    def get_queryset(self):
+        return self.repository.get_all()
+
+
+class InterdisciplinaryProjectViewSet(BaseAcademicViewSet):
+    serializer_class = InterdisciplinaryProjectSerializer
+    action_permissions = {
+        "list": academic.VIEW_CONFIG,
+        "retrieve": academic.VIEW_CONFIG,
+        "create": academic.CREATE_CONFIG,
+        "update": academic.UPDATE_CONFIG,
+        "partial_update": academic.UPDATE_CONFIG,
+        "destroy": academic.DELETE_CONFIG,
+        "soft_delete": academic.DELETE_CONFIG,
+    }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.repository = InterdisciplinaryProjectRepository()
+
+    def get_queryset(self):
+        return self.repository.get_all()
+
+
+class SubjectProjectViewSet(BaseAcademicViewSet):
+    serializer_class = SubjectProjectSerializer
+    action_permissions = {
+        "list": academic.VIEW_CONFIG,
+        "retrieve": academic.VIEW_CONFIG,
+        "create": academic.CREATE_CONFIG,
+        "update": academic.UPDATE_CONFIG,
+        "partial_update": academic.UPDATE_CONFIG,
+        "destroy": academic.DELETE_CONFIG,
+        "soft_delete": academic.DELETE_CONFIG,
+    }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.repository = SubjectProjectRepository()
+
+    def get_queryset(self):
+        return self.repository.get_all()

@@ -184,7 +184,7 @@ class AcademicRiskFeatureBuilder:
     def _count_failing_subjects(self, notes):
         subject_values = defaultdict(list)
         for note in notes:
-            subject_id = note.class_assignment.teacher_subject_section.subject_offering.subject_academic_config.subject_id
+            subject_id = note.evaluative_activity.teacher_subject_section.subject_offering.subject_academic_config.subject_id
             subject_values[subject_id].append(_decimal(note.calculate_normalized_value()))
 
         failing = 0
@@ -198,8 +198,8 @@ class AcademicRiskFeatureBuilder:
         exam_notes = [
             note
             for note in notes
-            if note.class_assignment
-            and "examen" in note.class_assignment.title.lower()
+            if note.evaluative_activity
+            and note.evaluative_activity.activity_type == "EXAMEN"
         ]
         source = exam_notes or notes
         if not source:

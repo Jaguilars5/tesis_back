@@ -1,8 +1,13 @@
 from django.test import TestCase
 from datetime import date
 from apps.accounts.models import Person
-from apps.institutions.models import AcademicGrade, AcademicLevel, DocumentType, School_Year
-from apps.academic.models import Section
+from apps.institutions.models import (
+    AcademicGrade,
+    AcademicLevel,
+    DocumentType,
+    School_Year,
+)
+from apps.institutions.models import Section
 from ..models import Student, Student_Representative
 from ..services.students_service import StudentService
 from apps.core.tests.helpers import create_test_student
@@ -148,8 +153,10 @@ class StudentRepresentativeServiceTest(TestCase):
     def test_assign_representative(self):
         """Probar asignación de representante"""
         rel = StudentService.assign_representative(
-            student_id=self.student.id, person_id=self.rep_person.id,
-            kinship="Madre", is_primary=True,
+            student_id=self.student.id,
+            person_id=self.rep_person.id,
+            kinship="Madre",
+            is_primary=True,
         )
 
         self.assertIsNotNone(rel.id)
@@ -158,13 +165,15 @@ class StudentRepresentativeServiceTest(TestCase):
     def test_assign_representative_duplicate(self):
         """Probar que rechaza asignación duplicada"""
         StudentService.assign_representative(
-            student_id=self.student.id, person_id=self.rep_person.id,
+            student_id=self.student.id,
+            person_id=self.rep_person.id,
             kinship="Madre",
         )
 
         with self.assertRaises(Exception):
             StudentService.assign_representative(
-                student_id=self.student.id, person_id=self.rep_person.id,
+                student_id=self.student.id,
+                person_id=self.rep_person.id,
                 kinship="Madre",
             )
 
@@ -184,10 +193,16 @@ class StudentRepresentativeServiceTest(TestCase):
         )
 
         StudentService.assign_representative(
-            self.student.id, rep1.id, kinship="Madre", is_primary=True,
+            self.student.id,
+            rep1.id,
+            kinship="Madre",
+            is_primary=True,
         )
         StudentService.assign_representative(
-            self.student.id, rep2.id, kinship="Padre", is_primary=False,
+            self.student.id,
+            rep2.id,
+            kinship="Padre",
+            is_primary=False,
         )
 
         StudentService.set_primary_representative(self.student.id, rep2.id)

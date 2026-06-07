@@ -4,7 +4,7 @@ from datetime import date
 from django.contrib.auth import get_user_model
 from apps.accounts.models import Role
 from apps.core.tests.helpers import create_test_user
-from ..models import Classroom, DocumentType, RoomType, School_Year
+from ..models import DocumentType, School_Year
 
 User = get_user_model()
 
@@ -54,63 +54,6 @@ class SchoolYearAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
-class ClassroomAPITest(APITestCase):
-    """Tests para los endpoints API de Classroom"""
-
-    def setUp(self):
-        self.role = Role.objects.create(name="Admin")
-        self.user = create_test_user(
-            email="classroom@test.com",
-            dni="1919191919",
-            names="Classroom",
-            last_names="Tester",
-            is_superuser=True,
-        )
-        self.client.force_authenticate(user=self.user)
-        self.room_type = RoomType.objects.create(
-            code="AULA", name="Aula de Clase"
-        )
-        self.classroom = Classroom.objects.create(
-            name="101",
-            room_type=self.room_type,
-            capacity=40,
-        )
-        self.url = "/api/institutions/classroom/"
-
-    def test_list_classrooms(self):
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-    def test_create_classroom(self):
-        data = {
-            "name": "102",
-            "room_type": self.room_type.id,
-            "capacity": 35,
-        }
-        response = self.client.post(self.url, data, format="json")
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-
-    def test_retrieve_classroom(self):
-        response = self.client.get(f"{self.url}{self.classroom.id}/")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-    def test_update_classroom(self):
-        data = {"capacity": 50}
-        response = self.client.patch(
-            f"{self.url}{self.classroom.id}/", data, format="json"
-        )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-    def test_classroom_capacity_validation(self):
-        data = {
-            "name": "Invalid",
-            "room_type": self.room_type.id,
-            "capacity": 0,
-        }
-        response = self.client.post(self.url, data, format="json")
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-
 class DocumentTypeAPITest(APITestCase):
     """Tests para los endpoints de DocumentType"""
 
@@ -143,29 +86,3 @@ class DocumentTypeAPITest(APITestCase):
         data = {"code": "TI", "name": "Tarjeta de Identidad"}
         response = self.client.post(self.url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
-
-
-class RoomTypeAPITest(APITestCase):
-    """Tests para los endpoints de RoomType"""
-
-    def setUp(self):
-        self.role = Role.objects.create(name="Admin")
-        self.user = create_test_user(
-            email="roomtype@test.com",
-            dni="2020202020",
-            names="RoomType",
-            last_names="Tester",
-            is_superuser=True,
-        )
-        self.client.force_authenticate(user=self.user)
-        RoomType.objects.create(code="AULA", name="Aula de Clase")
-        self.url = "/api/institutions/room-types/"
-
-    def test_list(self):
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-    def test_retrieve(self):
-        room = RoomType.objects.first()
-        response = self.client.get(f"{self.url}{room.id}/")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)

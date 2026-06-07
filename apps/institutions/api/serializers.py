@@ -2,10 +2,9 @@ from rest_framework import serializers
 from ..models import (
     AcademicGrade,
     AcademicLevel,
-    Classroom,
     DocumentType,
-    RoomType,
     School_Year,
+    Section,
 )
 
 
@@ -15,26 +14,20 @@ class School_YearSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class ClassroomSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Classroom
-        fields = "__all__"
+class SectionSerializer(serializers.ModelSerializer):
+    school_year_name = serializers.CharField(source="school_year.name", read_only=True)
+    academic_grade_name = serializers.CharField(
+        source="academic_grade.name", read_only=True
+    )
 
-    def validate_capacity(self, value):
-        if value <= 0:
-            raise serializers.ValidationError("La capacidad debe ser mayor a 0")
-        return value
+    class Meta:
+        model = Section
+        fields = "__all__"
 
 
 class DocumentTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = DocumentType
-        fields = "__all__"
-
-
-class RoomTypeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = RoomType
         fields = "__all__"
 
 
@@ -45,6 +38,10 @@ class AcademicLevelSerializer(serializers.ModelSerializer):
 
 
 class AcademicGradeSerializer(serializers.ModelSerializer):
+    academic_level_name = serializers.CharField(
+        source="academic_level.name", read_only=True
+    )
+
     class Meta:
         model = AcademicGrade
         fields = "__all__"

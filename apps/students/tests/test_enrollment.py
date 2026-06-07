@@ -3,9 +3,12 @@ from django.test import TestCase
 from django.db import IntegrityError
 from apps.accounts.models import Person
 from apps.institutions.models import (
-    AcademicGrade, AcademicLevel, DocumentType, School_Year,
+    AcademicGrade,
+    AcademicLevel,
+    DocumentType,
+    School_Year,
 )
-from apps.academic.models import Section
+from apps.institutions.models import Section
 from apps.students.models import Enrollment, EnrollmentStatus, Student
 from apps.students.services.enrollment_service import EnrollmentService
 from apps.core.tests.helpers import create_test_student
@@ -122,19 +125,22 @@ class EnrollmentServiceTest(TestCase):
 
     def test_enroll_student_already_active(self):
         EnrollmentService.enroll_student(
-            student=self.student, section=self.section,
+            student=self.student,
+            section=self.section,
         )
 
         with self.assertRaises(ValueError) as context:
             EnrollmentService.enroll_student(
-                student=self.student, section=self.second_section,
+                student=self.student,
+                section=self.second_section,
             )
 
         self.assertIn("ya tiene una matr", str(context.exception))
 
     def test_withdraw_student(self):
         enrollment = EnrollmentService.enroll_student(
-            student=self.student, section=self.section,
+            student=self.student,
+            section=self.section,
         )
 
         withdrawn = EnrollmentService.withdraw_student(
@@ -145,7 +151,8 @@ class EnrollmentServiceTest(TestCase):
 
     def test_get_active_enrollment(self):
         enrollment = EnrollmentService.enroll_student(
-            student=self.student, section=self.section,
+            student=self.student,
+            section=self.section,
         )
 
         active = EnrollmentService.get_active_enrollment(self.student)
@@ -154,7 +161,8 @@ class EnrollmentServiceTest(TestCase):
 
     def test_get_active_enrollment_after_withdraw(self):
         enrollment = EnrollmentService.enroll_student(
-            student=self.student, section=self.section,
+            student=self.student,
+            section=self.section,
         )
         EnrollmentService.withdraw_student(enrollment)
 

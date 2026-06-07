@@ -2,10 +2,11 @@ from django.db import models
 
 
 class StudentRiskScore(models.Model):
-    student = models.ForeignKey(
-        "students.Student",
+    enrollment = models.ForeignKey(
+        "students.Enrollment",
         on_delete=models.CASCADE,
-        verbose_name="Estudiante",
+        verbose_name="Matrícula",
+        null=True,  # Permite null temporal para facilitar migraciones desde el modelo antiguo
     )
     academic_period = models.ForeignKey(
         "academic.Academic_Period",
@@ -13,13 +14,13 @@ class StudentRiskScore(models.Model):
         verbose_name="Período Académico",
     )
     risk_score = models.DecimalField(
-        max_digits=5, decimal_places=2, verbose_name="Puntaje de Riesgo",
+        max_digits=5, decimal_places=2, default=0.00, verbose_name="Puntaje de Riesgo",
     )
     risk_label = models.CharField(
-        max_length=20, verbose_name="Etiqueta de Riesgo",
+        max_length=20, default="", verbose_name="Etiqueta de Riesgo",
     )
     model_version = models.CharField(
-        max_length=50, verbose_name="Versión del Modelo",
+        max_length=50, default="", verbose_name="Versión del Modelo",
     )
     calculated_at = models.DateTimeField(
         auto_now_add=True, verbose_name="Fecha de Cálculo",
@@ -32,4 +33,4 @@ class StudentRiskScore(models.Model):
         verbose_name_plural = "Puntajes de Riesgo de los Estudiantes"
 
     def __str__(self):
-        return f"{self.student} - {self.risk_label} ({self.risk_score})"
+        return f"{self.enrollment} - {self.risk_label} ({self.risk_score})"

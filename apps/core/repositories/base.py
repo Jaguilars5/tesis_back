@@ -1,0 +1,53 @@
+"""Repositorio base unificado para todas las apps."""
+
+from django.db import models
+
+
+class BaseRepository:
+    """
+    Repositorio base con operaciones CRUD genéricas.
+    Todas las apps deben heredar de aquí, NO definir su propio BaseRepository.
+    """
+    model = None
+
+    @classmethod
+    def get_all(cls, active_only=True):
+        queryset = cls.model.objects.all()
+        if active_only and hasattr(cls.model, "active"):
+            queryset = queryset.filter(active=True)
+        return queryset
+
+    @classmethod
+    def get_by_id(cls, pk):
+        try:
+            return cls.model.objects.get(pk=pk)
+        except cls.model.DoesNotExist:
+            return None
+
+    @classmethod
+    def get_by_uuid(cls, uuid):
+        try:
+            return cls.model.objects.get(uuid=uuid)
+        except (cls.model.DoesNotExist, ValueError):
+            return None
+
+    @classmethod
+    def exists(cls, **filters):
+        return cls.model.objects.filter(**filters).exists()
+
+    @classmethod
+    def count(cls, **filters):
+        return cls.model.objects.filter(**filters).count()
+
+    @classmethod
+    def create(cls, **data):
+        return cls.model.objects.create(**data)
+
+    @classmethod
+    def update(cls, pk, **data):
+        cls.model.objects.filter(pk=pk).update(**data)
+        return cls.get_by_id(pk)
+
+    @classmethod
+    def delete(cls, pk):
+        return cls.model.objects.filter(pk=pk).delete()

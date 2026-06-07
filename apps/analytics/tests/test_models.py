@@ -1,8 +1,10 @@
 from django.test import TestCase
 from datetime import date
 from decimal import Decimal
+from django.core.exceptions import ValidationError
 from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year
-from apps.academic.models import Academic_Period, Section
+from apps.institutions.models import Section
+from apps.academic.models import Academic_Period
 from apps.core.tests.helpers import create_test_student
 from apps.students.models import Student
 from apps.analytics.models import RiskFactor, StudentFeatureSnapshot, StudentRiskScore
@@ -39,10 +41,17 @@ class StudentRiskScoreModelTest(TestCase):
             last_names="Perez",
             birth_date=date(2012, 5, 15),
         )
+        from apps.students.models import EnrollmentStatus, Enrollment
+        act_status, _ = EnrollmentStatus.objects.get_or_create(code="ACT", defaults={"name": "Activa"})
+        self.enrollment = Enrollment.objects.create(
+            student=self.student,
+            section=self.section,
+            enrollment_status=act_status,
+        )
 
     def test_risk_score_creation(self):
         risk = StudentRiskScore.objects.create(
-            student=self.student,
+            enrollment=self.enrollment,
             academic_period=self.period,
             risk_score=Decimal("75.50"),
             risk_label="Alto",
@@ -54,7 +63,7 @@ class StudentRiskScoreModelTest(TestCase):
 
     def test_risk_score_str(self):
         risk = StudentRiskScore.objects.create(
-            student=self.student,
+            enrollment=self.enrollment,
             academic_period=self.period,
             risk_score=Decimal("45.00"),
             risk_label="Medio",
@@ -65,7 +74,7 @@ class StudentRiskScoreModelTest(TestCase):
 
     def test_risk_score_cascade_delete(self):
         risk = StudentRiskScore.objects.create(
-            student=self.student,
+            enrollment=self.enrollment,
             academic_period=self.period,
             risk_score=Decimal("30.00"),
             risk_label="Bajo",
@@ -76,20 +85,20 @@ class StudentRiskScoreModelTest(TestCase):
 
     def test_multiple_risk_scores_ordering(self):
         StudentRiskScore.objects.create(
-            student=self.student,
+            enrollment=self.enrollment,
             academic_period=self.period,
             risk_score=Decimal("30.00"),
             risk_label="Bajo",
             model_version="v1.0",
         )
         StudentRiskScore.objects.create(
-            student=self.student,
+            enrollment=self.enrollment,
             academic_period=self.period,
             risk_score=Decimal("80.00"),
             risk_label="Alto",
             model_version="v1.0",
         )
-        scores = StudentRiskScore.objects.filter(student=self.student)
+        scores = StudentRiskScore.objects.filter(enrollment=self.enrollment)
         self.assertEqual(scores.first().risk_score, Decimal("80.00"))
 
 
@@ -124,15 +133,23 @@ class StudentFeatureSnapshotModelTest(TestCase):
             last_names="Lopez",
             birth_date=date(2012, 3, 10),
         )
+        from apps.students.models import EnrollmentStatus, Enrollment
+        act_status, _ = EnrollmentStatus.objects.get_or_create(code="ACT", defaults={"name": "Activa"})
+        self.enrollment = Enrollment.objects.create(
+            student=self.student,
+            section=self.section,
+            enrollment_status=act_status,
+        )
 
     def test_snapshot_creation(self):
         snapshot = StudentFeatureSnapshot.objects.create(
-            student=self.student,
+            enrollment=self.enrollment,
             academic_period=self.period,
             attendance_rate=Decimal("85.00"),
             consecutive_absences_max=3,
             tardiness_count=5,
-            avg_grade_normalized=Decimal("7.50"),
+            formative_avg_normalized=Decimal("7.50"),
+            summative_avg_normalized=Decimal("7.50"),
             grade_trend_slope=Decimal("-0.10"),
             failing_subjects_count=2,
             conduct_score=Decimal("8.00"),
@@ -145,12 +162,13 @@ class StudentFeatureSnapshotModelTest(TestCase):
 
     def test_snapshot_str(self):
         snapshot = StudentFeatureSnapshot.objects.create(
-            student=self.student,
+            enrollment=self.enrollment,
             academic_period=self.period,
             attendance_rate=Decimal("90.00"),
             consecutive_absences_max=1,
             tardiness_count=2,
-            avg_grade_normalized=Decimal("8.00"),
+            formative_avg_normalized=Decimal("8.00"),
+            summative_avg_normalized=Decimal("8.00"),
             grade_trend_slope=Decimal("0.05"),
             failing_subjects_count=0,
             conduct_score=Decimal("9.00"),
@@ -162,12 +180,13 @@ class StudentFeatureSnapshotModelTest(TestCase):
 
     def test_snapshot_nullable_fields(self):
         snapshot = StudentFeatureSnapshot.objects.create(
-            student=self.student,
+            enrollment=self.enrollment,
             academic_period=self.period,
             attendance_rate=Decimal("70.00"),
             consecutive_absences_max=5,
             tardiness_count=10,
-            avg_grade_normalized=Decimal("5.00"),
+            formative_avg_normalized=Decimal("5.00"),
+            summative_avg_normalized=Decimal("5.00"),
             grade_trend_slope=Decimal("-0.50"),
             failing_subjects_count=4,
             conduct_score=Decimal("4.00"),
@@ -179,12 +198,13 @@ class StudentFeatureSnapshotModelTest(TestCase):
 
     def test_snapshot_cascade_delete(self):
         snapshot = StudentFeatureSnapshot.objects.create(
-            student=self.student,
+            enrollment=self.enrollment,
             academic_period=self.period,
             attendance_rate=Decimal("80.00"),
             consecutive_absences_max=2,
             tardiness_count=3,
-            avg_grade_normalized=Decimal("6.50"),
+            formative_avg_normalized=Decimal("6.50"),
+            summative_avg_normalized=Decimal("6.50"),
             grade_trend_slope=Decimal("0.00"),
             failing_subjects_count=1,
             conduct_score=Decimal("7.00"),
@@ -206,7 +226,9 @@ class RiskFactorModelTest(TestCase):
     def test_creation(self):
         self.assertEqual(self.factor.code, "ASIST_BAJA")
         self.assertEqual(self.factor.name, "Asistencia Baja")
-        self.assertEqual(self.factor.description, "Estudiante con alta tasa de inasistencia")
+        self.assertEqual(
+            self.factor.description, "Estudiante con alta tasa de inasistencia"
+        )
 
     def test_code_unique(self):
         with self.assertRaises(Exception):

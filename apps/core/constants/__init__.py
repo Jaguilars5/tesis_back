@@ -4,14 +4,12 @@ from .permissions import (
     AnalyticsPermissions,
     GradingPermissions,
     InstitutionsPermissions,
-    SchedulingPermissions,
     StudentsPermissions,
     academic,
     accounts,
     analytics,
     grading,
     institutions,
-    scheduling,
     students,
 )
 
@@ -21,13 +19,11 @@ __all__ = [
     "AcademicPermissions",
     "StudentsPermissions",
     "GradingPermissions",
-    "SchedulingPermissions",
     "AnalyticsPermissions",
     "accounts",
     "institutions",
     "academic",
     "students",
     "grading",
-    "scheduling",
     "analytics",
 ]

@@ -128,9 +128,9 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
     ),
-    "DEFAULT_PAGINATION_CLASS": "apps.core.pagination.StandardResultsSetPagination",
+    "DEFAULT_PAGINATION_CLASS": "apps.core.api.pagination.StandardResultsSetPagination",
     "DEFAULT_RENDERER_CLASSES": (
-        "apps.core.renderers.StandardResponseRenderer",
+        "apps.core.api.renderers.StandardResponseRenderer",
         "rest_framework.renderers.JSONRenderer",
     ),
     "DEFAULT_FILTER_BACKENDS": (
@@ -146,6 +146,6 @@ REST_FRAMEWORK = {
         "user": "1000/day",
         "login": "10/hour",
     },
-    "DEFAULT_SCHEMA_CLASS": "apps.core.schema.StandardResponseAutoSchema",
-    "EXCEPTION_HANDLER": "apps.core.exceptions.custom_exception_handler",
+    "DEFAULT_SCHEMA_CLASS": "apps.core.api.schema.StandardResponseAutoSchema",
+    "EXCEPTION_HANDLER": "apps.core.api.exceptions.custom_exception_handler",
 }

@@ -1,6 +1,6 @@
 from django.test import TestCase
 from datetime import date, timedelta
-from ..models import Classroom, DocumentType, RoomType, School_Year
+from ..models import DocumentType, School_Year
 
 
 class SchoolYearModelTest(TestCase):
@@ -37,57 +37,3 @@ class SchoolYearModelTest(TestCase):
         )
 
         self.assertEqual(School_Year.objects.count(), 2)
-
-
-class ClassroomModelTest(TestCase):
-    """Tests para el modelo Classroom"""
-
-    def setUp(self):
-        """Crear instancias de prueba"""
-        self.room_type = RoomType.objects.create(
-            code="AULA", name="Aula de Clase"
-        )
-        self.classroom = Classroom.objects.create(
-            name="101",
-            room_type=self.room_type,
-            capacity=40,
-        )
-
-    def test_classroom_creation(self):
-        """Probar creación de aula"""
-        self.assertEqual(self.classroom.name, "101")
-        self.assertEqual(self.classroom.room_type.name, "Aula de Clase")
-        self.assertEqual(self.classroom.capacity, 40)
-        self.assertTrue(self.classroom.active)
-
-    def test_classroom_str(self):
-        """Probar representación en string"""
-        self.assertIn("101", str(self.classroom))
-
-    def test_classroom_capacity(self):
-        """Probar capacidad de aula"""
-        classrooms = [
-            Classroom(
-                name="Pequeña",
-                room_type=self.room_type,
-                capacity=10,
-            ),
-            Classroom(
-                name="Mediana",
-                room_type=self.room_type,
-                capacity=30,
-            ),
-            Classroom(
-                name="Grande",
-                room_type=self.room_type,
-                capacity=100,
-            ),
-        ]
-        Classroom.objects.bulk_create(classrooms)
-
-        small = Classroom.objects.get(name="Pequeña")
-        large = Classroom.objects.get(name="Grande")
-
-        self.assertEqual(small.capacity, 10)
-        self.assertEqual(large.capacity, 100)
-        self.assertLess(small.capacity, large.capacity)

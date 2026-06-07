@@ -5,7 +5,6 @@ from django.test import TestCase
 
 from apps.academic.models import (
     Academic_Period,
-    Section,
     Subject,
     SubjectAcademicConfig,
     SubjectOffering,
@@ -14,21 +13,21 @@ from apps.academic.models import (
 from apps.accounts.models import Role
 from apps.core.tests.helpers import create_test_user, create_test_student
 from apps.grading.models import (
-    ClassAssignment,
-    EvaluationCriteria,
-    EvaluationMacro,
-    EvaluationSubcriteria,
+    BlockComponent,
+    ComponentIndicator,
+    EvaluationBlock,
+    EvaluativeActivity,
     GradeChangeHistory,
     GradeType,
     StudentNote,
 )
 from apps.grading.services.evaluation_service import EvaluationService
-from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year
+from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year, Section
 from apps.students.models import Enrollment, EnrollmentStatus
 
 
 class EvaluationHierarchyTest(TestCase):
-    """Tests para la jerarquia EvaluationMacro > EvaluationCriteria > EvaluationSubcriteria > ClassAssignment."""
+    """Tests para la jerarquía EvaluationBlock > BlockComponent > ComponentIndicator > EvaluativeActivity."""
 
     def setUp(self):
         school_year = School_Year.objects.create(
@@ -79,91 +78,95 @@ class EvaluationHierarchyTest(TestCase):
         )
         self.enrollment = Enrollment.objects.create(
             student=self.student, section=self.section,
+            school_year=school_year,
             enrollment_status=self.status,
         )
 
     def _create_full_hierarchy(self):
-        macro = EvaluationMacro.objects.create(
+        block = EvaluationBlock.objects.create(
             academic_period=self.period,
-            name="Macro 1",
+            name="Bloque 1",
+            evaluation_type="FORMATIVA",
             weight_percentage=Decimal("100.00"),
         )
-        criteria = EvaluationCriteria.objects.create(
-            evaluation_macro=macro,
-            name="Criterio 1",
+        component = BlockComponent.objects.create(
+            evaluation_block=block,
+            name="Componente 1",
             internal_weight=Decimal("100.00"),
         )
-        subcriteria = EvaluationSubcriteria.objects.create(
-            evaluation_criteria=criteria,
-            name="Subcriterio 1",
+        indicator = ComponentIndicator.objects.create(
+            block_component=component,
+            name="Indicador 1",
             internal_weight=Decimal("100.00"),
         )
-        assignment = ClassAssignment.objects.create(
-            evaluation_subcriteria=subcriteria,
+        activity = EvaluativeActivity.objects.create(
+            component_indicator=indicator,
             teacher_subject_section=self.teacher_subject_section,
             title="Examen",
+            activity_type="EXAMEN",
             max_score=Decimal("20"),
             due_date=date(2025, 2, 1),
         )
-        return macro, criteria, subcriteria, assignment
+        return block, component, indicator, activity
 
-    def test_create_evaluation_macro(self):
-        macro = EvaluationMacro.objects.create(
+    def test_create_evaluation_block(self):
+        block = EvaluationBlock.objects.create(
             academic_period=self.period,
-            name="Macro 1",
+            name="Bloque 1",
+            evaluation_type="FORMATIVA",
             weight_percentage=Decimal("50.00"),
         )
-        self.assertEqual(macro.name, "Macro 1")
-        self.assertEqual(macro.weight_percentage, Decimal("50.00"))
+        self.assertEqual(block.name, "Bloque 1")
+        self.assertEqual(block.weight_percentage, Decimal("50.00"))
+        self.assertEqual(block.evaluation_type, "FORMATIVA")
 
-    def test_create_evaluation_criteria(self):
-        macro = EvaluationMacro.objects.create(
+    def test_create_block_component(self):
+        block = EvaluationBlock.objects.create(
             academic_period=self.period,
-            name="Macro 1",
+            name="Bloque 1",
+            evaluation_type="SUMATIVA",
             weight_percentage=Decimal("100.00"),
         )
-        criteria = EvaluationCriteria.objects.create(
-            evaluation_macro=macro,
-            name="Criterio 1",
+        component = BlockComponent.objects.create(
+            evaluation_block=block,
+            name="Componente 1",
             internal_weight=Decimal("50.00"),
         )
-        self.assertEqual(criteria.name, "Criterio 1")
-        self.assertEqual(criteria.internal_weight, Decimal("50.00"))
-        self.assertEqual(criteria.evaluation_macro, macro)
+        self.assertEqual(component.name, "Componente 1")
+        self.assertEqual(component.internal_weight, Decimal("50.00"))
+        self.assertEqual(component.evaluation_block, block)
 
-    def test_create_evaluation_subcriteria(self):
-        macro = EvaluationMacro.objects.create(
-            academic_period=self.period,
-            name="Macro 1",
-            weight_percentage=Decimal("100.00"),
+    def test_create_component_indicator(self):
+        block = EvaluationBlock.objects.create(
+            academic_period=self.period, name="Bloque 1",
+            evaluation_type="FORMATIVA", weight_percentage=Decimal("100.00"),
         )
-        criteria = EvaluationCriteria.objects.create(
-            evaluation_macro=macro,
-            name="Criterio 1",
+        component = BlockComponent.objects.create(
+            evaluation_block=block, name="Componente 1",
             internal_weight=Decimal("100.00"),
         )
-        subcriteria = EvaluationSubcriteria.objects.create(
-            evaluation_criteria=criteria,
-            name="Subcriterio 1",
+        indicator = ComponentIndicator.objects.create(
+            block_component=component, name="Indicador 1",
             internal_weight=Decimal("100.00"),
         )
-        self.assertEqual(subcriteria.name, "Subcriterio 1")
-        self.assertEqual(subcriteria.evaluation_criteria, criteria)
+        self.assertEqual(indicator.name, "Indicador 1")
+        self.assertEqual(indicator.block_component, component)
 
-    def test_create_class_assignment(self):
-        macro, criteria, subcriteria, assignment = self._create_full_hierarchy()
+    def test_create_evaluative_activity(self):
+        block, component, indicator, activity = self._create_full_hierarchy()
 
-        self.assertEqual(assignment.title, "Examen")
-        self.assertEqual(assignment.max_score, Decimal("20"))
-        self.assertEqual(assignment.evaluation_subcriteria, subcriteria)
+        self.assertEqual(activity.title, "Examen")
+        self.assertEqual(activity.max_score, Decimal("20"))
+        self.assertEqual(activity.component_indicator, indicator)
+        self.assertEqual(activity.activity_type, "EXAMEN")
 
     def test_grade_change_history_creation(self):
-        macro, criteria, subcriteria, assignment = self._create_full_hierarchy()
+        block, component, indicator, activity = self._create_full_hierarchy()
         grade_type = GradeType.objects.create(code="NUM", name="Numerica")
 
         note = StudentNote.objects.create(
             enrollment=self.enrollment,
-            class_assignment=assignment,
+            evaluative_activity=activity,
             grade_type=grade_type,
             numeric_score=Decimal("15"),
         )
@@ -233,101 +236,105 @@ class EvaluationServiceTest(TestCase):
         )
         self.enrollment = Enrollment.objects.create(
             student=self.student, section=self.section,
+            school_year=school_year,
             enrollment_status=self.status,
         )
 
-        self.macro = EvaluationMacro.objects.create(
+        self.block = EvaluationBlock.objects.create(
             academic_period=self.period,
-            name="Macro 1",
+            name="Bloque 1",
+            evaluation_type="FORMATIVA",
             weight_percentage=Decimal("100.00"),
         )
-        self.criteria = EvaluationCriteria.objects.create(
-            evaluation_macro=self.macro,
-            name="Criterio 1",
+        self.component = BlockComponent.objects.create(
+            evaluation_block=self.block,
+            name="Componente 1",
             internal_weight=Decimal("100.00"),
         )
-        self.subcriteria = EvaluationSubcriteria.objects.create(
-            evaluation_criteria=self.criteria,
-            name="Subcriterio 1",
+        self.indicator = ComponentIndicator.objects.create(
+            block_component=self.component,
+            name="Indicador 1",
             internal_weight=Decimal("100.00"),
         )
-        self.assignment = ClassAssignment.objects.create(
-            evaluation_subcriteria=self.subcriteria,
+        self.activity = EvaluativeActivity.objects.create(
+            component_indicator=self.indicator,
             teacher_subject_section=self.teacher_subject_section,
             title="Examen",
+            activity_type="EXAMEN",
             max_score=Decimal("10"),
             due_date=date(2025, 2, 1),
         )
         self.grade_type = GradeType.objects.create(code="NUM", name="Numerica")
 
-    def test_calculate_macro_grade(self):
+    def test_calculate_block_grade(self):
         StudentNote.objects.create(
             enrollment=self.enrollment,
-            class_assignment=self.assignment,
+            evaluative_activity=self.activity,
             grade_type=self.grade_type,
             numeric_score=Decimal("8"),
         )
 
-        grade = EvaluationService.calculate_macro_grade(
-            self.enrollment, self.macro
+        grade = EvaluationService.calculate_block_grade(
+            self.enrollment, self.block
         )
 
         self.assertIsNotNone(grade)
         expected = Decimal("8.00")
         self.assertEqual(grade, expected)
 
-    def test_calculate_macro_grade_no_notes(self):
-        grade = EvaluationService.calculate_macro_grade(
-            self.enrollment, self.macro
+    def test_calculate_block_grade_no_notes(self):
+        grade = EvaluationService.calculate_block_grade(
+            self.enrollment, self.block
         )
 
         self.assertIsNone(grade)
 
-    def test_calculate_macro_grade_multiple_assignments(self):
-        subcriteria2 = EvaluationSubcriteria.objects.create(
-            evaluation_criteria=self.criteria,
-            name="Subcriterio 2",
+    def test_calculate_block_grade_multiple_activities(self):
+        indicator2 = ComponentIndicator.objects.create(
+            block_component=self.component,
+            name="Indicador 2",
             internal_weight=Decimal("100.00"),
         )
-        assignment2 = ClassAssignment.objects.create(
-            evaluation_subcriteria=subcriteria2,
+        activity2 = EvaluativeActivity.objects.create(
+            component_indicator=indicator2,
             teacher_subject_section=self.teacher_subject_section,
             title="Tarea",
+            activity_type="TAREA",
             max_score=Decimal("10"),
             due_date=date(2025, 2, 15),
         )
         StudentNote.objects.create(
             enrollment=self.enrollment,
-            class_assignment=self.assignment,
+            evaluative_activity=self.activity,
             grade_type=self.grade_type,
             numeric_score=Decimal("8"),
         )
         StudentNote.objects.create(
             enrollment=self.enrollment,
-            class_assignment=assignment2,
+            evaluative_activity=activity2,
             grade_type=self.grade_type,
             numeric_score=Decimal("6"),
         )
 
-        grade = EvaluationService.calculate_macro_grade(
-            self.enrollment, self.macro
+        grade = EvaluationService.calculate_block_grade(
+            self.enrollment, self.block
         )
 
         self.assertIsNotNone(grade)
 
     def test_get_grade_hierarchy(self):
-        hierarchy = EvaluationService.get_grade_hierarchy(self.assignment)
+        hierarchy = EvaluationService.get_grade_hierarchy(self.activity)
 
-        self.assertEqual(hierarchy["class_assignment"], self.assignment)
-        self.assertEqual(hierarchy["subcriteria"], self.subcriteria)
-        self.assertEqual(hierarchy["criteria"], self.criteria)
-        self.assertEqual(hierarchy["macro"], self.macro)
+        self.assertEqual(hierarchy["evaluative_activity"], self.activity)
+        self.assertEqual(hierarchy["indicator"], self.indicator)
+        self.assertEqual(hierarchy["component"], self.component)
+        self.assertEqual(hierarchy["block"], self.block)
         self.assertEqual(hierarchy["academic_period"], self.period)
 
     def test_create_grade_change_history(self):
         note = StudentNote.objects.create(
             enrollment=self.enrollment,
-            class_assignment=self.assignment,
+            evaluative_activity=self.activity,
             grade_type=self.grade_type,
             numeric_score=Decimal("5"),
         )

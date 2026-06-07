@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.test import APIRequestFactory
 
 from apps.accounts.models import Permission, Role, RolePermission, User, UserRole
-from apps.core.permissions import HasPermission, require_permission
+from apps.core.api.permissions import HasPermission, require_permission
 from apps.core.tests.helpers import create_test_user
 
 

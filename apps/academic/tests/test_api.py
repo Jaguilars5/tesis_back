@@ -2,7 +2,8 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 from datetime import date
 from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year
-from apps.academic.models import Section, Subject
+from apps.institutions.models import Section
+from apps.academic.models import Subject
 from apps.accounts.models import Role, User
 from apps.core.tests.helpers import create_test_user
 

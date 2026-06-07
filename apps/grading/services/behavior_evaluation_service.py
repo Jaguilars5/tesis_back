@@ -1,5 +1,6 @@
 from django.db import transaction
-from ..models import BehaviorEvaluation, ConductIncident, QualitativeScale
+from ..models import QualitativeScale
+from apps.attendance.models import BehaviorEvaluation, ConductIncident
 
 
 class BehaviorEvaluationService:
@@ -30,7 +31,7 @@ class BehaviorEvaluationService:
         severe_count = sum(1 for i in incidents if i.severity >= 3)
         total_incidents = incidents.count()
 
-        if severe_count >= 3 or max_severity >= 3 and total_incidents >= 5:
+        if severe_count >= 3 or max_severity >= 3 and total_incidents >= 2:
             scale_code = "NA"
         elif max_severity >= 2 or total_incidents >= 3:
             scale_code = "AC"

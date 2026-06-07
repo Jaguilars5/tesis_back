@@ -2,11 +2,10 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 from datetime import date
 from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year
-from apps.academic.models import Section
+from apps.institutions.models import Section
 from apps.accounts.models import Role, User
 from apps.core.tests.helpers import create_test_user, create_test_student
 from apps.students.models import EnrollmentStatus, Student
-
 
 # Compatibilidad Python 3.14: patch Context.__copy__
 import django.template.context as _context
@@ -104,9 +103,6 @@ class StudentAPITest(APITestCase):
         self.assertIn(
             response.status_code, [status.HTTP_204_NO_CONTENT, status.HTTP_200_OK]
         )
-
-
-
 
 
 class EnrollmentStatusAPITest(APITestCase):

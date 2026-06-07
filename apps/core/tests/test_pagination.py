@@ -1,6 +1,6 @@
 from django.test import TestCase, RequestFactory
 from rest_framework.request import Request
-from apps.core.pagination import StandardResultsSetPagination
+from apps.core.api.pagination import StandardResultsSetPagination
 from apps.accounts.models import Role, User
 from apps.core.tests.helpers import create_test_user
 

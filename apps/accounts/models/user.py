@@ -44,6 +44,19 @@ class User(AbstractBaseUser):
         unique=True, verbose_name="Correo Electrónico",
         help_text="Sincronizado desde Person.email",
     )
+    user_type = models.CharField(
+        max_length=20,
+        choices=[
+            ("ESTUDIANTE", "Estudiante"),
+            ("DOCENTE", "Docente"),
+            ("ADMIN", "Administrador"),
+            ("REPRESENTANTE", "Representante"),
+        ],
+        null=True,
+        blank=True,
+        verbose_name="Tipo de Usuario",
+        help_text="Rol base del usuario en el sistema",
+    )
     active = models.BooleanField(default=True, verbose_name="Activo")
     is_staff = models.BooleanField(default=False, verbose_name="Es Personal del Admin")
     is_superuser = models.BooleanField(default=False, verbose_name="Es Superusuario")

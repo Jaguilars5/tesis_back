@@ -39,9 +39,9 @@ coverage report -m
 - `AUTH_USER_MODEL = "accounts.User"` — custom user model, not `auth.User`
 - `sys.path` inserts `apps/` as root package in `config/settings/base.py`
 
-**Apps** (8 total): `core`, `accounts`, `academic`, `grading`, `institutions`, `scheduling`, `students`, `analytics`
+**Apps** (9 total): `core`, `accounts`, `academic`, `grading`, `institutions`, `students`, `analytics`, `attendance`
 
-**API routes** (see `config/urls.py`): `/api/accounts/`, `/api/academic/`, `/api/institutions/`, `/api/grading/`, `/api/students/`, `/api/scheduling/`, `/api/analytics/`
+**API routes** (see `config/urls.py`): `/api/accounts/`, `/api/academic/`, `/api/institutions/`, `/api/grading/`, `/api/students/`, `/api/analytics/`, `/api/attendance/`
 
 **API Documentation** (pública, sin auth):
 - `/api/schema/` — Schema OpenAPI 3.0
@@ -174,7 +174,7 @@ python manage.py spectacular --settings=config.settings.local --file schema.yml
 - En ViewSets: `action_permissions = {"list": grading.VIEW_NOTE, ...}`
 - En decoradores: `@require_permission(grading.VIEW_NOTE)`
 
-Instancias disponibles: `accounts`, `institutions`, `academic`, `students`, `grading`, `scheduling`, `analytics`
+Instancias disponibles: `accounts`, `institutions`, `academic`, `students`, `grading`, `attendance`, `analytics`
 
 ## Tests de Seguridad
 

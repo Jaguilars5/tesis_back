@@ -1,7 +1,7 @@
 from decimal import Decimal
 from django.db import transaction, models
+from apps.institutions.models import Section
 from ..models import (
-    Section,
     Subject,
     Academic_Period,
     Teacher_Subject_Section,
@@ -9,11 +9,11 @@ from ..models import (
     SubjectOffering,
 )
 from ..repositories.academic_repo import (
-    SectionRepository,
     SubjectRepository,
     AcademicPeriodRepository,
     TeacherSubjectSectionRepository,
 )
+from apps.institutions.repositories.section_repository import SectionRepository
 from apps.grading.repositories.grading_repo import StudentNoteRepository
 
 
@@ -25,9 +25,7 @@ class AcademicService:
     # =====================
 
     @staticmethod
-    def create_section(
-        school_year_id, academic_grade_id, parallel, capacity
-    ):
+    def create_section(school_year_id, academic_grade_id, parallel, capacity):
         if capacity <= 0:
             raise ValueError("Capacidad debe ser mayor a 0")
         section = Section(
@@ -113,9 +111,13 @@ class AcademicService:
 
     @staticmethod
     def list_subjects_by_section(section_id):
-        return Subject.objects.filter(
-            subjectacademicconfig__subjectoffering__section_id=section_id
-        ).distinct().order_by("name")
+        return (
+            Subject.objects.filter(
+                subjectacademicconfig__subjectoffering__section_id=section_id
+            )
+            .distinct()
+            .order_by("name")
+        )
 
     @staticmethod
     def update_subject(subject_id, **kwargs):
@@ -131,12 +133,16 @@ class AcademicService:
     # =====================
 
     @staticmethod
-    def create_academic_period(name, school_year_id, number, description=""):
+    def create_academic_period(name, school_year_id, period_type="REGULAR", start_date=None, end_date=None, is_regular_period=True):
+        if not start_date or not end_date:
+            raise ValueError("Las fechas de inicio y fin son requeridas")
         period = Academic_Period(
             school_year_id=school_year_id,
             name=name,
-            number=number,
-            description=description,
+            period_type=period_type,
+            start_date=start_date,
+            end_date=end_date,
+            is_regular_period=is_regular_period,
         )
         period.save()
         return period
@@ -168,20 +174,16 @@ class AcademicService:
     # =====================
 
     @staticmethod
-    def assign_teacher(user_id, subject_id, section_id, school_year_id):
+    def assign_teacher(user_id, subject_offering_id):
         existing = Teacher_Subject_Section.objects.filter(
             user_id=user_id,
-            subject_id=subject_id,
-            section_id=section_id,
-            school_year_id=school_year_id,
+            subject_offering_id=subject_offering_id,
         ).exists()
         if existing:
-            raise ValueError("Docente ya está asignado a esta asignatura-sección")
+            raise ValueError("Docente ya está asignado a esta oferta de materia")
         assignment = Teacher_Subject_Section(
             user_id=user_id,
-            subject_id=subject_id,
-            section_id=section_id,
-            school_year_id=school_year_id,
+            subject_offering_id=subject_offering_id,
         )
         assignment.save()
         return assignment
@@ -194,14 +196,12 @@ class AcademicService:
         return assignment
 
     @staticmethod
-    def list_teacher_assignments(user_id=None, subject_id=None, section_id=None):
+    def list_teacher_assignments(user_id=None, subject_offering_id=None):
         query = Teacher_Subject_Section.objects.all()
         if user_id:
             query = query.filter(user_id=user_id)
-        if subject_id:
-            query = query.filter(subject_id=subject_id)
-        if section_id:
-            query = query.filter(section_id=section_id)
+        if subject_offering_id:
+            query = query.filter(subject_offering_id=subject_offering_id)
         return query
 
     @staticmethod

@@ -1,23 +1,6 @@
 from django.db import models
+from apps.core.repositories.base import BaseRepository
 from ..models import Student, Student_Representative
-
-
-class BaseRepository:
-    model = None
-
-    @classmethod
-    def get_all(cls, active_only=True):
-        queryset = cls.model.objects.all()
-        if active_only and hasattr(cls.model, "active"):
-            queryset = queryset.filter(active=True)
-        return queryset
-
-    @classmethod
-    def get_by_id(cls, pk):
-        try:
-            return cls.model.objects.get(pk=pk)
-        except cls.model.DoesNotExist:
-            return None
 
 
 class StudentRepository(BaseRepository):
@@ -33,8 +16,8 @@ class StudentRepository(BaseRepository):
     @classmethod
     def get_by_section(cls, section_id, status_code="ACT"):
         return cls.model.objects.filter(
-            enrollment__section_id=section_id,
-            enrollment__enrollment_status__code=status_code,
+            enrollments__section_id=section_id,
+            enrollments__enrollment_status__code=status_code,
             active=True,
         ).distinct()
 

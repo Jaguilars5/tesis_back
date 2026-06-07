@@ -1,14 +1,14 @@
 from decimal import Decimal
-from django.db import models
-from ..models import StudentNote, GradeChangeHistory
+from ..models import StudentNote, GradeChangeHistory, EvaluationBlock
 
 
 class EvaluationService:
     @staticmethod
-    def calculate_macro_grade(enrollment, evaluation_macro):
+    def calculate_block_grade(enrollment, evaluation_block):
+        """Calcula el promedio ponderado para un bloque de evaluación."""
         notes = StudentNote.objects.filter(
             enrollment=enrollment,
-            class_assignment__evaluation_subcriteria__evaluation_criteria__evaluation_macro=evaluation_macro,
+            evaluative_activity__component_indicator__block_component__evaluation_block=evaluation_block,
         )
         if not notes.exists():
             return None
@@ -17,19 +17,19 @@ class EvaluationService:
         total_weight = Decimal("0.00")
 
         for note in notes:
-            assignment = note.class_assignment
-            subcriteria = assignment.evaluation_subcriteria
-            criteria = subcriteria.evaluation_criteria
+            activity = note.evaluative_activity
+            indicator = activity.component_indicator
+            component = indicator.block_component
 
-            sub_weight = subcriteria.internal_weight
-            crit_weight = criteria.internal_weight
+            ind_weight = indicator.internal_weight
+            comp_weight = component.internal_weight
 
-            if assignment.max_score > 0:
-                normalized = (note.numeric_score / assignment.max_score) * Decimal("10")
+            if activity.max_score > 0:
+                normalized = (note.numeric_score / activity.max_score) * Decimal("10")
             else:
                 normalized = Decimal("0.00")
 
-            combined_weight = (sub_weight / Decimal("100")) * (crit_weight / Decimal("100"))
+            combined_weight = (ind_weight / Decimal("100")) * (comp_weight / Decimal("100"))
             total_score += normalized * combined_weight
             total_weight += combined_weight
 
@@ -41,18 +41,19 @@ class EvaluationService:
 
     @staticmethod
     def calculate_period_average(enrollment, academic_period):
-        macros = academic_period.evaluation_macros.filter(active=True)
-        if not macros.exists():
+        """Calcula el promedio del período usando los bloques de evaluación activos."""
+        blocks = academic_period.evaluation_blocks.filter(active=True)
+        if not blocks.exists():
             return None
 
         total_score = Decimal("0.00")
         total_weight = Decimal("0.00")
 
-        for macro in macros:
-            macro_grade = EvaluationService.calculate_macro_grade(enrollment, macro)
-            if macro_grade is not None:
-                total_score += macro_grade * (macro.weight_percentage / Decimal("100"))
-                total_weight += macro.weight_percentage / Decimal("100")
+        for block in blocks:
+            block_grade = EvaluationService.calculate_block_grade(enrollment, block)
+            if block_grade is not None:
+                total_score += block_grade * (block.weight_percentage / Decimal("100"))
+                total_weight += block.weight_percentage / Decimal("100")
 
         if total_weight == 0:
             return None
@@ -60,22 +61,24 @@ class EvaluationService:
         return (total_score / total_weight).quantize(Decimal("0.01"))
 
     @staticmethod
-    def get_grade_hierarchy(class_assignment):
-        subcriteria = class_assignment.evaluation_subcriteria
-        criteria = subcriteria.evaluation_criteria
-        macro = criteria.evaluation_macro
-        period = macro.academic_period
+    def get_grade_hierarchy(evaluative_activity):
+        """Retorna la jerarquía completa de una actividad evaluativa."""
+        indicator = evaluative_activity.component_indicator
+        component = indicator.block_component
+        block = component.evaluation_block
+        period = block.academic_period
 
         return {
-            "class_assignment": class_assignment,
-            "subcriteria": subcriteria,
-            "criteria": criteria,
-            "macro": macro,
+            "evaluative_activity": evaluative_activity,
+            "indicator": indicator,
+            "component": component,
+            "block": block,
             "academic_period": period,
         }
 
     @staticmethod
     def create_grade_change_history(student_note, new_score, user=None, reason=""):
+        """Registra un cambio de nota y audita el cambio."""
         previous = student_note.numeric_score
         history = GradeChangeHistory.objects.create(
             student_note=student_note,

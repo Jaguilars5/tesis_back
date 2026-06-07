@@ -1,36 +1,48 @@
 from decimal import Decimal
 from django.db import models
-from ..models import EvaluationMacro, EvaluationCriteria, EvaluationSubcriteria, ClassAssignment, StudentNote, GradeChangeHistory
+from ..models import (
+    EvaluationBlock,
+    BlockComponent,
+    ComponentIndicator,
+    EvaluativeActivity,
+    StudentNote,
+    GradeChangeHistory,
+)
 
 
 class EvaluationRepository:
     @staticmethod
-    def get_macro_with_hierarchy(macro_id):
-        return EvaluationMacro.objects.filter(id=macro_id).prefetch_related(
+    def get_block_with_hierarchy(block_id):
+        """Retorna un EvaluationBlock con toda su jerarquía precargada."""
+        return EvaluationBlock.objects.filter(id=block_id).prefetch_related(
             models.Prefetch(
-                "criteria",
-                queryset=EvaluationCriteria.objects.prefetch_related(
+                "components",
+                queryset=BlockComponent.objects.prefetch_related(
                     models.Prefetch(
-                        "subcriteria",
-                        queryset=EvaluationSubcriteria.objects.prefetch_related("assignments"),
+                        "indicators",
+                        queryset=ComponentIndicator.objects.prefetch_related("activities"),
                     )
                 ),
             )
         ).first()
 
     @staticmethod
-    def get_notes_for_macro(enrollment_id, macro_id):
+    def get_notes_for_block(enrollment_id, block_id):
+        """Notas del estudiante para todas las actividades de un bloque de evaluación."""
         return StudentNote.objects.filter(
             enrollment_id=enrollment_id,
-            class_assignment__evaluation_subcriteria__evaluation_criteria__evaluation_macro_id=macro_id,
-        ).select_related("class_assignment__evaluation_subcriteria__evaluation_criteria__evaluation_macro")
+            evaluative_activity__component_indicator__block_component__evaluation_block_id=block_id,
+        ).select_related(
+            "evaluative_activity__component_indicator__block_component__evaluation_block"
+        )
 
     @staticmethod
     def get_notes_for_period(enrollment_id, period_id):
+        """Notas del estudiante para todos los bloques de un período académico."""
         return StudentNote.objects.filter(
             enrollment_id=enrollment_id,
-            class_assignment__evaluation_subcriteria__evaluation_criteria__evaluation_macro__academic_period_id=period_id,
-        ).select_related("class_assignment")
+            evaluative_activity__component_indicator__block_component__evaluation_block__academic_period_id=period_id,
+        ).select_related("evaluative_activity")
 
     @staticmethod
     def get_grade_history(note_id):
@@ -52,8 +64,9 @@ class EvaluationRepository:
         return history
 
     @staticmethod
-    def calculate_macro_average(enrollment_id, macro_id):
-        notes = EvaluationRepository.get_notes_for_macro(enrollment_id, macro_id)
+    def calculate_block_average(enrollment_id, block_id):
+        """Calcula el promedio ponderado del estudiante en un bloque de evaluación."""
+        notes = EvaluationRepository.get_notes_for_block(enrollment_id, block_id)
         if not notes:
             return None
 
@@ -61,16 +74,62 @@ class EvaluationRepository:
         total_weight = Decimal("0.00")
 
         for note in notes:
-            assignment = note.class_assignment
-            sub = assignment.evaluation_subcriteria
-            crit = sub.evaluation_criteria
+            activity = note.evaluative_activity
+            indicator = activity.component_indicator
+            component = indicator.block_component
 
-            sub_weight = sub.internal_weight
-            crit_weight = crit.internal_weight
+            ind_weight = indicator.internal_weight
+            comp_weight = component.internal_weight
 
-            normalized = (note.numeric_score / assignment.max_score * Decimal("10")) if assignment.max_score > 0 else Decimal("0.00")
-            combined = (sub_weight / Decimal("100")) * (crit_weight / Decimal("100"))
+            if activity.max_score > 0:
+                normalized = (note.numeric_score / activity.max_score) * Decimal("10")
+            else:
+                normalized = Decimal("0.00")
+
+            combined = (ind_weight / Decimal("100")) * (comp_weight / Decimal("100"))
             total_score += normalized * combined
             total_weight += combined
 
         return (total_score / total_weight).quantize(Decimal("0.01")) if total_weight > 0 else None
+
+    @staticmethod
+    def calculate_period_average_for_subject(enrollment_id, subject_offering_id):
+        """
+        Calcula el promedio ponderado de un estudiante para una oferta de asignatura
+        en un período completo, usando la jerarquía de evaluación.
+        """
+        notes = StudentNote.objects.filter(
+            enrollment_id=enrollment_id,
+            evaluative_activity__teacher_subject_section__subject_offering_id=subject_offering_id,
+            manually_overridden=False,
+        ).select_related(
+            "evaluative_activity__component_indicator__block_component__evaluation_block"
+        )
+
+        if not notes.exists():
+            return None
+
+        total_score = Decimal("0.00")
+        total_weight = Decimal("0.00")
+
+        for note in notes:
+            activity = note.evaluative_activity
+            max_score = activity.max_score or Decimal("1.00")
+            normalized = (note.numeric_score / max_score) * Decimal("10")
+
+            indicator = activity.component_indicator
+            component = indicator.block_component
+            block = component.evaluation_block
+
+            ind_weight = indicator.internal_weight / Decimal("100")
+            comp_weight = component.internal_weight / Decimal("100")
+            block_weight = block.weight_percentage / Decimal("100")
+
+            combined = ind_weight * comp_weight * block_weight
+            total_score += normalized * combined
+            total_weight += combined
+
+        if total_weight == 0:
+            return None
+
+        return (total_score / total_weight).quantize(Decimal("0.01"))
