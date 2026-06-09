@@ -1,15 +1,15 @@
 from django.test import TestCase
 from datetime import date
-from ..models import School_Year
+from ..models import SchoolYear
 from ..services.institution_service import InstitutionService
 
 
 class SchoolYearServiceTest(TestCase):
-    """Tests para el servicio de School_Year"""
+    """Tests para el servicio de SchoolYear"""
 
     def setUp(self):
         """Crear instancias de prueba"""
-        self.school_year = School_Year.objects.create(
+        self.school_year = SchoolYear.objects.create(
             name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
@@ -58,11 +58,11 @@ class SchoolYearServiceTest(TestCase):
 
     def test_get_current_school_year(self):
         """Probar obtención del año escolar actual"""
-        School_Year.objects.create(
+        SchoolYear.objects.create(
             name="Actual",
             start_date=date(2024, 1, 1),
             end_date=date(2024, 12, 31),
-            active=True,
+            is_active=True,
         )
 
         try:
@@ -82,4 +82,4 @@ class SchoolYearServiceTest(TestCase):
     def test_deactivate_school_year(self):
         """Probar desactivación de año escolar"""
         school_year = InstitutionService.deactivate_school_year(self.school_year.id)
-        self.assertFalse(school_year.active)
+        self.assertFalse(school_year.is_active)

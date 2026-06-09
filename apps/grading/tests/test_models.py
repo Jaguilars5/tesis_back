@@ -5,35 +5,34 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from apps.academic.models import (
-    Academic_Period,
+    AcademicPeriod,
     Subject,
     SubjectAcademicConfig,
     SubjectOffering,
-    Teacher_Subject_Section,
+    TeacherSubjectSection,
 )
-from apps.accounts.models import Role, User
+from apps.iam.models import Role, User
 from apps.core.tests.helpers import create_test_user, create_test_student
+from apps.grading.models import ActivityType, EvaluationType, GradeType, QualitativeScale
 from apps.grading.models import (
     EvaluativeActivity,
     BlockComponent,
     EvaluationBlock,
     ComponentIndicator,
-    GradeType,
-    QualitativeScale,
     StudentNote,
 )
-from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year, Section
+from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSublevel, SchoolYear, Section
 from apps.students.models import Enrollment, EnrollmentStatus, Student
 
 
 class GradingModelTest(TestCase):
     def setUp(self):
-        school_year = School_Year.objects.create(
+        school_year = SchoolYear.objects.create(
             name="2025",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 12, 31),
         )
-        self.period = Academic_Period.objects.create(
+        self.period = AcademicPeriod.objects.create(
             school_year=school_year,
             name="P1",
             start_date=date(2025, 1, 1),
@@ -47,8 +46,11 @@ class GradingModelTest(TestCase):
             last_names="Perez",
         )
         self.academic_level = AcademicLevel.objects.create(name="Primaria")
+        self.academic_sublevel = AcademicSublevel.objects.create(
+            academic_level=self.academic_level, code="MEDIA", name="Media"
+        )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_level=self.academic_level,
+            academic_sublevel=self.academic_sublevel,
             name="7",
             sequence_order=1,
         )
@@ -73,7 +75,7 @@ class GradingModelTest(TestCase):
             section=self.section,
             subject_academic_config=subj_config,
         )
-        self.teacher_subject_section = Teacher_Subject_Section.objects.create(
+        self.teacher_subject_section = TeacherSubjectSection.objects.create(
             user=self.user,
             subject_offering=offering,
         )
@@ -95,10 +97,13 @@ class GradingModelTest(TestCase):
         )
 
     def _create_class_assignment(self, max_score=20):
+        eval_type, _ = EvaluationType.objects.get_or_create(
+            code="FORMATIVA", defaults={"name": "Formativa"}
+        )
         macro = EvaluationBlock.objects.create(
             academic_period=self.period,
             name="Macro 1",
-            evaluation_type="FORMATIVA",
+            evaluation_type=eval_type,
             weight_percentage=Decimal("100.00"),
         )
         criteria = BlockComponent.objects.create(
@@ -111,11 +116,14 @@ class GradingModelTest(TestCase):
             name="Subcriterio 1",
             internal_weight=Decimal("100.00"),
         )
+        act_type, _ = ActivityType.objects.get_or_create(
+            code="EXAMEN", defaults={"name": "Examen"}
+        )
         return EvaluativeActivity.objects.create(
             component_indicator=subcriteria,
             teacher_subject_section=self.teacher_subject_section,
             title="Examen",
-            activity_type="EXAMEN",
+            activity_type=act_type,
             max_score=Decimal(str(max_score)),
             due_date=date(2025, 2, 1),
         )

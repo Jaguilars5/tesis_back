@@ -4,43 +4,46 @@ from decimal import Decimal
 from django.test import TestCase
 
 from apps.academic.models import (
-    Academic_Period,
+    AcademicPeriod,
     Subject,
     SubjectAcademicConfig,
     SubjectOffering,
-    Teacher_Subject_Section,
+    TeacherSubjectSection,
 )
-from apps.accounts.models import Role, User
+from apps.iam.models import Role, User
 from apps.core.tests.helpers import create_test_user, create_test_student
+from apps.grading.models import GradeType, EvaluationType, ActivityType
 from apps.grading.models import (
     EvaluativeActivity,
     BlockComponent,
     EvaluationBlock,
     ComponentIndicator,
-    GradeType,
 )
 from apps.attendance.models import AttendanceStatus
 from apps.grading.services import GradingService
-from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year, Section
+from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSublevel, SchoolYear, Section
 from apps.students.models import Enrollment, EnrollmentStatus, Student
 
 
 class GradingServiceTest(TestCase):
     def setUp(self):
-        school_year = School_Year.objects.create(
+        school_year = SchoolYear.objects.create(
             name="2025",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 12, 31),
         )
-        self.period = Academic_Period.objects.create(
+        self.period = AcademicPeriod.objects.create(
             school_year=school_year,
             name="P1",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 3, 31),
         )
         self.academic_level = AcademicLevel.objects.create(name="Primaria")
+        self.academic_sublevel = AcademicSublevel.objects.create(
+            academic_level=self.academic_level, code="BASICA", name="Básica"
+        )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_level=self.academic_level,
+            academic_sublevel=self.academic_sublevel,
             name="7",
             sequence_order=1,
         )
@@ -69,7 +72,7 @@ class GradingServiceTest(TestCase):
             school_year=school_year, section=self.section,
             subject_academic_config=subj_config,
         )
-        self.teacher_subject_section = Teacher_Subject_Section.objects.create(
+        self.teacher_subject_section = TeacherSubjectSection.objects.create(
             user=self.user, subject_offering=offering,
         )
         self.student = create_test_student(
@@ -77,6 +80,13 @@ class GradingServiceTest(TestCase):
             names="Juan",
             last_names="Lopez",
             birth_date=date(2010, 1, 1),
+        )
+
+        self.eval_type_for = EvaluationType.objects.create(
+            code="FORMATIVA", name="Formativa"
+        )
+        self.activity_type_examen = ActivityType.objects.create(
+            code="EXAMEN", name="Examen"
         )
 
     def _create_enrollment(self):
@@ -93,7 +103,7 @@ class GradingServiceTest(TestCase):
         macro = EvaluationBlock.objects.create(
             academic_period=self.period,
             name="Macro 1",
-            evaluation_type="FORMATIVA",
+            evaluation_type=self.eval_type_for,
             weight_percentage=Decimal("100.00"),
         )
         criteria = BlockComponent.objects.create(
@@ -110,7 +120,7 @@ class GradingServiceTest(TestCase):
             component_indicator=subcriteria,
             teacher_subject_section=self.teacher_subject_section,
             title="Examen",
-            activity_type="EXAMEN",
+            activity_type=self.activity_type_examen,
             max_score=Decimal("20"),
             due_date=date(2025, 2, 1),
         )

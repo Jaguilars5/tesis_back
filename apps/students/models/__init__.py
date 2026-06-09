@@ -1,6 +1,6 @@
 from .student import Student
-from .student_representative import Student_Representative
+from .student_representative import StudentRepresentative
 from .enrollment import Enrollment
 from .enrollment_status import EnrollmentStatus
 
-__all__ = ["Student", "Student_Representative", "EnrollmentStatus", "Enrollment"]
+__all__ = ["Student", "StudentRepresentative", "EnrollmentStatus", "Enrollment"]

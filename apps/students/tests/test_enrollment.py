@@ -1,12 +1,13 @@
 from datetime import date
 from django.test import TestCase
 from django.db import IntegrityError
-from apps.accounts.models import Person
+from apps.people.models import Person
+from apps.people.models import DocumentType
 from apps.institutions.models import (
     AcademicGrade,
     AcademicLevel,
-    DocumentType,
-    School_Year,
+    AcademicSublevel,
+    SchoolYear,
 )
 from apps.institutions.models import Section
 from apps.students.models import Enrollment, EnrollmentStatus, Student
@@ -18,14 +19,17 @@ class EnrollmentModelTest(TestCase):
     """Tests para el modelo Enrollment."""
 
     def setUp(self):
-        self.school_year = School_Year.objects.create(
+        self.school_year = SchoolYear.objects.create(
             name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
         self.academic_level = AcademicLevel.objects.create(name="Primaria")
+        self.academic_sublevel = AcademicSublevel.objects.create(
+            academic_level=self.academic_level, code="ELEMENTAL", name="Elemental", 
+        )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_level=self.academic_level, name="6to", sequence_order=1
+            academic_sublevel=self.academic_sublevel, name="6to", sequence_order=1,
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
@@ -85,14 +89,17 @@ class EnrollmentServiceTest(TestCase):
     """Tests para EnrollmentService."""
 
     def setUp(self):
-        self.school_year = School_Year.objects.create(
+        self.school_year = SchoolYear.objects.create(
             name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
         self.academic_level = AcademicLevel.objects.create(name="Primaria")
+        self.academic_sublevel = AcademicSublevel.objects.create(
+            academic_level=self.academic_level, code="ELEMENTAL", name="Elemental", 
+        )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_level=self.academic_level, name="6to", sequence_order=1
+            academic_sublevel=self.academic_sublevel, name="6to", sequence_order=1,
         )
         self.section = Section.objects.create(
             school_year=self.school_year,

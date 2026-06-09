@@ -1,10 +1,11 @@
 from rest_framework import serializers
 from ..models import (
+    AcademicPeriod,
+    PeriodType,
     Subject,
-    Academic_Period,
-    Teacher_Subject_Section,
     SubjectAcademicConfig,
     SubjectOffering,
+    TeacherSubjectSection,
 )
 
 
@@ -14,15 +15,15 @@ class SubjectSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class Academic_PeriodSerializer(serializers.ModelSerializer):
+class AcademicPeriodSerializer(serializers.ModelSerializer):
     school_year_name = serializers.CharField(source="school_year.name", read_only=True)
 
     class Meta:
-        model = Academic_Period
+        model = AcademicPeriod
         fields = "__all__"
 
 
-class Teacher_Subject_SectionSerializer(serializers.ModelSerializer):
+class TeacherSubjectSectionSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(
         source="user.person.get_full_name", read_only=True
     )
@@ -31,7 +32,7 @@ class Teacher_Subject_SectionSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        model = Teacher_Subject_Section
+        model = TeacherSubjectSection
         fields = "__all__"
 
 
@@ -71,6 +72,12 @@ class SubjectProjectSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SubjectProject
+        fields = "__all__"
+
+
+class PeriodTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PeriodType
         fields = "__all__"
 
 

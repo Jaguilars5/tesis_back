@@ -1,16 +1,19 @@
 from django.contrib import admin
 from .models import (
+    ActivityType,
     BlockComponent,
     ComponentIndicator,
-    DiagnosticEvaluation,
     EvaluationBlock,
+    EvaluationType,
     EvaluativeActivity,
     GradeChangeHistory,
     GradeType,
     PeriodGradeSummary,
     ProjectNote,
+    PromotionStatus,
     QualitativeScale,
     RecoveryProcess,
+    RecoveryProcessType,
     StudentNote,
 )
 
@@ -22,20 +25,10 @@ class StudentNoteAdmin(admin.ModelAdmin):
     search_fields = ("enrollment__student__person__names",)
 
 
-@admin.register(GradeType)
-class GradeTypeAdmin(admin.ModelAdmin):
-    list_display = ("code", "name", "applies_to_sublevel")
-
-
-@admin.register(QualitativeScale)
-class QualitativeScaleAdmin(admin.ModelAdmin):
-    list_display = ("code", "description", "numeric_equivalence", "applicable_sublevel")
-
-
 @admin.register(EvaluationBlock)
 class EvaluationBlockAdmin(admin.ModelAdmin):
-    list_display = ("name", "academic_period", "evaluation_type", "weight_percentage", "active")
-    list_filter = ("evaluation_type", "active")
+    list_display = ("name", "academic_period", "evaluation_type", "weight_percentage", "is_active")
+    list_filter = ("evaluation_type", "is_active")
 
 
 @admin.register(BlockComponent)
@@ -73,15 +66,50 @@ class RecoveryProcessAdmin(admin.ModelAdmin):
     search_fields = ("period_grade_summary__enrollment__student__person__names",)
 
 
-@admin.register(DiagnosticEvaluation)
-class DiagnosticEvaluationAdmin(admin.ModelAdmin):
-    list_display = ("enrollment", "academic_period", "socioemotional_area", "development_level", "application_date")
-    list_filter = ("academic_period", "development_level")
-    search_fields = ("enrollment__student__person__names", "socioemotional_area")
-
-
 @admin.register(ProjectNote)
 class ProjectNoteAdmin(admin.ModelAdmin):
     list_display = ("enrollment", "interdisciplinary_project", "final_score", "created_at")
     list_filter = ("sync_status",)
     search_fields = ("enrollment__student__person__names", "interdisciplinary_project__title")
+
+
+@admin.register(GradeType)
+class GradeTypeAdmin(admin.ModelAdmin):
+    list_display = ("code", "name", "is_active")
+    list_filter = ("is_active",)
+    search_fields = ("code", "name")
+
+
+@admin.register(QualitativeScale)
+class QualitativeScaleAdmin(admin.ModelAdmin):
+    list_display = ("code", "name", "numeric_equivalence", "is_active")
+    list_filter = ("is_active",)
+    search_fields = ("code", "name", "description")
+
+
+@admin.register(EvaluationType)
+class EvaluationTypeAdmin(admin.ModelAdmin):
+    list_display = ("code", "name", "is_active")
+    list_filter = ("is_active",)
+    search_fields = ("code", "name")
+
+
+@admin.register(ActivityType)
+class ActivityTypeAdmin(admin.ModelAdmin):
+    list_display = ("code", "name", "is_active")
+    list_filter = ("is_active",)
+    search_fields = ("code", "name")
+
+
+@admin.register(PromotionStatus)
+class PromotionStatusAdmin(admin.ModelAdmin):
+    list_display = ("code", "name", "is_active")
+    list_filter = ("is_active",)
+    search_fields = ("code", "name")
+
+
+@admin.register(RecoveryProcessType)
+class RecoveryProcessTypeAdmin(admin.ModelAdmin):
+    list_display = ("code", "name", "is_active")
+    list_filter = ("is_active",)
+    search_fields = ("code", "name")

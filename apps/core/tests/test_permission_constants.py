@@ -2,7 +2,7 @@ from django.test import TestCase
 
 from apps.core.constants.permissions import (
     academic,
-    accounts,
+    iam,
     analytics,
     grading,
     institutions,
@@ -12,7 +12,7 @@ from apps.core.constants.permissions import (
 
 def _all_modules():
     return [
-        accounts,
+        iam,
         institutions,
         academic,
         students,
@@ -52,7 +52,7 @@ class PermissionConstantsTestCase(TestCase):
         self.assertEqual(len(duplicates), 0, f"Duplicates found: {duplicates}")
 
     def test_grading_permissions_match_seed_catalog(self):
-        from apps.accounts.management.commands.seed_permissions import (
+        from apps.iam.management.commands.seed_permissions import (
             PERMISSIONS_CATALOG,
         )
 

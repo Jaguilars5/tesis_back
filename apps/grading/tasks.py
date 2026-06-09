@@ -1,4 +1,4 @@
-from apps.core.tasks import BaseSyncHandler, register_sync_handler
+from apps.integration.tasks.sync_tasks import BaseSyncHandler, register_sync_handler
 from apps.grading.models import StudentNote, ProjectNote
 
 

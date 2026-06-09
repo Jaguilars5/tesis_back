@@ -1,8 +1,9 @@
 import uuid
 from django.db import models
+from apps.core.models import TimeStampedModel
 
 
-class Attendance(models.Model):
+class Attendance(TimeStampedModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, verbose_name="UUID")
     enrollment = models.ForeignKey(
         "students.Enrollment",
@@ -12,13 +13,13 @@ class Attendance(models.Model):
         null=True,
     )
     teacher_subject_section = models.ForeignKey(
-        "academic.Teacher_Subject_Section",
+        "academic.TeacherSubjectSection",
         on_delete=models.CASCADE,
         related_name="attendance_records",
         verbose_name="Clase",
     )
     academic_period = models.ForeignKey(
-        "academic.Academic_Period",
+        "academic.AcademicPeriod",
         on_delete=models.CASCADE,
         related_name="attendance_records",
         verbose_name="Período Académico",
@@ -30,21 +31,10 @@ class Attendance(models.Model):
         null=True,
     )
     attendance_date = models.DateField(verbose_name="Fecha", null=True)
-    absence_type = models.CharField(
-        max_length=30, null=True, blank=True,
-        choices=[
-            ("justified", "Justificada"),
-            ("unjustified", "Injustificada"),
-            ("late", "Atraso"),
-            ("none", "Sin falta"),
-        ],
-        verbose_name="Tipo de ausencia",
-    )
+    absence_type = models.ForeignKey("attendance.AbsenceType", on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Tipo de ausencia")
     observation = models.TextField(null=True, blank=True, verbose_name="Observaciones")
     sync_status = models.CharField(max_length=20, default="pending", verbose_name="Estado de Sincronización")
     synced_at = models.DateTimeField(null=True, blank=True, verbose_name="Sincronizado en")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Fecha de Actualización")
     sync_version = models.PositiveIntegerField(default=0, verbose_name="Versión de Sincronización")
     device_origin = models.CharField(max_length=40, null=True, blank=True, verbose_name="Dispositivo de Origen")
 

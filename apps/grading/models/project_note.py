@@ -1,8 +1,9 @@
 import uuid
 from django.db import models
+from apps.core.models import TimeStampedModel
 
 
-class ProjectNote(models.Model):
+class ProjectNote(TimeStampedModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, verbose_name="UUID")
     enrollment = models.ForeignKey(
         "students.Enrollment",
@@ -28,7 +29,6 @@ class ProjectNote(models.Model):
     observation = models.TextField(null=True, blank=True, verbose_name="Observación")
     sync_status = models.CharField(max_length=20, default="pending", verbose_name="Estado de Sincronización")
     synced_at = models.DateTimeField(null=True, blank=True, verbose_name="Sincronizado el")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
     sync_version = models.PositiveIntegerField(default=0, verbose_name="Versión de Sincronización")
     device_origin = models.CharField(max_length=40, null=True, blank=True, verbose_name="Dispositivo de Origen")
 

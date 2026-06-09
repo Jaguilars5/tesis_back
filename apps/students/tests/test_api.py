@@ -1,9 +1,9 @@
 from rest_framework.test import APITestCase
 from rest_framework import status
 from datetime import date
-from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year
+from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSublevel, SchoolYear
 from apps.institutions.models import Section
-from apps.accounts.models import Role, User
+from apps.iam.models import Role, User
 from apps.core.tests.helpers import create_test_user, create_test_student
 from apps.students.models import EnrollmentStatus, Student
 
@@ -25,14 +25,17 @@ class StudentAPITest(APITestCase):
 
     def setUp(self):
         """Crear datos de prueba"""
-        self.school_year = School_Year.objects.create(
+        self.school_year = SchoolYear.objects.create(
             name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
         self.academic_level = AcademicLevel.objects.create(name="Primaria")
+        self.academic_sublevel = AcademicSublevel.objects.create(
+            academic_level=self.academic_level, code="BASICA", name="Básica"
+        )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_level=self.academic_level, name="6to", sequence_order=6
+            academic_sublevel=self.academic_sublevel, name="6to", sequence_order=6
         )
         self.section = Section.objects.create(
             school_year=self.school_year,

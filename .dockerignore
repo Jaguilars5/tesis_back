@@ -1,0 +1,59 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- Entornos Virtuales ---
+.venv/
+venv/
+env/
+.env/
+bin/
+include/
+lib/
+
+# --- Variables de Entorno y Secretos ---
+.env
+.secrets
+secret_key.txt
+
+# --- Bases de datos locales ---
+db.sqlite3
+db.sqlite3-journal
+test_db.sqlite3
+
+# --- Archivos de Medios y Estáticos ---
+media/
+staticfiles/
+
+# --- Git ---
+.git/
+.gitattributes
+.gitignore
+
+# --- IDEs / Editores ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Archivos de sistema ---
+.DS_Store
+Thumbs.db
+
+# --- Logs ---
+logs/
+*.log
+
+# --- Documentación y diagramas ---
+docs/
+diagrams/
+README.md
+AGENTS.md
+REFACTORING_PLAN.md
+
+# --- Cache y builds ---
+*.egg-info/
+dist/
+build/
+skills-lock.json

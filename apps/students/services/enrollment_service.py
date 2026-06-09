@@ -1,7 +1,9 @@
 from datetime import date
 from django.db import transaction
-from ..models import Enrollment, EnrollmentStatus
+from apps.institutions.repositories.section_repository import SectionRepository
+from ..models import Enrollment
 from ..repositories.enrollment_repo import EnrollmentRepository
+from ..repositories.enrollment_status_repo import EnrollmentStatusRepository
 
 
 class EnrollmentService:
@@ -18,7 +20,7 @@ class EnrollmentService:
                     f"La sección ha alcanzado su capacidad máxima ({section.capacity})"
                 )
 
-        active_status, _ = EnrollmentStatus.objects.get_or_create(
+        active_status = EnrollmentStatusRepository.get_or_create(
             code="ACT", defaults={"name": "Activa"}
         )
 
@@ -35,7 +37,7 @@ class EnrollmentService:
     @staticmethod
     @transaction.atomic
     def withdraw_student(enrollment, reason=""):
-        withdrawn_status, _ = EnrollmentStatus.objects.get_or_create(
+        withdrawn_status = EnrollmentStatusRepository.get_or_create(
             code="RET", defaults={"name": "Retirado"}
         )
         enrollment.enrollment_status = withdrawn_status
@@ -46,7 +48,10 @@ class EnrollmentService:
 
     @staticmethod
     @transaction.atomic
-    def transfer_student(enrollment, new_section):
+    def transfer_student(enrollment, new_section_id):
+        new_section = SectionRepository.get_by_id(new_section_id)
+        if not new_section:
+            raise ValueError(f"Sección {new_section_id} no encontrada")
         current_active = EnrollmentRepository.get_active_by_student(enrollment.student)
         if current_active and current_active.id != enrollment.id:
             raise ValueError("El estudiante tiene otra matrícula activa")
@@ -58,7 +63,7 @@ class EnrollmentService:
                     f"La sección destino ha alcanzado su capacidad máxima ({new_section.capacity})"
                 )
 
-        active_status, _ = EnrollmentStatus.objects.get_or_create(
+        active_status = EnrollmentStatusRepository.get_or_create(
             code="ACT", defaults={"name": "Activa"}
         )
         enrollment.section = new_section

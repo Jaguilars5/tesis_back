@@ -1,7 +1,8 @@
 from django.db import models
+from apps.core.models import TimeStampedModel
 
 
-class StudentRiskScore(models.Model):
+class StudentRiskScore(TimeStampedModel):
     enrollment = models.ForeignKey(
         "students.Enrollment",
         on_delete=models.CASCADE,
@@ -9,7 +10,7 @@ class StudentRiskScore(models.Model):
         null=True,  # Permite null temporal para facilitar migraciones desde el modelo antiguo
     )
     academic_period = models.ForeignKey(
-        "academic.Academic_Period",
+        "academic.AcademicPeriod",
         on_delete=models.CASCADE,
         verbose_name="Período Académico",
     )

@@ -1,9 +1,9 @@
 from django.test import TestCase
 from datetime import date
 from decimal import Decimal
-from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year
+from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSublevel, SchoolYear
 from apps.institutions.models import Section
-from apps.academic.models import Academic_Period
+from apps.academic.models import AcademicPeriod
 from apps.core.tests.helpers import create_test_student
 from apps.students.models import Student
 from apps.analytics.models import StudentRiskScore, StudentFeatureSnapshot
@@ -14,20 +14,23 @@ class AnalyticsServiceTest(TestCase):
     """Tests para AnalyticsService"""
 
     def setUp(self):
-        self.school_year = School_Year.objects.create(
+        self.school_year = SchoolYear.objects.create(
             name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
-        self.period = Academic_Period.objects.create(
+        self.period = AcademicPeriod.objects.create(
             school_year=self.school_year,
             name="Periodo 1",
             start_date=date(2024, 9, 1),
             end_date=date(2024, 12, 15),
         )
         self.academic_level = AcademicLevel.objects.create(name="Primaria")
+        self.academic_sublevel = AcademicSublevel.objects.create(
+            academic_level=self.academic_level, name="Básica"
+        )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_level=self.academic_level, name="6to", sequence_order=6
+            academic_sublevel=self.academic_sublevel, name="6to", sequence_order=6
         )
         self.section = Section.objects.create(
             school_year=self.school_year,

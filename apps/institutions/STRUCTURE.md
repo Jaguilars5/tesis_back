@@ -7,60 +7,68 @@ Este documento detalla la organización interna y las responsabilidades de cada 
 ```text
 institutions/
 ├── api/                  # Capa de Entrada (REST)
-│   ├── serializers.py    # Serializers (SchoolYear, DocumentType, AcademicLevel, AcademicGrade)
-│   ├── views.py          # ViewSets (SchoolYear, DocumentType, AcademicLevel, AcademicGrade)
-│   └── urls.py           # Rutas vía DefaultRouter
+│   ├── serializers.py    # Serializers (SchoolYear, AcademicLevel, AcademicSubnivel, AcademicGrade, Section)
+│   ├── views.py          # ViewSets (SchoolYear, AcademicLevel, AcademicSubnivel, AcademicGrade, Section)
+│   └── urls.py           # Rutas vía DefaultRouter (5 ViewSets)
 ├── models/               # Capa de Datos (Entidades)
+│   ├── __init__.py
 │   ├── school_year.py      # Años escolares
-│   ├── document_type.py   # Tipos de documento
-│   ├── academic_level.py  # Niveles académicos
-│   ├── academic_grade.py  # Grados académicos
-│   └── section.py         # Secciones (grado/paralelo)
+│   ├── academic_level.py   # Niveles académicos
+│   ├── academic_subnivel.py# Subniveles académicos
+│   ├── academic_grade.py   # Grados académicos
+│   └── section.py          # Secciones (grado/paralelo)
 ├── repositories/         # Capa de Persistencia (Queries)
+│   ├── __init__.py
 │   ├── institution_repo.py
 │   └── section_repository.py
 ├── services/             # Capa de Negocio (Orquestación)
+│   ├── __init__.py
 │   └── institution_service.py # Lógica de validaciones de fechas
 └── tests/                # Suites de Pruebas
     ├── test_models.py
+    ├── test_repositories.py
     ├── test_services.py
     ├── test_api.py
-    └── test_api_gaps.py
+    ├── test_api_gaps.py
+    └── test_api_permissions.py
 ```
 
 ## API — Serializers
 
 Los serializers del módulo exponen campos descriptivos adicionales para las ForeignKeys:
 
-| Serializer                | Campos enriquecidos                                   |
-| ------------------------- | ----------------------------------------------------- |
-| `SectionSerializer`       | `school_year_name` (source: `school_year.name`)       |
-|                           | `academic_grade_name` (source: `academic_grade.name`) |
-| `AcademicGradeSerializer` | `academic_level_name` (source: `academic_level.name`) |
+| Serializer                    | Campos enriquecidos                                           |
+| ----------------------------- | ------------------------------------------------------------- |
+| `SectionSerializer`           | `school_year_name` (source: `school_year.name`)               |
+|                               | `academic_grade_name` (source: `academic_grade.name`)         |
+| `AcademicSubnivelSerializer`  | `academic_level_name` (source: `academic_level.name`)         |
+| `AcademicGradeSerializer`     | `academic_level_name` (source: `academic_level.name`)         |
 
 Estos campos son de solo lectura (`read_only=True`) y no afectan la creación/actualización de registros.
 
 ## Modelos Principales
 
-### School_Year
+### SchoolYear
 
 Año escolar con fechas de inicio y fin, estado activo.
 
-### DocumentType
 
-Catálogo de tipos de documento (cédula, pasaporte, etc.)
 
 ### AcademicLevel
 
 Niveles académicos (Educación Inicial, EGB, BGU).
 
+### AcademicSubnivel
+
+Subniveles pedagógicos dentro de un nivel académico (Básica, Bachillerato, etc.)
+
 ### AcademicGrade
 
-Grados dentro de un nivel (1º EGB, 2º EGB, etc.)
+Grados dentro de un subnivel (1º EGB, 2º EGB, etc.). Vinculado a AcademicSubnivel (no directamente a AcademicLevel).
 
 ### Section
 
-Representa un grado y paralelo específico. Vinculada a School_Year, AcademicLevel y AcademicGrade.
+Representa un grado y paralelo específico. Vinculada a SchoolYear y AcademicGrade.
 
 ## Flujo de Trabajo Recomendado
 
@@ -81,7 +89,7 @@ Utilice los puntos de entrada definidos para evitar dependencias circulares:
 from apps.institutions.services.institution_service import InstitutionService
 
 # Importar modelos (re-exportados en models/__init__.py)
-from apps.institutions.models import School_Year, AcademicLevel, AcademicGrade, Section
+from apps.institutions.models import SchoolYear, AcademicLevel, AcademicSubnivel, AcademicGrade, Section
 
 # Importar repositorios
 from apps.institutions.repositories.institution_repo import InstitutionRepository
@@ -91,7 +99,7 @@ from apps.institutions.repositories.institution_repo import InstitutionRepositor
 
 ```python
 # Importar desde archivos internos específicos (rompe el encapsulamiento)
-from apps.institutions.models.school_year import School_Year
+from apps.institutions.models.school_year import SchoolYear
 ```
 
 ## Responsabilidades de Capas

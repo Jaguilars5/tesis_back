@@ -37,8 +37,8 @@ Los serializers del módulo exponen campos descriptivos adicionales para las For
 
 | Serializer                           | Campos enriquecidos                                                           |
 | ------------------------------------ | ----------------------------------------------------------------------------- |
-| `Academic_PeriodSerializer`          | `school_year_name` (source: `school_year.name`)                               |
-| `Teacher_Subject_SectionSerializer`  | `user_name` (source: `user.person.get_full_name`)                             |
+| `AcademicPeriodSerializer`          | `school_year_name` (source: `school_year.name`)                               |
+| `TeacherSubjectSectionSerializer`  | `user_name` (source: `user.person.get_full_name`)                             |
 |                                      | `subject_offering_name` (source: `subject_offering.__str__`)                  |
 | `SubjectAcademicConfigSerializer`    | `subject_name` (source: `subject.name`)                                       |
 |                                      | `academic_grade_name` (source: `academic_grade.name`)                         |
@@ -53,7 +53,7 @@ Estos campos son de solo lectura (`read_only=True`) y no afectan la creación/ac
 
 ## Modelos Principales
 
-### Academic_Period
+### AcademicPeriod
 
 Períodos dentro de un año escolar (Quimestres, parciales, etc.)
 
@@ -69,7 +69,7 @@ Vincula una materia a un nivel académico con parámetros pedagógicos (horas se
 
 Instancia de una materia en una sección para un año escolar específico.
 
-### Teacher_Subject_Section
+### TeacherSubjectSection
 
 Vinculación entre un docente (User) y una oferta de materia.
 
@@ -100,7 +100,7 @@ Utilice los puntos de entrada definidos para evitar dependencias circulares y ma
 from apps.academic.services.academic_service import AcademicService
 
 # Importar modelos (re-exportados en models/__init__.py)
-from apps.academic.models import Subject, Academic_Period, SubjectOffering
+from apps.academic.models import Subject, AcademicPeriod, SubjectOffering
 
 # Importar repositorios
 from apps.academic.repositories.academic_repo import SubjectRepository

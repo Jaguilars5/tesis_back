@@ -1,9 +1,10 @@
 from django.db import models
+from apps.core.models import TimeStampedModel
 
 
-class InterdisciplinaryProject(models.Model):
+class InterdisciplinaryProject(TimeStampedModel):
     academic_period = models.ForeignKey(
-        "academic.Academic_Period",
+        "academic.AcademicPeriod",
         on_delete=models.CASCADE,
         related_name="interdisciplinary_projects",
         verbose_name="Período Académico",
@@ -12,7 +13,7 @@ class InterdisciplinaryProject(models.Model):
     description = models.TextField(null=True, blank=True, verbose_name="Descripción")
     start_date = models.DateField(verbose_name="Fecha de inicio")
     delivery_date = models.DateField(verbose_name="Fecha de entrega")
-    active = models.BooleanField(default=True, verbose_name="Activo")
+    is_active = models.BooleanField(default=True, verbose_name="Activo")
 
     class Meta:
         app_label = "academic"

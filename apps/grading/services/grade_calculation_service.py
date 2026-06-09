@@ -1,9 +1,15 @@
 from decimal import Decimal
 from django.db import transaction
-from apps.grading.repositories.period_grade_summary_repository import (
+from apps.academic.repositories.academic_repo import (
+    AcademicPeriodRepository,
+    SubjectOfferingRepository,
+)
+from apps.students.repositories.enrollment_repo import EnrollmentRepository
+from ..models import PromotionStatus
+from ..repositories.period_grade_summary_repository import (
     PeriodGradeSummaryRepository,
 )
-from apps.grading.repositories.evaluation_repo import EvaluationRepository
+from ..repositories.evaluation_repo import EvaluationRepository
 
 
 class GradeCalculationService:
@@ -29,18 +35,24 @@ class GradeCalculationService:
 
         requires_recovery = periodo_grade < Decimal("7.00")
 
-        # Intentar obtener un resumen existente para actualizarlo o crear uno nuevo
-        summary = PeriodGradeSummaryRepository.model.objects.filter(
+        summary = PeriodGradeSummaryRepository.get_by_enrollment_offering_period(
             enrollment=enrollment,
             subject_offering=subject_offering,
             academic_period=academic_period,
-        ).first()
+        )
+
+        promo_code = "RECUPERACION" if requires_recovery else "APROBADO"
+        promo_name = "Recuperación" if requires_recovery else "Aprobado"
+        promotion_status, _ = PromotionStatus.objects.get_or_create(
+            code=promo_code,
+            defaults={"name": promo_name},
+        )
 
         if summary:
             summary.formative_avg = periodo_grade
             summary.final_avg_truncated = periodo_grade
             summary.requires_recovery = requires_recovery
-            summary.promotion_status = "recovery" if requires_recovery else "approved"
+            summary.promotion_status = promotion_status
             summary.save()
         else:
             summary = PeriodGradeSummaryRepository.create(
@@ -51,7 +63,7 @@ class GradeCalculationService:
                 summative_avg=Decimal("0.00"),
                 final_avg_truncated=periodo_grade,
                 requires_recovery=requires_recovery,
-                promotion_status="recovery" if requires_recovery else "approved",
+                promotion_status=promotion_status,
             )
         return summary
 
@@ -61,21 +73,14 @@ class GradeCalculationService:
         Calcula resúmenes para todas las matrículas activas en un período.
         Útil para procesos batch vía Celery.
         """
-        from apps.academic.models import Academic_Period, SubjectOffering
-        from apps.students.models import Enrollment
-
-        try:
-            period = Academic_Period.objects.get(pk=academic_period_id)
-        except Academic_Period.DoesNotExist:
+        period = AcademicPeriodRepository.get_by_id(academic_period_id)
+        if not period:
             return []
 
-        offerings = SubjectOffering.objects.filter(
-            school_year_id=period.school_year_id,
-            active=True,
+        offerings = SubjectOfferingRepository.get_by_school_year(
+            period.school_year_id
         )
-        enrollments = Enrollment.objects.filter(
-            section__school_year_id=period.school_year_id,
-        )
+        enrollments = EnrollmentRepository.get_by_school_year(period.school_year_id)
 
         results = []
         for offering in offerings:

@@ -1,5 +1,6 @@
 from decimal import Decimal
 from django.db import models
+from django.utils import timezone
 from ..models import (
     EvaluationBlock,
     BlockComponent,
@@ -51,15 +52,19 @@ class EvaluationRepository:
     @staticmethod
     def record_grade_change(note, new_score, user_id=None, reason=""):
         previous = note.numeric_score
+        now = timezone.now()
         history = GradeChangeHistory.objects.create(
             student_note=note,
             modified_by_user_id=user_id,
             previous_score=previous,
             new_score=new_score,
             reason=reason,
+            created_at=now,
+            updated_at=now,
         )
         note.numeric_score = new_score
         note.manually_overridden = True
+        note.updated_at = now
         note.save()
         return history
 

@@ -4,11 +4,12 @@ from decimal import Decimal
 from django.test import TestCase
 
 from apps.academic.models import (
-    Academic_Period, Subject, SubjectAcademicConfig, SubjectOffering, Teacher_Subject_Section,
+    AcademicPeriod, Subject, SubjectAcademicConfig, SubjectOffering, TeacherSubjectSection,
 )
-from apps.accounts.models import User
+from apps.iam.models import User
 from apps.analytics.models import (
     EarlyAlert, RiskFactor, StudentFeatureSnapshot, StudentRiskFactor, StudentRiskScore,
+    AlertType, UrgencyLevel,
 )
 from apps.analytics.repositories.analytics_repo import (
     StudentRiskScoreRepository, StudentFeatureSnapshotRepository,
@@ -16,7 +17,7 @@ from apps.analytics.repositories.analytics_repo import (
 from apps.analytics.repositories.early_alert_repository import EarlyAlertRepository
 from apps.core.repositories.base import BaseRepository
 from apps.core.tests.helpers import create_test_user, create_test_student
-from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year, Section
+from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSublevel, SchoolYear, Section
 from apps.students.models import Enrollment, EnrollmentStatus
 
 
@@ -24,16 +25,19 @@ class AnalyticsRepositoryTest(TestCase):
     """Tests para los repositorios del módulo analytics."""
 
     def setUp(self):
-        self.school_year = School_Year.objects.create(
+        self.school_year = SchoolYear.objects.create(
             name="2025", start_date=date(2025, 1, 1), end_date=date(2025, 12, 31),
         )
-        self.period = Academic_Period.objects.create(
+        self.period = AcademicPeriod.objects.create(
             school_year=self.school_year, name="P1",
             start_date=date(2025, 1, 1), end_date=date(2025, 3, 31),
         )
         self.academic_level = AcademicLevel.objects.create(name="Primaria")
+        self.academic_sublevel = AcademicSublevel.objects.create(
+            academic_level=self.academic_level, name="Básica"
+        )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_level=self.academic_level, name="7", sequence_order=1,
+            academic_sublevel=self.academic_sublevel, name="7", sequence_order=1,
         )
         self.section = Section.objects.create(
             school_year=self.school_year, academic_grade=self.academic_grade,
@@ -52,7 +56,7 @@ class AnalyticsRepositoryTest(TestCase):
             email="teacher@test.com", dni="0102030405",
             names="Ana", last_names="Perez",
         )
-        Teacher_Subject_Section.objects.create(
+        TeacherSubjectSection.objects.create(
             user=self.user, subject_offering=self.offering,
         )
         self.student = create_test_student(
@@ -65,6 +69,15 @@ class AnalyticsRepositoryTest(TestCase):
         self.enrollment = Enrollment.objects.create(
             student=self.student, section=self.section, enrollment_status=status,
         )
+        self.alert_type_low = AlertType.objects.create(code="low_attendance", name="Baja Asistencia")
+        self.alert_type_fail = AlertType.objects.create(code="failing_grades", name="Calificaciones Bajas")
+        self.alert_type_bhv = AlertType.objects.create(code="behavioral", name="Problemas de Conducta")
+        self.alert_type_drop = AlertType.objects.create(code="dropout_risk", name="Riesgo de Deserción")
+        self.alert_type_socio = AlertType.objects.create(code="socioemotional", name="Problemas Socioemocionales")
+        self.urgency_high = UrgencyLevel.objects.create(code="high", name="Alta")
+        self.urgency_medium = UrgencyLevel.objects.create(code="medium", name="Media")
+        self.urgency_low = UrgencyLevel.objects.create(code="low", name="Baja")
+        self.urgency_critical = UrgencyLevel.objects.create(code="critical", name="Crítica")
 
     # --- StudentRiskScoreRepository ---
 
@@ -294,19 +307,19 @@ class AnalyticsRepositoryTest(TestCase):
         obj = EarlyAlertRepository.create(
             enrollment=self.enrollment,
             academic_period=self.period,
-            alert_type="low_attendance",
+            alert_type=self.alert_type_low,
             description="Baja asistencia registrada",
-            urgency_level="high",
+            urgency_level=self.urgency_high,
         )
-        self.assertEqual(obj.alert_type, "low_attendance")
-        self.assertEqual(obj.urgency_level, "high")
+        self.assertEqual(obj.alert_type, self.alert_type_low)
+        self.assertEqual(obj.urgency_level, self.urgency_high)
         self.assertFalse(obj.attended)
 
     def test_early_alert_get_by_id(self):
         obj = EarlyAlert.objects.create(
             enrollment=self.enrollment, academic_period=self.period,
-            alert_type="failing_grades", description="Notas bajas",
-            urgency_level="medium",
+            alert_type=self.alert_type_fail, description="Notas bajas",
+            urgency_level=self.urgency_medium,
         )
         result = EarlyAlertRepository.get_by_id(obj.pk)
         self.assertIsNotNone(result)
@@ -314,8 +327,8 @@ class AnalyticsRepositoryTest(TestCase):
     def test_early_alert_get_all(self):
         EarlyAlert.objects.create(
             enrollment=self.enrollment, academic_period=self.period,
-            alert_type="behavioral", description="Problemas de conducta",
-            urgency_level="critical",
+            alert_type=self.alert_type_bhv, description="Problemas de conducta",
+            urgency_level=self.urgency_critical,
         )
         results = EarlyAlertRepository.get_all(active_only=False)
         self.assertEqual(results.count(), 1)
@@ -323,8 +336,8 @@ class AnalyticsRepositoryTest(TestCase):
     def test_early_alert_update(self):
         obj = EarlyAlert.objects.create(
             enrollment=self.enrollment, academic_period=self.period,
-            alert_type="dropout_risk", description="Riesgo de deserción",
-            urgency_level="high",
+            alert_type=self.alert_type_drop, description="Riesgo de deserción",
+            urgency_level=self.urgency_high,
         )
         updated = EarlyAlertRepository.update(obj.pk, attended=True)
         self.assertTrue(updated.attended)
@@ -332,8 +345,8 @@ class AnalyticsRepositoryTest(TestCase):
     def test_early_alert_delete(self):
         obj = EarlyAlert.objects.create(
             enrollment=self.enrollment, academic_period=self.period,
-            alert_type="socioemotional", description="Problemas socioemocionales",
-            urgency_level="medium",
+            alert_type=self.alert_type_socio, description="Problemas socioemocionales",
+            urgency_level=self.urgency_medium,
         )
         pk = obj.pk
         EarlyAlertRepository.delete(pk)
@@ -342,21 +355,21 @@ class AnalyticsRepositoryTest(TestCase):
     def test_early_alert_exists(self):
         obj = EarlyAlert.objects.create(
             enrollment=self.enrollment, academic_period=self.period,
-            alert_type="low_attendance", description="Test",
-            urgency_level="low",
+            alert_type=self.alert_type_low, description="Test",
+            urgency_level=self.urgency_low,
         )
         self.assertTrue(EarlyAlertRepository.exists(pk=obj.pk))
 
     def test_early_alert_get_pending_alerts(self):
         EarlyAlert.objects.create(
             enrollment=self.enrollment, academic_period=self.period,
-            alert_type="low_attendance", description="Sin atender",
-            urgency_level="high", attended=False,
+            alert_type=self.alert_type_low, description="Sin atender",
+            urgency_level=self.urgency_high, attended=False,
         )
         EarlyAlert.objects.create(
             enrollment=self.enrollment, academic_period=self.period,
-            alert_type="failing_grades", description="Atendida",
-            urgency_level="medium", attended=True,
+            alert_type=self.alert_type_fail, description="Atendida",
+            urgency_level=self.urgency_medium, attended=True,
         )
         pending = EarlyAlertRepository.get_pending_alerts()
         self.assertEqual(pending.count(), 1)
@@ -364,22 +377,22 @@ class AnalyticsRepositoryTest(TestCase):
     def test_early_alert_get_pending_by_urgency(self):
         EarlyAlert.objects.create(
             enrollment=self.enrollment, academic_period=self.period,
-            alert_type="low_attendance", description="Urgente",
-            urgency_level="critical", attended=False,
+            alert_type=self.alert_type_low, description="Urgente",
+            urgency_level=self.urgency_critical, attended=False,
         )
         EarlyAlert.objects.create(
             enrollment=self.enrollment, academic_period=self.period,
-            alert_type="failing_grades", description="Media",
-            urgency_level="medium", attended=False,
+            alert_type=self.alert_type_fail, description="Media",
+            urgency_level=self.urgency_medium, attended=False,
         )
-        critical = EarlyAlertRepository.get_pending_alerts(urgency_level="critical")
+        critical = EarlyAlertRepository.get_pending_alerts(urgency_level=self.urgency_critical)
         self.assertEqual(critical.count(), 1)
 
     def test_early_alert_get_by_enrollment(self):
         EarlyAlert.objects.create(
             enrollment=self.enrollment, academic_period=self.period,
-            alert_type="dropout_risk", description="Alerta 1",
-            urgency_level="high",
+            alert_type=self.alert_type_drop, description="Alerta 1",
+            urgency_level=self.urgency_high,
         )
         alerts = EarlyAlertRepository.get_by_enrollment(self.enrollment.pk)
         self.assertEqual(alerts.count(), 1)
@@ -387,13 +400,13 @@ class AnalyticsRepositoryTest(TestCase):
     def test_early_alert_count_active_by_enrollment(self):
         EarlyAlert.objects.create(
             enrollment=self.enrollment, academic_period=self.period,
-            alert_type="behavioral", description="Activa",
-            urgency_level="high", attended=False,
+            alert_type=self.alert_type_bhv, description="Activa",
+            urgency_level=self.urgency_high, attended=False,
         )
         EarlyAlert.objects.create(
             enrollment=self.enrollment, academic_period=self.period,
-            alert_type="failing_grades", description="Atendida",
-            urgency_level="medium", attended=True,
+            alert_type=self.alert_type_fail, description="Atendida",
+            urgency_level=self.urgency_medium, attended=True,
         )
         count = EarlyAlertRepository.count_active_by_enrollment(self.enrollment.pk)
         self.assertEqual(count, 1)

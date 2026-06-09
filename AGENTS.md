@@ -19,11 +19,16 @@ bash scripts/verify_docker_setup.sh       # Verify Docker setup
 python manage.py migrate
 python manage.py makemigrations <app_name>
 
+# Seeds (idempotentes, orden sugerido)
+python manage.py seed_catalogs        # Catálogos del sistema (tipos de documento, etc.)
+python manage.py seed_permissions     # Permisos + Roles (DOCENTE, ESTUDIANTE, etc.)
+python manage.py seed_test_data       # Datos de prueba
+
 # Tests (Django test runner, NOT pytest)
 # Test settings use SQLite (not PostgreSQL), in-memory cache, eager Celery, MD5 hasher
 python manage.py test --settings=config.settings.test                     # All tests
-python manage.py test apps.accounts --settings=config.settings.test       # Single app
-python manage.py test apps.accounts.tests.test_api --settings=config.settings.test  # Single file
+python manage.py test apps.iam --settings=config.settings.test            # Single app
+python manage.py test apps.grading.tests.test_models --settings=config.settings.test  # Single file
 
 # Coverage
 coverage run --source='.' manage.py test --settings=config.settings.test
@@ -36,12 +41,14 @@ coverage report -m
 
 - `config/settings/` — split config: `base.py`, `local.py`, `production.py`, `test.py`. Default: `config.settings.local`
 - `apps/core/` — shared utilities: `StandardResponseRenderer`, `custom_exception_handler`, `StandardResultsSetPagination`, `ok_response()` / `error_response()`
-- `AUTH_USER_MODEL = "accounts.User"` — custom user model, not `auth.User`
+- `AUTH_USER_MODEL = "iam.User"` — Custom user model in iam app
 - `sys.path` inserts `apps/` as root package in `config/settings/base.py`
 
-**Apps** (9 total): `core`, `accounts`, `academic`, `grading`, `institutions`, `students`, `analytics`, `attendance`
+**Apps** (12 apps): `core`, `iam`, `people`, `institutions`, `students`, `academic`, `grading`, `attendance`, `behavior`, `analytics`, `configuration`, `integration`
 
-**API routes** (see `config/urls.py`): `/api/accounts/`, `/api/academic/`, `/api/institutions/`, `/api/grading/`, `/api/students/`, `/api/analytics/`, `/api/attendance/`
+**API routes** (see `config/urls.py`):
+- `/api/accounts/` → `apps.iam.urls` (compatibilidad)
+- `/api/academic/`, `/api/institutions/`, `/api/grading/`, `/api/students/`, `/api/analytics/`, `/api/attendance/`, `/api/behavior/`, `/api/configuration/`, `/api/integration/`
 
 **API Documentation** (pública, sin auth):
 - `/api/schema/` — Schema OpenAPI 3.0
@@ -73,6 +80,7 @@ All responses use format: `{"ok": bool, "data": ..., "msg": "..."}` via `apps.co
 - `.env` loaded via `python-dotenv` in `config/settings/base.py` — copy `.env.example` to `.env` for local setup
 - `db.sqlite3` is gitignored and only used for local fallback — production/Docker uses PostgreSQL
 - Analytics app uses `numpy`, `pandas`, `scikit-learn`, `joblib` for risk analysis
+- **NO central `catalogs/` app** — each domain app manages its own catalogs
 
 ## Test Setup
 
@@ -148,33 +156,37 @@ python manage.py spectacular --settings=config.settings.local --file schema.yml
 | `config/celery.py` | Celery app setup, auto-discovers tasks from all apps |
 | `apps/core/utils/responses.py` | `ok_response()`, `error_response()` helpers |
 | `apps/core/exceptions.py` | Global exception handler enforcing response format |
-| `apps/core/permissions.py` | `HasPermission` (DRF ViewSet permission) + `require_permission` (decorator for @api_view) |
+| `apps/core/permissions.py` | `HasPermission` (DRF ViewSet permission) |
 | `apps/core/schema.py` | `StandardResponseAutoSchema` para drf-spectacular |
-| `apps/core/constants/permissions.py` | Constantes tipadas de permisos (única fuente de verdad) |
+| `apps/core/constants/permissions.py` | Constantes tipadas de permisos para todos los módulos |
 
 ## Permisos DRF
 
-- `apps/core/permissions.py` — `HasPermission` (para ViewSets) y `require_permission` (para @api_view)
+- `apps/core/permissions.py` — `HasPermission` (para ViewSets)
 - Los ViewSets deben definir `action_permissions = {"list": "codename", ...}`
-- Las vistas @api_view usan `@require_permission("modulo.accion")`
 - Superusuarios bypassan todas las verificaciones de permisos
 - Formato de permisos: `<modulo>.<accion>` (ej: `grading.create_note`)
 
+### Módulos de Permisos Disponibles
+
+```python
+from apps.core.constants.permissions import (
+    iam, people, institutions, academic, students,
+    grading, analytics, attendance, behavior,
+    configuration, integration,
+)
+
+# Ejemplos:
+iam.VIEW_USER         # "iam.view_user"
+people.VIEW_PERSON    # "people.view_person"
+behavior.VIEW_CONDUCT_INCIDENT  # "behavior.view_conduct_incident"
+```
+
 ## Management Commands
 
-- `python manage.py seed_permissions` — Crea todos los permisos del sistema en BD (idempotente)
-- `python manage.py seed_permissions --module grading` — Crea solo permisos de un módulo
-- Permisos definidos en `apps/accounts/management/commands/seed_permissions.py`
-- Formato: `<modulo>.<accion>` (ej: `grading.create_note`)
-
-## Constantes de Permisos
-
-- Ubicación: `apps/core/constants/permissions.py`
-- Uso: `from apps.core.constants.permissions import grading`
-- En ViewSets: `action_permissions = {"list": grading.VIEW_NOTE, ...}`
-- En decoradores: `@require_permission(grading.VIEW_NOTE)`
-
-Instancias disponibles: `accounts`, `institutions`, `academic`, `students`, `grading`, `attendance`, `analytics`
+- `python manage.py seed_catalogs` — Crea todos los catálogos del sistema (idempotente)
+- `python manage.py seed_permissions` — Crea todos los permisos + roles del sistema (idempotente)
+- `python manage.py seed_test_data` — Crea datos de prueba para desarrollo
 
 ## Tests de Seguridad
 
@@ -186,13 +198,6 @@ Instancias disponibles: `accounts`, `institutions`, `academic`, `students`, `gra
 
 ### Ejecutar tests de seguridad
 ```bash
-python manage.py test apps.core.tests.test_permission_integration --settings=config.settings.test
-python manage.py test apps.core.tests.test_throttling --settings=config.settings.test
-python manage.py test apps.core.tests.test_security_headers --settings=config.settings.test
-python manage.py test apps.core.tests.test_password_validation --settings=config.settings.test
-python manage.py test apps.core.tests.test_jwt_config --settings=config.settings.test
-
-# O todos juntos
 python manage.py test apps.core.tests --settings=config.settings.test
 ```
 
@@ -204,23 +209,3 @@ Todos los endpoints requieren autenticación JWT + permiso específico excepto:
 
 ### Formato de permisos
 `<modulo>.<accion>` donde acción es: `view`, `create`, `update`, `delete`
-
-### Ejemplo de uso en ViewSets
-```python
-class MyViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated, HasPermission]
-    action_permissions = {
-        "list": "modulo.view_modelo",
-        "create": "modulo.create_modelo",
-        ...
-    }
-```
-
-### Ejemplo de uso en @api_view
-```python
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-@require_permission("modulo.accion")
-def my_view(request):
-    ...
-```

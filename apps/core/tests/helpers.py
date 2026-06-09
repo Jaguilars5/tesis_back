@@ -1,5 +1,6 @@
-from apps.accounts.models import Person, User
-from apps.institutions.models import DocumentType
+from apps.people.models import Person
+from apps.iam.models import User
+from apps.people.models import DocumentType
 
 
 def _get_doc_type():

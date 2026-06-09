@@ -1,14 +1,15 @@
 from django.test import TestCase
 from datetime import date
-from apps.accounts.models import Person
+from apps.people.models import Person
+from apps.people.models import DocumentType
 from apps.institutions.models import (
     AcademicGrade,
     AcademicLevel,
-    DocumentType,
-    School_Year,
+    AcademicSublevel,
+    SchoolYear,
 )
 from apps.institutions.models import Section
-from ..models import Student, Student_Representative
+from ..models import Student, StudentRepresentative
 from ..services.students_service import StudentService
 from apps.core.tests.helpers import create_test_student
 
@@ -32,14 +33,17 @@ class StudentServiceTest(TestCase):
 
     def setUp(self):
         """Crear datos de prueba"""
-        self.school_year = School_Year.objects.create(
+        self.school_year = SchoolYear.objects.create(
             name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
         self.academic_level = AcademicLevel.objects.create(name="Primaria")
+        self.academic_sublevel = AcademicSublevel.objects.create(
+            academic_level=self.academic_level, code="ELEMENTAL", name="Elemental"
+        )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_level=self.academic_level, name="6to", sequence_order=6
+            academic_sublevel=self.academic_sublevel, name="6to", sequence_order=6
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
@@ -117,7 +121,7 @@ class StudentServiceTest(TestCase):
         )
 
         deactivated = StudentService.deactivate_student(student.id)
-        self.assertFalse(deactivated.active)
+        self.assertFalse(deactivated.is_active)
 
     def test_search_students(self):
         """Probar búsqueda de estudiantes"""
@@ -207,7 +211,7 @@ class StudentRepresentativeServiceTest(TestCase):
 
         StudentService.set_primary_representative(self.student.id, rep2.id)
 
-        primary = Student_Representative.objects.get(
+        primary = StudentRepresentative.objects.get(
             student=self.student, is_primary=True
         )
         self.assertEqual(primary.person_id, rep2.id)

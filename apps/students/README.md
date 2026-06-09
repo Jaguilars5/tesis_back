@@ -51,17 +51,17 @@ Asociación transaccional única por año escolar de un estudiante con una secci
 | `id` | `AutoField` | Identificador único primario |
 | `student` | `ForeignKey(Student)` | Referencia al estudiante matriculado |
 | `section` | `ForeignKey(Section)` | Referencia a la sección asignada |
-| `school_year` | `ForeignKey(School_Year)` | Año escolar correspondiente a la matrícula |
+| `school_year` | `ForeignKey(SchoolYear)` | Año escolar correspondiente a la matrícula |
 | `enrollment_status` | `ForeignKey(EnrollmentStatus)` | Estado actual de la matrícula |
 | `enrollment_date` | `DateField` | Fecha en la que se efectúa la matrícula |
 | `withdrawal_date` | `DateField (null)` | Fecha de retiro (opcional) |
 | `withdrawal_reason` | `TextField (null)` | Razón de retiro (opcional) |
 | `is_repeat` | `BooleanField` | Bandera que indica si el estudiante repite el año escolar |
-| `repeated_school_year` | `ForeignKey(School_Year)` | Año escolar repetido (opcional) |
+| `repeated_school_year` | `ForeignKey(SchoolYear)` | Año escolar repetido (opcional) |
 | `created_at` | `DateTimeField` | Sello de tiempo de creación |
 | `updated_at` | `DateTimeField` | Sello de tiempo de actualización |
 
-### 4. `Student_Representative` (Relación Estudiante-Representante)
+### 4. `StudentRepresentative` (Relación Estudiante-Representante)
 Modelado de la relación de parentesco, autorización de retiro de menores y recepción de notificaciones entre estudiantes e integrantes del núcleo familiar.
 
 | Campo | Tipo Django | Descripción |
@@ -169,5 +169,5 @@ Para ejecutar la suite de pruebas del módulo (incluyendo las pruebas de integra
 python manage.py test apps.students --settings=config.settings.test
 ```
 
-*   **Total de Pruebas**: 40 pruebas unitarias y de integración.
+*   **Total de Pruebas**: 85 pruebas unitarias y de integración.
 *   **Resultados de la Validación**: 100% de éxito (todas las pruebas pasan de forma limpia e independiente).

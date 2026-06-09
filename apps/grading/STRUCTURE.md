@@ -15,7 +15,6 @@ Los serializers del módulo exponen campos descriptivos adicionales para las For
 | `EvaluativeActivitySerializer`   | `component_indicator_name`, `teacher_subject_section_name`                                   |
 | `GradeChangeHistorySerializer`   | `student_note_name`, `modified_by_user_name`                                                 |
 | `PeriodGradeSummarySerializer`   | `enrollment_name`, `subject_offering_name`, `academic_period_name`, `qualitative_scale_name` |
-| `DiagnosticEvaluationSerializer` | `enrollment_name`, `academic_period_name`, `applied_by_user_name`                            |
 | `RecoveryProcessSerializer`      | `period_grade_summary_name`, `managed_by_user_name`                                          |
 | `ProjectNoteSerializer`          | `enrollment_name`, `interdisciplinary_project_title`                                         |
 
@@ -28,18 +27,21 @@ grading/
 │   ├── views.py          # ViewSets (StudentNote, GradeType, EvaluationBlock, etc.)
 │   └── urls.py           # Rutas vía DefaultRouter
 ├── models/               # Capa de Datos (Entidades)
-│   ├── student_note.py         # Gestión de calificaciones
-│   ├── grade_type.py           # Tipos de calificación
-│   ├── qualitative_scale.py    # Escalas cualitativas
-│   ├── evaluation_block.py     # Bloques de evaluación
-│   ├── block_component.py      # Componentes de bloque
-│   ├── component_indicator.py  # Indicadores de componente
-│   ├── evaluative_activity.py  # Actividades evaluativas
-│   ├── grade_change_history.py # Historial de cambios de nota
-│   ├── period_grade_summary.py # Resumen de notas por período
-│   ├── recovery_process.py     # Procesos de recuperación
-│   ├── diagnostic_evaluation.py # Evaluaciones diagnósticas
-│   └── project_note.py         # Notas de proyectos
+│   ├── student_note.py              # Gestión de calificaciones
+│   ├── grade_type.py                # Tipos de calificación
+│   ├── qualitative_scale.py         # Escalas cualitativas
+│   ├── evaluation_block.py          # Bloques de evaluación
+│   ├── block_component.py           # Componentes de bloque
+│   ├── component_indicator.py       # Indicadores de componente
+│   ├── evaluative_activity.py       # Actividades evaluativas
+│   ├── grade_change_history.py      # Historial de cambios de nota
+│   ├── period_grade_summary.py      # Resumen de notas por período
+│   ├── recovery_process.py          # Procesos de recuperación
+│   ├── project_note.py              # Notas de proyectos
+│   ├── evaluation_type.py           # Tipos de evaluación
+│   ├── activity_type.py             # Tipos de actividad
+│   ├── promotion_status.py          # Estados de promoción
+│   └── recovery_process_type.py     # Tipos de proceso de recuperación
 ├── repositories/         # Capa de Persistencia (Queries)
 │   ├── __init__.py
 │   ├── grading_repo.py               # Repositorio principal de calificaciones
@@ -50,7 +52,6 @@ grading/
 │   ├── grading_service.py          # Lógica de calificaciones
 │   ├── evaluation_service.py       # Servicio de evaluación
 │   ├── grade_calculation_service.py # Cálculos de notas
-│   ├── behavior_evaluation_service.py # Evaluación de conducta
 │   └── recovery_process_service.py  # Procesos de recuperación
 └── tests/                # Suites de Pruebas
     ├── test_models.py

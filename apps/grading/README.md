@@ -51,11 +51,11 @@ Grupo evaluativo principal asociado a un período académico (ej. trimestres, qu
 | Campo               | Tipo Django                   | Descripción                                                  |
 | :------------------ | :---------------------------- | :----------------------------------------------------------- |
 | `id`                | `AutoField`                   | Identificador único primario                                 |
-| `academic_period`   | `ForeignKey(Academic_Period)` | Período académico asociado                                   |
+| `academic_period`   | `ForeignKey(AcademicPeriod)` | Período académico asociado                                   |
 | `name`              | `CharField(100)`              | Nombre del bloque (Ej: `Bloque 1`)                           |
-| `evaluation_type`   | `CharField(30)`               | Tipo de evaluación (`FORMATIVA` o `SUMATIVA`)                |
+| `evaluation_type`   | `ForeignKey(EvaluationType)`  | Tipo de evaluación (Formativa, Sumativa, Diagnóstica)        |
 | `weight_percentage` | `DecimalField`                | Peso porcentual del bloque sobre la nota final (Ej: `40.00`) |
-| `active`            | `BooleanField`                | Indica si el bloque evaluativo está vigente                  |
+| `is_active`         | `BooleanField`                | Indica si el bloque evaluativo está vigente                  |
 
 ### 4. `BlockComponent` (Criterio de Evaluación / Componente)
 
@@ -87,9 +87,9 @@ Tareas, exámenes, talleres u otras actividades planificadas y evaluadas por el 
 | :------------------------ | :------------------------------------ | :-------------------------------------------------------------------------- |
 | `id`                      | `AutoField`                           | Identificador único primario                                                |
 | `component_indicator`     | `ForeignKey(ComponentIndicator)`      | Indicador evaluativo asociado                                               |
-| `teacher_subject_section` | `ForeignKey(Teacher_Subject_Section)` | Asignación del docente de la sección de clase                               |
+| `teacher_subject_section` | `ForeignKey(TeacherSubjectSection)` | Asignación del docente de la sección de clase                               |
 | `title`                   | `CharField(200)`                      | Título de la actividad                                                      |
-| `activity_type`           | `CharField(30)`                       | Categoría de actividad (`TAREA`, `LECCION`, `EXAMEN`, `PROYECTO`, `TALLER`) |
+| `activity_type`           | `ForeignKey(ActivityType)`            | Tipo de actividad (Tarea, Examen, Proyecto, etc.)                          |
 | `max_score`               | `DecimalField`                        | Puntuación máxima obtenible (Ej: `10.00`)                                   |
 | `due_date`                | `DateField`                           | Fecha máxima de entrega de la actividad                                     |
 
@@ -112,8 +112,8 @@ Calificación individual obtenida por un estudiante matriculado en una actividad
 | `synced_at`           | `DateTimeField`                  | Fecha y hora de sincronización                                          |
 | `sync_version`        | `PositiveIntegerField`           | Número de versión para control de conflictos offline                    |
 | `device_origin`       | `CharField(40)`                  | Nombre o ID del dispositivo físico de origen                            |
-| `created_at`          | `DateTimeField`                  | Fecha de creación del registro                                          |
-| `updated_at`          | `DateTimeField`                  | Fecha de actualización del registro                                     |
+| `created_at`          | `DateTimeField` (TimeStampedModel) | Fecha de creación del registro                                          |
+| `updated_at`          | `DateTimeField` (TimeStampedModel) | Fecha de actualización del registro                                     |
 
 ### 8. `GradeChangeHistory` (Historial de Cambios de Nota)
 
@@ -138,13 +138,13 @@ Consolidación y promedio final calculado de las notas de un alumno para una asi
 | `id`                  | `AutoField`                    | Identificador único primario                                              |
 | `enrollment`          | `ForeignKey(Enrollment)`       | Matrícula del estudiante                                                  |
 | `subject_offering`    | `ForeignKey(SubjectOffering)`  | Oferta de asignatura asociada                                             |
-| `academic_period`     | `ForeignKey(Academic_Period)`  | Período académico evaluado                                                |
+| `academic_period`     | `ForeignKey(AcademicPeriod)`  | Período académico evaluado                                                |
 | `formative_avg`       | `DecimalField`                 | Promedio ponderado de insumos formativos                                  |
 | `summative_avg`       | `DecimalField`                 | Promedio ponderado de insumos sumativos                                   |
 | `final_avg_truncated` | `DecimalField`                 | Promedio final del período redondeado/truncado                            |
 | `qualitative_scale`   | `ForeignKey(QualitativeScale)` | Calificación cualitativa equivalente                                      |
 | `requires_recovery`   | `BooleanField`                 | Indica si el estudiante tiene promedio insuficiente y requiere supletorio |
-| `promotion_status`    | `CharField(20)`                | Estado de promoción académica (`approved`, `failed`, `recovery`)          |
+| `promotion_status`    | `ForeignKey(PromotionStatus)`  | Estado de promoción académica (Aprobado, Reprobado, Recuperación)         |
 | `calculated_at`       | `DateTimeField`                | Fecha y hora de cálculo del resumen                                       |
 
 ### 10. `RecoveryProcess` (Proceso de Recuperación)
@@ -156,7 +156,7 @@ Registro y seguimiento de exámenes supletorios o de mejora académica asignados
 | `id`                     | `AutoField`                      | Identificador único primario                                                 |
 | `period_grade_summary`   | `ForeignKey(PeriodGradeSummary)` | Consolidado académico asociado                                               |
 | `managed_by_user`        | `ForeignKey(User)`               | Docente o directivo que gestiona el proceso                                  |
-| `process_type`           | `CharField(30)`                  | Tipo de recuperación (`MEJORA_DIRECTA`, `MEJORA_CON_REFUERZO`, `SUPLETORIA`) |
+| `process_type`           | `ForeignKey(RecoveryProcessType)` | Tipo de proceso de recuperación                                             |
 | `initial_grade`          | `DecimalField`                   | Calificación inicial antes del proceso                                       |
 | `reinforcement_grade`    | `DecimalField (null)`            | Calificación obtenida en el refuerzo académico                               |
 | `improvement_eval_grade` | `DecimalField (null)`            | Calificación obtenida en la evaluación de recuperación                       |
@@ -166,23 +166,51 @@ Registro y seguimiento de exámenes supletorios o de mejora académica asignados
 | `end_date`               | `DateField (null)`               | Fecha de finalización formal del proceso                                     |
 | `observations`           | `TextField (null)`               | Observaciones de seguimiento docente                                         |
 
-### 11. `DiagnosticEvaluation` (Evaluación Diagnóstica)
+### 11. `EvaluationType` (Tipo de Evaluación)
 
-Seguimiento e informes diagnósticos efectuados al inicio de un período para identificar el nivel inicial de competencias socioemocionales de los alumnos.
+Catálogo de tipos de evaluación (Diagnóstica, Formativa, Sumativa) usado por los bloques.
 
-| Campo                  | Tipo Django                   | Descripción                                                    |
-| :--------------------- | :---------------------------- | :------------------------------------------------------------- |
-| `id`                   | `AutoField`                   | Identificador único primario                                   |
-| `enrollment`           | `ForeignKey(Enrollment)`      | Matrícula del alumno diagnosticado                             |
-| `academic_period`      | `ForeignKey(Academic_Period)` | Período de evaluación                                          |
-| `applied_by_user`      | `ForeignKey(User)`            | Profesional del DECE o consejero a cargo                       |
-| `socioemotional_area`  | `CharField(100)`              | Dimensión socioemocional evaluada (Ej: `Habilidades Sociales`) |
-| `findings_description` | `TextField`                   | Diagnóstico de hallazgos observados                            |
-| `development_level`    | `CharField(50)`               | Nivel de desarrollo determinado (Ej: `Alto`, `Bajo`)           |
-| `application_date`     | `DateField`                   | Fecha de aplicación de la evaluación                           |
-| `recommendations`      | `TextField (null)`            | Recomendaciones de intervención y soporte                      |
+| Campo  | Tipo Django      | Descripción                       |
+| :----- | :--------------- | :-------------------------------- |
+| `id`   | `AutoField`      | Identificador único primario      |
+| `code` | `CharField(20)`  | Código único (Ej: `FORMATIVA`)    |
+| `name` | `CharField(100)` | Nombre descriptivo                |
+| `is_active` | `BooleanField` | Activo                          |
 
-### 12. `ProjectNote` (Nota de Proyecto)
+### 12. `ActivityType` (Tipo de Actividad)
+
+Catálogo de tipos de actividad evaluativa (Tarea, Examen, Proyecto, etc.).
+
+| Campo  | Tipo Django      | Descripción                       |
+| :----- | :--------------- | :-------------------------------- |
+| `id`   | `AutoField`      | Identificador único primario      |
+| `code` | `CharField(20)`  | Código único (Ej: `TAREA`)        |
+| `name` | `CharField(100)` | Nombre descriptivo                |
+| `is_active` | `BooleanField` | Activo                          |
+
+### 13. `PromotionStatus` (Estado de Promoción)
+
+Catálogo de estados de promoción académica (Aprobado, Reprobado, Recuperación).
+
+| Campo  | Tipo Django      | Descripción                       |
+| :----- | :--------------- | :-------------------------------- |
+| `id`   | `AutoField`      | Identificador único primario      |
+| `code` | `CharField(20)`  | Código único (Ej: `APROBADO`)     |
+| `name` | `CharField(100)` | Nombre descriptivo                |
+| `is_active` | `BooleanField` | Activo                          |
+
+### 14. `RecoveryProcessType` (Tipo de Proceso de Recuperación)
+
+Catálogo de tipos de proceso de recuperación (Mejora Directa, Supletoria, etc.).
+
+| Campo  | Tipo Django      | Descripción                       |
+| :----- | :--------------- | :-------------------------------- |
+| `id`   | `AutoField`      | Identificador único primario      |
+| `code` | `CharField(30)`  | Código único                      |
+| `name` | `CharField(100)` | Nombre descriptivo                |
+| `is_active` | `BooleanField` | Activo                          |
+
+### 15. `ProjectNote` (Nota de Proyecto)
 
 Calificaciones de proyectos interdisciplinarios integrados para medir competencias transversales de los estudiantes.
 
@@ -197,7 +225,7 @@ Calificaciones de proyectos interdisciplinarios integrados para medir competenci
 | `final_score`               | `DecimalField`                         | Calificación definitiva del proyecto              |
 | `observation`               | `TextField (null)`                     | Observaciones del jurado o docente tutor          |
 | `sync_status`               | `CharField(20)`                        | Estado de sincronización                          |
-| `created_at`                | `DateTimeField`                        | Fecha de creación del registro                    |
+| `created_at`                | `DateTimeField` (TimeStampedModel)      | Fecha de creación del registro                    |
 
 ---
 
@@ -243,7 +271,6 @@ Todos los endpoints interactivos emplean el formato estandarizado global `{"ok":
 - **Auditoría Histórica** (`/api/grading/grade-history/`): GET de solo lectura para acceder a la bitácora de cambios de nota.
 - **Resúmenes del Período** (`/api/grading/period-grade-summaries/`): GET/POST/PATCH/DELETE para promedios trimestres/anuales.
 - **Procesos de Recuperación** (`/api/grading/recovery-processes/`): GET/POST/PATCH/DELETE de exámenes supletorios y mejoras de nota.
-- **Evaluaciones Diagnósticas** (`/api/grading/diagnostic-evaluations/`): GET/POST/PATCH/DELETE de informes del DECE.
 - **Notas de Proyectos** (`/api/grading/project-notes/`): GET/POST/PATCH/DELETE de notas de proyectos transversales.
 
 ### Catálogos del Módulo
@@ -266,7 +293,6 @@ Los serializers del módulo incluyen campos de solo lectura con los nombres rela
 | `EvaluativeActivitySerializer`   | `component_indicator_name`, `teacher_subject_section_name`                                   |
 | `GradeChangeHistorySerializer`   | `student_note_name`, `modified_by_user_name`                                                 |
 | `PeriodGradeSummarySerializer`   | `enrollment_name`, `subject_offering_name`, `academic_period_name`, `qualitative_scale_name` |
-| `DiagnosticEvaluationSerializer` | `enrollment_name`, `academic_period_name`, `applied_by_user_name`                            |
 | `RecoveryProcessSerializer`      | `period_grade_summary_name`, `managed_by_user_name`                                          |
 | `ProjectNoteSerializer`          | `enrollment_name`, `interdisciplinary_project_title`                                         |
 
@@ -303,10 +329,13 @@ Todos los endpoints requieren un token JWT Bearer válido y están protegidos po
 | `GradeChangeHistoryViewSet`   | `list`, `retrieve` (Solo Lectura)                    | `grading.view_grade_history`                                                                                                                   |
 | `PeriodGradeSummaryViewSet`   | `list`, `retrieve` / `create` / `update` / `destroy` | `grading.view_gradesummary` / `.create_gradesummary` / `.update_gradesummary` / `.delete_gradesummary`                                         |
 | `RecoveryProcessViewSet`      | `list`, `retrieve` / `create` / `update` / `destroy` | `grading.view_recoveryprocess` / `.create_recoveryprocess` / `.update_recoveryprocess` / `.delete_recoveryprocess`                             |
-| `DiagnosticEvaluationViewSet` | `list`, `retrieve` / `create` / `update` / `destroy` | `grading.view_diagnosticevaluation` / `.create_diagnosticevaluation` / `.update_diagnosticevaluation` / `.delete_diagnosticevaluation`         |
 | `ProjectNoteViewSet`          | `list`, `retrieve` / `create` / `update` / `destroy` | `grading.view_projectnote` / `.create_projectnote` / `.update_projectnote` / `.delete_projectnote`                                             |
-| `GradeTypeViewSet`            | `list`, `retrieve` (Solo Lectura)                    | `grading.view_grade_type`                                                                                                                      |
-| `QualitativeScaleViewSet`     | `list`, `retrieve` (Solo Lectura)                    | `grading.view_qualitative_scale`                                                                                                               |
+| `GradeTypeViewSet`            | `list`, `retrieve` / `create` / `update` / `destroy` | `grading.view_grade_type` / `.create_grade_type` / `.update_grade_type` / `.delete_grade_type`                                                 |
+| `QualitativeScaleViewSet`     | `list`, `retrieve` / `create` / `update` / `destroy` | `grading.view_qualitative_scale` / `.create_qualitative_scale` / `.update_qualitative_scale` / `.delete_qualitative_scale`                     |
+| `EvaluationTypeViewSet`       | `list`, `retrieve` / `create` / `update` / `destroy` | `grading.view_evaluation_type` / `.create_evaluation_type` / `.update_evaluation_type` / `.delete_evaluation_type`                             |
+| `ActivityTypeViewSet`         | `list`, `retrieve` / `create` / `update` / `destroy` | `grading.view_activity_type` / `.create_activity_type` / `.update_activity_type` / `.delete_activity_type`                                     |
+| `PromotionStatusViewSet`      | `list`, `retrieve` / `create` / `update` / `destroy` | `grading.view_promotion_status` / `.create_promotion_status` / `.update_promotion_status` / `.delete_promotion_status`                         |
+| `RecoveryProcessTypeViewSet`  | `list`, `retrieve` / `create` / `update` / `destroy` | `grading.view_recovery_process_type` / `.create_recovery_process_type` / `.update_recovery_process_type` / `.delete_recovery_process_type`     |
 
 Seed de permisos en Base de Datos:
 
@@ -324,5 +353,15 @@ Para verificar la integridad del código del módulo y el control de accesos RBA
 python manage.py test apps.grading --settings=config.settings.test
 ```
 
-- **Total de Pruebas**: 40 pruebas unitarias y de integración.
+- **Total de Pruebas**: 43 pruebas unitarias y de integración.
 - **Resultados de la Validación**: 100% de éxito (todas las pruebas pasan de forma limpia e independiente sin advertencias de paginación del ORM).
+
+---
+
+## Modelos de Catálogo
+- **GradeType** — Tipo de calificación (Numérica, Cualitativa, Recuperación)
+- **QualitativeScale** — Escala cualitativa con equivalencia numérica
+- **EvaluationType** — Tipo de evaluación (DIAGNOSTICA, FORMATIVA, SUMATIVA)
+- **ActivityType** — Tipo de actividad evaluativa (TAREA, EXAMEN, PROYECTO, etc.)
+- **PromotionStatus** — Estado de promoción (approved, failed, recovery)
+- **RecoveryProcessType** — Tipo de proceso de recuperación

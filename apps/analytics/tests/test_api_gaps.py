@@ -10,15 +10,16 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
 
-from apps.accounts.models import Permission, Role, RolePermission, User, UserRole
+from apps.iam.models import Permission, Role, RolePermission, User, UserRole
 from apps.core.tests.helpers import create_test_user, create_test_student
 from apps.core.constants.permissions import analytics
 
 from apps.analytics.models import (
-    RiskFactor, StudentFeatureSnapshot, StudentRiskFactor, StudentRiskScore, EarlyAlert
+    RiskFactor, StudentFeatureSnapshot, StudentRiskFactor, StudentRiskScore, EarlyAlert,
+    AlertType, UrgencyLevel,
 )
-from apps.academic.models import Academic_Period
-from apps.institutions.models import School_Year, AcademicGrade, AcademicLevel, Section
+from apps.academic.models import AcademicPeriod
+from apps.institutions.models import SchoolYear, AcademicGrade, AcademicLevel, AcademicSublevel, Section
 from apps.students.models import Enrollment, EnrollmentStatus
 
 
@@ -29,14 +30,17 @@ class AnalyticsAPIGapsTest(TestCase):
         self.client = APIClient()
 
         # 1. Configuración básica académica
-        self.school_year = School_Year.objects.create(
+        self.school_year = SchoolYear.objects.create(
             name="2025",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 12, 31),
         )
         self.academic_level = AcademicLevel.objects.create(name="Primaria")
+        self.academic_sublevel = AcademicSublevel.objects.create(
+            academic_level=self.academic_level, name="Básica"
+        )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_level=self.academic_level,
+            academic_sublevel=self.academic_sublevel,
             name="7",
             sequence_order=1,
         )
@@ -46,7 +50,7 @@ class AnalyticsAPIGapsTest(TestCase):
             parallel="A",
             capacity=30,
         )
-        self.period = Academic_Period.objects.create(
+        self.period = AcademicPeriod.objects.create(
             school_year=self.school_year,
             name="P1",
             start_date=date(2025, 1, 1),
@@ -69,7 +73,11 @@ class AnalyticsAPIGapsTest(TestCase):
             enrollment_status=status_enr,
         )
 
-        # 2. Creación de Usuarios (con bypass RLS mediante user_type="ADMIN")
+        # 2. Creación de catálogos
+        AlertType.objects.create(code="dropout_risk", name="Riesgo de Deserción")
+        UrgencyLevel.objects.create(code="high", name="Alta")
+
+        # 3. Creación de Usuarios
         self.admin = create_test_user(
             email="admin_analytics@test.com",
             dni="8888888881",
@@ -83,7 +91,6 @@ class AnalyticsAPIGapsTest(TestCase):
             dni="8888888882",
             names="Authorized",
             last_names="Analytics",
-            user_type="ADMIN",
             is_superuser=False,
         )
 
@@ -92,12 +99,11 @@ class AnalyticsAPIGapsTest(TestCase):
             dni="8888888883",
             names="NoPerm",
             last_names="Analytics",
-            user_type="ADMIN",
             is_superuser=False,
         )
 
         # 3. Permisos y Rol
-        self.role_authorized = Role.objects.create(name="Authorized Role")
+        self.role_authorized = Role.objects.create(name="Authorized Role", code="ADMIN")
         UserRole.objects.create(user=self.authorized_user, role=self.role_authorized)
 
         self.perm_view_score = Permission.objects.create(
@@ -162,9 +168,9 @@ class AnalyticsAPIGapsTest(TestCase):
         self.early_alert = EarlyAlert.objects.create(
             enrollment=self.enrollment,
             academic_period=self.period,
-            alert_type="dropout_risk",
+            alert_type=AlertType.objects.get(code="dropout_risk"),
             description="Alto riesgo de deserción por ausentismo y notas bajas",
-            urgency_level="high",
+            urgency_level=UrgencyLevel.objects.get(code="high"),
             attended=False,
         )
 
@@ -174,8 +180,8 @@ class AnalyticsAPIGapsTest(TestCase):
         self.client.force_authenticate(user=self.authorized_user)
         response = self.client.get("/api/analytics/student-risk-scores/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(response.data["ok"])
-        results = response.data["data"]["results"]
+        self.assertTrue(response.json()["ok"])
+        results = response.json()["data"]["results"]
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["risk_label"], "alto")
 
@@ -190,8 +196,8 @@ class AnalyticsAPIGapsTest(TestCase):
         self.client.force_authenticate(user=self.authorized_user)
         response = self.client.get("/api/analytics/feature-snapshots/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(response.data["ok"])
-        results = response.data["data"]["results"]
+        self.assertTrue(response.json()["ok"])
+        results = response.json()["data"]["results"]
         self.assertEqual(len(results), 1)
         self.assertEqual(float(results[0]["attendance_rate"]), 65.50)
 
@@ -206,8 +212,8 @@ class AnalyticsAPIGapsTest(TestCase):
         self.client.force_authenticate(user=self.authorized_user)
         response = self.client.get("/api/analytics/risk-factors/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(response.data["ok"])
-        results = response.data["data"]
+        self.assertTrue(response.json()["ok"])
+        results = response.json()["data"]["results"]
         self.assertTrue(any(x["code"] == "ABSENTEEISM" for x in results))
 
         # Intentar POST -> 405 Method Not Allowed (Superusuario)
@@ -226,8 +232,8 @@ class AnalyticsAPIGapsTest(TestCase):
         self.client.force_authenticate(user=self.authorized_user)
         response = self.client.get("/api/analytics/student-risk-factors/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(response.data["ok"])
-        results = response.data["data"]["results"]
+        self.assertTrue(response.json()["ok"])
+        results = response.json()["data"]["results"]
         self.assertTrue(any(x["risk_factor_name"] == "Ausentismo Alto" for x in results))
 
         # Intentar POST -> 405 Method Not Allowed (Superusuario)
@@ -246,17 +252,23 @@ class AnalyticsAPIGapsTest(TestCase):
         self.client.force_authenticate(user=self.authorized_user)
         response = self.client.get("/api/analytics/early-alerts/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(response.data["ok"])
-        results = response.data["data"]["results"]
+        self.assertTrue(response.json()["ok"])
+        results = response.json()["data"]["results"]
         self.assertEqual(len(results), 1)
 
         # Crear alerta
+        alert_type_failing = AlertType.objects.create(
+            code="failing_grades", name="Notas bajas"
+        )
+        urgency_medium = UrgencyLevel.objects.create(
+            code="medium", name="Media"
+        )
         data = {
             "enrollment": self.enrollment.id,
             "academic_period": self.period.id,
-            "alert_type": "failing_grades",
+            "alert_type": alert_type_failing.id,
             "description": "Notas rojas",
-            "urgency_level": "medium",
+            "urgency_level": urgency_medium.id,
         }
         response = self.client.post("/api/analytics/early-alerts/", data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -271,10 +283,10 @@ class AnalyticsAPIGapsTest(TestCase):
             format="json"
         )
         self.assertEqual(response_action.status_code, status.HTTP_200_OK)
-        self.assertTrue(response_action.data["ok"])
-        self.assertEqual(response_action.data["data"]["attended"], True)
+        self.assertTrue(response_action.json()["ok"])
+        self.assertEqual(response_action.json()["data"]["attended"], True)
         self.assertEqual(
-            response_action.data["data"]["response_actions"],
+            response_action.json()["data"]["response_actions"],
             "Reunión con los padres programada para mañana"
         )
 

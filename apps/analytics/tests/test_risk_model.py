@@ -6,13 +6,13 @@ from django.test import TestCase
 
 from apps.institutions.models import Section
 from apps.academic.models import (
-    Academic_Period,
+    AcademicPeriod,
     Subject,
     SubjectAcademicConfig,
     SubjectOffering,
-    Teacher_Subject_Section,
+    TeacherSubjectSection,
 )
-from apps.accounts.models import Role, User
+from apps.iam.models import Role, User
 from apps.core.tests.helpers import create_test_user, create_test_student
 from apps.analytics.models import StudentFeatureSnapshot, StudentRiskScore
 from apps.analytics.services.feature_builder import AcademicRiskFeatureBuilder
@@ -24,30 +24,38 @@ from apps.grading.models import (
     BlockComponent,
     ComponentIndicator,
     EvaluationBlock,
+    EvaluationType,
     EvaluativeActivity,
     StudentNote,
+    ActivityType,
 )
-from apps.attendance.models import Attendance, AttendanceStatus, ConductIncident, IncidentType
-from apps.institutions.models import AcademicLevel, AcademicGrade, School_Year
+from apps.attendance.models import Attendance
+from apps.behavior.models import ConductIncident
+from apps.attendance.models import AttendanceStatus
+from apps.behavior.models import IncidentType
+from apps.institutions.models import AcademicLevel, AcademicGrade, AcademicSublevel, SchoolYear
 from apps.students.models import Enrollment, EnrollmentStatus, Student
 
 
 class AcademicRiskModelTest(TestCase):
     def setUp(self):
-        self.school_year = School_Year.objects.create(
+        self.school_year = SchoolYear.objects.create(
             name="2026",
             start_date=date(2026, 1, 1),
             end_date=date(2026, 12, 31),
         )
-        self.period = Academic_Period.objects.create(
+        self.period = AcademicPeriod.objects.create(
             school_year=self.school_year,
             name="P1",
             start_date=date(2026, 1, 1),
             end_date=date(2026, 3, 31),
         )
         self.academic_level = AcademicLevel.objects.create(name="Basica")
+        self.academic_sublevel = AcademicSublevel.objects.create(
+            academic_level=self.academic_level, name="Básica"
+        )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_level=self.academic_level, name="8", sequence_order=8
+            academic_sublevel=self.academic_sublevel, name="8", sequence_order=8
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
@@ -77,7 +85,7 @@ class AcademicRiskModelTest(TestCase):
             section=self.section,
             subject_academic_config=subj_config,
         )
-        self.teacher_subject_section = Teacher_Subject_Section.objects.create(
+        self.teacher_subject_section = TeacherSubjectSection.objects.create(
             user=self.teacher,
             subject_offering=offering,
         )
@@ -109,6 +117,8 @@ class AcademicRiskModelTest(TestCase):
             )
             self.attendance_statuses[code] = s
 
+        self.eval_type = EvaluationType.objects.create(code="FORMATIVA", name="Formativa")
+        self.activity_type_exam = ActivityType.objects.create(code="EXAMEN", name="Examen")
         self.exam = self._create_evaluative_activity("Examen parcial", 10)
         self.homework = self._create_evaluative_activity("Tarea 1", 10)
 
@@ -116,7 +126,7 @@ class AcademicRiskModelTest(TestCase):
         block = EvaluationBlock.objects.create(
             academic_period=self.period,
             name=f"Bloque-{title}",
-            evaluation_type="FORMATIVA",
+            evaluation_type=self.eval_type,
             weight_percentage=Decimal("100.00"),
         )
         component = BlockComponent.objects.create(
@@ -133,7 +143,7 @@ class AcademicRiskModelTest(TestCase):
             component_indicator=indicator,
             teacher_subject_section=self.teacher_subject_section,
             title=title,
-            activity_type="EXAMEN",
+            activity_type=self.activity_type_exam,
             max_score=Decimal(str(max_score)),
             due_date=date(2026, 2, 1),
         )

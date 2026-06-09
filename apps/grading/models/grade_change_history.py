@@ -1,7 +1,8 @@
 from django.db import models
+from apps.core.models import TimeStampedModel
 
 
-class GradeChangeHistory(models.Model):
+class GradeChangeHistory(TimeStampedModel):
     student_note = models.ForeignKey(
         "grading.StudentNote",
         on_delete=models.CASCADE,
@@ -9,7 +10,7 @@ class GradeChangeHistory(models.Model):
         verbose_name="Nota",
     )
     modified_by_user = models.ForeignKey(
-        "accounts.User",
+        "iam.User",
         on_delete=models.SET_NULL,
         null=True,
         verbose_name="Modificado por",

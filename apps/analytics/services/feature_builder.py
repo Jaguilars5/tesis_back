@@ -6,11 +6,9 @@ from collections import defaultdict
 from decimal import Decimal, ROUND_HALF_UP
 
 from apps.academic.repositories.academic_repo import AcademicPeriodRepository
-from apps.grading.repositories import (
-    AttendanceRepository,
-    ConductIncidentRepository,
-    StudentNoteRepository,
-)
+from apps.attendance.repositories import AttendanceRepository
+from apps.behavior.repositories import ConductIncidentRepository
+from apps.grading.repositories import StudentNoteRepository
 from apps.students.repositories.students_repo import StudentRepository
 
 

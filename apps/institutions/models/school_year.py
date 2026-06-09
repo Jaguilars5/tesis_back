@@ -1,18 +1,12 @@
 from django.db import models
+from apps.core.models import TimeStampedModel
 
 
-class School_Year(models.Model):
+class SchoolYear(TimeStampedModel):
     name = models.CharField(max_length=255, verbose_name="Nombre del Año Escolar")
     start_date = models.DateField(verbose_name="Fecha de Inicio")
     end_date = models.DateField(verbose_name="Fecha de Fin")
-    active = models.BooleanField(default=True, verbose_name="Activo")
-    created_at = models.DateTimeField(
-        auto_now_add=True, verbose_name="Fecha de Creación"
-    )
-    updated_at = models.DateTimeField(
-        auto_now=True, verbose_name="Fecha de Actualización"
-    )
-
+    is_active = models.BooleanField(default=True, verbose_name="Activo")
     class Meta:
         app_label = "institutions"
         verbose_name = "Año Escolar"

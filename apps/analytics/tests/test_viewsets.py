@@ -2,7 +2,7 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from apps.accounts.models import Permission, Role, RolePermission, User, UserRole
+from apps.iam.models import Permission, Role, RolePermission, User, UserRole
 from apps.core.tests.helpers import create_test_user
 
 

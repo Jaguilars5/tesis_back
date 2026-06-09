@@ -6,8 +6,10 @@ class SectionRepository(BaseRepository):
     model = Section
 
     @classmethod
-    def get_all(cls, active_only=True):
+    def get_all(cls, active_only=True, search=None):
         queryset = super().get_all(active_only=active_only)
+        if search:
+            queryset = queryset.filter(parallel__icontains=search)
         return queryset.order_by("academic_grade__sequence_order", "parallel")
 
     @classmethod

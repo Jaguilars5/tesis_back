@@ -1,9 +1,10 @@
 from django.db import models
+from apps.core.models import TimeStampedModel
 
 
-class Student(models.Model):
+class Student(TimeStampedModel):
     person = models.OneToOneField(
-        "accounts.Person",
+        "people.Person",
         on_delete=models.CASCADE,
         null=True,
         blank=True,
@@ -28,11 +29,7 @@ class Student(models.Model):
     special_needs_type = models.CharField(
         max_length=100, null=True, blank=True, verbose_name="Tipo de NEE"
     )
-    active = models.BooleanField(default=True, verbose_name="Activo")
-    created_at = models.DateTimeField(
-        auto_now_add=True, verbose_name="Fecha de Creación"
-    )
-
+    is_active = models.BooleanField(default=True, verbose_name="Activo")
     class Meta:
         app_label = "students"
         verbose_name = "Estudiante"

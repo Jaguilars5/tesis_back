@@ -1,11 +1,14 @@
 from rest_framework.filters import BaseFilterBackend
 
 # Importar los modelos necesarios para la validación tipada de catálogos públicos
-from apps.institutions.models import DocumentType, School_Year, AcademicLevel, AcademicGrade, Section
-from apps.academic.models import Academic_Period, Subject, SubjectAcademicConfig, SubjectOffering
-from apps.students.models import EnrollmentStatus
+from apps.people.models import DocumentType
 from apps.grading.models import GradeType, QualitativeScale
-from apps.attendance.models import AttendanceStatus, IncidentType, SocioemotionalSkill
+from apps.attendance.models import AttendanceStatus
+from apps.behavior.models import IncidentType
+from apps.institutions.models import SchoolYear, AcademicLevel, AcademicGrade, Section
+from apps.academic.models import AcademicPeriod, Subject, SubjectAcademicConfig, SubjectOffering
+from apps.students.models import EnrollmentStatus
+from apps.behavior.models import SocioemotionalSkill
 from apps.analytics.models import RiskFactor
 
 from .role_handlers import ROLE_HANDLERS
@@ -13,8 +16,8 @@ from .role_handlers import ROLE_HANDLERS
 # Definir la lista blanca de catálogos públicos usando tipos reales (clases)
 PUBLIC_CATALOGS = {
     DocumentType,
-    School_Year,
-    Academic_Period,
+    SchoolYear,
+    AcademicPeriod,
     AcademicLevel,
     AcademicGrade,
     Subject,
@@ -45,7 +48,7 @@ class RoleBasedFilterBackend(BaseFilterBackend):
             return queryset.none()
 
         # 2. Bypass total para Superusuarios y Administradores del sistema
-        if user.is_superuser or user.user_type == "ADMIN":
+        if user.is_superuser or user.user_category == "ADMIN":
             return queryset
 
         model = queryset.model
@@ -54,8 +57,9 @@ class RoleBasedFilterBackend(BaseFilterBackend):
         if model in PUBLIC_CATALOGS:
             return queryset
 
-        # 4. Despacho dinámico basado en el tipo de rol del usuario (Patrón Handler)
-        handler_class = ROLE_HANDLERS.get(user.user_type)
+        # 4. Despacho dinámico basado en la categoría del usuario (Patrón Handler)
+        user_type_code = user.user_category
+        handler_class = ROLE_HANDLERS.get(user_type_code)
         if handler_class:
             return handler_class(user).filter(queryset)
 

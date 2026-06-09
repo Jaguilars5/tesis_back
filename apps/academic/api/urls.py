@@ -1,12 +1,14 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
-    SubjectViewSet,
     AcademicPeriodViewSet,
-    TeacherSubjectSectionViewSet, SubjectAcademicConfigViewSet,
-    SubjectOfferingViewSet,
     InterdisciplinaryProjectViewSet,
+    PeriodTypeViewSet,
+    SubjectAcademicConfigViewSet,
+    SubjectOfferingViewSet,
     SubjectProjectViewSet,
+    SubjectViewSet,
+    TeacherSubjectSectionViewSet,
 )
 
 router = DefaultRouter()
@@ -17,6 +19,7 @@ router.register(r'subject-academic-configs', SubjectAcademicConfigViewSet, basen
 router.register(r'subject-offerings', SubjectOfferingViewSet, basename='subject-offering')
 router.register(r'interdisciplinary-projects', InterdisciplinaryProjectViewSet, basename='interdisciplinary-project')
 router.register(r'subject-projects', SubjectProjectViewSet, basename='subject-project')
+router.register(r'period-types', PeriodTypeViewSet, basename='period-type')
 
 urlpatterns = [
     path('', include(router.urls)),

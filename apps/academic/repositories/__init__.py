@@ -1,6 +1,7 @@
 from .academic_repo import (
     SubjectRepository,
     AcademicPeriodRepository,
+    PeriodTypeRepository,
     TeacherSubjectSectionRepository,
     SubjectAcademicConfigRepository,
     SubjectOfferingRepository,
@@ -13,6 +14,7 @@ from .interdisciplinary_project_repository import (
 __all__ = [
     "SubjectRepository",
     "AcademicPeriodRepository",
+    "PeriodTypeRepository",
     "TeacherSubjectSectionRepository",
     "SubjectAcademicConfigRepository",
     "SubjectOfferingRepository",

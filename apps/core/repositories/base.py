@@ -1,6 +1,7 @@
 """Repositorio base unificado para todas las apps."""
 
 from django.db import models
+from django.utils import timezone
 
 
 class BaseRepository:
@@ -13,8 +14,8 @@ class BaseRepository:
     @classmethod
     def get_all(cls, active_only=True):
         queryset = cls.model.objects.all()
-        if active_only and hasattr(cls.model, "active"):
-            queryset = queryset.filter(active=True)
+        if active_only and hasattr(cls.model, "is_active"):
+            queryset = queryset.filter(is_active=True)
         return queryset
 
     @classmethod
@@ -41,10 +42,14 @@ class BaseRepository:
 
     @classmethod
     def create(cls, **data):
+        now = timezone.now()
+        data.setdefault("created_at", now)
+        data["updated_at"] = now
         return cls.model.objects.create(**data)
 
     @classmethod
     def update(cls, pk, **data):
+        data["updated_at"] = timezone.now()
         cls.model.objects.filter(pk=pk).update(**data)
         return cls.get_by_id(pk)
 

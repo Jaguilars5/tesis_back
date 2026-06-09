@@ -4,29 +4,30 @@ from decimal import Decimal
 from django.test import TestCase
 
 from apps.academic.models import (
-    Academic_Period,
+    AcademicPeriod,
     Subject,
     SubjectAcademicConfig,
     SubjectOffering,
-    Teacher_Subject_Section,
+    TeacherSubjectSection,
 )
-from apps.accounts.models import Role
+from apps.iam.models import Role
 from apps.core.tests.helpers import create_test_user, create_test_student
-from apps.attendance.models import Attendance, AttendanceStatus, ConductIncident
-from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year, Section
+from apps.attendance.models import AbsenceType, AttendanceStatus
+from apps.attendance.models import Attendance
+from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSublevel, SchoolYear, Section
 from apps.students.models import Enrollment, EnrollmentStatus
 
 
 class AttendanceModelTest(TestCase):
-    """Tests para los modelos Attendance y ConductIncident."""
+    """Tests para el modelo Attendance."""
 
     def setUp(self):
-        school_year = School_Year.objects.create(
+        school_year = SchoolYear.objects.create(
             name="2025",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 12, 31),
         )
-        self.period = Academic_Period.objects.create(
+        self.period = AcademicPeriod.objects.create(
             school_year=school_year,
             name="P1",
             start_date=date(2025, 1, 1),
@@ -40,8 +41,11 @@ class AttendanceModelTest(TestCase):
             last_names="Perez",
         )
         self.academic_level = AcademicLevel.objects.create(name="Primaria")
+        self.academic_sublevel = AcademicSublevel.objects.create(
+            academic_level=self.academic_level, code="MEDIA", name="Media"
+        )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_level=self.academic_level,
+            academic_sublevel=self.academic_sublevel,
             name="7",
             sequence_order=1,
         )
@@ -66,7 +70,7 @@ class AttendanceModelTest(TestCase):
             section=self.section,
             subject_academic_config=subj_config,
         )
-        self.teacher_subject_section = Teacher_Subject_Section.objects.create(
+        self.teacher_subject_section = TeacherSubjectSection.objects.create(
             user=self.user,
             subject_offering=offering,
         )
@@ -96,18 +100,6 @@ class AttendanceModelTest(TestCase):
         )
         self.assertIn("Juan", str(attendance))
 
-    def test_conduct_incident_string(self):
-        incident = ConductIncident(
-            enrollment=self.enrollment,
-            reported_by_user=self.user,
-            academic_period=self.period,
-            incident_date=date(2025, 2, 1),
-            category="disciplina",
-            severity=3,
-        )
-        self.assertIn("disciplina", str(incident))
-
-
 class AttendanceStatusModelTest(TestCase):
     def setUp(self):
         self.status = AttendanceStatus.objects.create(code="P", name="Presente")
@@ -122,3 +114,19 @@ class AttendanceStatusModelTest(TestCase):
 
     def test_str(self):
         self.assertEqual(str(self.status), "Presente")
+
+
+class AbsenceTypeModelTest(TestCase):
+    def setUp(self):
+        self.absence = AbsenceType.objects.create(code="J", name="Justificada")
+
+    def test_creation(self):
+        self.assertEqual(self.absence.code, "J")
+        self.assertEqual(self.absence.name, "Justificada")
+
+    def test_code_unique(self):
+        with self.assertRaises(Exception):
+            AbsenceType.objects.create(code="J", name="Duplicado")
+
+    def test_str(self):
+        self.assertEqual(str(self.absence), "Justificada")

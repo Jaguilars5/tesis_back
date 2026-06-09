@@ -1,14 +1,15 @@
 from django.test import TestCase
 from datetime import date
-from apps.accounts.models import Person
+from apps.people.models import Person
+from apps.people.models import DocumentType
 from apps.institutions.models import (
     AcademicGrade,
     AcademicLevel,
-    DocumentType,
-    School_Year,
+    AcademicSublevel,
+    SchoolYear,
 )
 from apps.institutions.models import Section
-from ..models import EnrollmentStatus, Student, Student_Representative
+from ..models import EnrollmentStatus, Student, StudentRepresentative
 from apps.core.tests.helpers import create_test_student
 
 
@@ -30,14 +31,17 @@ class StudentModelTest(TestCase):
 
     def setUp(self):
         """Crear datos de prueba"""
-        self.school_year = School_Year.objects.create(
+        self.school_year = SchoolYear.objects.create(
             name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
         self.academic_level = AcademicLevel.objects.create(name="Primaria")
+        self.academic_sublevel = AcademicSublevel.objects.create(
+            academic_level=self.academic_level, code="ELEMENTAL", name="Elemental", 
+        )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_level=self.academic_level, name="6to", sequence_order=1
+            academic_sublevel=self.academic_sublevel, name="6to", sequence_order=1,
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
@@ -57,7 +61,7 @@ class StudentModelTest(TestCase):
 
         self.assertIsNotNone(student.id)
         self.assertEqual(student.person.document_number, "1234567890")
-        self.assertTrue(student.active)
+        self.assertTrue(student.is_active)
 
     def test_student_dni_unique(self):
         """Probar que DNI es único"""
@@ -113,18 +117,21 @@ class StudentModelTest(TestCase):
 
 
 class StudentRepresentativeModelTest(TestCase):
-    """Tests para el modelo Student_Representative"""
+    """Tests para el modelo StudentRepresentative"""
 
     def setUp(self):
         """Crear datos de prueba"""
-        self.school_year = School_Year.objects.create(
+        self.school_year = SchoolYear.objects.create(
             name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
         self.academic_level = AcademicLevel.objects.create(name="Primaria")
+        self.academic_sublevel = AcademicSublevel.objects.create(
+            academic_level=self.academic_level, code="ELEMENTAL", name="Elemental", 
+        )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_level=self.academic_level, name="6to", sequence_order=1
+            academic_sublevel=self.academic_sublevel, name="6to", sequence_order=1,
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
@@ -147,7 +154,7 @@ class StudentRepresentativeModelTest(TestCase):
 
     def test_relationship_creation(self):
         """Probar creación de relación"""
-        rel = Student_Representative.objects.create(
+        rel = StudentRepresentative.objects.create(
             student=self.student,
             person=self.representative,
             kinship="Madre",
@@ -161,12 +168,12 @@ class StudentRepresentativeModelTest(TestCase):
 
     def test_relationship_unique_together(self):
         """Probar que no puede haber duplicados"""
-        Student_Representative.objects.create(
+        StudentRepresentative.objects.create(
             student=self.student, person=self.representative, kinship="Madre"
         )
 
         with self.assertRaises(Exception):
-            Student_Representative.objects.create(
+            StudentRepresentative.objects.create(
                 student=self.student,
                 person=self.representative,
                 kinship="Madre",
@@ -181,17 +188,17 @@ class StudentRepresentativeModelTest(TestCase):
             phone="0987654322",
         )
 
-        Student_Representative.objects.create(
+        StudentRepresentative.objects.create(
             student=self.student,
             person=self.representative,
             kinship="Madre",
             is_primary=True,
         )
-        Student_Representative.objects.create(
+        StudentRepresentative.objects.create(
             student=self.student, person=rep2, kinship="Padre", is_primary=False
         )
 
-        rels = Student_Representative.objects.filter(student=self.student)
+        rels = StudentRepresentative.objects.filter(student=self.student)
         self.assertEqual(rels.count(), 2)
 
 

@@ -1,11 +1,13 @@
-from .school_year import School_Year
+from .school_year import SchoolYear
 from .academic_level import AcademicLevel
+from .academic_sublevel import AcademicSublevel
 from .academic_grade import AcademicGrade
 from .section import Section
 
 __all__ = [
-    "School_Year",
+    "SchoolYear",
     "AcademicLevel",
+    "AcademicSublevel",
     "AcademicGrade",
     "Section",
 ]

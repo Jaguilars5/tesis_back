@@ -1,7 +1,8 @@
 from django.db import models
+from apps.core.models import TimeStampedModel
 
 
-class PeriodGradeSummary(models.Model):
+class PeriodGradeSummary(TimeStampedModel):
     enrollment = models.ForeignKey(
         "students.Enrollment",
         on_delete=models.CASCADE,
@@ -15,7 +16,7 @@ class PeriodGradeSummary(models.Model):
         verbose_name="Oferta de Asignatura",
     )
     academic_period = models.ForeignKey(
-        "academic.Academic_Period",
+        "academic.AcademicPeriod",
         on_delete=models.CASCADE,
         related_name="grade_summaries",
         verbose_name="Período Académico",
@@ -36,16 +37,7 @@ class PeriodGradeSummary(models.Model):
         verbose_name="Escala Cualitativa",
     )
     requires_recovery = models.BooleanField(default=False, verbose_name="Requiere Recuperación")
-    promotion_status = models.CharField(
-        max_length=20,
-        null=True, blank=True,
-        choices=[
-            ("approved", "Aprobado"),
-            ("failed", "Reprobado"),
-            ("recovery", "En Recuperación"),
-        ],
-        verbose_name="Estado de Promoción",
-    )
+    promotion_status = models.ForeignKey("grading.PromotionStatus", on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Estado de Promoción")
     calculated_at = models.DateTimeField(auto_now_add=True, verbose_name="Calculado en")
 
     class Meta:

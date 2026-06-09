@@ -1,16 +1,20 @@
 from django.db.models import QuerySet
-from apps.accounts.models import User, Person
-from apps.students.models import Student, Student_Representative, Enrollment, EnrollmentStatus
-from apps.academic.models import Subject, Academic_Period, SubjectAcademicConfig, SubjectOffering, Teacher_Subject_Section
+from apps.iam.models import User
+from apps.people.models import Person
+from apps.students.models import Student, StudentRepresentative, Enrollment, EnrollmentStatus
+from apps.academic.models import Subject, AcademicPeriod, SubjectAcademicConfig, SubjectOffering, TeacherSubjectSection
 from apps.grading.models import (
-    StudentNote, GradeType, QualitativeScale, EvaluationBlock,
+    StudentNote, EvaluationBlock,
     BlockComponent, ComponentIndicator, EvaluativeActivity,
     PeriodGradeSummary, RecoveryProcess, ProjectNote
 )
 from apps.attendance.models import (
-    Attendance, AttendanceStatus, IncidentType, ConductIncident,
-    SocioemotionalSkill, SkillEvaluation, BehaviorEvaluation
+    Attendance, AttendanceStatus,
 )
+from apps.behavior.models import (
+    ConductIncident, SocioemotionalSkill, SkillEvaluation, BehaviorEvaluation, IncidentType,
+)
+from apps.grading.models import GradeType, QualitativeScale
 from apps.analytics.models import StudentRiskScore, StudentRiskFactor, StudentFeatureSnapshot, RiskFactor, EarlyAlert
 
 
@@ -51,7 +55,7 @@ class StudentRoleHandler(BaseRoleHandler):
     Solo permite el acceso a sus propios datos personales, académicos, de asistencia y de notas.
     """
     ALLOWED_MODELS = {
-        User, Person, Student, Enrollment, Teacher_Subject_Section,
+        User, Person, Student, Enrollment, TeacherSubjectSection,
         EvaluativeActivity, StudentNote, ProjectNote, PeriodGradeSummary,
         RecoveryProcess, Attendance, ConductIncident, BehaviorEvaluation,
         SkillEvaluation
@@ -74,7 +78,7 @@ class StudentRoleHandler(BaseRoleHandler):
         # Datos Académicos y Secciones
         elif model is Enrollment:
             return queryset.filter(student__person=self.user.person)
-        elif model is Teacher_Subject_Section:
+        elif model is TeacherSubjectSection:
             return queryset.filter(
                 subject_offering__section__enrollments__student__person=self.user.person
             ).distinct()
@@ -104,8 +108,8 @@ class RepresentativeRoleHandler(BaseRoleHandler):
     Permite acceso únicamente a los datos de sus estudiantes representados.
     """
     ALLOWED_MODELS = {
-        User, Person, Student, Student_Representative, Enrollment,
-        Teacher_Subject_Section, EvaluativeActivity, StudentNote, ProjectNote,
+        User, Person, Student, StudentRepresentative, Enrollment,
+        TeacherSubjectSection, EvaluativeActivity, StudentNote, ProjectNote,
         PeriodGradeSummary, RecoveryProcess, Attendance, ConductIncident,
         BehaviorEvaluation, SkillEvaluation, EarlyAlert, StudentRiskScore,
         StudentRiskFactor
@@ -121,7 +125,7 @@ class RepresentativeRoleHandler(BaseRoleHandler):
             return queryset.filter(id=self.user.person.id)
         elif model is Student:
             return queryset.filter(representatives_set__person=self.user.person).distinct()
-        elif model is Student_Representative:
+        elif model is StudentRepresentative:
             return queryset.filter(person=self.user.person)
 
         # Académicos
@@ -129,7 +133,7 @@ class RepresentativeRoleHandler(BaseRoleHandler):
             return queryset.filter(
                 student__representatives_set__person=self.user.person
             ).distinct()
-        elif model is Teacher_Subject_Section:
+        elif model is TeacherSubjectSection:
             return queryset.filter(
                 subject_offering__section__enrollments__student__representatives_set__person=self.user.person
             ).distinct()
@@ -168,7 +172,7 @@ class TeacherRoleHandler(BaseRoleHandler):
     e incidentes de los estudiantes asignados a su carga horaria.
     """
     ALLOWED_MODELS = {
-        User, Person, Teacher_Subject_Section, EvaluativeActivity,
+        User, Person, TeacherSubjectSection, EvaluativeActivity,
         StudentNote, ProjectNote, PeriodGradeSummary, RecoveryProcess,
         Attendance, ConductIncident, BehaviorEvaluation, SkillEvaluation,
         EarlyAlert, StudentRiskScore
@@ -190,7 +194,7 @@ class TeacherRoleHandler(BaseRoleHandler):
             return queryset.filter(id=self.user.person.id)
 
         # Cursos asignados
-        elif model is Teacher_Subject_Section:
+        elif model is TeacherSubjectSection:
             return queryset.filter(user=self.user)
         elif model is EvaluativeActivity:
             return queryset.filter(teacher_subject_section__user=self.user)
@@ -229,8 +233,8 @@ class CounselorRoleHandler(BaseRoleHandler):
     representantes, comportamiento y alertas preventivas. No tienen acceso a calificaciones.
     """
     ALLOWED_MODELS = {
-        Person, Student, Student_Representative, Enrollment,
-        Teacher_Subject_Section, EvaluativeActivity, ConductIncident,
+        Person, Student, StudentRepresentative, Enrollment,
+        TeacherSubjectSection, EvaluativeActivity, ConductIncident,
         BehaviorEvaluation, SkillEvaluation, EarlyAlert, StudentRiskScore,
         StudentRiskFactor, StudentFeatureSnapshot
     }

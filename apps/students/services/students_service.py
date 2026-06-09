@@ -1,8 +1,7 @@
 from datetime import date, datetime
 from django.db import models, transaction
-from apps.accounts.models import Person
-from apps.institutions.models import DocumentType
-from ..models import Student, Student_Representative
+from apps.people.models import Person, DocumentType
+from ..models import Student, StudentRepresentative
 from ..repositories.students_repo import (
     StudentRepository,
     StudentRepresentativeRepository,
@@ -38,9 +37,8 @@ class StudentService:
             email=email,
             phone=phone,
         )
-        code = f"EST-{Student.objects.count() + 1:05d}"
-        student = Student(person=person, student_code=code)
-        student.save()
+        code = f"EST-{StudentRepository.count() + 1:05d}"
+        student = StudentRepository.create(person=person, student_code=code)
         return student
 
     @staticmethod
@@ -56,16 +54,11 @@ class StudentService:
 
     @staticmethod
     def list_students_by_section(section_id):
-        return Student.objects.none()
+        return StudentRepository.get_by_section(section_id)
 
     @staticmethod
     def search_students(query):
-        return Student.objects.filter(
-            models.Q(person__names__icontains=query) |
-            models.Q(person__last_names__icontains=query) |
-            models.Q(person__document_number__icontains=query) |
-            models.Q(student_code__icontains=query)
-        ).distinct()
+        return StudentRepository.search(query)
 
     @staticmethod
     def update_student(student_id, **kwargs):
@@ -79,13 +72,13 @@ class StudentService:
     @staticmethod
     def deactivate_student(student_id):
         student = StudentService.get_student(student_id)
-        student.active = False
+        student.is_active = False
         student.save()
         return student
 
     @staticmethod
     def assign_representative(student_id, person_id, kinship="Padre", **kwargs):
-        rel = Student_Representative(
+        rel = StudentRepresentative(
             student_id=student_id,
             person_id=person_id,
             kinship=kinship,
@@ -96,9 +89,7 @@ class StudentService:
 
     @staticmethod
     def remove_representative(student_id, person_id):
-        rel = Student_Representative.objects.filter(
-            student_id=student_id, person_id=person_id
-        ).first()
+        rel = StudentRepresentativeRepository.get_relationship(student_id, person_id)
         if not rel:
             raise ValueError("Relación no encontrada")
         rel.delete()
@@ -106,9 +97,10 @@ class StudentService:
 
     @staticmethod
     def set_primary_representative(student_id, person_id):
-        Student_Representative.objects.filter(
+        StudentRepresentativeRepository.get_relationship(student_id, person_id)
+        StudentRepresentative.objects.filter(
             student_id=student_id, is_primary=True
         ).update(is_primary=False)
-        Student_Representative.objects.filter(
+        StudentRepresentative.objects.filter(
             student_id=student_id, person_id=person_id
         ).update(is_primary=True)

@@ -12,10 +12,10 @@ Para una descripción detallada de la organización del código y los patrones d
 
 El sistema está organizado en los siguientes módulos funcionales:
 
-### Gestión de Identidad y Acceso (Accounts & Core)
+### Gestión de Identidad y Acceso (IAM & Core)
 
-Administración de usuarios, roles y permisos. El módulo `core` proporciona las utilidades transversales y estándares de respuesta para todo el sistema.
-[Documentación de Accounts](apps/accounts/README.md) | [Documentación de Core](apps/core/README.md)
+Administración de usuarios, roles y permisos. El login es por **username** (autogenerado: primera letra del nombre + primer apellido + numeración si existe duplicado). El módulo `core` proporciona las utilidades transversales y estándares de respuesta para todo el sistema.
+[Documentación de IAM](apps/iam/README.md) | [Documentación de Core](apps/core/README.md)
 
 ### Institución y Estructura Académica (Institutions & Academic)
 
@@ -41,22 +41,53 @@ Gestión de asistencia diaria, incidentes conductuales, evaluaciones socioemocio
 
 Análisis de riesgo estudiantil basado en métricas de asistencia, rendimiento académico y conducta. Genera perfiles de riesgo y prioriza estudiantes que requieren intervención.
 
+### Configuración del Sistema (Configuration)
+
+Gestión de parámetros configurables del sistema, incluyendo periodos académicos, tipos de evaluación y catálogos generales.
+
+### Integración con Terceros (Integration)
+
+Endpoints y servicios para integración con sistemas externos y sincronización de datos.
+
+---
+
+> **Nota**: El proyecto cuenta con 12 apps en total (`core`, `iam`, `people`, `institutions`, `students`, `academic`, `grading`, `attendance`, `behavior`, `analytics`, `configuration`, `integration`). Consulte la [Documentación de Arquitectura](docs/STRUCTURE.md) para más detalles.
+
 ## Diagrama de Base de Datos
 
 El diseño de la base de datos se basa en un modelo relacional normalizado que asegura la integridad de la información académica. Las relaciones clave incluyen la vinculación entre periodos académicos, actividades de evaluación y registros de estudiantes.
 
 El esquema detallado de las entidades y sus relaciones puede visualizarse en el archivo de documentación técnica [Diagrama ER](docs/bd_en.html).
 
-## Pruebas Automatizadas
+## Seeds (Datos Iniciales)
 
-El proyecto cuenta con una suite de pruebas que cubre modelos, servicios y API de todos los módulos.
+Los siguientes comandos son idempotentes y deben ejecutarse en orden después de las migraciones para poblar los catálogos, permisos y datos de prueba:
 
 ```bash
-# Ejecutar todas las pruebas (requiere PostgreSQL o usa settings de test con SQLite)
+# 1. Catálogos del sistema (tipos de documento, etc.)
+python manage.py seed_catalogs
+
+# 2. Permisos + Roles (DOCENTE, ESTUDIANTE, etc.)
+python manage.py seed_permissions
+
+# 3. Datos de prueba
+python manage.py seed_test_data
+```
+
+## Pruebas Automatizadas
+
+El proyecto cuenta con una suite de 569+ pruebas que cubre modelos, servicios y API de todos los módulos.
+
+```bash
+# Ejecutar todas las pruebas (usa SQLite, no requiere PostgreSQL)
 python manage.py test --settings=config.settings.test
 
 # Ejecutar pruebas de un módulo específico
-python manage.py test apps.accounts --settings=config.settings.test
+python manage.py test apps.iam --settings=config.settings.test
+python manage.py test apps.grading.tests.test_models --settings=config.settings.test
+
+# Pruebas de seguridad
+python manage.py test apps.core.tests --settings=config.settings.test
 
 # Con coverage
 coverage run --source='.' manage.py test --settings=config.settings.test
@@ -82,7 +113,7 @@ Para garantizar la consistencia entre el Backend y el Frontend, todas las respue
 
 - **Backend**: Django 4.2.x.
 - **API**: Django REST Framework, con filtros y paginación personalizados.
-- **Autenticación**: JWT con `djangorestframework-simplejwt` y modelo de usuario extendido.
+- **Autenticación**: JWT con `djangorestframework-simplejwt` y modelo de usuario extendido. Login por **username** con generación automática.
 - **CORS**: `django-cors-headers` para integración con frontends separados.
 - **Consultas y filtros**: `django-filter` para búsqueda y filtrado de endpoints.
 - **Tareas asíncronas**: Celery como worker y Redis como broker.
@@ -112,13 +143,21 @@ docker-compose build
 # 3. Iniciar los servicios
 docker-compose up
 
-# 4. En otra terminal: crear superusuario
+# 4. En otra terminal: poblar datos iniciales
+docker-compose exec web python manage.py seed_catalogs
+docker-compose exec web python manage.py seed_permissions
+docker-compose exec web python manage.py seed_test_data
+
+# 5. Crear superusuario
 docker-compose exec web python manage.py createsuperuser
 
-# 5. Acceder a la aplicación
+# 6. Acceder a la aplicación
 # API: http://localhost:8000
 # Admin: http://localhost:8000/admin
 # Flower (Celery monitor): http://localhost:5555
+
+# API Docs (Swagger): http://localhost:8000/api/docs/
+# API Docs (ReDoc): http://localhost:8000/api/redoc/
 ```
 
 **Para verificar que todo está configurado correctamente:**
@@ -162,15 +201,20 @@ cp .env.example .env
 # 5. Ejecutar migraciones
 python manage.py migrate
 
-# 6. Crear superusuario
+# 6. Poblar datos iniciales (idempotente, ejecutar en orden)
+python manage.py seed_catalogs
+python manage.py seed_permissions
+python manage.py seed_test_data
+
+# 7. Crear superusuario
 python manage.py createsuperuser
 
-# 7. Iniciar servidor de desarrollo
+# 8. Iniciar servidor de desarrollo
 python manage.py runserver
 
-# 8. En otra terminal: iniciar Celery
+# 9. En otra terminal: iniciar Celery
 celery -A config worker --loglevel=info
 
-# 9. Opcional: iniciar Flower
+# 10. Opcional: iniciar Flower
 celery -A config flower --port=5555
 ```

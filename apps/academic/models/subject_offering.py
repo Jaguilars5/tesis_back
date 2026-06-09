@@ -1,9 +1,10 @@
 from django.db import models
+from apps.core.models import TimeStampedModel
 
 
-class SubjectOffering(models.Model):
+class SubjectOffering(TimeStampedModel):
     school_year = models.ForeignKey(
-        "institutions.School_Year",
+        "institutions.SchoolYear",
         on_delete=models.CASCADE,
         verbose_name="Año Escolar",
     )
@@ -17,7 +18,7 @@ class SubjectOffering(models.Model):
         on_delete=models.CASCADE,
         verbose_name="Configuración de Materia",
     )
-    active = models.BooleanField(default=True, verbose_name="Activo")
+    is_active = models.BooleanField(default=True, verbose_name="Activo")
 
     class Meta:
         app_label = "academic"

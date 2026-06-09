@@ -7,17 +7,20 @@ Controlan la representación JSON de los modelos de calificaciones y evaluacione
 from rest_framework import serializers
 
 from ..models import (
+    ActivityType,
     BlockComponent,
     ComponentIndicator,
-    DiagnosticEvaluation,
     EvaluationBlock,
+    EvaluationType,
     EvaluativeActivity,
     GradeChangeHistory,
     GradeType,
     PeriodGradeSummary,
     ProjectNote,
+    PromotionStatus,
     QualitativeScale,
     RecoveryProcess,
+    RecoveryProcessType,
     StudentNote,
 )
 
@@ -34,18 +37,6 @@ class StudentNoteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StudentNote
-        fields = "__all__"
-
-
-class GradeTypeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = GradeType
-        fields = "__all__"
-
-
-class QualitativeScaleSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = QualitativeScale
         fields = "__all__"
 
 
@@ -135,20 +126,6 @@ class RecoveryProcessSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class DiagnosticEvaluationSerializer(serializers.ModelSerializer):
-    enrollment_name = serializers.CharField(source="enrollment.__str__", read_only=True)
-    academic_period_name = serializers.CharField(
-        source="academic_period.name", read_only=True
-    )
-    applied_by_user_name = serializers.CharField(
-        source="applied_by_user.person.get_full_name", read_only=True
-    )
-
-    class Meta:
-        model = DiagnosticEvaluation
-        fields = "__all__"
-
-
 class ProjectNoteSerializer(serializers.ModelSerializer):
     enrollment_name = serializers.CharField(source="enrollment.__str__", read_only=True)
     interdisciplinary_project_title = serializers.CharField(
@@ -157,4 +134,40 @@ class ProjectNoteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProjectNote
+        fields = "__all__"
+
+
+class GradeTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GradeType
+        fields = "__all__"
+
+
+class QualitativeScaleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = QualitativeScale
+        fields = "__all__"
+
+
+class EvaluationTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EvaluationType
+        fields = "__all__"
+
+
+class ActivityTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ActivityType
+        fields = "__all__"
+
+
+class PromotionStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PromotionStatus
+        fields = "__all__"
+
+
+class RecoveryProcessTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RecoveryProcessType
         fields = "__all__"

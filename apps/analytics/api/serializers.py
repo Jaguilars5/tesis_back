@@ -4,11 +4,13 @@ Serializers de DRF para el módulo Analytics.
 
 from rest_framework import serializers
 from ..models import (
+    AlertType,
+    EarlyAlert,
     RiskFactor,
     StudentFeatureSnapshot,
     StudentRiskFactor,
     StudentRiskScore,
-    EarlyAlert,
+    UrgencyLevel,
 )
 
 
@@ -51,6 +53,18 @@ class StudentFeatureSnapshotSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StudentFeatureSnapshot
+        fields = "__all__"
+
+
+class AlertTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AlertType
+        fields = "__all__"
+
+
+class UrgencyLevelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UrgencyLevel
         fields = "__all__"
 
 

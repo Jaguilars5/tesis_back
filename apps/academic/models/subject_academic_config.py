@@ -1,7 +1,8 @@
 from django.db import models
+from apps.core.models import TimeStampedModel
 
 
-class SubjectAcademicConfig(models.Model):
+class SubjectAcademicConfig(TimeStampedModel):
     subject = models.ForeignKey(
         "academic.Subject",
         on_delete=models.CASCADE,
@@ -15,7 +16,7 @@ class SubjectAcademicConfig(models.Model):
     weekly_hours = models.IntegerField(verbose_name="Horas Semanales")
     pedagogical_order = models.IntegerField(verbose_name="Orden Pedagógico")
     is_required = models.BooleanField(default=True, verbose_name="Obligatoria")
-    active = models.BooleanField(default=True, verbose_name="Activo")
+    is_active = models.BooleanField(default=True, verbose_name="Activo")
 
     class Meta:
         app_label = "academic"

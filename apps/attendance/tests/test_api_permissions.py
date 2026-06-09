@@ -2,7 +2,7 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from apps.accounts.models import Permission, Role, RolePermission, UserRole
+from apps.iam.models import Permission, Role, RolePermission, UserRole
 from apps.core.constants.permissions import attendance as perms
 from apps.core.tests.helpers import create_test_user
 
@@ -19,7 +19,7 @@ class AttendancePermissionsTest(TestCase):
         )
         self.user_with_perm = create_test_user(
             email="with_perm_att@test.com", dni="5000000002",
-            names="With", last_names="Perm", user_type="ADMIN",
+            names="With", last_names="Perm",
         )
         self.superuser = create_test_user(
             email="admin_att@test.com", dni="5000000000",
@@ -28,12 +28,8 @@ class AttendancePermissionsTest(TestCase):
 
         perm_codes = [
             perms.VIEW_ATTENDANCE, perms.CREATE_ATTENDANCE, perms.UPDATE_ATTENDANCE, perms.DELETE_ATTENDANCE,
-            perms.VIEW_CONDUCT_INCIDENT, perms.CREATE_CONDUCT_INCIDENT, perms.UPDATE_CONDUCT_INCIDENT, perms.DELETE_CONDUCT_INCIDENT,
-            perms.VIEW_BEHAVIOR_EVALUATION, perms.CREATE_BEHAVIOR_EVALUATION, perms.UPDATE_BEHAVIOR_EVALUATION, perms.DELETE_BEHAVIOR_EVALUATION,
-            perms.VIEW_INCIDENT_TYPE, perms.CREATE_INCIDENT_TYPE, perms.UPDATE_INCIDENT_TYPE, perms.DELETE_INCIDENT_TYPE,
-            perms.VIEW_SOCIOEMOTIONAL_SKILL, perms.CREATE_SOCIOEMOTIONAL_SKILL, perms.UPDATE_SOCIOEMOTIONAL_SKILL, perms.DELETE_SOCIOEMOTIONAL_SKILL,
-            perms.VIEW_SKILL_EVALUATION, perms.CREATE_SKILL_EVALUATION, perms.UPDATE_SKILL_EVALUATION, perms.DELETE_SKILL_EVALUATION,
             perms.VIEW_ATTENDANCE_STATUS, perms.CREATE_ATTENDANCE_STATUS, perms.UPDATE_ATTENDANCE_STATUS, perms.DELETE_ATTENDANCE_STATUS,
+            perms.VIEW_ABSENCE_TYPE, perms.CREATE_ABSENCE_TYPE, perms.UPDATE_ABSENCE_TYPE, perms.DELETE_ABSENCE_TYPE,
         ]
         role = Role.objects.create(name="Attendance Test Role")
         for code in perm_codes:
@@ -66,42 +62,16 @@ class AttendancePermissionsTest(TestCase):
     def test_att_list_auth(self):    self._test_auth("/api/attendance/attendances/")
     def test_att_superuser(self):    self._test_superuser("/api/attendance/attendances/")
 
-    # --- ConductIncidentViewSet ---
-    def test_ci_list(self):    self._test_401_403("/api/attendance/conduct-incidents/")
-    def test_ci_create(self):  self._test_401_403("/api/attendance/conduct-incidents/", "post", {"incident_date": "2025-01-01", "severity": 1})
-    def test_ci_detail(self):  self._test_401_403("/api/attendance/conduct-incidents/999/")
-    def test_ci_list_auth(self):    self._test_auth("/api/attendance/conduct-incidents/")
-    def test_ci_superuser(self):    self._test_superuser("/api/attendance/conduct-incidents/")
-
-    # --- BehaviorEvaluationViewSet ---
-    def test_be_list(self):    self._test_401_403("/api/attendance/behavior-evaluations/")
-    def test_be_detail(self):  self._test_401_403("/api/attendance/behavior-evaluations/999/")
-    def test_be_list_auth(self):    self._test_auth("/api/attendance/behavior-evaluations/")
-    def test_be_superuser(self):    self._test_superuser("/api/attendance/behavior-evaluations/")
-
-    # --- IncidentTypeViewSet ---
-    def test_it_list(self):    self._test_401_403("/api/attendance/incident-types/")
-    def test_it_create(self):  self._test_401_403("/api/attendance/incident-types/", "post", {"code": "TEST", "name": "Test Type"})
-    def test_it_detail(self):  self._test_401_403("/api/attendance/incident-types/999/")
-    def test_it_list_auth(self):    self._test_auth("/api/attendance/incident-types/")
-    def test_it_superuser(self):    self._test_superuser("/api/attendance/incident-types/")
-
-    # --- SocioemotionalSkillViewSet ---
-    def test_ss_list(self):    self._test_401_403("/api/attendance/socioemotional-skills/")
-    def test_ss_create(self):  self._test_401_403("/api/attendance/socioemotional-skills/", "post", {"code": "EMP", "name": "Empatía"})
-    def test_ss_detail(self):  self._test_401_403("/api/attendance/socioemotional-skills/999/")
-    def test_ss_list_auth(self):    self._test_auth("/api/attendance/socioemotional-skills/")
-    def test_ss_superuser(self):    self._test_superuser("/api/attendance/socioemotional-skills/")
-
-    # --- SkillEvaluationViewSet ---
-    def test_se_list(self):    self._test_401_403("/api/attendance/skill-evaluations/")
-    def test_se_detail(self):  self._test_401_403("/api/attendance/skill-evaluations/999/")
-    def test_se_list_auth(self):    self._test_auth("/api/attendance/skill-evaluations/")
-    def test_se_superuser(self):    self._test_superuser("/api/attendance/skill-evaluations/")
-
     # --- AttendanceStatusViewSet ---
     def test_att_status_list(self):    self._test_401_403("/api/attendance/attendance-statuses/")
     def test_att_status_create(self):  self._test_401_403("/api/attendance/attendance-statuses/", "post", {"code": "P", "name": "Presente"})
     def test_att_status_detail(self):  self._test_401_403("/api/attendance/attendance-statuses/999/")
     def test_att_status_list_auth(self):    self._test_auth("/api/attendance/attendance-statuses/")
     def test_att_status_superuser(self):    self._test_superuser("/api/attendance/attendance-statuses/")
+
+    # --- AbsenceTypeViewSet ---
+    def test_abs_type_list(self):    self._test_401_403("/api/attendance/absence-types/")
+    def test_abs_type_create(self):  self._test_401_403("/api/attendance/absence-types/", "post", {"code": "J", "name": "Justificada"})
+    def test_abs_type_detail(self):  self._test_401_403("/api/attendance/absence-types/999/")
+    def test_abs_type_list_auth(self):    self._test_auth("/api/attendance/absence-types/")
+    def test_abs_type_superuser(self):    self._test_superuser("/api/attendance/absence-types/")

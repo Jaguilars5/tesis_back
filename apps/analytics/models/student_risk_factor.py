@@ -1,7 +1,8 @@
 from django.db import models
+from apps.core.models import TimeStampedModel
 
 
-class StudentRiskFactor(models.Model):
+class StudentRiskFactor(TimeStampedModel):
     student_risk_score = models.ForeignKey(
         "analytics.StudentRiskScore",
         on_delete=models.CASCADE,

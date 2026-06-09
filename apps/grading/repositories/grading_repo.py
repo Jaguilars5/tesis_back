@@ -7,7 +7,21 @@ en los servicios o vistas.
 
 from django.db import models
 from apps.core.repositories.base import BaseRepository
-from ..models import StudentNote
+from ..models import (
+    ActivityType,
+    BlockComponent,
+    ComponentIndicator,
+    EvaluationBlock,
+    EvaluationType,
+    EvaluativeActivity,
+    GradeChangeHistory,
+    GradeType,
+    ProjectNote,
+    PromotionStatus,
+    QualitativeScale,
+    RecoveryProcessType,
+    StudentNote,
+)
 
 
 class StudentNoteRepository(BaseRepository):
@@ -74,4 +88,121 @@ class StudentNoteRepository(BaseRepository):
             )
             .order_by("created_at")
         )
+
+
+class EvaluationBlockRepository(BaseRepository):
+    model = EvaluationBlock
+
+    @classmethod
+    def get_all(cls, active_only=True):
+        queryset = super().get_all(active_only=active_only)
+        return queryset.select_related("academic_period", "evaluation_type")
+
+
+class BlockComponentRepository(BaseRepository):
+    model = BlockComponent
+
+    @classmethod
+    def get_all(cls, active_only=True):
+        queryset = super().get_all(active_only=active_only)
+        return queryset.select_related("evaluation_block")
+
+
+class ComponentIndicatorRepository(BaseRepository):
+    model = ComponentIndicator
+
+    @classmethod
+    def get_all(cls, active_only=True):
+        queryset = super().get_all(active_only=active_only)
+        return queryset.select_related("block_component")
+
+
+class EvaluativeActivityRepository(BaseRepository):
+    model = EvaluativeActivity
+
+    @classmethod
+    def get_all(cls, active_only=True):
+        queryset = super().get_all(active_only=active_only)
+        return queryset.select_related(
+            "component_indicator", "teacher_subject_section", "activity_type"
+        )
+
+
+class GradeChangeHistoryRepository(BaseRepository):
+    model = GradeChangeHistory
+
+    @classmethod
+    def get_all(cls, active_only=True):
+        queryset = super().get_all(active_only=active_only)
+        return queryset.select_related("student_note", "modified_by_user")
+
+
+class ProjectNoteRepository(BaseRepository):
+    model = ProjectNote
+
+    @classmethod
+    def get_all(cls, active_only=True):
+        queryset = super().get_all(active_only=active_only)
+        return queryset.select_related("enrollment", "interdisciplinary_project").order_by("-id")
+
+
+class GradeTypeRepository(BaseRepository):
+    model = GradeType
+
+    @classmethod
+    def get_all(cls, active_only=True):
+        queryset = super().get_all(active_only=active_only)
+        return queryset.order_by("name")
+
+
+class QualitativeScaleRepository(BaseRepository):
+    model = QualitativeScale
+
+    @classmethod
+    def get_all(cls, active_only=True):
+        queryset = super().get_all(active_only=active_only)
+        return queryset.order_by("name")
+
+    @classmethod
+    def get_by_code(cls, code):
+        try:
+            return cls.model.objects.get(code=code)
+        except cls.model.DoesNotExist:
+            return None
+
+
+class EvaluationTypeRepository(BaseRepository):
+    model = EvaluationType
+
+    @classmethod
+    def get_all(cls, active_only=True):
+        queryset = super().get_all(active_only=active_only)
+        return queryset.order_by("name")
+
+
+class ActivityTypeRepository(BaseRepository):
+    model = ActivityType
+
+    @classmethod
+    def get_all(cls, active_only=True):
+        queryset = super().get_all(active_only=active_only)
+        return queryset.order_by("name")
+
+
+class PromotionStatusRepository(BaseRepository):
+    model = PromotionStatus
+
+    @classmethod
+    def get_all(cls, active_only=True):
+        queryset = super().get_all(active_only=active_only)
+        return queryset.order_by("name")
+
+
+class RecoveryProcessTypeRepository(BaseRepository):
+    model = RecoveryProcessType
+
+    @classmethod
+    def get_all(cls, active_only=True):
+        queryset = super().get_all(active_only=active_only)
+        return queryset.order_by("name")
 

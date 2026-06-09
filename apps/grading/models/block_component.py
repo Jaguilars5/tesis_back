@@ -1,12 +1,14 @@
 from django.db import models
+from apps.core.models import TimeStampedModel
 
 
-class BlockComponent(models.Model):
+class BlockComponent(TimeStampedModel):
     """
     COMPONENTE_BLOQUE — Componentes dentro de un bloque de evaluación.
     Configuración pedagógica del docente; baja frecuencia de cambio.
     """
 
+    code = models.CharField(max_length=50, blank=True, db_index=True, verbose_name="Código")
     evaluation_block = models.ForeignKey(
         "grading.EvaluationBlock",
         on_delete=models.CASCADE,

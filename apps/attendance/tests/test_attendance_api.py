@@ -4,16 +4,16 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.academic.models import (
-    Academic_Period,
+    AcademicPeriod,
     Subject,
     SubjectAcademicConfig,
     SubjectOffering,
-    Teacher_Subject_Section,
+    TeacherSubjectSection,
 )
-from apps.accounts.models import Role
+from apps.iam.models import Role
 from apps.core.tests.helpers import create_test_user, create_test_student
-from apps.attendance.models import AttendanceStatus
-from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year, Section
+from apps.attendance.models import AbsenceType, AttendanceStatus
+from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSublevel, SchoolYear, Section
 from apps.students.models import Enrollment, EnrollmentStatus
 
 
@@ -21,20 +21,23 @@ class AttendanceAPITest(APITestCase):
     """Tests para los endpoints de asistencia e incidentes bajo /api/attendance/."""
 
     def setUp(self):
-        school_year = School_Year.objects.create(
+        school_year = SchoolYear.objects.create(
             name="2025",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 12, 31),
         )
-        self.period = Academic_Period.objects.create(
+        self.period = AcademicPeriod.objects.create(
             school_year=school_year,
             name="P1",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 3, 31),
         )
         self.academic_level = AcademicLevel.objects.create(name="Primaria")
+        self.academic_sublevel = AcademicSublevel.objects.create(
+            academic_level=self.academic_level, name="Básica"
+        )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_level=self.academic_level,
+            academic_sublevel=self.academic_sublevel,
             name="7",
             sequence_order=1,
         )
@@ -68,7 +71,7 @@ class AttendanceAPITest(APITestCase):
             section=self.section,
             subject_academic_config=subj_config,
         )
-        self.teacher_subject_section = Teacher_Subject_Section.objects.create(
+        self.teacher_subject_section = TeacherSubjectSection.objects.create(
             user=self.user,
             subject_offering=offering,
         )
@@ -90,7 +93,7 @@ class AttendanceAPITest(APITestCase):
         self.att_status = AttendanceStatus.objects.create(code="P", name="Presente")
 
         self.attendance_url = "/api/attendance/attendances/"
-        self.conduct_url = "/api/attendance/conduct-incidents/"
+        self.att_status_url = "/api/attendance/attendance-statuses/"
 
     def test_create_attendance(self):
         response = self.client.post(
@@ -108,19 +111,20 @@ class AttendanceAPITest(APITestCase):
             [status.HTTP_200_OK, status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST],
         )
 
-    def test_create_conduct_incident(self):
-        response = self.client.post(
-            self.conduct_url,
-            {
-                "enrollment": self.enrollment.id,
-                "reported_by_user": self.user.id,
-                "academic_period": self.period.id,
-                "incident_date": "2025-02-01",
-                "category": "disciplina",
-                "severity": 3,
-            },
-        )
-        self.assertIn(
-            response.status_code,
-            [status.HTTP_200_OK, status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST],
-        )
+    def test_list_attendance_statuses(self):
+        response = self.client.get(self.att_status_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_create_attendance_status(self):
+        data = {"code": "T", "name": "Tardanza"}
+        response = self.client.post(self.att_status_url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_list_absence_types(self):
+        response = self.client.get("/api/attendance/absence-types/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_create_absence_type(self):
+        data = {"code": "I", "name": "Injustificada"}
+        response = self.client.post("/api/attendance/absence-types/", data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)

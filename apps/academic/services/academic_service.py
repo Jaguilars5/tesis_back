@@ -3,10 +3,11 @@ from django.db import transaction, models
 from apps.institutions.models import Section
 from ..models import (
     Subject,
-    Academic_Period,
-    Teacher_Subject_Section,
+    AcademicPeriod,
+    TeacherSubjectSection,
     SubjectAcademicConfig,
     SubjectOffering,
+    PeriodType,
 )
 from ..repositories.academic_repo import (
     SubjectRepository,
@@ -14,7 +15,7 @@ from ..repositories.academic_repo import (
     TeacherSubjectSectionRepository,
 )
 from apps.institutions.repositories.section_repository import SectionRepository
-from apps.grading.repositories.grading_repo import StudentNoteRepository
+
 
 
 class AcademicService:
@@ -54,7 +55,7 @@ class AcademicService:
         return {
             "section": section,
             "offerings": SubjectOffering.objects.filter(section=section),
-            "teachers": Teacher_Subject_Section.objects.filter(section=section),
+            "teachers": TeacherSubjectSection.objects.filter(section=section),
             "student_count": (
                 section.student_enrollment.count()
                 if hasattr(section, "student_enrollment")
@@ -64,9 +65,7 @@ class AcademicService:
 
     @staticmethod
     def list_sections_by_school_year(school_year_id):
-        return Section.objects.filter(school_year_id=school_year_id).order_by(
-            "academic_grade__sequence_order", "parallel"
-        )
+        return SectionRepository.get_by_school_year(school_year_id)
 
     @staticmethod
     def update_section(section_id, **kwargs):
@@ -106,7 +105,7 @@ class AcademicService:
         return {
             "subject": subject,
             "configs": SubjectAcademicConfig.objects.filter(subject=subject),
-            "teachers": Teacher_Subject_Section.objects.filter(subject=subject),
+            "teachers": TeacherSubjectSection.objects.filter(subject=subject),
         }
 
     @staticmethod
@@ -136,10 +135,11 @@ class AcademicService:
     def create_academic_period(name, school_year_id, period_type="REGULAR", start_date=None, end_date=None, is_regular_period=True):
         if not start_date or not end_date:
             raise ValueError("Las fechas de inicio y fin son requeridas")
-        period = Academic_Period(
+        period_type_obj = PeriodType.objects.get(code=period_type) if isinstance(period_type, str) else period_type
+        period = AcademicPeriod(
             school_year_id=school_year_id,
             name=name,
-            period_type=period_type,
+            period_type=period_type_obj,
             start_date=start_date,
             end_date=end_date,
             is_regular_period=is_regular_period,
@@ -156,8 +156,8 @@ class AcademicService:
 
     @staticmethod
     def list_periods_by_school_year(school_year_id):
-        return Academic_Period.objects.filter(school_year_id=school_year_id).order_by(
-            "number"
+        return AcademicPeriod.objects.filter(school_year_id=school_year_id).order_by(
+            "start_date"
         )
 
     @staticmethod
@@ -175,13 +175,13 @@ class AcademicService:
 
     @staticmethod
     def assign_teacher(user_id, subject_offering_id):
-        existing = Teacher_Subject_Section.objects.filter(
+        existing = TeacherSubjectSection.objects.filter(
             user_id=user_id,
             subject_offering_id=subject_offering_id,
         ).exists()
         if existing:
             raise ValueError("Docente ya está asignado a esta oferta de materia")
-        assignment = Teacher_Subject_Section(
+        assignment = TeacherSubjectSection(
             user_id=user_id,
             subject_offering_id=subject_offering_id,
         )
@@ -197,7 +197,7 @@ class AcademicService:
 
     @staticmethod
     def list_teacher_assignments(user_id=None, subject_offering_id=None):
-        query = Teacher_Subject_Section.objects.all()
+        query = TeacherSubjectSection.objects.all()
         if user_id:
             query = query.filter(user_id=user_id)
         if subject_offering_id:

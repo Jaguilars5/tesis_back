@@ -1,32 +1,18 @@
 from django.db import models
+from apps.core.models import TimeStampedModel
 
 
-class AcademicGrade(models.Model):
-    SUBNIVEL_CHOICES = [
-        ("INICIAL", "Inicial"),
-        ("PREPARATORIA", "Preparatoria"),
-        ("ELEMENTAL", "Elemental"),
-        ("MEDIA", "Media"),
-        ("SUPERIOR", "Superior"),
-        ("BACHILLERATO", "Bachillerato"),
-    ]
-
-    academic_level = models.ForeignKey(
-        "institutions.AcademicLevel",
-        on_delete=models.CASCADE,
-        verbose_name="Nivel Académico",
+class AcademicGrade(TimeStampedModel):
+    code = models.CharField(max_length=50, blank=True, db_index=True, verbose_name="Código")
+    academic_sublevel = models.ForeignKey(
+        "institutions.AcademicSublevel",
+        on_delete=models.PROTECT,
+        verbose_name="Subnivel Académico",
+        null=True, blank=True,
     )
     name = models.CharField(max_length=100, verbose_name="Nombre del Grado")
-    subnivel = models.CharField(
-        max_length=20,
-        choices=SUBNIVEL_CHOICES,
-        null=True,
-        blank=True,
-        verbose_name="Subnivel",
-        help_text="Subnivel educativo del grado; determina reglas de evaluación diferenciadas",
-    )
     sequence_order = models.IntegerField(verbose_name="Orden")
-    active = models.BooleanField(default=True, verbose_name="Activo")
+    is_active = models.BooleanField(default=True, verbose_name="Activo")
 
     class Meta:
         app_label = "institutions"
@@ -35,4 +21,10 @@ class AcademicGrade(models.Model):
         ordering = ["sequence_order"]
 
     def __str__(self):
-        return f"{self.academic_level.name} - {self.name}"
+        return f"{self.name}"
+
+    @property
+    def academic_level(self):
+        if self.academic_sublevel:
+            return self.academic_sublevel.academic_level
+        return None

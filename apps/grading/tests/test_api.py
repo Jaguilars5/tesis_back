@@ -4,38 +4,38 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.academic.models import (
-    Academic_Period,
+    AcademicPeriod,
     Subject,
     SubjectAcademicConfig,
     SubjectOffering,
-    Teacher_Subject_Section,
+    TeacherSubjectSection,
 )
-from apps.accounts.models import Role, User
+from apps.iam.models import Role, User
 from apps.core.tests.helpers import create_test_user, create_test_student
-from apps.grading.models import (
-    GradeType,
-    QualitativeScale,
-)
-from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year, Section
+from apps.grading.models import GradeType, QualitativeScale
+from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSublevel, SchoolYear, Section
 from apps.students.models import Enrollment, EnrollmentStatus, Student
 
 
 class GradingAPITest(APITestCase):
     def setUp(self):
-        school_year = School_Year.objects.create(
+        school_year = SchoolYear.objects.create(
             name="2025",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 12, 31),
         )
-        self.period = Academic_Period.objects.create(
+        self.period = AcademicPeriod.objects.create(
             school_year=school_year,
             name="P1",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 3, 31),
         )
         self.academic_level = AcademicLevel.objects.create(name="Primaria")
+        academic_sublevel = AcademicSublevel.objects.create(
+            academic_level=self.academic_level, code="MEDIA", name="Media"
+        )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_level=self.academic_level,
+            academic_sublevel=academic_sublevel,
             name="7",
             sequence_order=1,
         )
@@ -69,7 +69,7 @@ class GradingAPITest(APITestCase):
             section=self.section,
             subject_academic_config=subj_config,
         )
-        self.teacher_subject_section = Teacher_Subject_Section.objects.create(
+        self.teacher_subject_section = TeacherSubjectSection.objects.create(
             user=self.user,
             subject_offering=offering,
         )

@@ -40,19 +40,23 @@ THIRD_PARTY_APPS = [
 
 LOCAL_APPS = [
     "apps.core",
-    "apps.accounts",
+    "apps.iam",
     "apps.academic",
     "apps.grading",
     "apps.institutions",
     "apps.students",
     "apps.analytics",
-    "apps.attendance",  # 🆕 Asistencia, conducta y socioemocional
+    "apps.attendance",
+    "apps.people",
+    "apps.behavior",
+    "apps.configuration",
+    "apps.integration",
 ]
 
 INSTALLED_APPS = DEFAULT_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 # ─── Autenticación ───────────────────────────────────────────────────────────
-AUTH_USER_MODEL = "accounts.User"
+AUTH_USER_MODEL = "iam.User"
 
 # ─── Middleware ───────────────────────────────────────────────────────────────
 MIDDLEWARE = [
@@ -174,20 +178,25 @@ Todas las respuestas siguen el formato:
     "COMPONENT_SPLIT_REQUEST": True,
     "TAGS": [
         {
-            "name": "accounts",
-            "description": "Gesti\u00f3n de usuarios, roles y permisos",
+            "name": "iam",
+            "description": "Usuarios, autenticaci\u00f3n, roles y permisos",
         },
         {
             "name": "institutions",
-            "description": "Instituciones, a\u00f1os escolares y aulas",
+            "description": "Instituciones, a\u00f1os escolares, niveles, grados y secciones",
         },
         {
             "name": "academic",
-            "description": "Secciones, materias, per\u00edodos y actividades",
+            "description": "Materias, per\u00edodos acad\u00e9micos, oferta acad\u00e9mica y proyectos interdisciplinarios",
         },
-        {"name": "students", "description": "Estudiantes y representantes"},
-        {"name": "grading", "description": "Calificaciones, asistencia e incidentes"},
-        {"name": "analytics", "description": "An\u00e1lisis de riesgo estudiantil"},
+        {"name": "students", "description": "Estudiantes, representantes y matr\u00edculas"},
+        {"name": "grading", "description": "Calificaciones, bloques, componentes, indicadores y actividades evaluativas"},
+        {"name": "analytics", "description": "An\u00e1lisis de riesgo estudiantil y alertas tempranas"},
+        {"name": "attendance", "description": "Asistencia, estados de asistencia y tipos de ausencia"},
+        {"name": "behavior", "description": "Incidentes de conducta, habilidades socioemocionales y evaluaciones de comportamiento"},
+        {"name": "configuration", "description": "Configuraci\u00f3n del sistema"},
+        {"name": "integration", "description": "Sincronizaci\u00f3n con sistemas externos"},
+        {"name": "people", "description": "Personas y tipos de documento"},
     ],
 }
 
@@ -231,7 +240,7 @@ from celery.schedules import crontab
 
 CELERY_BEAT_SCHEDULE = {
     "process-pending-sync-items": {
-        "task": "apps.core.tasks.process_pending_sync_batch",
+        "task": "apps.integration.tasks.sync_tasks.process_pending_sync_batch",
         "schedule": 300.0,
         "description": "Procesa items pendientes de SyncQueue cada 5 minutos",
     },

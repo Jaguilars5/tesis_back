@@ -64,12 +64,12 @@ action_permissions = {
 
 | Instancia | Módulo |
 |-----------|--------|
-| `accounts` | Cuentas de usuario, roles, permisos |
+| `iam` | Cuentas de usuario, roles, permisos |
 | `institutions` | Instituciones, años escolares, aulas |
 | `academic` | Secciones, materias, períodos, actividades |
 | `students` | Estudiantes, representantes, relaciones |
 | `grading` | Calificaciones, asistencia, incidentes |
-| `scheduling` | Horarios, bloques, disponibilidad |
+
 | `analytics` | Puntajes de riesgo, snapshots |
 
 ### Generación del Catálogo

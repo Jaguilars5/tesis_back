@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 from ..models import Person
 
 
@@ -36,3 +37,10 @@ class PersonRepository:
             return Person.objects.get(email__iexact=email)
         except Person.DoesNotExist:
             return None
+
+    @staticmethod
+    def create(**data):
+        now = timezone.now()
+        data.setdefault("created_at", now)
+        data["updated_at"] = now
+        return Person.objects.create(**data)

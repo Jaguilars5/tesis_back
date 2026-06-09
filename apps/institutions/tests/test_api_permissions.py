@@ -2,7 +2,7 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from apps.accounts.models import Permission, Role, RolePermission, User, UserRole
+from apps.iam.models import Permission, Role, RolePermission, UserRole
 from apps.core.constants.permissions import institutions as perms
 from apps.core.tests.helpers import create_test_user
 
@@ -19,7 +19,7 @@ class InstitutionsPermissionsTest(TestCase):
         )
         self.user_with_perm = create_test_user(
             email="with_perm_inst@test.com", dni="1000000002",
-            names="With", last_names="Perm", user_type="ADMIN",
+            names="With", last_names="Perm",
         )
         self.superuser = create_test_user(
             email="admin_inst@test.com", dni="1000000000",
@@ -29,9 +29,10 @@ class InstitutionsPermissionsTest(TestCase):
         perm_list = [
             perms.VIEW_SCHOOL_YEAR, perms.CREATE_SCHOOL_YEAR,
             perms.UPDATE_SCHOOL_YEAR, perms.DELETE_SCHOOL_YEAR,
-            perms.VIEW_DOCUMENT_TYPE,
             perms.VIEW_ACADEMIC_LEVEL, perms.CREATE_ACADEMIC_LEVEL,
             perms.UPDATE_ACADEMIC_LEVEL, perms.DELETE_ACADEMIC_LEVEL,
+            perms.VIEW_ACADEMIC_SUBLEVEL, perms.CREATE_ACADEMIC_SUBLEVEL,
+            perms.UPDATE_ACADEMIC_SUBLEVEL, perms.DELETE_ACADEMIC_SUBLEVEL,
             perms.VIEW_ACADEMIC_GRADE, perms.CREATE_ACADEMIC_GRADE,
             perms.UPDATE_ACADEMIC_GRADE, perms.DELETE_ACADEMIC_GRADE,
             perms.VIEW_SECTION, perms.CREATE_SECTION,
@@ -71,20 +72,6 @@ class InstitutionsPermissionsTest(TestCase):
         resp = self.client.get("/api/institutions/school-year/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
-    # --- DocumentTypeViewSet ---
-    def test_document_type_list(self):
-        self._test_endpoint("/api/institutions/document-types/")
-    def test_document_type_detail(self):
-        self._test_endpoint("/api/institutions/document-types/999/")
-    def test_document_type_list_auth(self):
-        self.client.force_authenticate(user=self.user_with_perm)
-        resp = self.client.get("/api/institutions/document-types/")
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-    def test_document_type_superuser(self):
-        self.client.force_authenticate(user=self.superuser)
-        resp = self.client.get("/api/institutions/document-types/")
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-
     # --- AcademicLevelViewSet ---
     def test_academic_level_list(self):
         self._test_endpoint("/api/institutions/academic-levels/")
@@ -92,6 +79,10 @@ class InstitutionsPermissionsTest(TestCase):
         self._test_endpoint("/api/institutions/academic-levels/", "post", {"name": "Primaria"})
     def test_academic_level_detail(self):
         self._test_endpoint("/api/institutions/academic-levels/999/")
+    def test_academic_level_update(self):
+        self._test_endpoint("/api/institutions/academic-levels/999/", "patch", {"name": "Modificado"})
+    def test_academic_level_delete(self):
+        self._test_endpoint("/api/institutions/academic-levels/999/", "delete")
     def test_academic_level_list_auth(self):
         self.client.force_authenticate(user=self.user_with_perm)
         resp = self.client.get("/api/institutions/academic-levels/")
@@ -106,6 +97,12 @@ class InstitutionsPermissionsTest(TestCase):
         self._test_endpoint("/api/institutions/academic-grades/")
     def test_academic_grade_create(self):
         self._test_endpoint("/api/institutions/academic-grades/", "post", {"name": "7", "sequence_order": 1})
+    def test_academic_grade_detail(self):
+        self._test_endpoint("/api/institutions/academic-grades/999/")
+    def test_academic_grade_update(self):
+        self._test_endpoint("/api/institutions/academic-grades/999/", "patch", {"name": "Modificado"})
+    def test_academic_grade_delete(self):
+        self._test_endpoint("/api/institutions/academic-grades/999/", "delete")
     def test_academic_grade_list_auth(self):
         self.client.force_authenticate(user=self.user_with_perm)
         resp = self.client.get("/api/institutions/academic-grades/")
@@ -113,4 +110,42 @@ class InstitutionsPermissionsTest(TestCase):
     def test_academic_grade_superuser(self):
         self.client.force_authenticate(user=self.superuser)
         resp = self.client.get("/api/institutions/academic-grades/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+    # --- AcademicSublevelViewSet ---
+    def test_academic_sublevel_list(self):
+        self._test_endpoint("/api/institutions/academic-sublevel/")
+    def test_academic_sublevel_create(self):
+        self._test_endpoint("/api/institutions/academic-sublevel/", "post", {"code": "PRE", "name": "Preparatoria", "academic_level": 999})
+    def test_academic_sublevel_detail(self):
+        self._test_endpoint("/api/institutions/academic-sublevel/999/")
+    def test_academic_sublevel_list_auth(self):
+        self.client.force_authenticate(user=self.user_with_perm)
+        resp = self.client.get("/api/institutions/academic-sublevel/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+    def test_academic_sublevel_superuser(self):
+        self.client.force_authenticate(user=self.superuser)
+        resp = self.client.get("/api/institutions/academic-sublevel/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+    # --- SectionViewSet ---
+    def test_section_list(self):
+        self._test_endpoint("/api/institutions/section/")
+    def test_section_create(self):
+        self._test_endpoint("/api/institutions/section/", "post", {"parallel": "A", "capacity": 30, "school_year": 999})
+    def test_section_detail(self):
+        self._test_endpoint("/api/institutions/section/999/")
+    def test_section_update(self):
+        self._test_endpoint("/api/institutions/section/999/", "patch", {"parallel": "B"})
+    def test_section_delete(self):
+        self._test_endpoint("/api/institutions/section/999/", "delete")
+    def test_section_soft_delete(self):
+        self._test_endpoint("/api/institutions/section/999/soft-delete/", "post")
+    def test_section_list_auth(self):
+        self.client.force_authenticate(user=self.user_with_perm)
+        resp = self.client.get("/api/institutions/section/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+    def test_section_superuser(self):
+        self.client.force_authenticate(user=self.superuser)
+        resp = self.client.get("/api/institutions/section/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)

@@ -42,7 +42,7 @@ class EvaluationService:
     @staticmethod
     def calculate_period_average(enrollment, academic_period):
         """Calcula el promedio del período usando los bloques de evaluación activos."""
-        blocks = academic_period.evaluation_blocks.filter(active=True)
+        blocks = academic_period.evaluation_blocks.filter(is_active=True)
         if not blocks.exists():
             return None
 

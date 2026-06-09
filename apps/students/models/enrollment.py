@@ -1,7 +1,8 @@
 from django.db import models
+from apps.core.models import TimeStampedModel
 
 
-class Enrollment(models.Model):
+class Enrollment(TimeStampedModel):
     student = models.ForeignKey(
         "students.Student",
         on_delete=models.CASCADE,
@@ -15,7 +16,7 @@ class Enrollment(models.Model):
         verbose_name="Sección",
     )
     school_year = models.ForeignKey(
-        "institutions.School_Year",
+        "institutions.SchoolYear",
         on_delete=models.CASCADE,
         verbose_name="Año Escolar",
     )
@@ -36,20 +37,13 @@ class Enrollment(models.Model):
     )
     is_repeat = models.BooleanField(default=False, verbose_name="Es repitente")
     repeated_school_year = models.ForeignKey(
-        "institutions.School_Year",
+        "institutions.SchoolYear",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="repeated_enrollments",
         verbose_name="Año escolar repetido",
     )
-    created_at = models.DateTimeField(
-        auto_now_add=True, verbose_name="Fecha de Creación"
-    )
-    updated_at = models.DateTimeField(
-        auto_now=True, verbose_name="Fecha de Actualización"
-    )
-
     class Meta:
         app_label = "students"
         verbose_name = "Matrícula"

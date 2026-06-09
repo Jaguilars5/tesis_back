@@ -1,20 +1,12 @@
 from django.db import models
+from apps.core.models import TimeStampedModel
 
 
-class EvaluativeActivity(models.Model):
+class EvaluativeActivity(TimeStampedModel):
     """
     ACTIVIDAD_EVALUATIVA — Tareas, lecciones, exámenes creados por el docente.
     Transaccional de alta frecuencia; creación continua durante el período.
     """
-
-    TIPO_ACTIVIDAD_CHOICES = [
-        ("TAREA", "Tarea"),
-        ("LECCION_ORAL", "Lección Oral"),
-        ("TALLER", "Taller"),
-        ("EXAMEN", "Examen"),
-        ("PROYECTO", "Proyecto"),
-        ("INVESTIGACION", "Investigación"),
-    ]
 
     component_indicator = models.ForeignKey(
         "grading.ComponentIndicator",
@@ -23,17 +15,13 @@ class EvaluativeActivity(models.Model):
         verbose_name="Indicador de Componente",
     )
     teacher_subject_section = models.ForeignKey(
-        "academic.Teacher_Subject_Section",
+        "academic.TeacherSubjectSection",
         on_delete=models.CASCADE,
         related_name="evaluative_activities",
         verbose_name="Docente-Materia-Sección",
     )
     title = models.CharField(max_length=200, verbose_name="Título")
-    activity_type = models.CharField(
-        max_length=20,
-        choices=TIPO_ACTIVIDAD_CHOICES,
-        verbose_name="Tipo de Actividad",
-    )
+    activity_type = models.ForeignKey("grading.ActivityType", on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Tipo de Actividad")
     max_score = models.DecimalField(
         max_digits=5, decimal_places=2, verbose_name="Puntuación Máxima"
     )

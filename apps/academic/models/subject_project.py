@@ -1,7 +1,8 @@
 from django.db import models
+from apps.core.models import TimeStampedModel
 
 
-class SubjectProject(models.Model):
+class SubjectProject(TimeStampedModel):
     interdisciplinary_project = models.ForeignKey(
         "academic.InterdisciplinaryProject",
         on_delete=models.CASCADE,

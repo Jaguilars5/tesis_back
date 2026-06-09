@@ -139,8 +139,7 @@ Request:
 ```json
 {
   "block_component": 1,
-  "name": "Indicador 1",
-  "order": 1
+  "name": "Indicador 1"
 }
 ```
 

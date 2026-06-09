@@ -1,9 +1,11 @@
 from django.db import models
+from apps.core.models import TimeStampedModel
 
 
-class Section(models.Model):
+class Section(TimeStampedModel):
+    code = models.CharField(max_length=50, blank=True, db_index=True, verbose_name="Código")
     school_year = models.ForeignKey(
-        "institutions.School_Year",
+        "institutions.SchoolYear",
         on_delete=models.CASCADE,
         verbose_name="Año Escolar",
     )
@@ -15,7 +17,7 @@ class Section(models.Model):
     )
     parallel = models.CharField(max_length=255, verbose_name="Paralelo")
     capacity = models.IntegerField(verbose_name="Capacidad")
-    active = models.BooleanField(default=True, verbose_name="Activo")
+    is_active = models.BooleanField(default=True, verbose_name="Activo")
 
     class Meta:
         app_label = "institutions"

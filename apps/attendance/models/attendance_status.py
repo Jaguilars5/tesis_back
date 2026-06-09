@@ -1,21 +1,16 @@
 from django.db import models
+from apps.core.models import TimeStampedModel
 
 
-class AttendanceStatus(models.Model):
-    TIPO_CHOICES = [
-        ("POSITIVO", "Positivo"),
-        ("NEGATIVO", "Negativo"),
-    ]
-
+class AttendanceStatus(TimeStampedModel):
     code = models.CharField(max_length=10, unique=True, verbose_name="Código")
     name = models.CharField(max_length=100, verbose_name="Nombre")
+    description = models.TextField(blank=True, verbose_name="Descripción")
+    is_active = models.BooleanField(default=True, verbose_name="Activo")
     tipo = models.CharField(
         max_length=10,
-        choices=TIPO_CHOICES,
-        null=True,
-        blank=True,
-        verbose_name="Tipo",
-        help_text="Clasificación del estado (POSITIVO = presente/puntual, NEGATIVO = ausencia/retraso)",
+        choices=[("POSITIVO", "Positivo"), ("NEGATIVO", "Negativo")],
+        null=True, blank=True, verbose_name="Tipo",
     )
 
     class Meta:

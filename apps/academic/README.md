@@ -38,10 +38,12 @@ apps/academic/
 │   ├── __init__.py         # Exportación unificada de servicios
 │   └── academic_service.py # Servicio centralizado de lógica de negocio para infraestructura académica
 ├── tests/
-│   ├── test_api.py         # Pruebas de integración HTTP originales
-│   ├── test_api_gaps.py    # Pruebas integrales de brechas de cobertura (RBAC, filtros, servicios, nuevos modelos)
-│   ├── test_models.py      # Pruebas unitarias de modelos de datos
-│   └── test_services.py    # Pruebas unitarias sobre lógica de negocio
+│   ├── test_api.py                # Pruebas de integración HTTP originales
+│   ├── test_api_gaps.py           # Pruebas integrales de brechas de cobertura (RBAC, filtros, servicios, nuevos modelos)
+│   ├── test_api_permissions.py    # Pruebas exhaustivas de permisos por endpoint
+│   ├── test_models.py             # Pruebas unitarias de modelos de datos
+│   ├── test_repositories.py       # Pruebas de capa de persistencia
+│   └── test_services.py           # Pruebas unitarias sobre lógica de negocio
 ├── admin.py                # Configuración de interfaces en Django Admin
 ├── apps.py                 # Inicialización de la aplicación Django academic
 ├── urls.py                 # Enrutador de URL principal de la app
@@ -66,20 +68,20 @@ Representa las asignaturas que forman parte del catálogo general del sistema.
 | `id`         | `AutoField`      | Primary Key         | Identificador autoincremental de la materia.                 |
 | `name`       | `CharField(255)` | Obligatorio         | Nombre descriptivo de la materia (ej. "Matemáticas").        |
 | `code`       | `CharField(100)` | `unique=True`       | Código único de identificación de la materia (ej. `MAT101`). |
-| `active`     | `BooleanField`   | `default=True`      | Estado de vigencia de la materia.                            |
+| `is_active`  | `BooleanField`   | `default=True`      | Estado de vigencia de la materia.                            |
 | `created_at` | `DateTimeField`  | `auto_now_add=True` | Fecha y hora de creación de la materia.                      |
 | `updated_at` | `DateTimeField`  | `auto_now=True`     | Fecha y hora de la última actualización.                     |
 
-### 2. Academic_Period (Período Académico)
+### 2. AcademicPeriod (Período Académico)
 
 Representa los lapsos de tiempo de evaluación que estructuran un año lectivo escolar.
 
 | Campo               | Tipo Django     | Atributos clave              | Descripción                                                    |
 | :------------------ | :-------------- | :--------------------------- | :------------------------------------------------------------- |
 | `id`                | `AutoField`     | Primary Key                  | Identificador del período académico.                           |
-| `school_year`       | `ForeignKey`    | `on_delete=models.CASCADE`   | Relación con el año lectivo (`institutions.School_Year`).      |
+| `school_year`       | `ForeignKey`    | `on_delete=models.CASCADE`   | Relación con el año lectivo (`institutions.SchoolYear`).      |
 | `name`              | `CharField(80)` | Obligatorio                  | Nombre legible del período (ej. "Primer Trimestre").           |
-| `period_type`       | `CharField(20)` | Choices, `default="REGULAR"` | Clasificación base: `REGULAR`, `SUPLETORIO`, `REFUERZO`.       |
+| `period_type`       | `ForeignKey`    | `on_delete=models.SET_NULL`, nullable | Relación con el tipo de período (`academic.PeriodType`). |
 | `start_date`        | `DateField`     | Obligatorio                  | Fecha de inicio formal del período académico.                  |
 | `end_date`          | `DateField`     | Obligatorio                  | Fecha de finalización formal del período académico.            |
 | `is_regular_period` | `BooleanField`  | `default=True`               | Indica si el período es de cursada estándar o de recuperación. |
@@ -96,7 +98,7 @@ Establece los parámetros y horas semanales asignadas a una asignatura dentro de
 | `weekly_hours`      | `IntegerField` | Obligatorio                | Cantidad de horas lectivas dictadas a la semana.                |
 | `pedagogical_order` | `IntegerField` | Obligatorio                | Orden de precedencia o peso pedagógico.                         |
 | `is_required`       | `BooleanField` | `default=True`             | Define si la materia es de carácter obligatorio u optativo.     |
-| `active`            | `BooleanField` | `default=True`             | Estado de vigencia de la configuración.                         |
+| `is_active`         | `BooleanField` | `default=True`             | Estado de vigencia de la configuración.                         |
 
 ### 4. SubjectOffering (Oferta de Materia)
 
@@ -105,23 +107,23 @@ Instancia curricular concreta que asocia un grado académico y paralelo (Secció
 | Campo                     | Tipo Django    | Atributos clave            | Descripción                                               |
 | :------------------------ | :------------- | :------------------------- | :-------------------------------------------------------- |
 | `id`                      | `AutoField`    | Primary Key                | Identificador de la oferta.                               |
-| `school_year`             | `ForeignKey`   | `on_delete=models.CASCADE` | Relación con el año lectivo (`institutions.School_Year`). |
+| `school_year`             | `ForeignKey`   | `on_delete=models.CASCADE` | Relación con el año lectivo (`institutions.SchoolYear`). |
 | `section`                 | `ForeignKey`   | `on_delete=models.CASCADE` | Relación con la sección física (`institutions.Section`).  |
 | `subject_academic_config` | `ForeignKey`   | `on_delete=models.CASCADE` | Relación con la configuración curricular base.            |
-| `active`                  | `BooleanField` | `default=True`             | Determina si la oferta se encuentra activa.               |
+| `is_active`               | `BooleanField` | `default=True`             | Determina si la oferta se encuentra activa.               |
 
 - **Constraint**: Restricción `unique_together = ("school_year", "section", "subject_academic_config")` que previene duplicación de ofertas curriculares en una misma aula.
 
-### 5. Teacher_Subject_Section (Asignación Docente)
+### 5. TeacherSubjectSection (Asignación Docente)
 
 Vínculo contractual que define qué usuario (docente) dicta una oferta de materia activa en un aula.
 
 | Campo              | Tipo Django     | Atributos clave            | Descripción                                                     |
 | :----------------- | :-------------- | :------------------------- | :-------------------------------------------------------------- |
 | `id`               | `AutoField`     | Primary Key                | Identificador de la asignación.                                 |
-| `user`             | `ForeignKey`    | `on_delete=models.CASCADE` | Relación con la cuenta del docente (`accounts.User`).           |
+| `user`             | `ForeignKey`    | `on_delete=models.CASCADE` | Relación con la cuenta del docente (`iam.User`).           |
 | `subject_offering` | `ForeignKey`    | `on_delete=models.CASCADE` | Relación con la oferta curricular (`academic.SubjectOffering`). |
-| `active`           | `BooleanField`  | `default=True`             | Estado de vigencia del vínculo.                                 |
+| `is_active`        | `BooleanField`  | `default=True`             | Estado de vigencia del vínculo.                                 |
 | `created_at`       | `DateTimeField` | `auto_now_add=True`        | Fecha y hora de creación de la asignación.                      |
 | `updated_at`       | `DateTimeField` | `auto_now=True`            | Fecha y hora de la última actualización.                        |
 
@@ -132,12 +134,12 @@ Representa proyectos académicos integrados que abarcan múltiples asignaturas d
 | Campo             | Tipo Django      | Atributos clave            | Descripción                                                          |
 | :---------------- | :--------------- | :------------------------- | :------------------------------------------------------------------- |
 | `id`              | `AutoField`      | Primary Key                | Identificador del proyecto.                                          |
-| `academic_period` | `ForeignKey`     | `on_delete=models.CASCADE` | Relación con el período académico base (`academic.Academic_Period`). |
+| `academic_period` | `ForeignKey`     | `on_delete=models.CASCADE` | Relación con el período académico base (`academic.AcademicPeriod`). |
 | `title`           | `CharField(200)` | Obligatorio                | Título del proyecto interdisciplinario.                              |
 | `description`     | `TextField`      | Nullable, Blank            | Detalle de objetivos y alcance del proyecto.                         |
 | `start_date`      | `DateField`      | Obligatorio                | Fecha de inicio del proyecto.                                        |
 | `delivery_date`   | `DateField`      | Obligatorio                | Fecha límite de entrega de resultados.                               |
-| `active`          | `BooleanField`   | `default=True`             | Estado de vigencia del proyecto.                                     |
+| `is_active`       | `BooleanField`   | `default=True`             | Estado de vigencia del proyecto.                                     |
 
 ### 7. SubjectProject (Asignaturas Vinculadas al Proyecto)
 
@@ -207,7 +209,7 @@ Todas las respuestas del módulo implementan de forma estricta la estructura est
 
 Los serializers del módulo incluyen campos de solo lectura con los nombres relacionados a las ForeignKeys, para proporcionar datos más descriptivos al frontend.
 
-### Academic_Period (Período Académico)
+### AcademicPeriod (Período Académico)
 
 Además del campo `school_year` (ID), la respuesta incluye:
 
@@ -227,7 +229,7 @@ Además del campo `school_year` (ID), la respuesta incluye:
 }
 ```
 
-### Teacher_Subject_Section (Asignación Docente)
+### TeacherSubjectSection (Asignación Docente)
 
 Además de los campos `user` (ID) y `subject_offering` (ID), la respuesta incluye:
 
@@ -276,11 +278,16 @@ Además del campo `academic_period` (ID), la respuesta incluye:
 
 ## Estado de Pruebas y Cobertura (Testing Status)
 
-El módulo posee un conjunto maduro de **33 pruebas unitarias y de integración** distribuidas en la carpeta `tests/`. Todas las pruebas pasan satisfactoriamente bajo el motor SQLite configurado para entornos de pruebas (`--settings=config.settings.test`).
+El módulo posee **102 pruebas unitarias y de integración** distribuidas en **6 archivos** dentro de `tests/`. Todas las pruebas pasan satisfactoriamente bajo el motor SQLite configurado para entornos de pruebas (`--settings=config.settings.test`).
 
 ### Escenarios Cubiertos
 
-- **Pruebas de Modelos (`test_models.py`, `test_api_gaps.py`)**: Creación y validación de restricciones en base de datos de todos los modelos curriculares (`Academic_Period`, `SubjectOffering`, `SubjectAcademicConfig`, `Teacher_Subject_Section`, `InterdisciplinaryProject`, `SubjectProject`), integridad referencial y representaciones textuales.
+- **Pruebas de Modelos (`test_models.py`, `test_api_gaps.py`)**: Creación y validación de restricciones en base de datos de todos los modelos curriculares (`AcademicPeriod`, `SubjectOffering`, `SubjectAcademicConfig`, `TeacherSubjectSection`, `InterdisciplinaryProject`, `SubjectProject`), integridad referencial y representaciones textuales.
 - **Pruebas de Lógica de Servicios (`test_services.py`, `test_api_gaps.py`)**: Cobertura atómica de métodos del `AcademicService` (`create_section`, `create_subject`, `create_academic_period`, `assign_teacher` y detección de asignaciones docentes por duplicado).
 - **Pruebas de Integración de APIs (`test_api.py`, `test_api_gaps.py`)**: Listado, creación, detalle y actualización de secciones, materias, períodos académicos, asignaciones de docentes, ofertas curriculares y proyectos.
 - **Control de Accesos Basado en Roles y Permisos (RBAC) (`test_api_gaps.py`)**: Validación negativa que garantiza que usuarios no autorizados reciban un código de estado `403 Forbidden` al listar o crear registros del módulo, y validación positiva que otorga accesos `200 OK`/`201 Created` al recibir dinámicamente el permiso.
+
+---
+
+## Modelos de Catálogo
+- **PeriodType** — Tipo de período académico (REGULAR, SUPLETORIO, REFUERZO)

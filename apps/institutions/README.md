@@ -1,6 +1,6 @@
 # Módulo `institutions` — Gestión de Base Institucional
 
-Este módulo constituye la base estructural del sistema académico, encargándose de la gestión de la infraestructura escolar básica, incluyendo los años lectivos escolares, los tipos de documento válidos, los niveles académicos educativos y la escala jerárquica de grados estudiantiles.
+Este módulo constituye la base estructural del sistema académico, encargándose de la gestión de la infraestructura escolar, incluyendo años lectivos, niveles académicos, sublevels, grados y secciones (aulas/paralelos). También expone el catálogo de tipos de documento (modelo alojado en `people`).
 
 Su diseño implementa estrictamente una arquitectura en capas desacopladas:
 
@@ -12,35 +12,36 @@ Models (Estructura de Datos) ➔ Repositories (Acceso a Datos/Consultas ORM) ➔
 
 ## Estructura del Módulo
 
-El módulo se organiza físicamente en la siguiente estructura de archivos y directorios:
-
 ```
 apps/institutions/
 ├── api/
-│   ├── serializers.py      # Transformación y validación de esquemas JSON (School_Year, DocumentType, Grade, Level)
-│   ├── urls.py             # Enrutador RESTful para los ViewSets del módulo
+│   ├── serializers.py      # Transformación y validación de esquemas JSON (SchoolYear, Section, AcademicLevel, AcademicSublevel, AcademicGrade)
+│   ├── urls.py             # Enrutador RESTful via DefaultRouter (5 ViewSets)
 │   └── views.py            # ViewSets de DRF con control de acceso basado en HasPermission
 ├── models/
 │   ├── __init__.py         # Punto de entrada y exportación unificada de entidades
-│   ├── academic_grade.py   # Grados estudiantiles (5to EGB, 1ero Bachillerato, etc.)
-│   ├── academic_level.py   # Niveles de enseñanza (Primaria, Secundaria, Inicial)
-│   ├── document_type.py    # Tipos de identificación y cédula (CC, Pasaporte, etc.)
 │   ├── school_year.py      # Años lectivos escolares activos e históricos
-│   └── section.py          # Aulas físicas y paralelos (consumidas por el módulo academic)
+│   ├── academic_level.py   # Niveles de enseñanza (Primaria, Secundaria, Inicial)
+│   ├── academic_sublevel.py# Sublevels pedagógicos vinculados a AcademicLevel
+│   ├── academic_grade.py   # Grados estudiantiles (5to EGB, 1ero Bachillerato, etc.)
+│   └── section.py          # Aulas físicas y paralelos
 ├── repositories/
 │   ├── __init__.py         # Exportación unificada de repositorios
-│   ├── institution_repo.py # Repositorio de acceso a datos para años escolares
-│   └── section_repository.py # Repositorio de acceso a datos para secciones físicas
+│   ├── institution_repo.py # Repositorio para SchoolYear, hereda de BaseRepository
+│   └── section_repository.py # Repositorio para Section con queries específicas (por año, grado)
 ├── services/
-│   ├── __init__.py         # Exportación unificada de servicios
-│   └── institution_service.py # Servicio centralizado de lógica de negocio para años lectivos
+│   ├── __init__.py
+│   └── institution_service.py # Lógica de negocio para años lectivos (creación, solapamiento, ciclo actual)
 ├── tests/
-│   ├── test_api.py         # Pruebas de integración HTTP originales
-│   ├── test_api_gaps.py    # Pruebas integrales de brechas de cobertura (RBAC, nuevos ViewSets y modelos)
-│   ├── test_models.py      # Pruebas unitarias de modelos de datos
-│   └── test_services.py    # Pruebas unitarias de lógica de servicios
+│   ├── test_models.py          # Pruebas unitarias de modelos
+│   ├── test_repositories.py    # Pruebas de capa de persistencia (SchoolYearRepository, SectionRepository)
+│   ├── test_services.py        # Pruebas de lógica de servicios
+│   ├── test_api.py             # Pruebas de integración HTTP
+│   ├── test_api_gaps.py        # Pruebas de brechas: modelos adicionales y RBAC
+│   └── test_api_permissions.py # Pruebas exhaustivas de permisos por endpoint
 ├── admin.py                # Configuración de interfaces en Django Admin
 ├── apps.py                 # Inicialización y configuración de la app django institutions
+├── STRUCTURE.md            # Documentación técnica detallada de estructura interna
 └── urls.py                 # Enrutador de URL principal de la app
 ```
 
@@ -48,9 +49,9 @@ apps/institutions/
 
 ## Modelos de Datos (Database Schema)
 
-El módulo define e implementa 5 entidades principales en la base de datos. Ninguna consulta directa al ORM de estos modelos se ejecuta en la capa de APIs o de Servicios (salvo en repositorios explícitos).
+El módulo define **5 entidades propias** en la base de datos. Ninguna consulta directa al ORM se ejecuta en la capa de APIs o Servicios (salvo en repositorios explícitos).
 
-### 1. School_Year (Año Escolar)
+### 1. SchoolYear (Año Escolar)
 
 Define el lapso temporal y ciclo escolar lectivo vigente o histórico del sistema.
 
@@ -60,42 +61,46 @@ Define el lapso temporal y ciclo escolar lectivo vigente o histórico del sistem
 | `name`       | `CharField(255)` | Obligatorio         | Nombre descriptivo del año lectivo (ej. "2024-2025"). |
 | `start_date` | `DateField`      | Obligatorio         | Fecha de inicio formal del período lectivo.           |
 | `end_date`   | `DateField`      | Obligatorio         | Fecha de finalización formal del período lectivo.     |
-| `active`     | `BooleanField`   | `default=True`      | Estado de vigencia y operatividad del año escolar.    |
-| `created_at` | `DateTimeField`  | `auto_now_add=True` | Fecha y hora de creación del registro.                |
-| `updated_at` | `DateTimeField`  | `auto_now=True`     | Fecha y hora de la última modificación.               |
+| `is_active`  | `BooleanField`   | `default=True`      | Estado de vigencia y operatividad del año escolar.    |
 
-### 2. DocumentType (Tipo de Documento)
-
-Catálogo unificado de tipos de identificación personal reconocidos por el sistema académico.
-
-| Campo  | Tipo Django      | Atributos clave | Descripción                                                    |
-| :----- | :--------------- | :-------------- | :------------------------------------------------------------- |
-| `id`   | `AutoField`      | Primary Key     | Identificador del tipo de documento.                           |
-| `code` | `CharField(10)`  | `unique=True`   | Código único abreviado del tipo de documento (ej. `CC`, `PP`). |
-| `name` | `CharField(100)` | Obligatorio     | Nombre legible completo (ej. "Cédula de Ciudadanía").          |
-
-### 3. AcademicLevel (Nivel Académico)
+### 2. AcademicLevel (Nivel Académico)
 
 Representa los grandes niveles educativos generales en los que se segmenta la enseñanza.
 
-| Campo    | Tipo Django      | Atributos clave | Descripción                                            |
-| :------- | :--------------- | :-------------- | :----------------------------------------------------- |
-| `id`     | `AutoField`      | Primary Key     | Identificador del nivel académico.                     |
-| `name`   | `CharField(100)` | Obligatorio     | Nombre legible del nivel educativo (ej. "Secundaria"). |
-| `active` | `BooleanField`   | `default=True`  | Estado de vigencia del nivel.                          |
+| Campo       | Tipo Django      | Atributos clave | Descripción                                            |
+| :---------- | :--------------- | :-------------- | :----------------------------------------------------- |
+| `id`        | `AutoField`      | Primary Key     | Identificador del nivel académico.                     |
+| `name`      | `CharField(100)` | Obligatorio     | Nombre legible del nivel educativo (ej. "Secundaria"). |
+| `code`      | `CharField(20)`  | `unique=True`   | Código único del nivel (ej. `SEC`, `BAS`, `BACH`).    |
+| `is_active` | `BooleanField`   | `default=True`  | Estado de vigencia del nivel.                          |
+
+### 3. AcademicSublevel (Sublevel Académico)
+
+Representa la subdivisión pedagógica dentro de un nivel académico. Reemplaza al antiguo campo `sublevel` con choices del modelo `AcademicGrade`. Expuesto via API en `/api/institutions/academic-sublevel/`.
+
+| Campo            | Tipo Django      | Atributos clave            | Descripción                                                  |
+| :--------------- | :--------------- | :------------------------- | :----------------------------------------------------------- |
+| `id`             | `AutoField`      | Primary Key                | Identificador del sublevel.                                  |
+| `academic_level` | `ForeignKey`     | `on_delete=models.CASCADE` | Relación con el nivel general (`institutions.AcademicLevel`).|
+| `code`           | `CharField(20)`  | `unique=True`              | Código único del sublevel (ej. `BASICA`, `BACHILLERATO`).    |
+| `name`           | `CharField(100)` | Obligatorio                | Nombre legible del sublevel (ej. "Básica", "Bachillerato").  |
+| `description`    | `TextField`      | `blank=True`               | Descripción opcional del sublevel.                           |
+| `is_active`      | `BooleanField`   | `default=True`             | Estado de vigencia del sublevel.                             |
 
 ### 4. AcademicGrade (Grado Académico)
 
-Representa cada uno de los peldaños y cursos lectivos específicos dentro de los niveles de enseñanza.
+Representa cada uno de los peldaños y cursos lectivos específicos dentro de los sublevels de enseñanza.
 
-| Campo            | Tipo Django      | Atributos clave            | Descripción                                                                                       |
-| :--------------- | :--------------- | :------------------------- | :------------------------------------------------------------------------------------------------ |
-| `id`             | `AutoField`      | Primary Key                | Identificador del grado académico.                                                                |
-| `academic_level` | `ForeignKey`     | `on_delete=models.CASCADE` | Relación con el nivel general (`institutions.AcademicLevel`).                                     |
-| `name`           | `CharField(100)` | Obligatorio                | Nombre descriptivo del grado (ej. "1ero Bachillerato").                                           |
-| `subnivel`       | `CharField(20)`  | Choices, nullable, blank   | Subnivel pedagógico: `INICIAL`, `PREPARATORIA`, `ELEMENTAL`, `MEDIA`, `SUPERIOR`, `BACHILLERATO`. |
-| `sequence_order` | `IntegerField`   | Obligatorio                | Número secuencial para ordenar cronológicamente los grados.                                       |
-| `active`         | `BooleanField`   | `default=True`             | Estado de vigencia del grado académico.                                                           |
+| Campo              | Tipo Django        | Atributos clave               | Descripción                                                              |
+| :----------------- | :----------------- | :---------------------------- | :----------------------------------------------------------------------- |
+| `id`               | `AutoField`        | Primary Key                   | Identificador del grado académico.                                       |
+| `academic_sublevel`| `ForeignKey`       | `on_delete=models.PROTECT`    | Relación con el sublevel (`institutions.AcademicSublevel`).              |
+| `code`             | `CharField(20)`   | `unique=True`                | Código único del grado (ej. `5TO_EGB`, `1ERO_BACH`).                    |
+| `name`             | `CharField(100)`   | Obligatorio                   | Nombre descriptivo del grado (ej. "1ero Bachillerato").                  |
+| `sequence_order`   | `IntegerField`     | Obligatorio                   | Número secuencial para ordenar cronológicamente los grados.              |
+| `is_active`        | `BooleanField`     | `default=True`                | Estado de vigencia del grado académico.                                  |
+
+> **Nota**: `AcademicGrade` expone la propiedad `academic_level` que resuelve el nivel desde `academic_sublevel.academic_level`. El serializer incluye `academic_level_name` como campo de solo lectura.
 
 ### 5. Section (Sección / Aula)
 
@@ -104,79 +109,79 @@ Representa un aula física y paralelo lectivo dentro de un año escolar determin
 | Campo            | Tipo Django      | Atributos clave                      | Descripción                                                     |
 | :--------------- | :--------------- | :----------------------------------- | :-------------------------------------------------------------- |
 | `id`             | `AutoField`      | Primary Key                          | Identificador de la sección.                                    |
-| `school_year`    | `ForeignKey`     | `on_delete=models.CASCADE`           | Relación con el año lectivo (`institutions.School_Year`).       |
+| `school_year`    | `ForeignKey`     | `on_delete=models.CASCADE`           | Relación con el año lectivo (`institutions.SchoolYear`).        |
 | `academic_grade` | `ForeignKey`     | `on_delete=models.CASCADE`, nullable | Relación con el grado académico (`institutions.AcademicGrade`). |
+| `code`           | `CharField(20)`  | `unique=True`                       | Código único de la sección (ej. `2024-8A`, `2025-1B`).         |
 | `parallel`       | `CharField(255)` | Obligatorio                          | Letra del paralelo asignado (ej. "A", "B").                     |
 | `capacity`       | `IntegerField`   | Obligatorio                          | Cupo o capacidad máxima de estudiantes admitidos en el aula.    |
-| `active`         | `BooleanField`   | `default=True`                       | Estado de operatividad de la sección física.                    |
+| `is_active`      | `BooleanField`   | `default=True`                       | Estado de operatividad de la sección física.                    |
 
 ---
 
 ## Capa de Servicios (Business Logic)
 
-La lógica transaccional de la infraestructura lectiva institucional se administra centralizadamente.
-
 ### `InstitutionService`
 
 Orquesta la administración de años escolares y validaciones de rango temporal:
 
-- `create_school_year(name, start_date, end_date)`: Crea e inicializa un nuevo ciclo escolar lectivo. Valida transaccionalmente:
-  1.  Que la fecha de inicio sea anterior a la de cierre.
-  2.  Que el nuevo rango de fechas no se traslape con ningún año escolar previamente registrado en la base de datos para garantizar coherencia curricular (`ValueError` descriptivo).
-- `get_school_year(school_year_id)`: Recupera un año escolar por su PK, lanzando excepción si no es encontrado.
-- `list_school_years(active_only=True)`: Lista los años escolares registrados ordenándolos por su fecha de inicio. Permite filtrar solo los activos.
-- `get_current_school_year()`: Compara dinámicamente el día de la fecha de hoy contra los rangos escolares lectivos en base de datos para identificar cuál es el año escolar lectivo activo actual. Lanza error si ninguno coincide.
-- `update_school_year(school_year_id, **kwargs)`: Modifica parámetros del ciclo escolar validando coherencia de fechas en caso de modificarse.
-- `deactivate_school_year(school_year_id)`: Coloca el estado de vigencia del año escolar a `active=False` (borrado lógico).
+- `create_school_year(name, start_date, end_date)`: Crea e inicializa un nuevo ciclo escolar. Valida transaccionalmente que la fecha de inicio sea anterior a la de cierre y que el rango no se traslape con años existentes (`ValueError`).
+- `get_school_year(school_year_id)`: Recupera un año escolar por PK. Lanza `ValueError` si no existe.
+- `list_school_years(active_only=True)`: Lista años escolares ordenados por `-start_date`. Filtra solo activos por defecto.
+- `get_current_school_year()`: Determina el año escolar activo cuya ventana de fechas contiene la fecha actual. Lanza `ValueError` si ninguno coincide.
+- `update_school_year(school_year_id, **kwargs)`: Modifica parámetros validando coherencia de fechas.
+- `deactivate_school_year(school_year_id)`: Borrado lógico (`is_active=False`).
 
 ---
 
 ## API Contract (REST API)
 
-Todas las respuestas del módulo implementan de forma estricta la estructura estandarizada `StandardResponseRenderer` en el formato `{"ok": bool, "data": ..., "msg": "..."}`. Las peticiones de listado devuelven un encapsulado de paginación dentro de `data` con la estructura de metadatos (`count`, `next`, `previous`, `results`).
+Todas las respuestas implementan `StandardResponseRenderer` con formato `{"ok": bool, "data": ..., "msg": "..."}`. Los listados de entidades con ViewSet paginado devuelven `data` con `{ count, next, previous, results }`.
 
 ### Rutas Protegidas (JWT Bearer Token requerido)
 
-| Recurso / Acción           | Método HTTP     | Ruta de Endpoint                              | Permiso Requerido                    | Descripción                                                                                            |
-| :------------------------- | :-------------- | :-------------------------------------------- | :----------------------------------- | :----------------------------------------------------------------------------------------------------- |
-| **Listar Años Escolares**  | `GET`           | `/api/institutions/school-year/`              | `institutions.view_school_year`      | Recupera listado de años escolares activos.                                                            |
-| **Crear Año Escolar**      | `POST`          | `/api/institutions/school-year/`              | `institutions.create_school_year`    | Crea e inicializa un nuevo ciclo escolar.                                                              |
-| **Detalle Año Escolar**    | `GET`           | `/api/institutions/school-year/{id}/`         | `institutions.view_school_year`      | Obtiene el detalle estructurado de un año escolar.                                                     |
-| **Modificar Año Escolar**  | `PUT` / `PATCH` | `/api/institutions/school-year/{id}/`         | `institutions.update_school_year`    | Modifica las propiedades del ciclo lectivo.                                                            |
-| **Desactivar Año Escolar** | `DELETE`        | `/api/institutions/school-year/{id}/`         | `institutions.delete_school_year`    | Desactiva lógicamente el año escolar (`active=False`).                                                 |
-| **Listar Tipos de Doc.**   | `GET`           | `/api/institutions/document-types/`           | `institutions.view_document_type`    | Recupera catálogo de tipos de documento ( CC, Pasaporte).                                              |
-| **Detalle de Tipo Doc.**   | `GET`           | `/api/institutions/document-types/{id}/`      | `institutions.view_document_type`    | Obtiene el detalle de un tipo de documento.                                                            |
-| **Listar Secciones**       | `GET`           | `/api/institutions/section/`                  | `institutions.view_section`          | Recupera listado de secciones (aulas y paralelos). Incluye `school_year_name` y `academic_grade_name`. |
-| **Crear Sección**          | `POST`          | `/api/institutions/section/`                  | `institutions.create_section`        | Registra una nueva sección física (grado, año, paralelo).                                              |
-| **Detalle de Sección**     | `GET`           | `/api/institutions/section/{id}/`             | `institutions.view_section`          | Obtiene el detalle de una sección académica. Incluye `school_year_name` y `academic_grade_name`.       |
-| **Modificar Sección**      | `PUT` / `PATCH` | `/api/institutions/section/{id}/`             | `institutions.update_section`        | Modifica propiedades de una sección.                                                                   |
-| **Eliminar Sección**       | `DELETE`        | `/api/institutions/section/{id}/`             | `institutions.delete_section`        | Elimina una sección de la base de datos.                                                               |
-| **Borrado Lógico Sección** | `POST`          | `/api/institutions/section/{id}/soft-delete/` | `institutions.delete_section`        | Desactiva lógicamente la sección (`active=False`).                                                     |
-| **Listar Niveles Acad.**   | `GET`           | `/api/institutions/academic-levels/`          | `institutions.view_academic_level`   | Recupera listado de niveles de enseñanza activos.                                                      |
-| **Crear Nivel Académico**  | `POST`          | `/api/institutions/academic-levels/`          | `institutions.create_academic_level` | Inicializa un nuevo nivel de enseñanza.                                                                |
-| **Modificar Nivel Acad.**  | `PUT` / `PATCH` | `/api/institutions/academic-levels/{id}/`     | `institutions.update_academic_level` | Modifica metadatos del nivel académico.                                                                |
-| **Eliminar Nivel Acad.**   | `DELETE`        | `/api/institutions/academic-levels/{id}/`     | `institutions.delete_academic_level` | Remueve permanentemente el nivel académico.                                                            |
-| **Listar Grados Acad.**    | `GET`           | `/api/institutions/academic-grades/`          | `institutions.view_academic_grade`   | Recupera catálogo de grados académicos. Incluye `academic_level_name`.                                 |
-| **Crear Grado Académico**  | `POST`          | `/api/institutions/academic-grades/`          | `institutions.create_academic_grade` | Registra un nuevo curso en el sistema.                                                                 |
-| **Modificar Grado Acad.**  | `PUT` / `PATCH` | `/api/institutions/academic-grades/{id}/`     | `institutions.update_academic_grade` | Modifica las propiedades del curso.                                                                    |
-| **Eliminar Grado Acad.**   | `DELETE`        | `/api/institutions/academic-grades/{id}/`     | `institutions.delete_academic_grade` | Remueve permanentemente el grado del sistema.                                                          |
+| Recurso / Acción             | Método HTTP     | Ruta de Endpoint                                | Permiso Requerido                        | Descripción                                                                                       |
+| :--------------------------- | :-------------- | :---------------------------------------------- | :--------------------------------------- | :------------------------------------------------------------------------------------------------ |
+| **Listar Años Escolares**    | `GET`           | `/api/institutions/school-year/`                | `institutions.view_school_year`          | Lista años escolares (activos por defecto).                                                       |
+| **Crear Año Escolar**        | `POST`          | `/api/institutions/school-year/`                | `institutions.create_school_year`        | Crea un nuevo ciclo escolar con validación de solapamiento.                                       |
+| **Detalle Año Escolar**      | `GET`           | `/api/institutions/school-year/{id}/`           | `institutions.view_school_year`          | Obtiene detalle de un año escolar.                                                                |
+| **Modificar Año Escolar**    | `PUT` / `PATCH` | `/api/institutions/school-year/{id}/`           | `institutions.update_school_year`        | Modifica propiedades del ciclo lectivo.                                                           |
+| **Desactivar Año Escolar**   | `DELETE`        | `/api/institutions/school-year/{id}/`           | `institutions.delete_school_year`        | Borrado lógico (`is_active=False`) vía `InstitutionService.deactivate_school_year`.               |
+| **Listar Secciones**         | `GET`           | `/api/institutions/section/`                    | `institutions.view_section`              | Lista secciones ordenadas por grado y paralelo. Incluye `school_year_name` y `academic_grade_name`.|
+| **Crear Sección**            | `POST`          | `/api/institutions/section/`                    | `institutions.create_section`            | Registra una nueva sección (aula/paralelo).                                                       |
+| **Detalle de Sección**       | `GET`           | `/api/institutions/section/{id}/`               | `institutions.view_section`              | Obtiene detalle de una sección.                                                                   |
+| **Modificar Sección**        | `PUT` / `PATCH` | `/api/institutions/section/{id}/`               | `institutions.update_section`            | Modifica propiedades de una sección.                                                              |
+| **Eliminar Sección**         | `DELETE`        | `/api/institutions/section/{id}/`               | `institutions.delete_section`            | Eliminación física de la sección.                                                                 |
+| **Borrado Lógico Sección**   | `POST`          | `/api/institutions/section/{id}/soft-delete/`   | `institutions.delete_section`            | Desactiva lógicamente la sección (`is_active=False`).                                             |
+| **Listar Niveles Acad.**     | `GET`           | `/api/institutions/academic-levels/`            | `institutions.view_academic_level`       | Lista niveles de enseñanza.                                                                       |
+| **Crear Nivel Académico**    | `POST`          | `/api/institutions/academic-levels/`            | `institutions.create_academic_level`     | Crea un nuevo nivel de enseñanza.                                                                 |
+| **Modificar Nivel Acad.**    | `PUT` / `PATCH` | `/api/institutions/academic-levels/{id}/`       | `institutions.update_academic_level`     | Modifica metadatos del nivel.                                                                     |
+| **Eliminar Nivel Acad.**     | `DELETE`        | `/api/institutions/academic-levels/{id}/`       | `institutions.delete_academic_level`     | Eliminación física del nivel.                                                                     |
+| **Listar Sublevels Acad.**  | `GET`           | `/api/institutions/academic-sublevel/`           | `institutions.view_academic_sublevel`    | Lista sublevels académicos ordenados por `name`. Incluye `academic_level_name`.          |
+| **Crear Sublevel Académico** | `POST`          | `/api/institutions/academic-sublevel/`           | `institutions.create_academic_sublevel`  | Registra un nuevo sublevel. Requiere `academic_level` (FK).                                       |
+| **Detalle Sublevel Acad.**   | `GET`           | `/api/institutions/academic-sublevel/{id}/`      | `institutions.view_academic_sublevel`    | Obtiene detalle de un sublevel.                                                                    |
+| **Modificar Sublevel Acad.** | `PUT` / `PATCH` | `/api/institutions/academic-sublevel/{id}/`      | `institutions.update_academic_sublevel`  | Modifica propiedades del sublevel.                                                                 |
+| **Eliminar Sublevel Acad.**  | `DELETE`        | `/api/institutions/academic-sublevel/{id}/`      | `institutions.delete_academic_sublevel`  | Eliminación física del sublevel.                                                                   |
+| **Listar Grados Acad.**      | `GET`           | `/api/institutions/academic-grades/`            | `institutions.view_academic_grade`       | Lista grados académicos ordenados por `sequence_order`. Incluye `academic_level_name`.             |
+| **Crear Grado Académico**    | `POST`          | `/api/institutions/academic-grades/`            | `institutions.create_academic_grade`     | Registra un nuevo grado. Requiere `academic_sublevel` (FK).                                       |
+| **Modificar Grado Acad.**    | `PUT` / `PATCH` | `/api/institutions/academic-grades/{id}/`       | `institutions.update_academic_grade`     | Modifica propiedades del grado.                                                                   |
+| **Eliminar Grado Acad.**     | `DELETE`        | `/api/institutions/academic-grades/{id}/`       | `institutions.delete_academic_grade`     | Eliminación física del grado.                                                                     |
+
+
 
 ---
 
 ## Formato de Respuestas Enriquecidas
 
-Para proporcionar datos más descriptivos al frontend, los serializers incluyen campos de solo lectura con los nombres relacionados a las ForeignKeys:
+Los serializers incluyen campos de solo lectura con nombres relacionados a ForeignKeys:
 
 ### Section (Sección)
 
-Además de los campos `school_year` (ID) y `academic_grade` (ID), la respuesta incluye:
+Además de `school_year` (ID) y `academic_grade` (ID), la respuesta incluye:
 
 | Campo                 | Tipo     | Descripción                                        |
 | :-------------------- | :------- | :------------------------------------------------- |
 | `school_year_name`    | `string` | Nombre del año escolar (`school_year.name`)        |
 | `academic_grade_name` | `string` | Nombre del grado académico (`academic_grade.name`) |
-
-Ejemplo de respuesta:
 
 ```json
 {
@@ -187,29 +192,45 @@ Ejemplo de respuesta:
   "academic_grade_name": "EGB - 5to Grado",
   "parallel": "A",
   "capacity": 30,
-  "active": true
+  "is_active": true
+}
+```
+
+### AcademicSublevel (Sublevel Académico)
+
+Además de `academic_level` (ID), la respuesta incluye `academic_level_name` (resuelto vía FK):
+
+| Campo                 | Tipo     | Descripción                                              |
+| :-------------------- | :------- | :------------------------------------------------------- |
+| `academic_level_name` | `string` | Nombre del nivel académico (`academic_level.name`)       |
+
+```json
+{
+  "id": 1,
+  "academic_level": 1,
+  "academic_level_name": "Educación General Básica",
+  "code": "BASICA",
+  "name": "Básica",
+  "is_active": true
 }
 ```
 
 ### AcademicGrade (Grado Académico)
 
-Además del campo `academic_level` (ID), la respuesta incluye:
+Además de `academic_sublevel` (ID), la respuesta incluye `academic_level_name` (resuelto vía propiedad del modelo):
 
-| Campo                 | Tipo     | Descripción                                        |
-| :-------------------- | :------- | :------------------------------------------------- |
-| `academic_level_name` | `string` | Nombre del nivel académico (`academic_level.name`) |
-
-Ejemplo de respuesta:
+| Campo                 | Tipo     | Descripción                                                   |
+| :-------------------- | :------- | :------------------------------------------------------------ |
+| `academic_level_name` | `string` | Nombre del nivel académico (`academic_sublevel.academic_level.name`) |
 
 ```json
 {
   "id": 3,
-  "academic_level": 1,
+  "academic_sublevel": 1,
   "academic_level_name": "Educación General Básica",
   "name": "5to Grado",
-  "subnivel": "MEDIA",
   "sequence_order": 5,
-  "active": true
+  "is_active": true
 }
 ```
 
@@ -217,19 +238,42 @@ Ejemplo de respuesta:
 
 ## Seguridad y Control de Acceso
 
-1.  **Omisión de Permisos**: Los usuarios con la bandera `is_superuser=True` omiten automáticamente cualquier validación de código de permiso.
-2.  **Mecanismo de Verificación**: Los ViewSets de DRF aplican `IsAuthenticated` junto a la clase personalizada `HasPermission` de `apps.core.api.permissions`. Dicha clase mapea el nombre de la acción invocada (ej. `list`, `create`, `destroy`) a su respectivo código en la variable declarativa `action_permissions` del ViewSet.
-3.  **Bypass de Acceso a Grados y Niveles**: Las vistas de `AcademicLevelViewSet` y `AcademicGradeViewSet` consumen los permisos `institutions.view_academic_level`, `institutions.create_academic_level`, `institutions.update_academic_level`, `institutions.delete_academic_level` y sus equivalentes para `academic_grade`, validando así los accesos administrativos de forma semántica.
+1.  **Omisión de Permisos**: Los usuarios con `is_superuser=True` omiten toda validación de permiso.
+2.  **Mecanismo de Verificación**: Todos los ViewSets aplican `IsAuthenticated` + `HasPermission`. Esta clase mapea la acción DRF (`list`, `create`, `destroy`, etc.) al código de permiso en `action_permissions`.
+
 
 ---
 
 ## Estado de Pruebas y Cobertura (Testing Status)
 
-El módulo posee un conjunto maduro de **26 pruebas unitarias y de integración** distribuidas en la carpeta `tests/`. Todas las pruebas pasan satisfactoriamente bajo el motor SQLite configurado para entornos de pruebas (`--settings=config.settings.test`).
+El módulo cuenta con **6 archivos de prueba** que suman **71 pruebas unitarias y de integración**. Todas pasan bajo `--settings=config.settings.test` (SQLite).
+
+| Archivo                        | Tests | Cobertura                                                |
+| :----------------------------- | :---: | :------------------------------------------------------- |
+| `test_models.py`               |   4   | Creación, fechas, representación de `SchoolYear`         |
+| `test_repositories.py`         |  18   | CRUD de `SchoolYearRepository` y `SectionRepository`     |
+| `test_services.py`             |   8   | Servicios: validación de fechas, solapamiento, ciclo actual |
+| `test_api.py`                  |   9   | Integración HTTP de `SchoolYear` + `Section`             |
+| `test_api_gaps.py`             |   7   | Modelos `AcademicLevel`/`AcademicGrade`, RBAC dinámico   |
+| `test_api_permissions.py`      |  25   | RBAC: 401/403/200 para cada ViewSet + superusuario       |
 
 ### Escenarios Cubiertos
 
-- **Pruebas de Modelos (`test_models.py`, `test_api_gaps.py`)**: Integridad física del modelo `School_Year`, consistencia en marcas temporales de inicio/fin, representaciones textuales (`__str__`) y creación y consistencia estructural de los modelos `AcademicLevel` y `AcademicGrade`.
-- **Pruebas de Lógica de Servicios (`test_services.py`)**: Validación transaccional de detección de traslapes temporales en la creación de años escolares, prevención de fechas de inicio invertidas, consultas del ciclo activo y borrado lógico seguro.
-- **Pruebas de Integración y Endpoints de API (`test_api.py`, `test_api_gaps.py`)**: Endpoints de listados, creación y edición de años escolares y tipos de documentos. Validación de naturaleza Read-Only en catálogo de identificaciones.
-- **Control de Accesos Basado en Roles y Permisos (RBAC) (`test_api_gaps.py`)**: Pruebas explícitas negativas y positivas que garantizan que usuarios limitados reciban `403 Forbidden` al invocar acciones no asignadas y `200 OK`/`201 Created` al recibir dinámicamente dichos permisos en niveles académicos, grados y ciclos escolares.
+- **Modelos**: Integridad de `SchoolYear`, `AcademicLevel`, `AcademicSublevel` y `AcademicGrade`.
+- **Repositorios**: CRUD, filtros por año/grado, borrado físico vs lógico.
+- **Servicios**: Validación transaccional de solapamiento, fechas invertidas, ciclo activo, borrado lógico.
+- **API**: Listados, creación, edición, detalle de todos los ViewSets.
+- **RBAC**: Pruebas automatizadas de 401 (no autenticado), 403 (sin permiso) y 200/201 (con permiso) para cada endpoint, incluyendo bypass de superusuario.
+
+---
+
+## Notas Arquitectónicas
+
+
+- **No existe una entidad `Institution`** en este módulo. La gestión institucional se realiza a través de `SchoolYear` (años escolares).
+- **`AcademicGrade.academic_level`** es una propiedad del modelo que resuelve el nivel desde `academic_sublevel.academic_level`. No es un campo directo en BD.
+- **`AcademicSublevel`** reemplazó al antiguo campo `sublevel` (CharField con choices) de `AcademicGrade`, permitiendo una estructura jerárquica más flexible.
+- **Los nombres de campo `is_active`** (no `active`) se usan consistentemente en todos los modelos para el borrado lógico.
+- **`Section`** tiene tanto borrado físico (`DELETE`) como lógico (`POST /soft-delete/`). `SchoolYear` solo soporta borrado lógico vía `DELETE`.
+- **`code` añadido a `AcademicLevel`, `AcademicGrade` y `Section`**: cada entidad ahora tiene un campo `code` único (`CharField(20)`, `unique=True`) para identificar de forma canónica cada registro (ej. `SEC`, `5TO_EGB`, `2024-8A`).
+- **`TimeStampedModel` mixin**: `SchoolYear` y `AcademicSublevel` heredan ahora de `TimeStampedModel` (definido en `apps/core/models/base.py`), el cual provee automáticamente los campos `created_at` y `updated_at`.

@@ -1,7 +1,7 @@
 from django.test import TestCase, RequestFactory
 from rest_framework.request import Request
 from apps.core.api.pagination import StandardResultsSetPagination
-from apps.accounts.models import Role, User
+from apps.iam.models import Role, User
 from apps.core.tests.helpers import create_test_user
 
 
@@ -30,37 +30,36 @@ class StandardResultsSetPaginationTest(TestCase):
         self.assertEqual(self.pagination.max_page_size, 100)
 
     def test_paginated_response_format(self):
-        request = self.factory.get("/api/accounts/user/")
+        request = self.factory.get("/api/iam/users/")
         drf_request = Request(request)
         queryset = User.objects.all()
 
         page = self.pagination.paginate_queryset(queryset, drf_request)
         response = self.pagination.get_paginated_response(page)
 
-        self.assertTrue(response.data["ok"])
-        self.assertIn("count", response.data["data"])
-        self.assertIn("next", response.data["data"])
-        self.assertIn("previous", response.data["data"])
-        self.assertIn("results", response.data["data"])
-        self.assertEqual(response.data["data"]["count"], 25)
-        self.assertEqual(len(response.data["data"]["results"]), 20)
+        self.assertIn("count", response.data)
+        self.assertIn("next", response.data)
+        self.assertIn("previous", response.data)
+        self.assertIn("results", response.data)
+        self.assertEqual(response.data["count"], 25)
+        self.assertEqual(len(response.data["results"]), 20)
 
     def test_custom_page_size(self):
-        request = self.factory.get("/api/accounts/user/?page_size=5")
+        request = self.factory.get("/api/iam/users/?page_size=5")
         drf_request = Request(request)
         queryset = User.objects.all()
 
         page = self.pagination.paginate_queryset(queryset, drf_request)
         response = self.pagination.get_paginated_response(page)
 
-        self.assertEqual(len(response.data["data"]["results"]), 5)
+        self.assertEqual(len(response.data["results"]), 5)
 
     def test_pagination_exceeds_max_page_size(self):
-        request = self.factory.get("/api/accounts/user/?page_size=200")
+        request = self.factory.get("/api/iam/users/?page_size=200")
         drf_request = Request(request)
         queryset = User.objects.all()
 
         page = self.pagination.paginate_queryset(queryset, drf_request)
         response = self.pagination.get_paginated_response(page)
 
-        self.assertLessEqual(len(response.data["data"]["results"]), 100)
+        self.assertLessEqual(len(response.data["results"]), 100)

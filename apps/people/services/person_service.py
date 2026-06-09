@@ -1,20 +1,22 @@
 from django.db import models, transaction
-from apps.accounts.models import Person, User
-from apps.institutions.models import DocumentType
+from ..repositories.person_repo import PersonRepository
 
 
 class PersonService:
     @staticmethod
     @transaction.atomic
     def create_person_with_user(person_data, password=None, **user_extra):
+        from apps.iam.models import User
+
         doc_type_id = person_data.pop("document_type_id", None)
         if not doc_type_id:
+            from ..models import DocumentType
             cc_type = DocumentType.objects.get_or_create(
                 code="CC", defaults={"name": "Cédula de Ciudadanía"}
             )[0]
             doc_type_id = cc_type.id
 
-        person = Person.objects.create(
+        person = PersonRepository.create(
             document_type_id=doc_type_id,
             **person_data,
         )
@@ -32,12 +34,13 @@ class PersonService:
 
         doc_type_id = person_data.pop("document_type_id", None)
         if not doc_type_id:
+            from ..models import DocumentType
             cc_type = DocumentType.objects.get_or_create(
                 code="CC", defaults={"name": "Cédula de Ciudadanía"}
             )[0]
             doc_type_id = cc_type.id
 
-        person = Person.objects.create(
+        person = PersonRepository.create(
             document_type_id=doc_type_id,
             **person_data,
         )
@@ -47,7 +50,7 @@ class PersonService:
 
     @staticmethod
     def search_person(document_number=None, email=None, names=None):
-        qs = Person.objects.all()
+        qs = PersonRepository.get_all()
         if document_number:
             qs = qs.filter(document_number__icontains=document_number)
         if email:

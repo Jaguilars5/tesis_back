@@ -1,7 +1,8 @@
 from django.db import models
+from apps.core.models import TimeStampedModel
 
 
-class RecoveryProcess(models.Model):
+class RecoveryProcess(TimeStampedModel):
     period_grade_summary = models.ForeignKey(
         "grading.PeriodGradeSummary",
         on_delete=models.CASCADE,
@@ -9,20 +10,12 @@ class RecoveryProcess(models.Model):
         verbose_name="Resumen de Calificaciones",
     )
     managed_by_user = models.ForeignKey(
-        "accounts.User",
+        "iam.User",
         on_delete=models.CASCADE,
         related_name="recovery_processes",
         verbose_name="Gestionado por",
     )
-    process_type = models.CharField(
-        max_length=30,
-        choices=[
-            ("MEJORA_DIRECTA", "Mejora Directa"),
-            ("MEJORA_CON_REFUERZO", "Mejora con Refuerzo"),
-            ("SUPLETORIA", "Supletoria"),
-        ],
-        verbose_name="Tipo de proceso",
-    )
+    process_type = models.ForeignKey("grading.RecoveryProcessType", on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Tipo de proceso")
     initial_grade = models.DecimalField(max_digits=5, decimal_places=2, verbose_name="Nota Inicial")
     reinforcement_grade = models.DecimalField(
         max_digits=5, decimal_places=2, null=True, blank=True,

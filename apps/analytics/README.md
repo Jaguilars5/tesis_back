@@ -38,7 +38,7 @@ Captura el estado de las variables críticas de un estudiante para un periodo ac
 | Campo                      | Tipo Django     | Relación / Significado                                                 |
 | :------------------------- | :-------------- | :--------------------------------------------------------------------- |
 | `enrollment`               | `ForeignKey`    | `students.Enrollment` (Matrícula del estudiante).                      |
-| `academic_period`          | `ForeignKey`    | `academic.Academic_Period` (Periodo correspondiente).                  |
+| `academic_period`          | `ForeignKey`    | `academic.AcademicPeriod` (Periodo correspondiente).                  |
 | `attendance_rate`          | `DecimalField`  | Tasa de asistencia general (`0.00` a `100.00`).                        |
 | `consecutive_absences_max` | `IntegerField`  | Pico máximo de faltas seguidas en el periodo.                          |
 | `tardiness_count`          | `IntegerField`  | Contador acumulado de atrasos injustificados.                          |
@@ -67,7 +67,7 @@ Puntuación de riesgo acumulada ponderada calculada por el motor de inferencia a
 | Campo             | Tipo Django     | Relación / Significado                                       |
 | :---------------- | :-------------- | :----------------------------------------------------------- |
 | `enrollment`      | `ForeignKey`    | `students.Enrollment` (Matrícula del estudiante).            |
-| `academic_period` | `ForeignKey`    | `academic.Academic_Period` (Periodo correspondiente).        |
+| `academic_period` | `ForeignKey`    | `academic.AcademicPeriod` (Periodo correspondiente).        |
 | `risk_score`      | `DecimalField`  | Puntaje numérico calculado (`0.00` a `100.00`).              |
 | `risk_label`      | `CharField(20)` | Nivel semafórico resultante: `"bajo"`, `"medio"` o `"alto"`. |
 | `model_version`   | `CharField(50)` | Versión del modelo matemático/ML utilizado para el cálculo.  |
@@ -90,12 +90,12 @@ Alertas generadas automáticamente por el motor analítico o manualmente por doc
 | Campo              | Tipo Django     | Relación / Significado                                                                                        |
 | :----------------- | :-------------- | :------------------------------------------------------------------------------------------------------------ |
 | `enrollment`       | `ForeignKey`    | `students.Enrollment` (Matrícula del estudiante).                                                             |
-| `academic_period`  | `ForeignKey`    | `academic.Academic_Period` (Periodo correspondiente).                                                         |
+| `academic_period`  | `ForeignKey`    | `academic.AcademicPeriod` (Periodo correspondiente).                                                         |
 | `alert_type`       | `CharField(50)` | Tipo de alerta: `"low_attendance"`, `"failing_grades"`, `"behavioral"`, `"dropout_risk"`, `"socioemotional"`. |
 | `description`      | `TextField`     | Justificación descriptiva del incidente o anomalía detectada.                                                 |
 | `urgency_level`    | `CharField(20)` | Criticidad inicial de la alerta: `"low"`, `"medium"`, `"high"`, `"critical"`.                                 |
 | `attended`         | `BooleanField`  | Flag que determina si ya recibió atención institucional (`True`/`False`).                                     |
-| `attended_by_user` | `ForeignKey`    | `accounts.User` (Docente, tutor o psicólogo que atendió el caso).                                             |
+| `attended_by_user` | `ForeignKey`    | `iam.User` (Docente, tutor o psicólogo que atendió el caso).                                             |
 | `detected_at`      | `DateTimeField` | Fecha de creación del registro.                                                                               |
 | `attended_at`      | `DateTimeField` | Fecha y hora en que se ejecutó la acción de atención de la alerta.                                            |
 | `response_actions` | `TextField`     | Detalle textual de las medidas y compromisos acordados al cerrar la alerta.                                   |
@@ -196,3 +196,9 @@ python manage.py test apps.analytics --settings=config.settings.test
 
 > [!NOTE]
 > Las pruebas en entorno aislado emplean base de datos SQLite en memoria, Celery en modo asíncrono inmediato (`task_always_eager=True`) y hashing de contraseñas de velocidad acelerada (`MD5Hasher`).
+
+---
+
+## Modelos de Catálogo
+- **AlertType** — Tipo de alerta temprana (baja asistencia, calificaciones bajas, etc.)
+- **UrgencyLevel** — Nivel de urgencia de alerta (baja, media, alta, crítica)

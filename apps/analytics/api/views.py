@@ -16,16 +16,25 @@ from apps.core.constants.permissions import analytics
 from apps.core.api.pagination import StandardResultsSetPagination
 from apps.core.api.permissions import HasPermission
 
-from ..models import RiskFactor, StudentRiskFactor
+from ..models import AlertType, EarlyAlert, RiskFactor, StudentRiskFactor, UrgencyLevel
 from ..repositories import (
+    AlertTypeRepository,
+    EarlyAlertRepository,
+    RiskFactorRepository,
     StudentFeatureSnapshotRepository,
+    StudentRiskFactorRepository,
     StudentRiskScoreRepository,
+    UrgencyLevelRepository,
 )
+from ..services.early_alert_service import EarlyAlertService
 from .serializers import (
+    AlertTypeSerializer,
+    EarlyAlertSerializer,
     RiskFactorSerializer,
     StudentFeatureSnapshotSerializer,
     StudentRiskFactorSerializer,
     StudentRiskScoreSerializer,
+    UrgencyLevelSerializer,
 )
 
 
@@ -61,6 +70,60 @@ class BaseAnalyticsViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         except Exception as e:
             return Response(str(e), status=400)
+
+
+@extend_schema_view(
+    list=extend_schema(summary="Listar tipos de alerta", tags=["analytics"]),
+    retrieve=extend_schema(summary="Obtener tipo de alerta", tags=["analytics"]),
+    create=extend_schema(summary="Crear tipo de alerta", tags=["analytics"]),
+    update=extend_schema(summary="Actualizar tipo de alerta", tags=["analytics"]),
+    partial_update=extend_schema(summary="Actualizar tipo de alerta parcialmente", tags=["analytics"]),
+    destroy=extend_schema(summary="Eliminar tipo de alerta", tags=["analytics"]),
+)
+class AlertTypeViewSet(BaseAnalyticsViewSet):
+    serializer_class = AlertTypeSerializer
+    action_permissions = {
+        "list": analytics.VIEW_ALERT_TYPE,
+        "retrieve": analytics.VIEW_ALERT_TYPE,
+        "create": analytics.CREATE_ALERT_TYPE,
+        "update": analytics.UPDATE_ALERT_TYPE,
+        "partial_update": analytics.UPDATE_ALERT_TYPE,
+        "destroy": analytics.DELETE_ALERT_TYPE,
+    }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.repository = AlertTypeRepository()
+
+    def get_queryset(self):
+        return self.repository.get_all()
+
+
+@extend_schema_view(
+    list=extend_schema(summary="Listar niveles de urgencia", tags=["analytics"]),
+    retrieve=extend_schema(summary="Obtener nivel de urgencia", tags=["analytics"]),
+    create=extend_schema(summary="Crear nivel de urgencia", tags=["analytics"]),
+    update=extend_schema(summary="Actualizar nivel de urgencia", tags=["analytics"]),
+    partial_update=extend_schema(summary="Actualizar nivel de urgencia parcialmente", tags=["analytics"]),
+    destroy=extend_schema(summary="Eliminar nivel de urgencia", tags=["analytics"]),
+)
+class UrgencyLevelViewSet(BaseAnalyticsViewSet):
+    serializer_class = UrgencyLevelSerializer
+    action_permissions = {
+        "list": analytics.VIEW_URGENCY_LEVEL,
+        "retrieve": analytics.VIEW_URGENCY_LEVEL,
+        "create": analytics.CREATE_URGENCY_LEVEL,
+        "update": analytics.UPDATE_URGENCY_LEVEL,
+        "partial_update": analytics.UPDATE_URGENCY_LEVEL,
+        "destroy": analytics.DELETE_URGENCY_LEVEL,
+    }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.repository = UrgencyLevelRepository()
+
+    def get_queryset(self):
+        return self.repository.get_all()
 
 
 class StudentRiskScoreViewSet(BaseAnalyticsViewSet):
@@ -129,27 +192,19 @@ class StudentFeatureSnapshotViewSet(BaseAnalyticsViewSet):
 )
 class RiskFactorViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = RiskFactorSerializer
+    pagination_class = StandardResultsSetPagination
     permission_classes = [IsAuthenticated, HasPermission]
     action_permissions = {
         "list": analytics.VIEW_RISK_FACTOR,
         "retrieve": analytics.VIEW_RISK_FACTOR,
     }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.repository = RiskFactorRepository()
+
     def get_queryset(self):
-        return RiskFactor.objects.all().order_by("name")
-
-    def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
-
-    def retrieve(self, request, *args, **kwargs):
-        try:
-            instance = self.get_object()
-            serializer = self.get_serializer(instance)
-            return Response(serializer.data)
-        except Exception as e:
-            return Response(str(e), status=400)
+        return self.repository.get_all()
 
 
 @extend_schema_view(
@@ -158,23 +213,19 @@ class RiskFactorViewSet(viewsets.ReadOnlyModelViewSet):
 )
 class StudentRiskFactorViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = StudentRiskFactorSerializer
+    pagination_class = StandardResultsSetPagination
     permission_classes = [IsAuthenticated, HasPermission]
     action_permissions = {
         "list": analytics.VIEW_STUDENT_RISK_FACTOR,
         "retrieve": analytics.VIEW_STUDENT_RISK_FACTOR,
     }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.repository = StudentRiskFactorRepository()
+
     def get_queryset(self):
-        return (
-            StudentRiskFactor.objects.all()
-            .select_related("student_risk_score", "risk_factor")
-            .order_by("-id")
-        )
-
-
-from apps.analytics.models import EarlyAlert
-from apps.analytics.api.serializers import EarlyAlertSerializer
-from apps.analytics.services.early_alert_service import EarlyAlertService
+        return self.repository.get_all()
 
 
 @extend_schema_view(
@@ -191,7 +242,6 @@ from apps.analytics.services.early_alert_service import EarlyAlertService
     ),
 )
 class EarlyAlertViewSet(viewsets.ModelViewSet):
-    queryset = EarlyAlert.objects.all()
     serializer_class = EarlyAlertSerializer
     pagination_class = StandardResultsSetPagination
     permission_classes = [IsAuthenticated, HasPermission]
@@ -204,6 +254,13 @@ class EarlyAlertViewSet(viewsets.ModelViewSet):
         "destroy": analytics.DELETE_EARLY_ALERT,
         "mark_attended": analytics.UPDATE_EARLY_ALERT,
     }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.repository = EarlyAlertRepository()
+
+    def get_queryset(self):
+        return self.repository.get_all()
 
     @action(detail=True, methods=["post"])
     def mark_attended(self, request, pk=None):

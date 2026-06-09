@@ -1,19 +1,17 @@
 from django.db import models
+from apps.core.models import TimeStampedModel
 
 
-class Teacher_Subject_Section(models.Model):
+class TeacherSubjectSection(TimeStampedModel):
     user = models.ForeignKey(
-        "accounts.User", on_delete=models.CASCADE, verbose_name="Docente"
+        "iam.User", on_delete=models.CASCADE, verbose_name="Docente"
     )
     subject_offering = models.ForeignKey(
         "academic.SubjectOffering",
         on_delete=models.CASCADE,
         verbose_name="Oferta de Materia",
     )
-    active = models.BooleanField(default=True, verbose_name="Activo")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Fecha de Actualización")
-
+    is_active = models.BooleanField(default=True, verbose_name="Activo")
     class Meta:
         app_label = "academic"
         verbose_name = "Docente-Materia-Sección"

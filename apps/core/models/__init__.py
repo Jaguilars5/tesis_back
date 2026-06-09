@@ -1,4 +1,3 @@
-from .system_config import SystemConfig
-from .sync_queue import SyncQueue
+from .base import TimeStampedModel
 
-__all__ = ["SystemConfig", "SyncQueue"]
+__all__ = ["TimeStampedModel"]

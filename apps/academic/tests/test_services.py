@@ -1,7 +1,7 @@
 from django.test import TestCase
 from datetime import date
 from decimal import Decimal
-from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year
+from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSublevel, SchoolYear
 from apps.institutions.models import Section
 from ..models import Subject
 from ..services.academic_service import AcademicService
@@ -12,14 +12,17 @@ class AcademicServiceTest(TestCase):
 
     def setUp(self):
         """Crear datos de prueba"""
-        self.school_year = School_Year.objects.create(
+        self.school_year = SchoolYear.objects.create(
             name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
         self.academic_level = AcademicLevel.objects.create(name="Primaria")
+        self.academic_sublevel = AcademicSublevel.objects.create(
+            academic_level=self.academic_level, name="Básica"
+        )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_level=self.academic_level, name="6to", sequence_order=6
+            academic_sublevel=self.academic_sublevel, name="6to", sequence_order=6
         )
 
     def test_create_section(self):

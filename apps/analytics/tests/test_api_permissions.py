@@ -2,7 +2,7 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from apps.accounts.models import Permission, Role, RolePermission, UserRole
+from apps.iam.models import Permission, Role, RolePermission, UserRole
 from apps.core.constants.permissions import analytics as perms
 from apps.core.tests.helpers import create_test_user
 
@@ -19,7 +19,7 @@ class AnalyticsPermissionsTest(TestCase):
         )
         self.user_with_perm = create_test_user(
             email="with_perm_an@test.com", dni="4000000002",
-            names="With", last_names="Perm", user_type="ADMIN",
+            names="With", last_names="Perm",
         )
         self.superuser = create_test_user(
             email="admin_an@test.com", dni="4000000000",

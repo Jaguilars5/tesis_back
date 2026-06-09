@@ -1,12 +1,14 @@
 from django.db import models
+from apps.core.models import TimeStampedModel
 
 
-class ComponentIndicator(models.Model):
+class ComponentIndicator(TimeStampedModel):
     """
     INDICADOR_COMPONENTE — Indicadores de logro dentro de cada componente.
     Alineados al currículo nacional; baja frecuencia de cambio.
     """
 
+    code = models.CharField(max_length=50, blank=True, db_index=True, verbose_name="Código")
     block_component = models.ForeignKey(
         "grading.BlockComponent",
         on_delete=models.CASCADE,

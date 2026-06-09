@@ -1,3 +1,0 @@
-"""
-Views for Attendance app.
-"""

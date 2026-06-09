@@ -2,9 +2,10 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.db import models
 import uuid
+from apps.core.models import TimeStampedModel
 
 
-class StudentNote(models.Model):
+class StudentNote(TimeStampedModel):
     """
     NOTA_ACTIVIDAD — Calificación individual de un estudiante en una actividad.
     Entidad de mayor volumen; soporte offline-first.
@@ -57,8 +58,6 @@ class StudentNote(models.Model):
         help_text="PENDIENTE, SINCRONIZADO o ERROR",
     )
     synced_at = models.DateTimeField(null=True, blank=True, verbose_name="Sincronizado en")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Fecha de Actualización")
     sync_version = models.PositiveIntegerField(
         default=1, verbose_name="Versión de Sincronización",
         help_text="Número de versión para control de conflictos offline",

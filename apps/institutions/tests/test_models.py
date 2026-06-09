@@ -1,14 +1,14 @@
 from django.test import TestCase
-from datetime import date, timedelta
-from ..models import DocumentType, School_Year
+from datetime import date
+from ..models import SchoolYear
 
 
 class SchoolYearModelTest(TestCase):
-    """Tests para el modelo School_Year"""
+    """Tests para el modelo SchoolYear"""
 
     def setUp(self):
         """Crear instancias de prueba"""
-        self.school_year = School_Year.objects.create(
+        self.school_year = SchoolYear.objects.create(
             name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
@@ -17,7 +17,7 @@ class SchoolYearModelTest(TestCase):
     def test_school_year_creation(self):
         """Probar creación de año escolar"""
         self.assertEqual(self.school_year.name, "2024-2025")
-        self.assertTrue(self.school_year.active)
+        self.assertTrue(self.school_year.is_active)
 
     def test_school_year_date_range(self):
         """Probar que las fechas son válidas"""
@@ -30,10 +30,10 @@ class SchoolYearModelTest(TestCase):
 
     def test_multiple_school_years(self):
         """Probar múltiples años escolares"""
-        school_year_2 = School_Year.objects.create(
+        school_year_2 = SchoolYear.objects.create(
             name="2025-2026",
             start_date=date(2025, 9, 1),
             end_date=date(2026, 7, 31),
         )
 
-        self.assertEqual(School_Year.objects.count(), 2)
+        self.assertEqual(SchoolYear.objects.count(), 2)

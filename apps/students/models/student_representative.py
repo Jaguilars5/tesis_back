@@ -1,7 +1,8 @@
 from django.db import models
+from apps.core.models import TimeStampedModel
 
 
-class Student_Representative(models.Model):
+class StudentRepresentative(TimeStampedModel):
     KINSHIP_CHOICES = [
         ("Padre", "Padre"),
         ("Madre", "Madre"),
@@ -18,7 +19,7 @@ class Student_Representative(models.Model):
         verbose_name="Estudiante",
     )
     person = models.ForeignKey(
-        "accounts.Person",
+        "people.Person",
         on_delete=models.CASCADE,
         related_name="student_representatives",
         null=True, blank=True,
@@ -34,8 +35,7 @@ class Student_Representative(models.Model):
     can_pickup = models.BooleanField(default=True, verbose_name="Puede Recoger")
     emergency_contact = models.BooleanField(default=False, verbose_name="Contacto de Emergencia")
     receives_notifications = models.BooleanField(default=True, verbose_name="Recibe Notificaciones")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
-
+    is_active = models.BooleanField(default=True, verbose_name="Activo")
     class Meta:
         app_label = "students"
         verbose_name = "Relación Estudiante-Representante"

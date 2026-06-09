@@ -1,16 +1,17 @@
 from rest_framework import serializers
+
 from ..models import (
     AcademicGrade,
     AcademicLevel,
-    DocumentType,
-    School_Year,
+    AcademicSublevel,
+    SchoolYear,
     Section,
 )
 
 
-class School_YearSerializer(serializers.ModelSerializer):
+class SchoolYearSerializer(serializers.ModelSerializer):
     class Meta:
-        model = School_Year
+        model = SchoolYear
         fields = "__all__"
 
 
@@ -25,15 +26,19 @@ class SectionSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class DocumentTypeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = DocumentType
-        fields = "__all__"
-
-
 class AcademicLevelSerializer(serializers.ModelSerializer):
     class Meta:
         model = AcademicLevel
+        fields = "__all__"
+
+
+class AcademicSublevelSerializer(serializers.ModelSerializer):
+    academic_level_name = serializers.CharField(
+        source="academic_level.name", read_only=True
+    )
+
+    class Meta:
+        model = AcademicSublevel
         fields = "__all__"
 
 

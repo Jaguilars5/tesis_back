@@ -10,10 +10,14 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from apps.core.constants.permissions import students
 from apps.core.api.permissions import HasPermission
 
-from ..models import Enrollment, EnrollmentStatus, Student, Student_Representative
 from ..services.students_service import StudentService
 from ..services.enrollment_service import EnrollmentService
-from ..repositories.enrollment_repo import EnrollmentRepository
+from ..repositories import EnrollmentRepository
+from ..repositories.enrollment_status_repo import EnrollmentStatusRepository
+from ..repositories.students_repo import (
+    StudentRepository,
+    StudentRepresentativeRepository,
+)
 from .serializers.serializers import (
     EnrollmentCreateSerializer,
     EnrollmentSerializer,
@@ -53,7 +57,7 @@ class StudentViewSet(viewsets.ModelViewSet):
         "person__document_number",
         "student_code",
     ]
-    ordering_fields = ["person__last_names", "active"]
+    ordering_fields = ["person__last_names", "is_active"]
     ordering = ["person__last_names"]
     action_permissions = {
         "list": students.VIEW_STUDENT,
@@ -68,7 +72,7 @@ class StudentViewSet(viewsets.ModelViewSet):
     }
 
     def get_queryset(self):
-        return Student.objects.filter(active=True)
+        return StudentRepository.get_all()
 
     def get_serializer_class(self):
         if self.action == "retrieve":
@@ -131,14 +135,7 @@ class StudentViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"])
     def representatives(self, request, pk=None):
         """Representantes de un estudiante"""
-        from .serializers.serializers import StudentRepresentativeSerializer
-
-        relationships = (
-            Student_Representative.objects.filter(student_id=pk)
-            .select_related("person")
-            .order_by("-is_primary")
-        )
-
+        relationships = StudentRepresentativeRepository.get_by_student(pk)
         serializer = StudentRepresentativeSerializer(relationships, many=True)
         return Response(serializer.data)
 
@@ -158,7 +155,7 @@ class StudentViewSet(viewsets.ModelViewSet):
     unlink=extend_schema(summary="Desasignar representante", tags=["students"]),
 )
 class StudentRepresentativeViewSet(viewsets.ModelViewSet):
-    """ViewSet para Student_Representative"""
+    """ViewSet para StudentRepresentative"""
 
     serializer_class = StudentRepresentativeSerializer
     permission_classes = [IsAuthenticated, HasPermission]
@@ -178,9 +175,7 @@ class StudentRepresentativeViewSet(viewsets.ModelViewSet):
     }
 
     def get_queryset(self):
-        return Student_Representative.objects.filter(
-            student__active=True
-        ).select_related("student", "person")
+        return StudentRepresentativeRepository.get_all()
 
     def create(self, request, *args, **kwargs):
         try:
@@ -201,7 +196,6 @@ class StudentRepresentativeViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         relationship = self.get_object()
 
-        # Actualizar campos
         for field in [
             "kinship",
             "can_pickup",
@@ -255,7 +249,7 @@ class EnrollmentStatusViewSet(viewsets.ReadOnlyModelViewSet):
     }
 
     def get_queryset(self):
-        return EnrollmentStatus.objects.all().order_by("name")
+        return EnrollmentStatusRepository.get_all()
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -317,9 +311,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
     }
 
     def get_queryset(self):
-        return Enrollment.objects.all().select_related(
-            "student__person", "section", "enrollment_status"
-        )
+        return EnrollmentRepository.get_all()
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -354,15 +346,9 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         new_section_id = request.data.get("section_id")
         if not new_section_id:
             return Response('Se requiere "section_id"', status=400)
-        from apps.institutions.models import Section
-
-        try:
-            new_section = Section.objects.get(id=new_section_id)
-        except Section.DoesNotExist:
-            return Response("Sección no encontrada", status=404)
         try:
             enrollment = self.get_object()
-            EnrollmentService.transfer_student(enrollment, new_section)
+            EnrollmentService.transfer_student(enrollment, new_section_id)
             return Response(self.get_serializer(enrollment).data)
         except ValueError as e:
             return Response(str(e), status=400)

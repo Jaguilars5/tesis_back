@@ -2,11 +2,11 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 from datetime import date
 from decimal import Decimal
-from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year
+from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSublevel, SchoolYear
 from apps.institutions.models import Section
-from apps.academic.models import Academic_Period
+from apps.academic.models import AcademicPeriod
 from apps.students.models import Student
-from apps.accounts.models import Role, User
+from apps.iam.models import Role, User
 from apps.core.tests.helpers import create_test_user, create_test_student
 from apps.analytics.models import RiskFactor, StudentFeatureSnapshot, StudentRiskScore
 
@@ -15,20 +15,23 @@ class StudentRiskAPITest(APITestCase):
     """Tests para endpoints de StudentRiskScore"""
 
     def setUp(self):
-        self.school_year = School_Year.objects.create(
+        self.school_year = SchoolYear.objects.create(
             name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
-        self.period = Academic_Period.objects.create(
+        self.period = AcademicPeriod.objects.create(
             school_year=self.school_year,
             name="Periodo 1",
             start_date=date(2024, 9, 1),
             end_date=date(2024, 12, 15),
         )
         self.academic_level = AcademicLevel.objects.create(name="Primaria")
+        self.academic_sublevel = AcademicSublevel.objects.create(
+            academic_level=self.academic_level, name="Básica"
+        )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_level=self.academic_level, name="6to", sequence_order=6
+            academic_sublevel=self.academic_sublevel, name="6to", sequence_order=6
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
@@ -70,41 +73,44 @@ class StudentRiskAPITest(APITestCase):
     def test_list_risk_scores(self):
         response = self.client.get("/api/analytics/student-risk-scores/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(response.data["ok"])
-        self.assertEqual(len(response.data["data"]["results"]), 1)
+        self.assertTrue(response.json()["ok"])
+        self.assertEqual(len(response.json()["data"]["results"]), 1)
 
     def test_get_risk_score(self):
         response = self.client.get(
             f"/api/analytics/student-risk-scores/{self.risk.id}/"
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(response.data["ok"])
-        self.assertEqual(response.data["data"]["risk_label"], "Alto")
+        self.assertTrue(response.json()["ok"])
+        self.assertEqual(response.json()["data"]["risk_label"], "Alto")
 
     def test_get_risk_score_not_found(self):
         response = self.client.get("/api/analytics/student-risk-scores/99999/")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertFalse(response.data["ok"])
+        self.assertFalse(response.json()["ok"])
 
 
 class FeatureSnapshotAPITest(APITestCase):
     """Tests para endpoints de StudentFeatureSnapshot"""
 
     def setUp(self):
-        self.school_year = School_Year.objects.create(
+        self.school_year = SchoolYear.objects.create(
             name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
-        self.period = Academic_Period.objects.create(
+        self.period = AcademicPeriod.objects.create(
             school_year=self.school_year,
             name="Periodo 1",
             start_date=date(2024, 9, 1),
             end_date=date(2024, 12, 15),
         )
         self.academic_level = AcademicLevel.objects.create(name="Primaria")
+        self.academic_sublevel = AcademicSublevel.objects.create(
+            academic_level=self.academic_level, name="Básica"
+        )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_level=self.academic_level, name="6to", sequence_order=6
+            academic_sublevel=self.academic_sublevel, name="6to", sequence_order=6
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
@@ -153,21 +159,21 @@ class FeatureSnapshotAPITest(APITestCase):
     def test_list_snapshots(self):
         response = self.client.get("/api/analytics/feature-snapshots/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(response.data["ok"])
-        self.assertEqual(len(response.data["data"]["results"]), 1)
+        self.assertTrue(response.json()["ok"])
+        self.assertEqual(len(response.json()["data"]["results"]), 1)
 
     def test_get_snapshot(self):
         response = self.client.get(
             f"/api/analytics/feature-snapshots/{self.snapshot.id}/"
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(response.data["ok"])
-        self.assertEqual(response.data["data"]["attendance_rate"], "85.00")
+        self.assertTrue(response.json()["ok"])
+        self.assertEqual(response.json()["data"]["attendance_rate"], "85.00")
 
     def test_get_snapshot_not_found(self):
         response = self.client.get("/api/analytics/feature-snapshots/99999/")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertFalse(response.data["ok"])
+        self.assertFalse(response.json()["ok"])
 
 
 class RiskFactorAPITest(APITestCase):

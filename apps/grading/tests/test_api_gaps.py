@@ -11,20 +11,21 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
 
-from apps.accounts.models import Permission, Role, RolePermission, User, UserRole
+from apps.iam.models import Permission, Role, RolePermission, User, UserRole
 from apps.core.tests.helpers import create_test_user, create_test_student
-from apps.core.constants.permissions import grading
+from apps.core.constants.permissions import grading, behavior
 
+from apps.grading.models import GradeType, QualitativeScale, EvaluationType, ActivityType, RecoveryProcessType
 from apps.grading.models import (
-    StudentNote, GradeType, QualitativeScale, EvaluationBlock, BlockComponent,
+    StudentNote, EvaluationBlock, BlockComponent,
     ComponentIndicator, EvaluativeActivity, GradeChangeHistory, PeriodGradeSummary,
-    RecoveryProcess, DiagnosticEvaluation, ProjectNote
+    RecoveryProcess, ProjectNote
 )
 from apps.academic.models import (
-    Academic_Period, Subject, SubjectAcademicConfig, SubjectOffering, Teacher_Subject_Section,
+    AcademicPeriod, Subject, SubjectAcademicConfig, SubjectOffering, TeacherSubjectSection,
     InterdisciplinaryProject
 )
-from apps.institutions.models import School_Year, AcademicGrade, AcademicLevel, Section
+from apps.institutions.models import SchoolYear, AcademicGrade, AcademicLevel, AcademicSublevel, Section
 from apps.students.models import Enrollment, EnrollmentStatus
 
 
@@ -35,14 +36,17 @@ class GradingAPIGapsTest(TestCase):
         self.client = APIClient()
 
         # 1. Configuración básica de Institución y Academia
-        self.school_year = School_Year.objects.create(
+        self.school_year = SchoolYear.objects.create(
             name="2025",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 12, 31),
         )
         self.academic_level = AcademicLevel.objects.create(name="Primaria")
+        self.academic_sublevel = AcademicSublevel.objects.create(
+            academic_level=self.academic_level, code="BASICA", name="Básica"
+        )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_level=self.academic_level,
+            academic_sublevel=self.academic_sublevel,
             name="7",
             sequence_order=1,
         )
@@ -56,7 +60,7 @@ class GradingAPIGapsTest(TestCase):
             name="Matemática",
             code="MAT-7A",
         )
-        self.period = Academic_Period.objects.create(
+        self.period = AcademicPeriod.objects.create(
             school_year=self.school_year,
             name="P1",
             start_date=date(2025, 1, 1),
@@ -79,7 +83,6 @@ class GradingAPIGapsTest(TestCase):
             dni="9999999992",
             names="Authorized",
             last_names="Grading",
-            user_type="ADMIN",
             is_superuser=False,
         )
 
@@ -88,12 +91,11 @@ class GradingAPIGapsTest(TestCase):
             dni="9999999993",
             names="NoPerm",
             last_names="Grading",
-            user_type="ADMIN",
             is_superuser=False,
         )
 
         # 3. Creación y asignación de permisos
-        self.role_authorized = Role.objects.create(name="Authorized Role")
+        self.role_authorized = Role.objects.create(name="Authorized Role", code="ADMIN")
         UserRole.objects.create(user=self.authorized_user, role=self.role_authorized)
 
         # Permisos de Lectura
@@ -119,7 +121,7 @@ class GradingAPIGapsTest(TestCase):
             code=grading.VIEW_RECOVERY_PROCESS, module="grading", description="Ver recuperacion"
         )
         self.perm_view_diagnostic = Permission.objects.create(
-            code=grading.VIEW_DIAGNOSTIC_EVALUATION, module="grading", description="Ver diagnostico"
+            code=behavior.VIEW_DIAGNOSTIC_EVALUATION, module="behavior", description="Ver diagnostico"
         )
         self.perm_view_project = Permission.objects.create(
             code=grading.VIEW_PROJECT_NOTE, module="grading", description="Ver nota proyecto"
@@ -129,6 +131,18 @@ class GradingAPIGapsTest(TestCase):
         )
         self.perm_view_type = Permission.objects.create(
             code=grading.VIEW_GRADE_TYPE, module="grading", description="Ver tipos"
+        )
+        self.perm_view_eval_type = Permission.objects.create(
+            code=grading.VIEW_EVALUATION_TYPE, module="grading", description="Ver tipos evaluación"
+        )
+        self.perm_view_act_type = Permission.objects.create(
+            code=grading.VIEW_ACTIVITY_TYPE, module="grading", description="Ver tipos actividad"
+        )
+        self.perm_view_promo = Permission.objects.create(
+            code=grading.VIEW_PROMOTION_STATUS, module="grading", description="Ver estados promoción"
+        )
+        self.perm_view_rec_type = Permission.objects.create(
+            code=grading.VIEW_RECOVERY_PROCESS_TYPE, module="grading", description="Ver tipos recuperación"
         )
 
         # Permisos de Escritura/Creación
@@ -151,10 +165,28 @@ class GradingAPIGapsTest(TestCase):
             code=grading.CREATE_RECOVERY_PROCESS, module="grading", description="Crear recuperacion"
         )
         self.perm_create_diagnostic = Permission.objects.create(
-            code=grading.CREATE_DIAGNOSTIC_EVALUATION, module="grading", description="Crear diagnostica"
+            code=behavior.CREATE_DIAGNOSTIC_EVALUATION, module="behavior", description="Crear diagnostica"
         )
         self.perm_create_project = Permission.objects.create(
             code=grading.CREATE_PROJECT_NOTE, module="grading", description="Crear nota proyecto"
+        )
+        self.perm_create_eval_type = Permission.objects.create(
+            code=grading.CREATE_EVALUATION_TYPE, module="grading", description="Crear tipo evaluación"
+        )
+        self.perm_create_act_type = Permission.objects.create(
+            code=grading.CREATE_ACTIVITY_TYPE, module="grading", description="Crear tipo actividad"
+        )
+        self.perm_create_promo = Permission.objects.create(
+            code=grading.CREATE_PROMOTION_STATUS, module="grading", description="Crear estado promoción"
+        )
+        self.perm_create_rec_type = Permission.objects.create(
+            code=grading.CREATE_RECOVERY_PROCESS_TYPE, module="grading", description="Crear tipo recuperación"
+        )
+        self.perm_create_grade_type = Permission.objects.create(
+            code=grading.CREATE_GRADE_TYPE, module="grading", description="Crear tipo calificación"
+        )
+        self.perm_create_qual_scale = Permission.objects.create(
+            code=grading.CREATE_QUALITATIVE_SCALE, module="grading", description="Crear escala cualitativa"
         )
 
         # Asociar todos los permisos creados al rol del usuario autorizado
@@ -162,10 +194,13 @@ class GradingAPIGapsTest(TestCase):
             self.perm_view_macro, self.perm_view_criteria, self.perm_view_subcriteria,
             self.perm_view_assignment, self.perm_view_history, self.perm_view_summary,
             self.perm_view_recovery, self.perm_view_diagnostic, self.perm_view_project,
-            self.perm_view_scale, self.perm_view_type, self.perm_create_macro,
-            self.perm_create_criteria, self.perm_create_subcriteria, self.perm_create_assignment,
-            self.perm_create_summary, self.perm_create_recovery, self.perm_create_diagnostic,
-            self.perm_create_project
+            self.perm_view_scale, self.perm_view_type, self.perm_view_eval_type,
+            self.perm_view_act_type, self.perm_view_promo, self.perm_view_rec_type,
+            self.perm_create_macro, self.perm_create_criteria, self.perm_create_subcriteria,
+            self.perm_create_assignment, self.perm_create_summary, self.perm_create_recovery,
+            self.perm_create_diagnostic, self.perm_create_project, self.perm_create_eval_type,
+            self.perm_create_act_type, self.perm_create_promo, self.perm_create_rec_type,
+            self.perm_create_grade_type, self.perm_create_qual_scale
         ]:
             RolePermission.objects.create(role=self.role_authorized, permission=perm)
 
@@ -181,7 +216,7 @@ class GradingAPIGapsTest(TestCase):
             section=self.section,
             subject_academic_config=subj_config,
         )
-        self.teacher_subject_section = Teacher_Subject_Section.objects.create(
+        self.teacher_subject_section = TeacherSubjectSection.objects.create(
             user=self.authorized_user,
             subject_offering=offering,
         )
@@ -214,11 +249,26 @@ class GradingAPIGapsTest(TestCase):
         self.qualitative_scale = QualitativeScale.objects.create(
             code="DA", description="Domina Aprendizaje", numeric_equivalence=Decimal("9.00")
         )
+        self.eval_type_for = EvaluationType.objects.create(
+            code="FORMATIVA", name="Formativa"
+        )
+        self.eval_type_sum = EvaluationType.objects.create(
+            code="SUMATIVA", name="Sumativa"
+        )
+        self.activity_type_tarea = ActivityType.objects.create(
+            code="TAREA", name="Tarea"
+        )
+        self.activity_type_examen = ActivityType.objects.create(
+            code="EXAMEN", name="Examen"
+        )
+        self.recovery_process_type = RecoveryProcessType.objects.create(
+            code="MEJORA_DIRECTA", name="Mejora Directa"
+        )
 
         self.block = EvaluationBlock.objects.create(
             academic_period=self.period,
             name="Macro 1",
-            evaluation_type="FORMATIVA",
+            evaluation_type=self.eval_type_for,
             weight_percentage=Decimal("40.00"),
         )
         self.component = BlockComponent.objects.create(
@@ -235,7 +285,7 @@ class GradingAPIGapsTest(TestCase):
             component_indicator=self.indicator,
             teacher_subject_section=self.teacher_subject_section,
             title="Actividad 1",
-            activity_type="TAREA",
+            activity_type=self.activity_type_tarea,
             max_score=Decimal("10.00"),
             due_date=date(2025, 2, 20),
         )
@@ -246,14 +296,14 @@ class GradingAPIGapsTest(TestCase):
         self.client.force_authenticate(user=self.authorized_user)
         response = self.client.get("/api/grading/evaluation-blocks/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(response.data["ok"])
-        self.assertEqual(response.data["data"]["results"][0]["name"], self.block.name)
+        self.assertTrue(response.json()["ok"])
+        self.assertEqual(response.json()["data"]["results"][0]["name"], self.block.name)
 
         # Crear con permisos
         data = {
             "academic_period": self.period.id,
             "name": "Macro 2",
-            "evaluation_type": "SUMATIVA",
+            "evaluation_type": self.eval_type_sum.id,
             "weight_percentage": "60.00",
         }
         response = self.client.post("/api/grading/evaluation-blocks/", data, format="json")
@@ -270,7 +320,7 @@ class GradingAPIGapsTest(TestCase):
         self.client.force_authenticate(user=self.authorized_user)
         response = self.client.get("/api/grading/block-components/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(response.data["ok"])
+        self.assertTrue(response.json()["ok"])
 
         data = {
             "evaluation_block": self.block.id,
@@ -291,7 +341,7 @@ class GradingAPIGapsTest(TestCase):
         self.client.force_authenticate(user=self.authorized_user)
         response = self.client.get("/api/grading/component-indicators/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(response.data["ok"])
+        self.assertTrue(response.json()["ok"])
 
         data = {
             "block_component": self.component.id,
@@ -312,13 +362,13 @@ class GradingAPIGapsTest(TestCase):
         self.client.force_authenticate(user=self.authorized_user)
         response = self.client.get("/api/grading/evaluative-activities/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(response.data["ok"])
+        self.assertTrue(response.json()["ok"])
 
         data = {
             "component_indicator": self.indicator.id,
             "teacher_subject_section": self.teacher_subject_section.id,
             "title": "Actividad 2",
-            "activity_type": "EXAMEN",
+            "activity_type": self.activity_type_examen.id,
             "max_score": "10.00",
             "due_date": "2025-02-28",
         }
@@ -350,8 +400,8 @@ class GradingAPIGapsTest(TestCase):
         self.client.force_authenticate(user=self.authorized_user)
         response = self.client.get("/api/grading/grade-history/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(response.data["ok"])
-        results = response.data["data"]["results"]
+        self.assertTrue(response.json()["ok"])
+        results = response.json()["data"]["results"]
         self.assertTrue(any(x["reason"] == "Corrección de nota" for x in results))
 
         # Sin permisos -> 403
@@ -365,7 +415,7 @@ class GradingAPIGapsTest(TestCase):
         self.client.force_authenticate(user=self.authorized_user)
         response = self.client.get("/api/grading/period-grade-summaries/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(response.data["ok"])
+        self.assertTrue(response.json()["ok"])
 
         data = {
             "enrollment": self.enrollment.id,
@@ -400,12 +450,12 @@ class GradingAPIGapsTest(TestCase):
         self.client.force_authenticate(user=self.authorized_user)
         response = self.client.get("/api/grading/recovery-processes/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(response.data["ok"])
+        self.assertTrue(response.json()["ok"])
 
         data = {
             "period_grade_summary": summary.id,
             "managed_by_user": self.authorized_user.id,
-            "process_type": "MEJORA_DIRECTA",
+            "process_type": self.recovery_process_type.id,
             "initial_grade": "8.75",
             "start_date": "2025-02-25",
         }
@@ -417,38 +467,13 @@ class GradingAPIGapsTest(TestCase):
         response = self.client.get("/api/grading/recovery-processes/")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_diagnostic_evaluations_rbac_and_crud(self):
-        """Prueba permisos RBAC y CRUD para DiagnosticEvaluationViewSet."""
-        # Con permisos
-        self.client.force_authenticate(user=self.authorized_user)
-        response = self.client.get("/api/grading/diagnostic-evaluations/")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(response.data["ok"])
-
-        data = {
-            "enrollment": self.enrollment.id,
-            "academic_period": self.period.id,
-            "applied_by_user": self.authorized_user.id,
-            "socioemotional_area": "Habilidades Sociales",
-            "findings_description": "Excelente liderazgo",
-            "development_level": "Alto",
-            "application_date": "2025-02-20",
-        }
-        response = self.client.post("/api/grading/diagnostic-evaluations/", data, format="json")
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-
-        # Sin permisos -> 403
-        self.client.force_authenticate(user=self.noperm_user)
-        response = self.client.get("/api/grading/diagnostic-evaluations/")
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
     def test_project_notes_rbac_and_crud(self):
         """Prueba permisos RBAC y CRUD para ProjectNoteViewSet."""
         # Con permisos
         self.client.force_authenticate(user=self.authorized_user)
         response = self.client.get("/api/grading/project-notes/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(response.data["ok"])
+        self.assertTrue(response.json()["ok"])
 
         data = {
             "enrollment": self.enrollment.id,
@@ -471,14 +496,14 @@ class GradingAPIGapsTest(TestCase):
         self.client.force_authenticate(user=self.authorized_user)
         response = self.client.get("/api/grading/grade-types/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(response.data["ok"])
-        results = response.data["data"]
+        self.assertTrue(response.json()["ok"])
+        results = response.json()["data"]["results"]
         self.assertTrue(any(x["code"] == "NUM" for x in results))
 
-        # Intentar crear como Superusuario -> 405 Method Not Allowed (es ReadOnlyViewSet)
-        self.client.force_authenticate(user=self.admin)
-        response = self.client.post("/api/grading/grade-types/", {"code": "PRUEBA", "name": "Prueba"})
-        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        # Crear como usuario autorizado -> 201 Created
+        self.client.force_authenticate(user=self.authorized_user)
+        response = self.client.post("/api/grading/grade-types/", {"code": "CUALI", "name": "Cualitativa"})
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         # Sin permisos -> 403
         self.client.force_authenticate(user=self.noperm_user)
@@ -491,16 +516,76 @@ class GradingAPIGapsTest(TestCase):
         self.client.force_authenticate(user=self.authorized_user)
         response = self.client.get("/api/grading/qualitative-scales/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(response.data["ok"])
-        results = response.data["data"]
+        self.assertTrue(response.json()["ok"])
+        results = response.json()["data"]["results"]
         self.assertTrue(any(x["code"] == "DA" for x in results))
 
-        # Intentar crear como Superusuario -> 405 Method Not Allowed (es ReadOnlyViewSet)
-        self.client.force_authenticate(user=self.admin)
-        response = self.client.post("/api/grading/qualitative-scales/", {"code": "PR", "description": "Prueba"})
-        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        # Crear como usuario autorizado -> 201 Created
+        self.client.force_authenticate(user=self.authorized_user)
+        response = self.client.post("/api/grading/qualitative-scales/", {"code": "PR", "description": "Prueba", "numeric_equivalence": "7.00"})
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         # Sin permisos -> 403
         self.client.force_authenticate(user=self.noperm_user)
         response = self.client.get("/api/grading/qualitative-scales/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_evaluation_types_api(self):
+        """Prueba RBAC y CRUD para EvaluationTypeViewSet."""
+        self.client.force_authenticate(user=self.authorized_user)
+        response = self.client.get("/api/grading/evaluation-types/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.json()["ok"])
+
+        data = {"code": "DIAGNOSTICA", "name": "Diagnóstica"}
+        response = self.client.post("/api/grading/evaluation-types/", data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        self.client.force_authenticate(user=self.noperm_user)
+        response = self.client.get("/api/grading/evaluation-types/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_activity_types_api(self):
+        """Prueba RBAC y CRUD para ActivityTypeViewSet."""
+        self.client.force_authenticate(user=self.authorized_user)
+        response = self.client.get("/api/grading/activity-types/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.json()["ok"])
+
+        data = {"code": "DEBER", "name": "Deber"}
+        response = self.client.post("/api/grading/activity-types/", data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        self.client.force_authenticate(user=self.noperm_user)
+        response = self.client.get("/api/grading/activity-types/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_promotion_statuses_api(self):
+        """Prueba RBAC y CRUD para PromotionStatusViewSet."""
+        self.client.force_authenticate(user=self.authorized_user)
+        response = self.client.get("/api/grading/promotion-statuses/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.json()["ok"])
+
+        data = {"code": "REP", "name": "Reprobado"}
+        response = self.client.post("/api/grading/promotion-statuses/", data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        self.client.force_authenticate(user=self.noperm_user)
+        response = self.client.get("/api/grading/promotion-statuses/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_recovery_process_types_api(self):
+        """Prueba RBAC y CRUD para RecoveryProcessTypeViewSet."""
+        self.client.force_authenticate(user=self.authorized_user)
+        response = self.client.get("/api/grading/recovery-process-types/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.json()["ok"])
+
+        data = {"code": "EXAMEN", "name": "Examen"}
+        response = self.client.post("/api/grading/recovery-process-types/", data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        self.client.force_authenticate(user=self.noperm_user)
+        response = self.client.get("/api/grading/recovery-process-types/")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

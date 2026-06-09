@@ -1,14 +1,14 @@
 from django.contrib import admin
-from .models import Student, Student_Representative
+from .models import Student, StudentRepresentative, Enrollment, EnrollmentStatus
 
 
 class StudentAdmin(admin.ModelAdmin):
-    list_display = ("student_code", "get_full_name", "active")
-    list_filter = ("active",)
+    list_display = ("student_code", "get_full_name", "is_active")
+    list_filter = ("is_active",)
     search_fields = ("person__names", "person__last_names", "person__document_number", "student_code")
     fieldsets = (
         ("Persona", {"fields": ("person", "student_code")}),
-        ("Estado", {"fields": ("active",)}),
+        ("Estado", {"fields": ("is_active",)}),
     )
 
     def get_full_name(self, obj):
@@ -37,4 +37,17 @@ class StudentRepresentativeAdmin(admin.ModelAdmin):
 
 
 admin.site.register(Student, StudentAdmin)
-admin.site.register(Student_Representative, StudentRepresentativeAdmin)
+admin.site.register(StudentRepresentative, StudentRepresentativeAdmin)
+
+
+@admin.register(Enrollment)
+class EnrollmentAdmin(admin.ModelAdmin):
+    list_display = ("student", "section", "enrollment_status", "school_year")
+    list_filter = ("enrollment_status", "section__school_year")
+    search_fields = ("student__person__names", "student__person__last_names")
+
+
+@admin.register(EnrollmentStatus)
+class EnrollmentStatusAdmin(admin.ModelAdmin):
+    list_display = ("code", "name", "is_active")
+    search_fields = ("code", "name")

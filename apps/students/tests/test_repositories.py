@@ -2,10 +2,10 @@ from datetime import date
 
 from django.test import TestCase
 
-from apps.accounts.models import Person
+from apps.people.models import Person
 from apps.core.tests.helpers import create_test_user, create_test_student
-from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year, Section
-from apps.students.models import Enrollment, EnrollmentStatus, Student, Student_Representative
+from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSublevel, SchoolYear, Section
+from apps.students.models import Enrollment, EnrollmentStatus, Student, StudentRepresentative
 from apps.students.repositories.enrollment_repo import EnrollmentRepository
 from apps.students.repositories.students_repo import StudentRepresentativeRepository, StudentRepository
 
@@ -14,12 +14,15 @@ class StudentsRepositoryTest(TestCase):
     """Tests para los repositorios del módulo students."""
 
     def setUp(self):
-        self.school_year = School_Year.objects.create(
+        self.school_year = SchoolYear.objects.create(
             name="2025", start_date=date(2025, 1, 1), end_date=date(2025, 12, 31),
         )
         self.academic_level = AcademicLevel.objects.create(name="Primaria")
+        self.academic_sublevel = AcademicSublevel.objects.create(
+            academic_level=self.academic_level, code="BASICA", name="Básica"
+        )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_level=self.academic_level, name="7", sequence_order=1,
+            academic_sublevel=self.academic_sublevel, name="7", sequence_order=1,
         )
         self.section = Section.objects.create(
             school_year=self.school_year, academic_grade=self.academic_grade,
@@ -48,8 +51,7 @@ class StudentsRepositoryTest(TestCase):
     # --- StudentRepository ---
 
     def test_student_create(self):
-        from apps.accounts.models import Person
-        from apps.institutions.models import DocumentType
+        from apps.people.models import DocumentType
         doc_type = DocumentType.objects.get_or_create(
             code="CC", defaults={"name": "Cédula de Ciudadanía"},
         )[0]
@@ -119,28 +121,28 @@ class StudentsRepositoryTest(TestCase):
         self.assertTrue(obj.is_primary)
 
     def test_representative_get_by_id(self):
-        rep = Student_Representative.objects.create(
+        rep = StudentRepresentative.objects.create(
             student=self.student, person=self.user.person, kinship="Padre",
         )
         result = StudentRepresentativeRepository.get_by_id(rep.pk)
         self.assertEqual(result.kinship, "Padre")
 
     def test_representative_get_by_student(self):
-        Student_Representative.objects.create(
+        StudentRepresentative.objects.create(
             student=self.student, person=self.user.person, kinship="Padre",
         )
         results = StudentRepresentativeRepository.get_by_student(self.student.pk)
         self.assertEqual(results.count(), 1)
 
     def test_representative_get_by_person(self):
-        Student_Representative.objects.create(
+        StudentRepresentative.objects.create(
             student=self.student, person=self.user.person, kinship="Padre",
         )
         results = StudentRepresentativeRepository.get_by_person(self.user.person.pk)
         self.assertEqual(results.count(), 1)
 
     def test_representative_get_relationship(self):
-        Student_Representative.objects.create(
+        StudentRepresentative.objects.create(
             student=self.student, person=self.user.person, kinship="Padre",
         )
         result = StudentRepresentativeRepository.get_relationship(
@@ -153,12 +155,12 @@ class StudentsRepositoryTest(TestCase):
         self.assertIsNone(result)
 
     def test_representative_delete(self):
-        rep = Student_Representative.objects.create(
+        rep = StudentRepresentative.objects.create(
             student=self.student, person=self.user.person, kinship="Madre",
         )
         pk = rep.pk
         StudentRepresentativeRepository.delete(pk)
-        self.assertFalse(Student_Representative.objects.filter(pk=pk).exists())
+        self.assertFalse(StudentRepresentative.objects.filter(pk=pk).exists())
 
     # --- EnrollmentRepository (standalone staticmethods) ---
 

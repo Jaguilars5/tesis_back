@@ -1,17 +1,11 @@
 from django.db import models
+from apps.core.models import TimeStampedModel
 
 
-class Subject(models.Model):
+class Subject(TimeStampedModel):
     name = models.CharField(max_length=255, verbose_name="Nombre de la Materia")
     code = models.CharField(max_length=100, unique=True, verbose_name="Código")
-    active = models.BooleanField(default=True, verbose_name="Activo")
-    created_at = models.DateTimeField(
-        auto_now_add=True, verbose_name="Fecha de Creación"
-    )
-    updated_at = models.DateTimeField(
-        auto_now=True, verbose_name="Fecha de Actualización"
-    )
-
+    is_active = models.BooleanField(default=True, verbose_name="Activo")
     class Meta:
         app_label = "academic"
         verbose_name = "Materia"

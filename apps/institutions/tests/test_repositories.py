@@ -3,7 +3,7 @@ Tests de capa de Repositorios para el módulo institutions.
 """
 
 from django.test import TestCase
-from apps.institutions.models import School_Year, AcademicLevel, AcademicGrade, Section
+from apps.institutions.models import SchoolYear, AcademicLevel, AcademicSublevel, AcademicGrade, Section
 from apps.institutions.repositories.section_repository import SectionRepository
 from apps.institutions.repositories.institution_repo import SchoolYearRepository
 
@@ -12,11 +12,11 @@ class SchoolYearRepositoryTest(TestCase):
     """Tests para SchoolYearRepository."""
 
     def setUp(self):
-        self.school_year = School_Year.objects.create(
+        self.school_year = SchoolYear.objects.create(
             name="2024-2025",
             start_date="2024-09-01",
             end_date="2025-07-31",
-            active=True,
+            is_active=True,
         )
 
     def test_get_by_id_exists(self):
@@ -36,7 +36,7 @@ class SchoolYearRepositoryTest(TestCase):
             name="2025-2026",
             start_date="2025-09-01",
             end_date="2026-07-31",
-            active=True,
+            is_active=True,
         )
         self.assertEqual(sy.name, "2025-2026")
 
@@ -50,7 +50,7 @@ class SchoolYearRepositoryTest(TestCase):
     def test_delete_hard_delete(self):
         sid = self.school_year.id
         SchoolYearRepository.delete(sid)
-        self.assertFalse(School_Year.objects.filter(id=sid).exists())
+        self.assertFalse(SchoolYear.objects.filter(id=sid).exists())
 
     def test_exists(self):
         self.assertTrue(SchoolYearRepository.exists(id=self.school_year.id))
@@ -61,29 +61,35 @@ class SectionRepositoryTest(TestCase):
     """Tests para SectionRepository."""
 
     def setUp(self):
-        self.school_year = School_Year.objects.create(
+        self.school_year = SchoolYear.objects.create(
             name="2024-2025",
             start_date="2024-09-01",
             end_date="2025-07-31",
-            active=True,
+            is_active=True,
         )
-        self.academic_level = AcademicLevel.objects.create(name="EGB")
+        self.academic_level = AcademicLevel.objects.create(name="EGB", code="EGB")
+        self.academic_sublevel = AcademicSublevel.objects.create(
+            academic_level=self.academic_level, code="BASICA", name="Básica"
+        )
         self.grade = AcademicGrade.objects.create(
-            academic_level=self.academic_level,
+            academic_sublevel=self.academic_sublevel,
             name="8vo",
             sequence_order=8,
+            code="8VO",
         )
         self.section_a = Section.objects.create(
             school_year=self.school_year,
             academic_grade=self.grade,
             parallel="A",
             capacity=30,
+            code="SEC_A",
         )
         self.section_b = Section.objects.create(
             school_year=self.school_year,
             academic_grade=self.grade,
             parallel="B",
             capacity=25,
+            code="SEC_B",
         )
 
     def test_get_all(self):
@@ -91,7 +97,7 @@ class SectionRepositoryTest(TestCase):
         self.assertEqual(result.count(), 2)
 
     def test_get_all_active_only(self):
-        self.section_b.active = False
+        self.section_b.is_active = False
         self.section_b.save()
         result = SectionRepository.get_all(active_only=True)
         self.assertEqual(result.count(), 1)
@@ -101,11 +107,11 @@ class SectionRepositoryTest(TestCase):
         self.assertEqual(result.count(), 2)
 
     def test_get_by_school_year_empty(self):
-        new_sy = School_Year.objects.create(
+        new_sy = SchoolYear.objects.create(
             name="2025-2026",
             start_date="2025-09-01",
             end_date="2026-07-31",
-            active=True,
+            is_active=True,
         )
         result = SectionRepository.get_by_school_year(new_sy.id)
         self.assertEqual(result.count(), 0)
@@ -115,10 +121,14 @@ class SectionRepositoryTest(TestCase):
         self.assertEqual(result.count(), 2)
 
     def test_get_by_grade_empty(self):
+        new_sublevel = AcademicSublevel.objects.create(
+            academic_level=self.academic_level, code="SUPERIOR", name="Superior"
+        )
         new_grade = AcademicGrade.objects.create(
-            academic_level=self.academic_level,
+            academic_sublevel=new_sublevel,
             name="9no",
             sequence_order=9,
+            code="9NO",
         )
         result = SectionRepository.get_by_grade(new_grade.id)
         self.assertEqual(result.count(), 0)
@@ -137,6 +147,7 @@ class SectionRepositoryTest(TestCase):
             academic_grade=self.grade,
             parallel="C",
             capacity=28,
+            code="SEC_C",
         )
         self.assertEqual(section.parallel, "C")
 
@@ -152,4 +163,4 @@ class SectionRepositoryTest(TestCase):
     def test_delete_soft_delete(self):
         sid = self.section_a.id
         SectionRepository.delete(sid)
-        self.assertFalse(Section.objects.filter(id=sid, active=True).exists())
+        self.assertFalse(Section.objects.filter(id=sid, is_active=True).exists())

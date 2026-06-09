@@ -1,10 +1,11 @@
 from apps.core.repositories.base import BaseRepository
 from ..models import (
-    Academic_Period,
+    AcademicPeriod,
+    PeriodType,
     Subject,
     SubjectAcademicConfig,
     SubjectOffering,
-    Teacher_Subject_Section,
+    TeacherSubjectSection,
 )
 
 
@@ -18,7 +19,7 @@ class SubjectRepository(BaseRepository):
 
 
 class AcademicPeriodRepository(BaseRepository):
-    model = Academic_Period
+    model = AcademicPeriod
 
     @classmethod
     def get_all(cls, active_only=True):
@@ -33,7 +34,7 @@ class AcademicPeriodRepository(BaseRepository):
 
 
 class TeacherSubjectSectionRepository(BaseRepository):
-    model = Teacher_Subject_Section
+    model = TeacherSubjectSection
 
     @classmethod
     def get_all(cls, active_only=True):
@@ -85,6 +86,15 @@ class SubjectAcademicConfigRepository(BaseRepository):
         return cls.model.objects.filter(
             academic_grade_id=academic_grade_id
         ).select_related("subject", "academic_grade")
+
+
+class PeriodTypeRepository(BaseRepository):
+    model = PeriodType
+
+    @classmethod
+    def get_all(cls, active_only=True):
+        queryset = super().get_all(active_only=active_only)
+        return queryset.order_by("name")
 
 
 class SubjectOfferingRepository(BaseRepository):

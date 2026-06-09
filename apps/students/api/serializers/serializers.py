@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from ...models import Enrollment, EnrollmentStatus, Student, Student_Representative
+from ...models import Enrollment, EnrollmentStatus, Student, StudentRepresentative
 
 
 class StudentSerializer(serializers.ModelSerializer):
@@ -14,7 +14,7 @@ class StudentSerializer(serializers.ModelSerializer):
             "student_code",
             "full_name",
             "age",
-            "active",
+            "is_active",
             "created_at",
         ]
         read_only_fields = ["id", "created_at", "full_name", "age"]
@@ -33,7 +33,7 @@ class StudentRepresentativeSerializer(serializers.ModelSerializer):
     person_names = serializers.CharField(source="person.get_full_name", read_only=True)
 
     class Meta:
-        model = Student_Representative
+        model = StudentRepresentative
         fields = [
             "id",
             "student",

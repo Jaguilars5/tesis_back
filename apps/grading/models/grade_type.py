@@ -1,15 +1,15 @@
 from django.db import models
+from apps.core.models import TimeStampedModel
 
 
-class GradeType(models.Model):
+class GradeType(TimeStampedModel):
     code = models.CharField(max_length=20, unique=True, verbose_name="Código")
     name = models.CharField(max_length=100, verbose_name="Nombre")
-    applies_to_sublevel = models.CharField(
-        max_length=100,
-        null=True,
-        blank=True,
-        verbose_name="Aplica a Subnivel",
-        help_text="Subnivel(es) al que aplica esta calificación (ej: MEDIA,SUPERIOR,BACHILLERATO)",
+    description = models.TextField(blank=True, verbose_name="Descripción")
+    is_active = models.BooleanField(default=True, verbose_name="Activo")
+    applicable_sublevels = models.ManyToManyField(
+        "institutions.AcademicSublevel", blank=True, related_name="grade_types",
+        verbose_name="Sublevels Aplicables",
     )
 
     class Meta:

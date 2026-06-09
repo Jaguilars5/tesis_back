@@ -1,6 +1,5 @@
 from datetime import date
 from django.db import transaction
-from ..models import School_Year
 from ..repositories.institution_repo import SchoolYearRepository
 
 
@@ -16,18 +15,14 @@ class InstitutionService:
         if start_date >= end_date:
             raise ValueError("Fecha de inicio debe ser anterior a fecha de cierre")
 
-        existing = School_Year.objects.filter(
-            start_date__lte=end_date, end_date__gte=start_date
-        ).exists()
-        if existing:
+        if SchoolYearRepository.has_overlap(start_date, end_date):
             raise ValueError("Conflicto de fechas con otro año escolar")
 
-        school_year = School_Year(
+        school_year = SchoolYearRepository.create(
             name=name,
             start_date=start_date,
             end_date=end_date,
         )
-        school_year.save()
         return school_year
 
     @staticmethod
@@ -39,19 +34,11 @@ class InstitutionService:
 
     @staticmethod
     def list_school_years(active_only=True):
-        query = School_Year.objects.all()
-        if active_only:
-            query = query.filter(active=True)
-        return query.order_by("-start_date")
+        return SchoolYearRepository.get_all(active_only=active_only)
 
     @staticmethod
     def get_current_school_year():
-        today = date.today()
-        school_year = School_Year.objects.filter(
-            start_date__lte=today,
-            end_date__gte=today,
-            active=True,
-        ).first()
+        school_year = SchoolYearRepository.get_current()
         if not school_year:
             raise ValueError("No hay año escolar activo")
         return school_year
@@ -73,6 +60,6 @@ class InstitutionService:
     @staticmethod
     def deactivate_school_year(school_year_id):
         school_year = InstitutionService.get_school_year(school_year_id)
-        school_year.active = False
+        school_year.is_active = False
         school_year.save()
         return school_year

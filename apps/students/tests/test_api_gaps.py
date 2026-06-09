@@ -12,12 +12,13 @@ from rest_framework.test import APIClient
 from rest_framework import status
 from datetime import date
 
-from apps.accounts.models import Person, Role, User, Permission, UserRole, RolePermission
+from apps.people.models import Person
+from apps.iam.models import Role, User, Permission, UserRole, RolePermission
 from apps.core.tests.helpers import create_test_user, create_test_student
 from apps.core.constants.permissions import students
 
-from apps.students.models import Student, Student_Representative, Enrollment, EnrollmentStatus
-from apps.institutions.models import School_Year, AcademicGrade, AcademicLevel, Section
+from apps.students.models import Student, StudentRepresentative, Enrollment, EnrollmentStatus
+from apps.institutions.models import SchoolYear, AcademicGrade, AcademicLevel, AcademicSublevel, Section
 from apps.students.services.enrollment_service import EnrollmentService
 
 
@@ -27,14 +28,17 @@ class StudentsSecurityAndAPITest(TestCase):
     def setUp(self):
         self.client = APIClient()
 
-        self.school_year = School_Year.objects.create(
+        self.school_year = SchoolYear.objects.create(
             name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
         self.level = AcademicLevel.objects.create(name="Primaria")
+        self.sublevel = AcademicSublevel.objects.create(
+            academic_level=self.level, code="BASICA", name="Básica"
+        )
         self.grade = AcademicGrade.objects.create(
-            academic_level=self.level, name="6to", sequence_order=6
+            academic_sublevel=self.sublevel, name="6to", sequence_order=6
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
@@ -92,8 +96,8 @@ class StudentsSecurityAndAPITest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         # DRF ViewSet list no está envuelto por BaseViewSet sino normal
         # Pero tiene la paginación global activada, por lo que StandardResultsSetPagination envuelve la respuesta
-        self.assertTrue(response.data["ok"])
-        results = response.data["data"]["results"]
+        self.assertTrue(response.json()["ok"])
+        results = response.json()["data"]["results"]
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["student_code"], self.student.student_code)
 
@@ -115,7 +119,7 @@ class StudentsSecurityAndAPITest(TestCase):
         }
         response = self.client.post("/api/students/enrollments/", data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        enrollment_id = response.data["data"]["id"]
+        enrollment_id = response.json()["data"]["id"]
 
         # 2. Consultar por sección
         response_sec = self.client.get(f"/api/students/enrollments/by-section/?section_id={self.section.id}")
@@ -158,7 +162,7 @@ class StudentsSecurityAndAPITest(TestCase):
         self.client.force_authenticate(user=admin)
 
         # Crear representante persona
-        from apps.institutions.models import DocumentType
+        from apps.people.models import DocumentType
         doc_type, _ = DocumentType.objects.get_or_create(code="CC", defaults={"name": "Cedula"})
         representante = Person.objects.create(
             document_type=doc_type,
@@ -177,7 +181,7 @@ class StudentsSecurityAndAPITest(TestCase):
         }
         response = self.client.post("/api/students/student-representative/", data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        rel_id = response.data["data"]["id"]
+        rel_id = response.json()["data"]["id"]
 
         # 2. Cambiar Principal
         other_rep = Person.objects.create(
@@ -203,12 +207,12 @@ class StudentsSecurityAndAPITest(TestCase):
         self.assertEqual(response_primary.status_code, status.HTTP_200_OK)
         
         # Verificar cambio en BD
-        rel1 = Student_Representative.objects.get(student=self.student, person=representante)
-        rel2 = Student_Representative.objects.get(student=self.student, person=other_rep)
+        rel1 = StudentRepresentative.objects.get(student=self.student, person=representante)
+        rel2 = StudentRepresentative.objects.get(student=self.student, person=other_rep)
         self.assertFalse(rel1.is_primary)
         self.assertTrue(rel2.is_primary)
 
         # 3. Desasignar Representante (unlink)
         response_unlink = self.client.delete(f"/api/students/student-representative/{rel_id}/unlink/")
         self.assertEqual(response_unlink.status_code, status.HTTP_200_OK)
-        self.assertFalse(Student_Representative.objects.filter(id=rel_id).exists())
+        self.assertFalse(StudentRepresentative.objects.filter(id=rel_id).exists())

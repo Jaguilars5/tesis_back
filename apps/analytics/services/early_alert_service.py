@@ -56,7 +56,7 @@ class EarlyAlertService:
             alerts.append(alert)
 
         # Regla 3: Incidentes de conducta graves
-        from apps.attendance.repositories.conduct_incident_repository import (
+        from apps.behavior.repositories.conduct_incident_repository import (
             ConductIncidentRepository,
         )
         severe = ConductIncidentRepository.get_severe_by_enrollment(

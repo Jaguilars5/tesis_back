@@ -1,10 +1,11 @@
 from django.db import models
 from django.utils import timezone
+from apps.core.models import TimeStampedModel
 
 
-class Person(models.Model):
+class Person(TimeStampedModel):
     document_type = models.ForeignKey(
-        "catalogs.DocumentType",
+        "people.DocumentType",
         on_delete=models.PROTECT,
         verbose_name="Tipo de Documento",
         null=True,
@@ -19,14 +20,7 @@ class Person(models.Model):
     )
     email = models.EmailField(blank=True, verbose_name="Correo Electrónico")
     phone = models.CharField(max_length=15, blank=True, verbose_name="Teléfono")
-    active = models.BooleanField(default=True, verbose_name="Activo")
-    created_at = models.DateTimeField(
-        auto_now_add=True, verbose_name="Fecha de Creación"
-    )
-    updated_at = models.DateTimeField(
-        auto_now=True, verbose_name="Fecha de Actualización"
-    )
-
+    is_active = models.BooleanField(default=True, verbose_name="Activo")
     class Meta:
         app_label = "people"
         verbose_name = "Persona"
@@ -34,7 +28,7 @@ class Person(models.Model):
         ordering = ["last_names", "names"]
         indexes = [
             models.Index(fields=["document_number"]),
-            models.Index(fields=["active"]),
+            models.Index(fields=["is_active"]),
         ]
 
     def __str__(self):

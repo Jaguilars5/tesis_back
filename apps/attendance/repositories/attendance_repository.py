@@ -33,9 +33,9 @@ class AttendanceRepository(BaseRepository):
             academic_period_id=academic_period_id,
         ).aggregate(
             total=Count("id"),
-            justified=Count("id", filter=Q(absence_type="justified")),
-            unjustified=Count("id", filter=Q(absence_type="unjustified")),
-            late=Count("id", filter=Q(absence_type="late")),
+            justified=Count("id", filter=Q(absence_type__code="justified")),
+            unjustified=Count("id", filter=Q(absence_type__code="unjustified")),
+            late=Count("id", filter=Q(absence_type__code="late")),
         )
 
     @classmethod

@@ -11,11 +11,10 @@ students/
 │   ├── views.py          # ViewSets estándar
 │   └── urls.py           # Registro de rutas vía DefaultRouter
 ├── models/               # Capa de Datos (Entidades)
-│   ├── student.py            # Entidad Estudiante
-│   ├── enrollment.py         # Matrícula
-│   ├── enrollment_status.py  # Catálogo de estados
+│   ├── student.py                # Entidad Estudiante
 │   ├── student_representative.py # Relación estudiante-representante
-│   └── representative.py     # Legacy (managed=False)
+│   ├── enrollment.py             # Matrícula
+│   └── enrollment_status.py      # Catálogo de estados
 ├── repositories/         # Capa de Persistencia (Queries)
 │   └── students_repo.py  # Queries especializadas
 ├── services/             # Capa de Negocio (Orquestación)
@@ -34,7 +33,7 @@ Catálogo de estados de matrícula (Activo, Retirado, Suspendido, etc.)
 ### Enrollment
 Vinculación de un estudiante a una sección para un año escolar. Incluye campos de sync para operación offline.
 
-### Student_Representative
+### StudentRepresentative
 Vinculación entre estudiante y representante legal. Define parentesco y niveles de autorización.
 
 **Modelo Legacy** (managed=False, no usar):
@@ -46,7 +45,7 @@ Para mantener el desacoplamiento, siga este flujo de llamadas:
 `API View` → `Service` → `Repository` → `Model`
 
 > [!IMPORTANT]
-> **Nunca** manipule directamente la tabla `Student_Representative` desde las vistas. Utilice siempre `StudentService.assign_representative`.
+> **Nunca** manipule directamente la tabla `StudentRepresentative` desde las vistas. Utilice siempre `StudentService.assign_representative`.
 
 ## Guía de Importación
 
@@ -56,7 +55,7 @@ Para mantener el desacoplamiento, siga este flujo de llamadas:
 from apps.students.services.students_service import StudentService
 
 # Importar modelos
-from apps.students.models import Student, Enrollment, Student_Representative
+from apps.students.models import Student, Enrollment, StudentRepresentative
 
 # Importar repositorios
 from apps.students.repositories.students_repo import StudentRepository

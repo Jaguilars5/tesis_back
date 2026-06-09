@@ -41,10 +41,11 @@ analytics/
     ├── test_models.py
     ├── test_services.py
     ├── test_api.py
+    ├── test_api_gaps.py
+    ├── test_api_permissions.py
     ├── test_viewsets.py
     ├── test_risk_model.py
-    ├── test_risk_factors.py
-    └── test_api_gaps.py
+    └── test_repositories.py
 ```
 
 ## Modelos de Datos

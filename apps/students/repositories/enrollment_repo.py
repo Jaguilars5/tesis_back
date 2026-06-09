@@ -1,47 +1,50 @@
 from django.db import models
+from apps.core.repositories.base import BaseRepository
 from ..models import Enrollment
 
 
-class EnrollmentRepository:
-    @staticmethod
-    def get_active_by_student(student):
-        return Enrollment.objects.filter(
+class EnrollmentRepository(BaseRepository):
+    model = Enrollment
+
+    @classmethod
+    def get_active_by_student(cls, student):
+        return cls.model.objects.filter(
             student=student,
             enrollment_status__code="ACT",
         ).select_related("section", "enrollment_status").first()
 
-    @staticmethod
-    def get_by_section(section, status_code=None):
-        qs = Enrollment.objects.filter(section=section).select_related(
+    @classmethod
+    def get_by_section(cls, section, status_code=None):
+        qs = cls.model.objects.filter(section=section).select_related(
             "student__person", "enrollment_status"
         )
         if status_code:
             qs = qs.filter(enrollment_status__code=status_code)
         return qs
 
-    @staticmethod
-    def get_by_school_year(school_year):
-        return Enrollment.objects.filter(
+    @classmethod
+    def get_by_school_year(cls, school_year):
+        return cls.model.objects.filter(
             section__school_year=school_year
         ).select_related("student__person", "section", "enrollment_status")
 
-    @staticmethod
-    def get_students_by_section(section, status_code="ACT"):
-        return Enrollment.objects.filter(
+    @classmethod
+    def get_students_by_section(cls, section, status_code="ACT"):
+        return cls.model.objects.filter(
             section=section,
             enrollment_status__code=status_code,
         ).select_related("student__person")
 
-    @staticmethod
-    def count_active_in_section(section):
-        return Enrollment.objects.filter(
+    @classmethod
+    def count_active_in_section(cls, section):
+        return cls.model.objects.filter(
             section=section,
             enrollment_status__code="ACT",
         ).count()
 
-    @staticmethod
-    def has_active_enrollment(student):
-        return Enrollment.objects.filter(
+    @classmethod
+    def has_active_enrollment(cls, student):
+        return cls.model.objects.filter(
             student=student,
             enrollment_status__code="ACT",
         ).exists()

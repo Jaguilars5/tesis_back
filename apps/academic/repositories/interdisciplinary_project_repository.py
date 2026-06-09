@@ -14,7 +14,7 @@ class InterdisciplinaryProjectRepository(BaseRepository):
     def get_active_by_period(cls, academic_period_id):
         return cls.model.objects.filter(
             academic_period_id=academic_period_id,
-            active=True,
+            is_active=True,
         ).prefetch_related("subject_projects__subject_offering")
 
 

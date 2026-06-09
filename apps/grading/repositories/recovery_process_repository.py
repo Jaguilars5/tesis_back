@@ -6,6 +6,11 @@ class RecoveryProcessRepository(BaseRepository):
     model = RecoveryProcess
 
     @classmethod
+    def get_all(cls, active_only=True):
+        queryset = super().get_all(active_only=active_only)
+        return queryset.order_by("-start_date")
+
+    @classmethod
     def get_active_by_enrollment(cls, enrollment_id):
         return cls.model.objects.filter(
             period_grade_summary__enrollment_id=enrollment_id,

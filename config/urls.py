@@ -13,27 +13,34 @@ from drf_spectacular.views import (
 )
 
 API_MODULES = [
-    "accounts",
+    "iam",
     "academic",
     "institutions",
     "grading",
     "students",
     "analytics",
     "attendance",
-    "core",
+    "behavior",
+    "configuration",
+    "integration",
+    "people",
 ]
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     # API Routes
-    path("api/accounts/", include("apps.accounts.urls")),
+    path("api/iam/", include("apps.iam.urls")),
     path("api/academic/", include("apps.academic.urls")),
     path("api/institutions/", include("apps.institutions.urls")),
     path("api/grading/", include("apps.grading.urls")),
     path("api/students/", include("apps.students.urls")),
     path("api/analytics/", include("apps.analytics.urls")),
     path("api/attendance/", include("apps.attendance.urls")),
-    path("api/core/", include("apps.core.urls")),
+    path("api/behavior/", include("apps.behavior.urls")),
+    path("api/people/", include("apps.people.urls")),
+
+    path("api/configuration/", include("apps.configuration.urls")),
+    path("api/integration/", include("apps.integration.urls")),
     # OpenAPI Schema completo (público)
     path(
         "api/schema/",

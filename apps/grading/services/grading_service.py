@@ -12,12 +12,11 @@ from django.db import transaction
 from django.db import models
 
 from ..models import StudentNote
-from apps.attendance.models import Attendance, ConductIncident
-from ..repositories import (
-    AttendanceRepository,
-    ConductIncidentRepository,
-    StudentNoteRepository,
-)
+from apps.attendance.models import Attendance
+from apps.behavior.models import ConductIncident
+from apps.attendance.repositories import AttendanceRepository
+from apps.behavior.repositories import ConductIncidentRepository
+from ..repositories import StudentNoteRepository
 
 
 class GradingService:

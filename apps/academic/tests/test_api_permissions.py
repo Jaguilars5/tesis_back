@@ -4,7 +4,7 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from apps.accounts.models import Permission, Role, RolePermission, UserRole
+from apps.iam.models import Permission, Role, RolePermission, UserRole
 from apps.core.constants.permissions import academic as perms
 from apps.core.tests.helpers import create_test_user
 
@@ -21,7 +21,7 @@ class AcademicPermissionsTest(TestCase):
         )
         self.user_with_perm = create_test_user(
             email="with_perm_acad@test.com", dni="2000000002",
-            names="With", last_names="Perm", user_type="ADMIN",
+            names="With", last_names="Perm",
         )
         self.superuser = create_test_user(
             email="admin_acad@test.com", dni="2000000000",
@@ -29,11 +29,14 @@ class AcademicPermissionsTest(TestCase):
         )
 
         perm_codes = [
-            perms.VIEW_SECTION, perms.CREATE_SECTION, perms.UPDATE_SECTION, perms.DELETE_SECTION,
             perms.VIEW_SUBJECT, perms.CREATE_SUBJECT, perms.UPDATE_SUBJECT, perms.DELETE_SUBJECT,
             perms.VIEW_PERIOD, perms.CREATE_PERIOD, perms.UPDATE_PERIOD, perms.DELETE_PERIOD,
+            perms.VIEW_PERIOD_TYPE, perms.CREATE_PERIOD_TYPE, perms.UPDATE_PERIOD_TYPE, perms.DELETE_PERIOD_TYPE,
             perms.VIEW_TEACHER_SUBJECT, perms.CREATE_TEACHER_SUBJECT, perms.UPDATE_TEACHER_SUBJECT, perms.DELETE_TEACHER_SUBJECT,
-            perms.VIEW_CONFIG, perms.CREATE_CONFIG, perms.UPDATE_CONFIG, perms.DELETE_CONFIG,
+            perms.VIEW_SUBJECT_CONFIG, perms.CREATE_SUBJECT_CONFIG, perms.UPDATE_SUBJECT_CONFIG, perms.DELETE_SUBJECT_CONFIG,
+            perms.VIEW_SUBJECT_OFFERING, perms.CREATE_SUBJECT_OFFERING, perms.UPDATE_SUBJECT_OFFERING, perms.DELETE_SUBJECT_OFFERING,
+            perms.VIEW_INTERDISCIPLINARY_PROJECT, perms.CREATE_INTERDISCIPLINARY_PROJECT, perms.UPDATE_INTERDISCIPLINARY_PROJECT, perms.DELETE_INTERDISCIPLINARY_PROJECT,
+            perms.VIEW_SUBJECT_PROJECT, perms.CREATE_SUBJECT_PROJECT, perms.UPDATE_SUBJECT_PROJECT, perms.DELETE_SUBJECT_PROJECT,
         ]
         role = Role.objects.create(name="Academic Test Role")
         for code in perm_codes:
@@ -101,6 +104,14 @@ class AcademicPermissionsTest(TestCase):
 
     # --- SubjectProjectViewSet ---
     def test_subj_project_list(self):    self._test_401_403("/api/academic/subject-projects/")
+    def test_subj_project_create(self):  self._test_401_403("/api/academic/subject-projects/", "post", {"interdisciplinary_project": 1, "subject_offering": 1})
     def test_subj_project_detail(self):  self._test_401_403("/api/academic/subject-projects/999/")
     def test_subj_project_list_auth(self):    self._test_auth("/api/academic/subject-projects/")
     def test_subj_project_superuser(self):    self._test_superuser("/api/academic/subject-projects/")
+
+    # --- PeriodTypeViewSet ---
+    def test_period_type_list(self):    self._test_401_403("/api/academic/period-types/")
+    def test_period_type_create(self):  self._test_401_403("/api/academic/period-types/", "post", {"code": "EXTRA", "name": "Extra"})
+    def test_period_type_detail(self):  self._test_401_403("/api/academic/period-types/999/")
+    def test_period_type_list_auth(self):    self._test_auth("/api/academic/period-types/")
+    def test_period_type_superuser(self):    self._test_superuser("/api/academic/period-types/")

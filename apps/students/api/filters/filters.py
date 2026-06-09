@@ -16,4 +16,4 @@ class StudentFilter(FilterSet):
 
     class Meta:
         model = Student
-        fields = ["active"]
+        fields = ["is_active"]

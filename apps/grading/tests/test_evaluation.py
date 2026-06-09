@@ -4,25 +4,25 @@ from decimal import Decimal
 from django.test import TestCase
 
 from apps.academic.models import (
-    Academic_Period,
+    AcademicPeriod,
     Subject,
     SubjectAcademicConfig,
     SubjectOffering,
-    Teacher_Subject_Section,
+    TeacherSubjectSection,
 )
-from apps.accounts.models import Role
+from apps.iam.models import Role
 from apps.core.tests.helpers import create_test_user, create_test_student
+from apps.grading.models import GradeType, EvaluationType, ActivityType
 from apps.grading.models import (
     BlockComponent,
     ComponentIndicator,
     EvaluationBlock,
     EvaluativeActivity,
     GradeChangeHistory,
-    GradeType,
     StudentNote,
 )
 from apps.grading.services.evaluation_service import EvaluationService
-from apps.institutions.models import AcademicGrade, AcademicLevel, School_Year, Section
+from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSublevel, SchoolYear, Section
 from apps.students.models import Enrollment, EnrollmentStatus
 
 
@@ -30,12 +30,12 @@ class EvaluationHierarchyTest(TestCase):
     """Tests para la jerarquía EvaluationBlock > BlockComponent > ComponentIndicator > EvaluativeActivity."""
 
     def setUp(self):
-        school_year = School_Year.objects.create(
+        school_year = SchoolYear.objects.create(
             name="2025",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 12, 31),
         )
-        self.period = Academic_Period.objects.create(
+        self.period = AcademicPeriod.objects.create(
             school_year=school_year,
             name="P1",
             start_date=date(2025, 1, 1),
@@ -49,8 +49,11 @@ class EvaluationHierarchyTest(TestCase):
             last_names="Perez",
         )
         academic_level = AcademicLevel.objects.create(name="Primaria")
+        academic_sublevel = AcademicSublevel.objects.create(
+            academic_level=academic_level, code="BASICA", name="Básica"
+        )
         academic_grade = AcademicGrade.objects.create(
-            academic_level=academic_level, name="7", sequence_order=1,
+            academic_sublevel=academic_sublevel, name="7", sequence_order=1,
         )
         self.section = Section.objects.create(
             school_year=school_year,
@@ -65,7 +68,7 @@ class EvaluationHierarchyTest(TestCase):
             school_year=school_year, section=self.section,
             subject_academic_config=subj_config,
         )
-        self.teacher_subject_section = Teacher_Subject_Section.objects.create(
+        self.teacher_subject_section = TeacherSubjectSection.objects.create(
             user=self.user, subject_offering=offering,
         )
         self.student = create_test_student(
@@ -82,11 +85,24 @@ class EvaluationHierarchyTest(TestCase):
             enrollment_status=self.status,
         )
 
+        self.eval_type_for = EvaluationType.objects.create(
+            code="FORMATIVA", name="Formativa"
+        )
+        self.eval_type_sum = EvaluationType.objects.create(
+            code="SUMATIVA", name="Sumativa"
+        )
+        self.activity_type_examen = ActivityType.objects.create(
+            code="EXAMEN", name="Examen"
+        )
+        self.activity_type_tarea = ActivityType.objects.create(
+            code="TAREA", name="Tarea"
+        )
+
     def _create_full_hierarchy(self):
         block = EvaluationBlock.objects.create(
             academic_period=self.period,
             name="Bloque 1",
-            evaluation_type="FORMATIVA",
+            evaluation_type=self.eval_type_for,
             weight_percentage=Decimal("100.00"),
         )
         component = BlockComponent.objects.create(
@@ -103,7 +119,7 @@ class EvaluationHierarchyTest(TestCase):
             component_indicator=indicator,
             teacher_subject_section=self.teacher_subject_section,
             title="Examen",
-            activity_type="EXAMEN",
+            activity_type=self.activity_type_examen,
             max_score=Decimal("20"),
             due_date=date(2025, 2, 1),
         )
@@ -113,18 +129,18 @@ class EvaluationHierarchyTest(TestCase):
         block = EvaluationBlock.objects.create(
             academic_period=self.period,
             name="Bloque 1",
-            evaluation_type="FORMATIVA",
+            evaluation_type=self.eval_type_for,
             weight_percentage=Decimal("50.00"),
         )
         self.assertEqual(block.name, "Bloque 1")
         self.assertEqual(block.weight_percentage, Decimal("50.00"))
-        self.assertEqual(block.evaluation_type, "FORMATIVA")
+        self.assertEqual(block.evaluation_type, self.eval_type_for)
 
     def test_create_block_component(self):
         block = EvaluationBlock.objects.create(
             academic_period=self.period,
             name="Bloque 1",
-            evaluation_type="SUMATIVA",
+            evaluation_type=self.eval_type_sum,
             weight_percentage=Decimal("100.00"),
         )
         component = BlockComponent.objects.create(
@@ -139,7 +155,7 @@ class EvaluationHierarchyTest(TestCase):
     def test_create_component_indicator(self):
         block = EvaluationBlock.objects.create(
             academic_period=self.period, name="Bloque 1",
-            evaluation_type="FORMATIVA", weight_percentage=Decimal("100.00"),
+            evaluation_type=self.eval_type_for, weight_percentage=Decimal("100.00"),
         )
         component = BlockComponent.objects.create(
             evaluation_block=block, name="Componente 1",
@@ -158,7 +174,7 @@ class EvaluationHierarchyTest(TestCase):
         self.assertEqual(activity.title, "Examen")
         self.assertEqual(activity.max_score, Decimal("20"))
         self.assertEqual(activity.component_indicator, indicator)
-        self.assertEqual(activity.activity_type, "EXAMEN")
+        self.assertEqual(activity.activity_type, self.activity_type_examen)
 
     def test_grade_change_history_creation(self):
         block, component, indicator, activity = self._create_full_hierarchy()
@@ -188,12 +204,12 @@ class EvaluationServiceTest(TestCase):
     """Tests para EvaluationService."""
 
     def setUp(self):
-        school_year = School_Year.objects.create(
+        school_year = SchoolYear.objects.create(
             name="2025",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 12, 31),
         )
-        self.period = Academic_Period.objects.create(
+        self.period = AcademicPeriod.objects.create(
             school_year=school_year,
             name="P1",
             start_date=date(2025, 1, 1),
@@ -207,8 +223,11 @@ class EvaluationServiceTest(TestCase):
             last_names="Perez",
         )
         academic_level = AcademicLevel.objects.create(name="Primaria")
+        academic_sublevel = AcademicSublevel.objects.create(
+            academic_level=academic_level, code="BASICA", name="Básica"
+        )
         academic_grade = AcademicGrade.objects.create(
-            academic_level=academic_level, name="7", sequence_order=1,
+            academic_sublevel=academic_sublevel, name="7", sequence_order=1,
         )
         self.section = Section.objects.create(
             school_year=school_year,
@@ -223,7 +242,7 @@ class EvaluationServiceTest(TestCase):
             school_year=school_year, section=self.section,
             subject_academic_config=subj_config,
         )
-        self.teacher_subject_section = Teacher_Subject_Section.objects.create(
+        self.teacher_subject_section = TeacherSubjectSection.objects.create(
             user=self.user, subject_offering=offering,
         )
         self.student = create_test_student(
@@ -240,10 +259,20 @@ class EvaluationServiceTest(TestCase):
             enrollment_status=self.status,
         )
 
+        self.eval_type_for = EvaluationType.objects.create(
+            code="FORMATIVA", name="Formativa"
+        )
+        self.activity_type_examen = ActivityType.objects.create(
+            code="EXAMEN", name="Examen"
+        )
+        self.activity_type_tarea = ActivityType.objects.create(
+            code="TAREA", name="Tarea"
+        )
+
         self.block = EvaluationBlock.objects.create(
             academic_period=self.period,
             name="Bloque 1",
-            evaluation_type="FORMATIVA",
+            evaluation_type=self.eval_type_for,
             weight_percentage=Decimal("100.00"),
         )
         self.component = BlockComponent.objects.create(
@@ -260,7 +289,7 @@ class EvaluationServiceTest(TestCase):
             component_indicator=self.indicator,
             teacher_subject_section=self.teacher_subject_section,
             title="Examen",
-            activity_type="EXAMEN",
+            activity_type=self.activity_type_examen,
             max_score=Decimal("10"),
             due_date=date(2025, 2, 1),
         )
@@ -299,7 +328,7 @@ class EvaluationServiceTest(TestCase):
             component_indicator=indicator2,
             teacher_subject_section=self.teacher_subject_section,
             title="Tarea",
-            activity_type="TAREA",
+            activity_type=self.activity_type_tarea,
             max_score=Decimal("10"),
             due_date=date(2025, 2, 15),
         )
