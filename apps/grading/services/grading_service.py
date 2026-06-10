@@ -59,7 +59,7 @@ class GradingService:
         if existing:
             existing.numeric_score = numeric_score
             existing.teacher_observation = teacher_observation
-            existing.sync_status = "PENDIENTE"
+            existing.sync_status = "PENDING"
             existing.device_origin = device_origin
             if grade_type_id:
                 existing.grade_type_id = grade_type_id
@@ -76,8 +76,6 @@ class GradingService:
             grade_type_id=grade_type_id,
             qualitative_scale_id=qualitative_scale_id,
             teacher_observation=teacher_observation,
-            sync_status="PENDIENTE",
-            device_origin=device_origin,
         )
         note.full_clean()
         note.save()
@@ -261,6 +259,16 @@ class GradingService:
         """
         Registra un nuevo incidente de conducta.
         """
+        from apps.behavior.models import Severity
+        if isinstance(severity, int):
+            severity_obj = Severity.objects.filter(numeric_level=severity).first()
+            if not severity_obj:
+                severity_obj = Severity.objects.create(
+                    code=f"GRAVE_{severity}",
+                    name=f"Gravedad nivel {severity}",
+                    numeric_level=severity,
+                )
+            severity = severity_obj
         incident = ConductIncident(
             enrollment_id=enrollment_id,
             reported_by_user_id=reported_by_user_id,

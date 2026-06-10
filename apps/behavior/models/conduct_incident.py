@@ -1,10 +1,9 @@
-import uuid
 from django.db import models
 from apps.core.models import TimeStampedModel
+from apps.integration.models.syncable_mixin import SyncableModel
 
 
-class ConductIncident(TimeStampedModel):
-    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, verbose_name="UUID")
+class ConductIncident(TimeStampedModel, SyncableModel):
     enrollment = models.ForeignKey(
         "students.Enrollment",
         on_delete=models.CASCADE,
@@ -32,19 +31,37 @@ class ConductIncident(TimeStampedModel):
         null=True,
     )
     incident_date = models.DateField(verbose_name="Fecha del Incidente")
-    severity = models.IntegerField(verbose_name="Gravedad")
+    severity = models.ForeignKey(
+        "behavior.Severity",
+        on_delete=models.PROTECT,
+        verbose_name="Severidad",
+    )
     description = models.TextField(null=True, blank=True, verbose_name="Descripción")
     actions_taken = models.TextField(null=True, blank=True, verbose_name="Acciones tomadas")
     family_notified = models.BooleanField(default=False, verbose_name="Familia Notificada")
-    sync_status = models.CharField(max_length=20, default="pending", verbose_name="Estado de Sincronización")
-    synced_at = models.DateTimeField(null=True, blank=True, verbose_name="Sincronizado el")
-    sync_version = models.PositiveIntegerField(default=0, verbose_name="Versión de Sincronización")
-    device_origin = models.CharField(max_length=40, null=True, blank=True, verbose_name="Dispositivo de Origen")
+    created_by = models.ForeignKey(
+        "iam.User", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="incidents_created", verbose_name="Creado por",
+    )
+    modified_by = models.ForeignKey(
+        "iam.User", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="incidents_modified", verbose_name="Modificado por",
+    )
+    approved_by = models.ForeignKey(
+        "iam.User", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="incidents_approved", verbose_name="Aprobado por",
+    )
 
     class Meta:
         app_label = "behavior"
         verbose_name = "Incidente de Conducta"
         verbose_name_plural = "Incidentes de Conducta"
+        ordering = ["-incident_date"]
+        indexes = [
+            models.Index(fields=["enrollment", "academic_period"]),
+            models.Index(fields=["academic_period", "severity"]),
+            models.Index(fields=["incident_date"]),
+        ]
 
     def __init__(self, *args, **kwargs):
         category = kwargs.pop("category", None)

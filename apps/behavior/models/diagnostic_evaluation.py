@@ -1,8 +1,9 @@
 from django.db import models
 from apps.core.models import TimeStampedModel
+from apps.integration.models.syncable_mixin import SyncableModel
 
 
-class DiagnosticEvaluation(TimeStampedModel):
+class DiagnosticEvaluation(TimeStampedModel, SyncableModel):
     enrollment = models.ForeignKey(
         "students.Enrollment",
         on_delete=models.CASCADE,
@@ -21,9 +22,17 @@ class DiagnosticEvaluation(TimeStampedModel):
         related_name="diagnostic_evaluations",
         verbose_name="Aplicada por",
     )
-    socioemotional_area = models.CharField(max_length=100, verbose_name="Área socioemocional")
+    socioemotional_area = models.ForeignKey(
+        "behavior.SocioemotionalArea",
+        on_delete=models.PROTECT,
+        verbose_name="Área Socioemocional",
+    )
     findings_description = models.TextField(verbose_name="Descripción de hallazgos")
-    development_level = models.CharField(max_length=50, verbose_name="Nivel de desarrollo")
+    development_level = models.ForeignKey(
+        "behavior.DevelopmentLevel",
+        on_delete=models.PROTECT,
+        verbose_name="Nivel de Desarrollo",
+    )
     application_date = models.DateField(verbose_name="Fecha de aplicación")
     recommendations = models.TextField(null=True, blank=True, verbose_name="Recomendaciones")
 

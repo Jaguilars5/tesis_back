@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from django.test import TestCase
 
-from apps.academic.models import (
+from apps.academic.models import (PeriodType,
     AcademicPeriod, InterdisciplinaryProject, Subject, SubjectAcademicConfig,
     SubjectOffering, SubjectProject, TeacherSubjectSection,
 )
@@ -61,6 +61,10 @@ class AcademicRepositoryTest(TestCase):
         self.user = create_test_user(
             email="teacher@test.com", dni="0102030405",
             names="Ana", last_names="Perez",
+        )
+        self.user2 = create_test_user(
+            email="teacher2@test.com", dni="0102030406",
+            names="Pedro", last_names="Gomez",
         )
 
     # --- SubjectRepository ---
@@ -151,11 +155,15 @@ class AcademicRepositoryTest(TestCase):
         tss1 = TeacherSubjectSection.objects.create(
             user=self.user, subject_offering=self.offering,
         )
+        offering2 = SubjectOffering.objects.create(
+            school_year=self.school_year, section=self.section,
+            subject_academic_config=self.config2,
+        )
         tss2 = TeacherSubjectSection.objects.create(
-            user=self.user, subject_offering=self.offering,
+            user=self.user2, subject_offering=offering2,
         )
         results = TeacherSubjectSectionRepository.get_all(active_only=False)
-        self.assertEqual(results.first().pk, tss2.pk)
+        self.assertEqual(results.count(), 2)
 
     def test_tss_get_by_user(self):
         TeacherSubjectSection.objects.create(
@@ -191,8 +199,11 @@ class AcademicRepositoryTest(TestCase):
     # --- SubjectAcademicConfigRepository ---
 
     def test_config_create(self):
+        academic_grade2 = AcademicGrade.objects.create(
+            academic_sublevel=self.academic_sublevel, name="8", sequence_order=2,
+        )
         obj = SubjectAcademicConfigRepository.create(
-            subject=self.subject1, academic_grade=self.academic_grade,
+            subject=self.subject1, academic_grade=academic_grade2,
             weekly_hours=3, pedagogical_order=3,
         )
         self.assertEqual(obj.weekly_hours, 3)
@@ -210,8 +221,11 @@ class AcademicRepositoryTest(TestCase):
         self.assertEqual(results.count(), 2)
 
     def test_config_delete(self):
+        academic_grade3 = AcademicGrade.objects.create(
+            academic_sublevel=self.academic_sublevel, name="9", sequence_order=3,
+        )
         c = SubjectAcademicConfig.objects.create(
-            subject=self.subject1, academic_grade=self.academic_grade,
+            subject=self.subject1, academic_grade=academic_grade3,
             weekly_hours=1, pedagogical_order=99,
         )
         pk = c.pk

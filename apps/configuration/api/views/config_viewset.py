@@ -11,6 +11,7 @@ class SystemConfigViewSet(viewsets.ModelViewSet):
     serializer_class = SystemConfigSerializer
     pagination_class = StandardResultsSetPagination
     permission_classes = [IsAuthenticated, HasPermission]
+    lookup_field = "key"
     action_permissions = {
         "list": "configuration.view_systemconfig",
         "retrieve": "configuration.view_systemconfig",

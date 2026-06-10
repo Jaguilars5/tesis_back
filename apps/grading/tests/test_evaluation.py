@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from django.test import TestCase
 
-from apps.academic.models import (
+from apps.academic.models import (PeriodType,
     AcademicPeriod,
     Subject,
     SubjectAcademicConfig,
@@ -71,6 +71,7 @@ class EvaluationHierarchyTest(TestCase):
         self.teacher_subject_section = TeacherSubjectSection.objects.create(
             user=self.user, subject_offering=offering,
         )
+        self.offering = offering
         self.student = create_test_student(
             document_number="0912345678", names="Juan",
             last_names="Lopez", birth_date=date(2010, 1, 1),
@@ -101,6 +102,7 @@ class EvaluationHierarchyTest(TestCase):
     def _create_full_hierarchy(self):
         block = EvaluationBlock.objects.create(
             academic_period=self.period,
+            subject_offering=self.offering,
             name="Bloque 1",
             evaluation_type=self.eval_type_for,
             weight_percentage=Decimal("100.00"),
@@ -128,6 +130,7 @@ class EvaluationHierarchyTest(TestCase):
     def test_create_evaluation_block(self):
         block = EvaluationBlock.objects.create(
             academic_period=self.period,
+            subject_offering=self.offering,
             name="Bloque 1",
             evaluation_type=self.eval_type_for,
             weight_percentage=Decimal("50.00"),
@@ -139,6 +142,7 @@ class EvaluationHierarchyTest(TestCase):
     def test_create_block_component(self):
         block = EvaluationBlock.objects.create(
             academic_period=self.period,
+            subject_offering=self.offering,
             name="Bloque 1",
             evaluation_type=self.eval_type_sum,
             weight_percentage=Decimal("100.00"),
@@ -154,8 +158,11 @@ class EvaluationHierarchyTest(TestCase):
 
     def test_create_component_indicator(self):
         block = EvaluationBlock.objects.create(
-            academic_period=self.period, name="Bloque 1",
-            evaluation_type=self.eval_type_for, weight_percentage=Decimal("100.00"),
+            academic_period=self.period,
+            subject_offering=self.offering,
+            name="Bloque 1",
+            evaluation_type=self.eval_type_for,
+            weight_percentage=Decimal("100.00"),
         )
         component = BlockComponent.objects.create(
             evaluation_block=block, name="Componente 1",
@@ -245,6 +252,7 @@ class EvaluationServiceTest(TestCase):
         self.teacher_subject_section = TeacherSubjectSection.objects.create(
             user=self.user, subject_offering=offering,
         )
+        self.offering = offering
         self.student = create_test_student(
             document_number="0912345678", names="Juan",
             last_names="Lopez", birth_date=date(2010, 1, 1),
@@ -271,6 +279,7 @@ class EvaluationServiceTest(TestCase):
 
         self.block = EvaluationBlock.objects.create(
             academic_period=self.period,
+            subject_offering=self.offering,
             name="Bloque 1",
             evaluation_type=self.eval_type_for,
             weight_percentage=Decimal("100.00"),

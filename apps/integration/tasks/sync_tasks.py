@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from ..repositories import SyncQueueRepository
 from ..repositories.sync_status_repository import SyncStatusRepository
+from ..services.conflict_resolver import ConflictResolutionStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -20,12 +21,17 @@ def register_sync_handler(source_table):
 
 
 class BaseSyncHandler:
+    source_table = None
     model = None
     lookup_field = "uuid"
 
     @classmethod
     def handle_insert(cls, record_uuid, payload):
         instance = cls.model(**payload)
+        instance.uuid = record_uuid
+        instance.sync_status = "SYNCED"
+        instance.synced_at = timezone.now()
+        instance.sync_version = 1
         instance.full_clean()
         instance.save()
         return instance
@@ -33,17 +39,33 @@ class BaseSyncHandler:
     @classmethod
     def handle_update(cls, record_uuid, payload):
         instance = cls.model.objects.get(**{cls.lookup_field: record_uuid})
-        for key, value in payload.items():
-            setattr(instance, key, value)
+        incoming_version = payload.get("sync_version", 1)
+
+        if incoming_version < instance.sync_version:
+            resolution = ConflictResolutionStrategy.resolve(
+                cls.source_table, instance, payload
+            )
+            if resolution == "MANUAL":
+                instance.mark_conflict()
+                instance.save()
+                return {"status": "CONFLICT", "local_version": instance.sync_version, "uuid": str(instance.uuid)}
+            elif resolution == "KEEP_LOCAL":
+                return {"status": "REJECTED", "reason": "Server version is newer", "uuid": str(instance.uuid)}
+
+        for field, value in payload.items():
+            if hasattr(instance, field) and field not in ["uuid", "sync_version", "id"]:
+                setattr(instance, field, value)
+        instance.sync_version = max(instance.sync_version, incoming_version) + 1
+        instance.mark_synced()
         instance.full_clean()
         instance.save()
-        return instance
+        return {"status": "SYNCED", "uuid": str(instance.uuid)}
 
     @classmethod
     def handle_delete(cls, record_uuid, payload=None):
         instance = cls.model.objects.get(**{cls.lookup_field: record_uuid})
         instance.delete()
-        return instance
+        return {"status": "DELETED", "uuid": str(record_uuid)}
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
@@ -59,8 +81,8 @@ def process_sync_queue_item(self, sync_id):
             logger.info("SyncQueue item %s ya procesado (status=%s)", sync_id, sync_item.status)
             return {"ok": True, "status": str(sync_item.status)}
 
-        procesando = SyncStatusRepository.get_by_code("PROCESADO")
-        SyncQueueRepository.update(sync_item.id, status=procesando, attempts=sync_item.attempts + 1)
+        procesando = SyncStatusRepository.get_by_code("PROCESANDO")
+        SyncQueueRepository.update(sync_item.id, status=procesando, attempts=sync_item.attempts + 1, last_attempt_at=timezone.now())
 
         handler = SYNC_HANDLERS.get(sync_item.source_table)
         if not handler:
@@ -72,11 +94,11 @@ def process_sync_queue_item(self, sync_id):
 
         with transaction.atomic():
             if operation == "INSERT":
-                handler.handle_insert(record_uuid, payload)
+                result = handler.handle_insert(record_uuid, payload)
             elif operation == "UPDATE":
-                handler.handle_update(record_uuid, payload)
+                result = handler.handle_update(record_uuid, payload)
             elif operation == "DELETE":
-                handler.handle_delete(record_uuid, payload)
+                result = handler.handle_delete(record_uuid, payload)
             else:
                 raise ValueError(f"Operación desconocida: {operation}")
 
@@ -89,7 +111,7 @@ def process_sync_queue_item(self, sync_id):
             )
 
         logger.info("SyncQueue item %s procesado exitosamente", sync_id)
-        return {"ok": True, "status": "PROCESADO"}
+        return {"ok": True, "status": "PROCESADO", "result": result}
 
     except Exception as exc:
         logger.exception("Error procesando SyncQueue item %s", sync_id)
@@ -103,6 +125,7 @@ def process_sync_queue_item(self, sync_id):
                     sync_item.id,
                     status=new_status,
                     last_error=str(exc),
+                    last_attempt_at=timezone.now(),
                 )
         except Exception:
             logger.exception("Error al actualizar estado de SyncQueue item %s", sync_id)

@@ -66,9 +66,9 @@ class AcademicModelGapsTest(TestCase):
             section=self.section,
             subject_academic_config=self.config,
         )
-        self.period_type = PeriodType.objects.create(
-            code="REGULAR", name="Regular"
-        )
+        self.period_type = PeriodType.objects.get_or_create(
+            code="REGULAR", defaults={"name": "Regular"}
+        )[0]
         self.period = AcademicPeriod.objects.create(
             school_year=self.school_year,
             name="Primer Trimestre",
@@ -170,7 +170,7 @@ class AcademicServiceGapsTest(TestCase):
             section=self.section,
             subject_academic_config=self.config,
         )
-        PeriodType.objects.create(code="REGULAR", name="Regular")
+        PeriodType.objects.get_or_create(code="REGULAR", defaults={"name": "Regular"})
 
     def test_service_create_academic_period(self):
         """Prueba create_academic_period con parámetros reales."""
@@ -249,9 +249,9 @@ class AcademicSecurityAndAPITest(TestCase):
             section=self.section,
             subject_academic_config=self.config,
         )
-        self.period_type = PeriodType.objects.create(
-            code="REGULAR", name="Regular"
-        )
+        self.period_type = PeriodType.objects.get_or_create(
+            code="REGULAR", defaults={"name": "Regular"}
+        )[0]
         self.period = AcademicPeriod.objects.create(
             school_year=self.school_year,
             name="Primer Trimestre",

@@ -101,6 +101,7 @@ Request (POST/PUT):
   "school_year": 1,
   "name": "Quimestre 1",
   "period_type": 1,
+  "parent_period": null,
   "start_date": "2024-09-01",
   "end_date": "2024-11-30",
   "is_regular_period": true
@@ -117,12 +118,15 @@ Response:
   "school_year_name": "2024-2025",
   "name": "Quimestre 1",
   "period_type": 1,
+  "parent_period": null,
   "start_date": "2024-09-01",
   "end_date": "2024-11-30",
   "is_regular_period": true,
   "is_active": true
 }
 ```
+
+> Los períodos pueden anidarse vía `parent_period` (por ejemplo: un Quimestre como padre de parciales).
 
 ---
 
@@ -294,7 +298,11 @@ Request (POST/PUT):
   "title": "Proyecto Ambiental",
   "description": "Proyecto sobre medio ambiente",
   "start_date": "2024-09-15",
-  "delivery_date": "2024-11-15"
+  "delivery_date": "2024-11-15",
+  "product_max_score": "10.00",
+  "presentation_max_score": "10.00",
+  "product_rubric": "Contenido 40%, Creatividad 30%, Formato 30%",
+  "presentation_rubric": "Dominio 40%, Material 30%, Claridad 30%"
 }
 ```
 
@@ -309,6 +317,10 @@ Response:
   "description": "Proyecto sobre medio ambiente",
   "start_date": "2024-09-15",
   "delivery_date": "2024-11-15",
+  "product_max_score": "10.00",
+  "presentation_max_score": "10.00",
+  "product_rubric": "Contenido 40%, Creatividad 30%, Formato 30%",
+  "presentation_rubric": "Dominio 40%, Material 30%, Claridad 30%",
   "subject_projects": [],
   "is_active": true
 }
@@ -334,7 +346,8 @@ Request (POST/PUT):
 ```json
 {
   "interdisciplinary_project": 1,
-  "subject_offering": 1
+  "subject_offering": 1,
+  "responsible_teacher": 5
 }
 ```
 
@@ -346,7 +359,8 @@ Response:
   "interdisciplinary_project": 1,
   "interdisciplinary_project_title": "Proyecto Ambiental",
   "subject_offering": 1,
-  "subject_offering_name": "2024-2025 - 10mo EGB 'A' - Matemáticas - 10mo EGB"
+  "subject_offering_name": "2024-2025 - 10mo EGB 'A' - Matemáticas - 10mo EGB",
+  "responsible_teacher": 5
 }
 ```
 

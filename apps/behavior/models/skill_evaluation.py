@@ -1,8 +1,9 @@
 from django.db import models
 from apps.core.models import TimeStampedModel
+from apps.integration.models.syncable_mixin import SyncableModel
 
 
-class SkillEvaluation(TimeStampedModel):
+class SkillEvaluation(TimeStampedModel, SyncableModel):
     enrollment = models.ForeignKey(
         "students.Enrollment",
         on_delete=models.CASCADE,
@@ -34,6 +35,9 @@ class SkillEvaluation(TimeStampedModel):
         verbose_name = "Evaluación de Habilidad"
         verbose_name_plural = "Evaluaciones de Habilidades"
         unique_together = ("enrollment", "academic_period", "socioemotional_skill")
+        indexes = [
+            models.Index(fields=["academic_period", "socioemotional_skill"]),
+        ]
 
     def __str__(self):
         return f"{self.enrollment} - {self.socioemotional_skill.name}"

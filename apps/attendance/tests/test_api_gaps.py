@@ -11,7 +11,7 @@ from apps.core.constants.permissions import attendance as perm_constants
 from apps.attendance.models import Attendance, AbsenceType
 from apps.attendance.models import AttendanceStatus
 from apps.grading.models import QualitativeScale
-from apps.academic.models import AcademicPeriod, Subject, SubjectAcademicConfig, SubjectOffering, TeacherSubjectSection
+from apps.academic.models import AcademicPeriod, Subject, SubjectAcademicConfig, SubjectOffering, TeacherSubjectSection, PeriodType
 from apps.institutions.models import SchoolYear, AcademicGrade, AcademicLevel, AcademicSublevel, Section
 from apps.students.models import Enrollment, EnrollmentStatus
 

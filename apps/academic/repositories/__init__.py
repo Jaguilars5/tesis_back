@@ -10,6 +10,10 @@ from .interdisciplinary_project_repository import (
     InterdisciplinaryProjectRepository,
     SubjectProjectRepository,
 )
+from .class_schedule_repo import (
+    ClassScheduleRepository,
+    DayOfWeekRepository,
+)
 
 __all__ = [
     "SubjectRepository",
@@ -20,4 +24,6 @@ __all__ = [
     "SubjectOfferingRepository",
     "InterdisciplinaryProjectRepository",
     "SubjectProjectRepository",
+    "ClassScheduleRepository",
+    "DayOfWeekRepository",
 ]

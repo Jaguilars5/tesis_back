@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from django.test import TestCase
 
-from apps.academic.models import (
+from apps.academic.models import (PeriodType,
     AcademicPeriod,
     Subject,
     SubjectAcademicConfig,
@@ -75,6 +75,7 @@ class GradingServiceTest(TestCase):
         self.teacher_subject_section = TeacherSubjectSection.objects.create(
             user=self.user, subject_offering=offering,
         )
+        self.offering = offering
         self.student = create_test_student(
             document_number="0912345678",
             names="Juan",
@@ -102,6 +103,7 @@ class GradingServiceTest(TestCase):
     def _create_class_assignment(self):
         macro = EvaluationBlock.objects.create(
             academic_period=self.period,
+            subject_offering=self.offering,
             name="Macro 1",
             evaluation_type=self.eval_type_for,
             weight_percentage=Decimal("100.00"),
@@ -159,4 +161,4 @@ class GradingServiceTest(TestCase):
             category="disciplina",
             severity=3,
         )
-        self.assertEqual(incident.severity, 3)
+        self.assertEqual(incident.severity.numeric_level, 3)

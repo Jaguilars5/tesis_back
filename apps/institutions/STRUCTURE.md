@@ -14,7 +14,7 @@ institutions/
 │   ├── __init__.py
 │   ├── school_year.py      # Años escolares
 │   ├── academic_level.py   # Niveles académicos
-│   ├── academic_subnivel.py# Subniveles académicos
+│   ├── academic_sublevel.py# Subniveles académicos
 │   ├── academic_grade.py   # Grados académicos
 │   └── section.py          # Secciones (grado/paralelo)
 ├── repositories/         # Capa de Persistencia (Queries)
@@ -41,7 +41,7 @@ Los serializers del módulo exponen campos descriptivos adicionales para las For
 | ----------------------------- | ------------------------------------------------------------- |
 | `SectionSerializer`           | `school_year_name` (source: `school_year.name`)               |
 |                               | `academic_grade_name` (source: `academic_grade.name`)         |
-| `AcademicSubnivelSerializer`  | `academic_level_name` (source: `academic_level.name`)         |
+| `AcademicSublevelSerializer`  | `academic_level_name` (source: `academic_level.name`)         |
 | `AcademicGradeSerializer`     | `academic_level_name` (source: `academic_level.name`)         |
 
 Estos campos son de solo lectura (`read_only=True`) y no afectan la creación/actualización de registros.
@@ -89,7 +89,7 @@ Utilice los puntos de entrada definidos para evitar dependencias circulares:
 from apps.institutions.services.institution_service import InstitutionService
 
 # Importar modelos (re-exportados en models/__init__.py)
-from apps.institutions.models import SchoolYear, AcademicLevel, AcademicSubnivel, AcademicGrade, Section
+from apps.institutions.models import SchoolYear, AcademicLevel, AcademicSublevel, AcademicGrade, Section
 
 # Importar repositorios
 from apps.institutions.repositories.institution_repo import InstitutionRepository

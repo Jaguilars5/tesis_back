@@ -1,124 +1,120 @@
-# Estructura Técnica: Módulo `academic`
+# Módulo `academic` — Estructura
 
-Este documento detalla la organización interna y las responsabilidades de cada componente dentro del módulo académico.
+## Árbol de archivos
 
-## Árbol de Directorios
-
-```text
+```
 academic/
-├── api/                  # Capa de Entrada (REST)
-│   ├── serializers.py    # Transformación de datos
-│   ├── views.py          # ViewSets con StandardResponse
-│   ├── filters.py        # Filtrado avanzado
-│   └── urls.py           # Definición de rutas del módulo
-├── models/               # Capa de Datos (Entidades)
-│   ├── academic_period.py         # Períodos académicos
-│   ├── subject.py                  # Materias
-│   ├── subject_academic_config.py # Config de materia por grado
-│   ├── subject_offering.py         # Oferta de materia en sección
-│   ├── teacher_subject_section.py  # Asignación docente
-│   ├── interdisciplinary_project.py  # Proyectos interdisciplinarios
-│   └── subject_project.py          # Materias vinculadas a proyectos
-├── repositories/         # Capa de Persistencia (Queries)
-│   ├── academic_repo.py
-│   └── interdisciplinary_project_repository.py
-├── services/             # Capa de Negocio (Orquestación)
-│   └── academic_service.py # Lógica de cálculos y validaciones
-└── tests/                # Suites de Pruebas
-    ├── test_models.py
-    ├── test_services.py
+├── __init__.py
+├── admin.py
+├── apps.py
+├── urls.py                     # → api/urls.py
+├── README.md
+│
+├── models/
+│   ├── __init__.py             # 10 modelos exportados
+│   ├── subject.py              # Subject
+│   ├── academic_period.py      # AcademicPeriod (+ parent_period self FK)
+│   ├── period_type.py          # PeriodType (REGULAR, SUPLETORIO, REFUERZO)
+│   ├── subject_academic_config.py  # SubjectAcademicConfig
+│   ├── subject_offering.py     # SubjectOffering
+│   ├── teacher_subject_section.py  # TeacherSubjectSection
+│   ├── interdisciplinary_project.py # InterdisciplinaryProject (+ M2M a SubjectOffering)
+│   ├── subject_project.py      # SubjectProject (+ responsible_teacher)
+│   ├── day_of_week.py          # DayOfWeek (catálogo 1-7)
+│   └── class_schedule.py       # ClassSchedule (FK a DayOfWeek)
+│
+├── repositories/
+│   ├── __init__.py             # 7 repositorios exportados
+│   ├── academic_repo.py        # SubjectRepository, AcademicPeriodRepository, PeriodTypeRepository,
+│                               # TeacherSubjectSectionRepository, SubjectAcademicConfigRepository,
+│                               # SubjectOfferingRepository
+│   └── interdisciplinary_project_repository.py  # InterdisciplinaryProjectRepository, SubjectProjectRepository
+│
+├── services/
+│   ├── __init__.py
+│   └── academic_service.py     # AcademicService
+│
+├── api/
+│   ├── __init__.py
+│   ├── README.md
+│   ├── serializers.py          # 10 serializers (Subject, AcademicPeriod, TeacherSubjectSection,
+│                               #   SubjectAcademicConfig, SubjectOffering, SubjectProject,
+│                               #   DayOfWeek, ClassSchedule, PeriodType, InterdisciplinaryProject)
+│   ├── views.py                # 8 ViewSets (Subject, AcademicPeriod, TeacherSubjectSection,
+│                               #   SubjectAcademicConfig, SubjectOffering, InterdisciplinaryProject,
+│                               #   SubjectProject, PeriodType)
+│   ├── filters.py              # Filtros avanzados
+│   └── urls.py                 # Router con 8 registros
+│
+└── tests/
+    ├── __init__.py
     ├── test_api.py
-    └── test_api_gaps.py
+    ├── test_api_gaps.py
+    ├── test_api_permissions.py
+    ├── test_models.py
+    ├── test_repositories.py
+    └── test_services.py
 ```
 
-## API — Serializers
+## Serializers (10)
 
-Los serializers del módulo exponen campos descriptivos adicionales para las ForeignKeys:
+| Serializer | Modelo | Campos readonly |
+|------------|--------|-----------------|
+| `SubjectSerializer` | Subject | — |
+| `AcademicPeriodSerializer` | AcademicPeriod | `school_year_name` |
+| `TeacherSubjectSectionSerializer` | TeacherSubjectSection | `user_name`, `subject_offering_name` |
+| `SubjectAcademicConfigSerializer` | SubjectAcademicConfig | `subject_name`, `academic_grade_name` |
+| `SubjectOfferingSerializer` | SubjectOffering | `school_year_name`, `section_name`, `subject_academic_config_name` |
+| `SubjectProjectSerializer` | SubjectProject | `interdisciplinary_project_title`, `subject_offering_name` |
+| `InterdisciplinaryProjectSerializer` | InterdisciplinaryProject | `academic_period_name`, `subject_projects` (anidado) |
+| `DayOfWeekSerializer` | DayOfWeek | — |
+| `ClassScheduleSerializer` | ClassSchedule | `subject_offering_name`, `day_of_week_name` |
+| `PeriodTypeSerializer` | PeriodType | — |
 
-| Serializer                           | Campos enriquecidos                                                           |
-| ------------------------------------ | ----------------------------------------------------------------------------- |
-| `AcademicPeriodSerializer`          | `school_year_name` (source: `school_year.name`)                               |
-| `TeacherSubjectSectionSerializer`  | `user_name` (source: `user.person.get_full_name`)                             |
-|                                      | `subject_offering_name` (source: `subject_offering.__str__`)                  |
-| `SubjectAcademicConfigSerializer`    | `subject_name` (source: `subject.name`)                                       |
-|                                      | `academic_grade_name` (source: `academic_grade.name`)                         |
-| `SubjectOfferingSerializer`          | `school_year_name` (source: `school_year.name`)                               |
-|                                      | `section_name` (source: `section.__str__`)                                    |
-|                                      | `subject_academic_config_name` (source: `subject_academic_config.__str__`)    |
-| `SubjectProjectSerializer`           | `interdisciplinary_project_title` (source: `interdisciplinary_project.title`) |
-|                                      | `subject_offering_name` (source: `subject_offering.__str__`)                  |
-| `InterdisciplinaryProjectSerializer` | `academic_period_name` (source: `academic_period.name`)                       |
+## ViewSets (8 registrados en router)
 
-Estos campos son de solo lectura (`read_only=True`) y no afectan la creación/actualización de registros.
+| ViewSet | Endpoint | action_permissions usados |
+|---------|----------|---------------------------|
+| `SubjectViewSet` | `subject/` | VIEW/CREATE/UPDATE/DELETE_SUBJECT |
+| `AcademicPeriodViewSet` | `academic-period/` | VIEW/CREATE/UPDATE/DELETE_PERIOD |
+| `TeacherSubjectSectionViewSet` | `teacher-subject-section/` | VIEW/CREATE/UPDATE/DELETE_TEACHER_SUBJECT |
+| `SubjectAcademicConfigViewSet` | `subject-academic-configs/` | VIEW/CREATE/UPDATE/DELETE_SUBJECT_CONFIG |
+| `SubjectOfferingViewSet` | `subject-offerings/` | VIEW/CREATE/UPDATE/DELETE_SUBJECT_OFFERING |
+| `InterdisciplinaryProjectViewSet` | `interdisciplinary-projects/` | VIEW/CREATE/UPDATE/DELETE_INTERDISCIPLINARY_PROJECT |
+| `SubjectProjectViewSet` | `subject-projects/` | VIEW/CREATE/UPDATE/DELETE_SUBJECT_PROJECT |
+| `PeriodTypeViewSet` | `period-types/` | VIEW/CREATE/UPDATE/DELETE_PERIOD_TYPE |
 
-## Modelos Principales
+Todos heredan de `BaseAcademicViewSet` que incluye `soft-delete/` action (desactiva `is_active`).
 
-### AcademicPeriod
+## Workflow
 
-Períodos dentro de un año escolar (Quimestres, parciales, etc.)
+```
+SchoolYear
+  └─ AcademicPeriod (varios por año, pueden tener parent_period)
+      └─ EvaluationBlock (en grading) ← SubjectOffering
+          └─ SubjectAcademicConfig ← Subject + AcademicGrade
+              └─ Subject
 
-### Subject
+Section
+  └─ SubjectOffering (unique: school_year + section + config)
+      ├─ TeacherSubjectSection (unique: user + offering)
+      ├─ ClassSchedule (unique: offering + day_of_week + start_time)
+      └─ InterdisciplinaryProject (M2M via SubjectProject)
+```
 
-Asignaturas disponibles en el sistema.
-
-### SubjectAcademicConfig
-
-Vincula una materia a un nivel académico con parámetros pedagógicos (horas semanales, orden, etc.)
-
-### SubjectOffering
-
-Instancia de una materia en una sección para un año escolar específico.
-
-### TeacherSubjectSection
-
-Vinculación entre un docente (User) y una oferta de materia.
-
-### InterdisciplinaryProject
-
-Proyectos que abarcan múltiples materias.
-
-### SubjectProject
-
-Asociación entre una materia y un proyecto interdisciplinario.
-
-## Flujo de Trabajo Recomendado
-
-Para mantener el desacoplamiento, siga este flujo de llamadas:
-`API View` → `Service` → `Repository` → `Model`
-
-> [!IMPORTANT]
-> **Nunca** realize cálculos de promedios o normalización de notas directamente en los ViewSets. Estas operaciones deben residir exclusivamente en `AcademicService`.
-
-## Guía de Importación
-
-Utilice los puntos de entrada definidos para evitar dependencias circulares y mantener el código limpio:
-
-### ✅ Prácticas Correctas
+## Guía de imports
 
 ```python
-# Importar servicios
+# Modelos
+from apps.academic.models import Subject, AcademicPeriod, SubjectOffering, ClassSchedule, DayOfWeek
+
+# Repositorios
+from apps.academic.repositories import SubjectRepository, AcademicPeriodRepository
+
+# Servicios
 from apps.academic.services.academic_service import AcademicService
 
-# Importar modelos (re-exportados en models/__init__.py)
-from apps.academic.models import Subject, AcademicPeriod, SubjectOffering
-
-# Importar repositorios
-from apps.academic.repositories.academic_repo import SubjectRepository
+# API
+from apps.academic.api.serializers import SubjectSerializer, ClassScheduleSerializer
+from apps.academic.api.views import SubjectViewSet
 ```
-
-### ❌ Prácticas a Evitar
-
-```python
-# Importar desde archivos internos específicos
-from apps.academic.models.subject import Subject
-
-# Realizar cálculos complejos fuera del service
-promedio = sum(notas) / len(notas)
-```
-
-## Responsabilidades de Capas
-
-1.  **Models**: Definen la estructura y restricciones (ej: `capacity > 0`).
-2.  **Repositories**: Centralizan las consultas (ej: `get_active_subjects()`).
-3.  **Services**: Orquestan la lógica (ej: `record_student_note` valida rangos y normaliza).
-4.  **API**: Exponen los recursos mediante ViewSets que heredan de patrones base para estandarizar las respuestas (`ok`, `data`, `msg`).

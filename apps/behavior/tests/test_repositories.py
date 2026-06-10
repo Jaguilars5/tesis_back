@@ -3,12 +3,12 @@ from decimal import Decimal
 
 from django.test import TestCase
 
-from apps.academic.models import (
+from apps.academic.models import (PeriodType,
     AcademicPeriod, Subject, SubjectAcademicConfig, SubjectOffering, TeacherSubjectSection,
 )
 from apps.behavior.models import (
     BehaviorEvaluation, ConductIncident,
-    SkillEvaluation, SocioemotionalSkill, IncidentType,
+    SkillEvaluation, SocioemotionalSkill, IncidentType, Severity,
 )
 from apps.behavior.repositories.behavior_repository import BehaviorEvaluationRepository
 from apps.behavior.repositories.conduct_incident_repository import ConductIncidentRepository
@@ -72,6 +72,18 @@ class BehaviorRepositoryTest(TestCase):
         self.qualitative_scale = QualitativeScale.objects.create(
             code="MB", description="Muy Buena",
             numeric_equivalence=Decimal("9.00"),
+        )
+        self.severity_leve = Severity.objects.create(
+            code="LEVE", name="Falta leve", numeric_level=1,
+        )
+        self.severity_moderada = Severity.objects.create(
+            code="MODERADA", name="Falta moderada", numeric_level=2,
+        )
+        self.severity_grave = Severity.objects.create(
+            code="GRAVE", name="Falta grave", numeric_level=3,
+        )
+        self.severity_muy_grave = Severity.objects.create(
+            code="MUY_GRAVE", name="Falta muy grave", numeric_level=4,
         )
 
     def test_incident_type_create(self):
@@ -205,30 +217,30 @@ class BehaviorRepositoryTest(TestCase):
         obj = ConductIncidentRepository.create(
             enrollment=self.enrollment, academic_period=self.period,
             reported_by_user=self.user,
-            incident_date=date(2025, 2, 15), severity=3,
+            incident_date=date(2025, 2, 15), severity=self.severity_grave,
             description="Incidente de prueba",
         )
-        self.assertEqual(obj.severity, 3)
+        self.assertEqual(obj.severity, self.severity_grave)
 
     def test_conduct_incident_get_by_id(self):
         ci = ConductIncident.objects.create(
             enrollment=self.enrollment, academic_period=self.period,
             reported_by_user=self.user,
-            incident_date=date(2025, 2, 15), severity=2,
+            incident_date=date(2025, 2, 15), severity=self.severity_moderada,
         )
         result = ConductIncidentRepository.get_by_id(ci.pk)
-        self.assertEqual(result.severity, 2)
+        self.assertEqual(result.severity, self.severity_moderada)
 
     def test_conduct_incident_get_all_ordering(self):
         ci1 = ConductIncident.objects.create(
             enrollment=self.enrollment, academic_period=self.period,
             reported_by_user=self.user,
-            incident_date=date(2025, 2, 15), severity=1,
+            incident_date=date(2025, 2, 15), severity=self.severity_leve,
         )
         ci2 = ConductIncident.objects.create(
             enrollment=self.enrollment, academic_period=self.period,
             reported_by_user=self.user,
-            incident_date=date(2025, 3, 1), severity=4,
+            incident_date=date(2025, 3, 1), severity=self.severity_muy_grave,
         )
         results = ConductIncidentRepository.get_all(active_only=False)
         self.assertEqual(results.first().pk, ci2.pk)
@@ -237,16 +249,16 @@ class BehaviorRepositoryTest(TestCase):
         ci = ConductIncident.objects.create(
             enrollment=self.enrollment, academic_period=self.period,
             reported_by_user=self.user,
-            incident_date=date(2025, 2, 15), severity=2,
+            incident_date=date(2025, 2, 15), severity=self.severity_moderada,
         )
-        updated = ConductIncidentRepository.update(ci.pk, severity=5)
-        self.assertEqual(updated.severity, 5)
+        updated = ConductIncidentRepository.update(ci.pk, severity=self.severity_grave)
+        self.assertEqual(updated.severity, self.severity_grave)
 
     def test_conduct_incident_delete(self):
         ci = ConductIncident.objects.create(
             enrollment=self.enrollment, academic_period=self.period,
             reported_by_user=self.user,
-            incident_date=date(2025, 2, 15), severity=1,
+            incident_date=date(2025, 2, 15), severity=self.severity_leve,
         )
         pk = ci.pk
         ConductIncidentRepository.delete(pk)
@@ -256,7 +268,7 @@ class BehaviorRepositoryTest(TestCase):
         ci = ConductIncident.objects.create(
             enrollment=self.enrollment, academic_period=self.period,
             reported_by_user=self.user,
-            incident_date=date(2025, 2, 15), severity=3,
+            incident_date=date(2025, 2, 15), severity=self.severity_grave,
         )
         results = ConductIncidentRepository.get_by_enrollment_and_period(
             self.enrollment.pk, self.period.pk,
@@ -267,12 +279,12 @@ class BehaviorRepositoryTest(TestCase):
         ConductIncident.objects.create(
             enrollment=self.enrollment, academic_period=self.period,
             reported_by_user=self.user,
-            incident_date=date(2025, 2, 15), severity=2,
+            incident_date=date(2025, 2, 15), severity=self.severity_moderada,
         )
         severe = ConductIncident.objects.create(
             enrollment=self.enrollment, academic_period=self.period,
             reported_by_user=self.user,
-            incident_date=date(2025, 3, 1), severity=4,
+            incident_date=date(2025, 3, 1), severity=self.severity_muy_grave,
         )
         results = ConductIncidentRepository.get_severe_by_enrollment(
             self.enrollment.pk, severity_threshold=3,
@@ -284,7 +296,7 @@ class BehaviorRepositoryTest(TestCase):
         ConductIncident.objects.create(
             enrollment=self.enrollment, academic_period=self.period,
             reported_by_user=self.user,
-            incident_date=date(2025, 2, 15), severity=3,
+            incident_date=date(2025, 2, 15), severity=self.severity_grave,
         )
         results = ConductIncidentRepository.list_by_filters(
             student_id=self.student.pk,
@@ -295,9 +307,9 @@ class BehaviorRepositoryTest(TestCase):
         ConductIncident.objects.create(
             enrollment=self.enrollment, academic_period=self.period,
             reported_by_user=self.user,
-            incident_date=date(2025, 2, 15), severity=3,
+            incident_date=date(2025, 2, 15), severity=self.severity_grave,
         )
         results = ConductIncidentRepository.list_by_filters(
-            student_id=self.student.pk, severity=3,
+            student_id=self.student.pk, severity=self.severity_grave,
         )
         self.assertEqual(results.count(), 1)

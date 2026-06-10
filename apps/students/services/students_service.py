@@ -78,10 +78,18 @@ class StudentService:
 
     @staticmethod
     def assign_representative(student_id, person_id, kinship="Padre", **kwargs):
+        from ..models import Kinship
+        if isinstance(kinship, str):
+            kinship_obj, _ = Kinship.objects.get_or_create(
+                code=kinship.upper() if len(kinship) <= 30 else "OTRO",
+                defaults={"name": kinship}
+            )
+        else:
+            kinship_obj = kinship
         rel = StudentRepresentative(
             student_id=student_id,
             person_id=person_id,
-            kinship=kinship,
+            kinship=kinship_obj,
             **kwargs
         )
         rel.save()

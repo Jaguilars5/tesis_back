@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from ..models import (
     AcademicPeriod,
+    ClassSchedule,
+    DayOfWeek,
     PeriodType,
     Subject,
     SubjectAcademicConfig,
@@ -17,6 +19,9 @@ class SubjectSerializer(serializers.ModelSerializer):
 
 class AcademicPeriodSerializer(serializers.ModelSerializer):
     school_year_name = serializers.CharField(source="school_year.name", read_only=True)
+    period_type_name = serializers.CharField(
+        source="period_type.name", read_only=True, allow_null=True
+    )
 
     class Meta:
         model = AcademicPeriod
@@ -72,6 +77,23 @@ class SubjectProjectSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SubjectProject
+        fields = "__all__"
+
+
+class DayOfWeekSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DayOfWeek
+        fields = "__all__"
+
+
+class ClassScheduleSerializer(serializers.ModelSerializer):
+    subject_offering_name = serializers.CharField(
+        source="subject_offering.__str__", read_only=True
+    )
+    day_of_week_name = serializers.CharField(source="day_of_week.name", read_only=True)
+
+    class Meta:
+        model = ClassSchedule
         fields = "__all__"
 
 

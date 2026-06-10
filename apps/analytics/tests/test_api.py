@@ -4,7 +4,7 @@ from datetime import date
 from decimal import Decimal
 from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSublevel, SchoolYear
 from apps.institutions.models import Section
-from apps.academic.models import AcademicPeriod
+from apps.academic.models import AcademicPeriod, PeriodType
 from apps.students.models import Student
 from apps.iam.models import Role, User
 from apps.core.tests.helpers import create_test_user, create_test_student

@@ -39,12 +39,25 @@ class PeriodGradeSummary(TimeStampedModel):
     requires_recovery = models.BooleanField(default=False, verbose_name="Requiere Recuperación")
     promotion_status = models.ForeignKey("grading.PromotionStatus", on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Estado de Promoción")
     calculated_at = models.DateTimeField(auto_now_add=True, verbose_name="Calculado en")
+    calculated_by = models.ForeignKey(
+        "iam.User", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="grade_summaries_calculated", verbose_name="Calculado por",
+    )
+    approved_by = models.ForeignKey(
+        "iam.User", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="grade_summaries_approved", verbose_name="Aprobado por",
+    )
 
     class Meta:
         app_label = "grading"
         verbose_name = "Resumen de Calificaciones del Período"
         verbose_name_plural = "Resúmenes de Calificaciones del Período"
         unique_together = ("enrollment", "subject_offering", "academic_period")
+        indexes = [
+            models.Index(fields=["academic_period", "subject_offering"]),
+            models.Index(fields=["enrollment", "academic_period"]),
+            models.Index(fields=["requires_recovery", "academic_period"]),
+        ]
 
     def __str__(self):
         return f"{self.enrollment} - {self.subject_offering} ({self.academic_period})"

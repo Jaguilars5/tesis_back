@@ -5,7 +5,7 @@ from django.test import TestCase
 from apps.people.models import Person
 from apps.core.tests.helpers import create_test_user, create_test_student
 from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSublevel, SchoolYear, Section
-from apps.students.models import Enrollment, EnrollmentStatus, Student, StudentRepresentative
+from apps.students.models import Enrollment, EnrollmentStatus, Student, StudentRepresentative, Kinship, ResidentialZone
 from apps.students.repositories.enrollment_repo import EnrollmentRepository
 from apps.students.repositories.students_repo import StudentRepresentativeRepository, StudentRepository
 
@@ -28,6 +28,9 @@ class StudentsRepositoryTest(TestCase):
             school_year=self.school_year, academic_grade=self.academic_grade,
             parallel="A", capacity=30,
         )
+        self.kinship_padre = Kinship.objects.create(code="PADRE", name="Padre")
+        self.kinship_madre = Kinship.objects.create(code="MADRE", name="Madre")
+        self.residential_zone_urbana = ResidentialZone.objects.create(code="URBANA", name="Zona Urbana")
         self.student = create_test_student(
             document_number="0912345678", names="Juan", last_names="Lopez",
             birth_date=date(2010, 1, 1), student_code="EST-001",
@@ -74,8 +77,8 @@ class StudentsRepositoryTest(TestCase):
         self.assertEqual(results.count(), 2)
 
     def test_student_update(self):
-        updated = StudentRepository.update(self.student.pk, residential_zone="Urbana")
-        self.assertEqual(updated.residential_zone, "Urbana")
+        updated = StudentRepository.update(self.student.pk, residential_zone=self.residential_zone_urbana)
+        self.assertEqual(updated.residential_zone, self.residential_zone_urbana)
 
     def test_student_delete(self):
         pk = self.student2.pk
@@ -115,35 +118,35 @@ class StudentsRepositoryTest(TestCase):
     def test_representative_create(self):
         obj = StudentRepresentativeRepository.create(
             student=self.student, person=self.user.person,
-            kinship="Padre", is_primary=True,
+            kinship=self.kinship_padre, is_primary=True,
         )
-        self.assertEqual(obj.kinship, "Padre")
+        self.assertEqual(obj.kinship, self.kinship_padre)
         self.assertTrue(obj.is_primary)
 
     def test_representative_get_by_id(self):
         rep = StudentRepresentative.objects.create(
-            student=self.student, person=self.user.person, kinship="Padre",
+            student=self.student, person=self.user.person, kinship=self.kinship_padre,
         )
         result = StudentRepresentativeRepository.get_by_id(rep.pk)
-        self.assertEqual(result.kinship, "Padre")
+        self.assertEqual(result.kinship, self.kinship_padre)
 
     def test_representative_get_by_student(self):
         StudentRepresentative.objects.create(
-            student=self.student, person=self.user.person, kinship="Padre",
+            student=self.student, person=self.user.person, kinship=self.kinship_padre,
         )
         results = StudentRepresentativeRepository.get_by_student(self.student.pk)
         self.assertEqual(results.count(), 1)
 
     def test_representative_get_by_person(self):
         StudentRepresentative.objects.create(
-            student=self.student, person=self.user.person, kinship="Padre",
+            student=self.student, person=self.user.person, kinship=self.kinship_padre,
         )
         results = StudentRepresentativeRepository.get_by_person(self.user.person.pk)
         self.assertEqual(results.count(), 1)
 
     def test_representative_get_relationship(self):
         StudentRepresentative.objects.create(
-            student=self.student, person=self.user.person, kinship="Padre",
+            student=self.student, person=self.user.person, kinship=self.kinship_padre,
         )
         result = StudentRepresentativeRepository.get_relationship(
             self.student.pk, self.user.person.pk,
@@ -156,7 +159,7 @@ class StudentsRepositoryTest(TestCase):
 
     def test_representative_delete(self):
         rep = StudentRepresentative.objects.create(
-            student=self.student, person=self.user.person, kinship="Madre",
+            student=self.student, person=self.user.person, kinship=self.kinship_madre,
         )
         pk = rep.pk
         StudentRepresentativeRepository.delete(pk)

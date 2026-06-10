@@ -1,8 +1,9 @@
 from django.db import models
 from apps.core.models import TimeStampedModel
+from apps.integration.models.syncable_mixin import SyncableModel
 
 
-class EarlyAlert(TimeStampedModel):
+class EarlyAlert(TimeStampedModel, SyncableModel):
     enrollment = models.ForeignKey(
         "students.Enrollment",
         on_delete=models.CASCADE,

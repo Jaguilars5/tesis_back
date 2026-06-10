@@ -36,12 +36,27 @@ class EnrollmentService:
 
     @staticmethod
     @transaction.atomic
-    def withdraw_student(enrollment, reason=""):
+    def withdraw_student(enrollment, reason=None):
+        from ..models import WithdrawalReason
         withdrawn_status = EnrollmentStatusRepository.get_or_create(
             code="RET", defaults={"name": "Retirado"}
         )
         enrollment.enrollment_status = withdrawn_status
-        enrollment.withdrawal_reason = reason
+        if reason:
+            if isinstance(reason, int):
+                enrollment.withdrawal_reason_id = reason
+            elif isinstance(reason, str):
+                try:
+                    withdrawal_reason = WithdrawalReason.objects.get(id=int(reason))
+                    enrollment.withdrawal_reason = withdrawal_reason
+                except (ValueError, WithdrawalReason.DoesNotExist):
+                    withdrawal_reason, _ = WithdrawalReason.objects.get_or_create(
+                        code="OTRO",
+                        defaults={"name": "Otro"}
+                    )
+                    enrollment.withdrawal_reason = withdrawal_reason
+            else:
+                enrollment.withdrawal_reason = reason
         enrollment.withdrawal_date = date.today()
         enrollment.save()
         return enrollment

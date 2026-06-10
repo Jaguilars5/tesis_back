@@ -16,7 +16,7 @@ from apps.academic.models import (
     TeacherSubjectSection,
 )
 from apps.attendance.models import AbsenceType, Attendance, AttendanceStatus
-from apps.behavior.models import ConductIncident, IncidentType, SocioemotionalSkill
+from apps.behavior.models import ConductIncident, IncidentType, Severity, SocioemotionalSkill
 from apps.grading.models import (
     ActivityType,
     BlockComponent,
@@ -39,6 +39,7 @@ from apps.people.models import DocumentType
 from apps.students.models import (
     Enrollment,
     EnrollmentStatus,
+    Kinship,
     Student,
     StudentRepresentative,
 )
@@ -260,7 +261,7 @@ class Command(BaseCommand):
         )
         self._create_attendance(enrollments, teacher_assignments, periods)
         self._create_conduct_incidents(users, enrollments, periods)
-        grading_structure = self._create_grading_structure(periods)
+        grading_structure = self._create_grading_structure(periods, subject_offerings)
         self._create_evaluative_activities(
             teacher_assignments, grading_structure
         )
@@ -591,7 +592,7 @@ class Command(BaseCommand):
                 student=student,
                 person=rep_user.person,
                 defaults={
-                    "kinship": "Padre",
+                    "kinship": Kinship.objects.get(code="PADRE"),
                     "is_primary": True,
                     "receives_notifications": True,
                 },
@@ -669,7 +670,7 @@ class Command(BaseCommand):
                     defaults={
                         "reported_by_user": docente1,
                         "incident_type": incident_type,
-                        "severity": 1,
+                        "severity": Severity.objects.get(code="LEVE"),
                         "description": "Incidente de prueba",
                     },
                 )
@@ -680,61 +681,63 @@ class Command(BaseCommand):
 
     # ---- Grading Structure ----
 
-    def _create_grading_structure(self, periods):
+    def _create_grading_structure(self, periods, subject_offerings):
         result = {}
         eval_type = EvaluationType.objects.get(code="FORMATIVA")
         for period in periods:
-            block_code = f"BLOCK_{period.code}_{eval_type.code}"
-            block, _ = EvaluationBlock.objects.get_or_create(
-                code=block_code,
-                defaults={
-                    "academic_period": period,
-                    "evaluation_type": eval_type,
-                    "name": f"Formativa - {period.name}",
-                    "weight_percentage": Decimal("100.00"),
-                    "is_active": True,
-                },
-            )
-            components_data = [
-                ("Tareas", Decimal("40.00")),
-                ("Lecciones", Decimal("30.00")),
-                ("Talleres", Decimal("30.00")),
-            ]
-            comps = []
-            for comp_name, weight in components_data:
-                comp_code = f"{block.code}_{comp_name[:4].upper()}"
-                comp, _ = BlockComponent.objects.get_or_create(
-                    code=comp_code,
+            for offering in subject_offerings:
+                block_code = f"BLOCK_{period.code}_{eval_type.code}_{offering.id}"
+                block, _ = EvaluationBlock.objects.get_or_create(
+                    code=block_code,
                     defaults={
-                        "evaluation_block": block,
-                        "name": comp_name,
-                        "internal_weight": weight,
+                        "academic_period": period,
+                        "subject_offering": offering,
+                        "evaluation_type": eval_type,
+                        "name": f"Formativa - {period.name} - {offering.subject_academic_config.subject.name}",
+                        "weight_percentage": Decimal("100.00"),
+                        "is_active": True,
                     },
                 )
-                indicators_data = [
-                    (f"Indicador 1 - {comp_name}", Decimal("50.00")),
-                    (f"Indicador 2 - {comp_name}", Decimal("50.00")),
+                components_data = [
+                    ("Tareas", Decimal("40.00")),
+                    ("Lecciones", Decimal("30.00")),
+                    ("Talleres", Decimal("30.00")),
                 ]
-                inds = []
-                for idx, (ind_name, ind_weight) in enumerate(indicators_data, start=1):
-                    ind_code = f"{comp.code}_IND{idx}"
-                    ind, _ = ComponentIndicator.objects.get_or_create(
-                        code=ind_code,
+                comps = []
+                for comp_name, weight in components_data:
+                    comp_code = f"{block.code}_{comp_name[:4].upper()}"
+                    comp, _ = BlockComponent.objects.get_or_create(
+                        code=comp_code,
                         defaults={
-                            "block_component": comp,
-                            "name": ind_name,
-                            "internal_weight": ind_weight,
+                            "evaluation_block": block,
+                            "name": comp_name,
+                            "internal_weight": weight,
                         },
                     )
-                    inds.append(ind)
-                comps.append({"component": comp, "indicators": inds})
-            result[period.name] = {
-                "block": block,
-                "components": comps,
-            }
-            self.stdout.write(
-                f"  [OK] Estructura de evaluación: {period.name}"
-            )
+                    indicators_data = [
+                        (f"Indicador 1 - {comp_name}", Decimal("50.00")),
+                        (f"Indicador 2 - {comp_name}", Decimal("50.00")),
+                    ]
+                    inds = []
+                    for idx, (ind_name, ind_weight) in enumerate(indicators_data, start=1):
+                        ind_code = f"{comp.code}_IND{idx}"
+                        ind, _ = ComponentIndicator.objects.get_or_create(
+                            code=ind_code,
+                            defaults={
+                                "block_component": comp,
+                                "name": ind_name,
+                                "internal_weight": ind_weight,
+                            },
+                        )
+                        inds.append(ind)
+                    comps.append({"component": comp, "indicators": inds})
+                result[f"{period.name}_{offering.id}"] = {
+                    "block": block,
+                    "components": comps,
+                }
+                self.stdout.write(
+                    f"  [OK] Estructura de evaluación: {period.name} - {offering.subject_academic_config.subject.name}"
+                )
         return result
 
     def _create_evaluative_activities(self, teacher_assignments, grading_structure):
@@ -777,6 +780,7 @@ class Command(BaseCommand):
                                 evaluative_activity=activity,
                                 defaults={
                                     "grade_type": grade_type,
+                                    "grading_mode": "NUMERIC",
                                     "numeric_score": Decimal("8.00"),
                                 },
                             )

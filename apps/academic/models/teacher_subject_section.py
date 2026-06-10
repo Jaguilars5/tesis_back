@@ -16,6 +16,10 @@ class TeacherSubjectSection(TimeStampedModel):
         app_label = "academic"
         verbose_name = "Docente-Materia-Sección"
         verbose_name_plural = "Docentes-Materias-Secciones"
+        unique_together = [("user", "subject_offering")]
+        indexes = [
+            models.Index(fields=["user", "is_active"]),
+        ]
 
     def __str__(self):
         return f"{self.user} - {self.subject_offering}"

@@ -3,10 +3,10 @@ from apps.core.models import TimeStampedModel
 
 
 class SystemConfig(TimeStampedModel):
-    key = models.CharField(max_length=255, primary_key=True, verbose_name="Clave")
+    id = models.BigAutoField(primary_key=True)
+    key = models.CharField(max_length=255, unique=True, verbose_name="Clave")
     value = models.TextField(verbose_name="Valor")
     description = models.TextField(blank=True, verbose_name="Descripción")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Fecha de Actualización")
 
     class Meta:
         app_label = "configuration"

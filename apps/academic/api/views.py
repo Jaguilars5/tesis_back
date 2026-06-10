@@ -17,9 +17,13 @@ from ..repositories import (
     SubjectOfferingRepository,
     InterdisciplinaryProjectRepository,
     SubjectProjectRepository,
+    DayOfWeekRepository,
+    ClassScheduleRepository,
 )
 from .serializers import (
     AcademicPeriodSerializer,
+    ClassScheduleSerializer,
+    DayOfWeekSerializer,
     InterdisciplinaryProjectSerializer,
     PeriodTypeSerializer,
     SubjectAcademicConfigSerializer,
@@ -62,7 +66,9 @@ class BaseAcademicViewSet(viewsets.ModelViewSet):
     retrieve=extend_schema(summary="Obtener asignatura", tags=["academic"]),
     create=extend_schema(summary="Crear asignatura", tags=["academic"]),
     update=extend_schema(summary="Actualizar asignatura", tags=["academic"]),
-    partial_update=extend_schema(summary="Actualizar asignatura parcialmente", tags=["academic"]),
+    partial_update=extend_schema(
+        summary="Actualizar asignatura parcialmente", tags=["academic"]
+    ),
     destroy=extend_schema(summary="Eliminar asignatura", tags=["academic"]),
     soft_delete=extend_schema(summary="Desactivar asignatura", tags=["academic"]),
 )
@@ -91,9 +97,13 @@ class SubjectViewSet(BaseAcademicViewSet):
     retrieve=extend_schema(summary="Obtener periodo académico", tags=["academic"]),
     create=extend_schema(summary="Crear periodo académico", tags=["academic"]),
     update=extend_schema(summary="Actualizar periodo académico", tags=["academic"]),
-    partial_update=extend_schema(summary="Actualizar periodo académico parcialmente", tags=["academic"]),
+    partial_update=extend_schema(
+        summary="Actualizar periodo académico parcialmente", tags=["academic"]
+    ),
     destroy=extend_schema(summary="Eliminar periodo académico", tags=["academic"]),
-    soft_delete=extend_schema(summary="Desactivar periodo académico", tags=["academic"]),
+    soft_delete=extend_schema(
+        summary="Desactivar periodo académico", tags=["academic"]
+    ),
 )
 class AcademicPeriodViewSet(BaseAcademicViewSet):
     serializer_class = AcademicPeriodSerializer
@@ -116,13 +126,25 @@ class AcademicPeriodViewSet(BaseAcademicViewSet):
 
 
 @extend_schema_view(
-    list=extend_schema(summary="Listar asignaciones docente-materia", tags=["academic"]),
-    retrieve=extend_schema(summary="Obtener asignación docente-materia", tags=["academic"]),
+    list=extend_schema(
+        summary="Listar asignaciones docente-materia", tags=["academic"]
+    ),
+    retrieve=extend_schema(
+        summary="Obtener asignación docente-materia", tags=["academic"]
+    ),
     create=extend_schema(summary="Crear asignación docente-materia", tags=["academic"]),
-    update=extend_schema(summary="Actualizar asignación docente-materia", tags=["academic"]),
-    partial_update=extend_schema(summary="Actualizar asignación docente-materia parcialmente", tags=["academic"]),
-    destroy=extend_schema(summary="Eliminar asignación docente-materia", tags=["academic"]),
-    soft_delete=extend_schema(summary="Desactivar asignación docente-materia", tags=["academic"]),
+    update=extend_schema(
+        summary="Actualizar asignación docente-materia", tags=["academic"]
+    ),
+    partial_update=extend_schema(
+        summary="Actualizar asignación docente-materia parcialmente", tags=["academic"]
+    ),
+    destroy=extend_schema(
+        summary="Eliminar asignación docente-materia", tags=["academic"]
+    ),
+    soft_delete=extend_schema(
+        summary="Desactivar asignación docente-materia", tags=["academic"]
+    ),
 )
 class TeacherSubjectSectionViewSet(BaseAcademicViewSet):
     serializer_class = TeacherSubjectSectionSerializer
@@ -146,12 +168,22 @@ class TeacherSubjectSectionViewSet(BaseAcademicViewSet):
 
 @extend_schema_view(
     list=extend_schema(summary="Listar configuraciones académicas", tags=["academic"]),
-    retrieve=extend_schema(summary="Obtener configuración académica", tags=["academic"]),
+    retrieve=extend_schema(
+        summary="Obtener configuración académica", tags=["academic"]
+    ),
     create=extend_schema(summary="Crear configuración académica", tags=["academic"]),
-    update=extend_schema(summary="Actualizar configuración académica", tags=["academic"]),
-    partial_update=extend_schema(summary="Actualizar configuración académica parcialmente", tags=["academic"]),
-    destroy=extend_schema(summary="Eliminar configuración académica", tags=["academic"]),
-    soft_delete=extend_schema(summary="Desactivar configuración académica", tags=["academic"]),
+    update=extend_schema(
+        summary="Actualizar configuración académica", tags=["academic"]
+    ),
+    partial_update=extend_schema(
+        summary="Actualizar configuración académica parcialmente", tags=["academic"]
+    ),
+    destroy=extend_schema(
+        summary="Eliminar configuración académica", tags=["academic"]
+    ),
+    soft_delete=extend_schema(
+        summary="Desactivar configuración académica", tags=["academic"]
+    ),
 )
 class SubjectAcademicConfigViewSet(BaseAcademicViewSet):
     serializer_class = SubjectAcademicConfigSerializer
@@ -178,9 +210,13 @@ class SubjectAcademicConfigViewSet(BaseAcademicViewSet):
     retrieve=extend_schema(summary="Obtener oferta de materia", tags=["academic"]),
     create=extend_schema(summary="Crear oferta de materia", tags=["academic"]),
     update=extend_schema(summary="Actualizar oferta de materia", tags=["academic"]),
-    partial_update=extend_schema(summary="Actualizar oferta de materia parcialmente", tags=["academic"]),
+    partial_update=extend_schema(
+        summary="Actualizar oferta de materia parcialmente", tags=["academic"]
+    ),
     destroy=extend_schema(summary="Eliminar oferta de materia", tags=["academic"]),
-    soft_delete=extend_schema(summary="Desactivar oferta de materia", tags=["academic"]),
+    soft_delete=extend_schema(
+        summary="Desactivar oferta de materia", tags=["academic"]
+    ),
 )
 class SubjectOfferingViewSet(BaseAcademicViewSet):
     serializer_class = SubjectOfferingSerializer
@@ -203,13 +239,27 @@ class SubjectOfferingViewSet(BaseAcademicViewSet):
 
 
 @extend_schema_view(
-    list=extend_schema(summary="Listar proyectos interdisciplinarios", tags=["academic"]),
-    retrieve=extend_schema(summary="Obtener proyecto interdisciplinario", tags=["academic"]),
-    create=extend_schema(summary="Crear proyecto interdisciplinario", tags=["academic"]),
-    update=extend_schema(summary="Actualizar proyecto interdisciplinario", tags=["academic"]),
-    partial_update=extend_schema(summary="Actualizar proyecto interdisciplinario parcialmente", tags=["academic"]),
-    destroy=extend_schema(summary="Eliminar proyecto interdisciplinario", tags=["academic"]),
-    soft_delete=extend_schema(summary="Desactivar proyecto interdisciplinario", tags=["academic"]),
+    list=extend_schema(
+        summary="Listar proyectos interdisciplinarios", tags=["academic"]
+    ),
+    retrieve=extend_schema(
+        summary="Obtener proyecto interdisciplinario", tags=["academic"]
+    ),
+    create=extend_schema(
+        summary="Crear proyecto interdisciplinario", tags=["academic"]
+    ),
+    update=extend_schema(
+        summary="Actualizar proyecto interdisciplinario", tags=["academic"]
+    ),
+    partial_update=extend_schema(
+        summary="Actualizar proyecto interdisciplinario parcialmente", tags=["academic"]
+    ),
+    destroy=extend_schema(
+        summary="Eliminar proyecto interdisciplinario", tags=["academic"]
+    ),
+    soft_delete=extend_schema(
+        summary="Desactivar proyecto interdisciplinario", tags=["academic"]
+    ),
 )
 class InterdisciplinaryProjectViewSet(BaseAcademicViewSet):
     serializer_class = InterdisciplinaryProjectSerializer
@@ -236,9 +286,13 @@ class InterdisciplinaryProjectViewSet(BaseAcademicViewSet):
     retrieve=extend_schema(summary="Obtener proyecto de materia", tags=["academic"]),
     create=extend_schema(summary="Crear proyecto de materia", tags=["academic"]),
     update=extend_schema(summary="Actualizar proyecto de materia", tags=["academic"]),
-    partial_update=extend_schema(summary="Actualizar proyecto de materia parcialmente", tags=["academic"]),
+    partial_update=extend_schema(
+        summary="Actualizar proyecto de materia parcialmente", tags=["academic"]
+    ),
     destroy=extend_schema(summary="Eliminar proyecto de materia", tags=["academic"]),
-    soft_delete=extend_schema(summary="Desactivar proyecto de materia", tags=["academic"]),
+    soft_delete=extend_schema(
+        summary="Desactivar proyecto de materia", tags=["academic"]
+    ),
 )
 class SubjectProjectViewSet(BaseAcademicViewSet):
     serializer_class = SubjectProjectSerializer
@@ -265,7 +319,9 @@ class SubjectProjectViewSet(BaseAcademicViewSet):
     retrieve=extend_schema(summary="Obtener tipo de periodo", tags=["academic"]),
     create=extend_schema(summary="Crear tipo de periodo", tags=["academic"]),
     update=extend_schema(summary="Actualizar tipo de periodo", tags=["academic"]),
-    partial_update=extend_schema(summary="Actualizar tipo de periodo parcialmente", tags=["academic"]),
+    partial_update=extend_schema(
+        summary="Actualizar tipo de periodo parcialmente", tags=["academic"]
+    ),
     destroy=extend_schema(summary="Eliminar tipo de periodo", tags=["academic"]),
     soft_delete=extend_schema(summary="Desactivar tipo de periodo", tags=["academic"]),
 )
@@ -284,6 +340,68 @@ class PeriodTypeViewSet(BaseAcademicViewSet):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.repository = PeriodTypeRepository()
+
+    def get_queryset(self):
+        return self.repository.get_all()
+
+
+@extend_schema_view(
+    list=extend_schema(summary="Listar días de la semana", tags=["academic"]),
+    retrieve=extend_schema(summary="Obtener día de la semana", tags=["academic"]),
+    create=extend_schema(summary="Crear día de la semana", tags=["academic"]),
+    update=extend_schema(summary="Actualizar día de la semana", tags=["academic"]),
+    partial_update=extend_schema(
+        summary="Actualizar día de la semana parcialmente", tags=["academic"]
+    ),
+    destroy=extend_schema(summary="Eliminar día de la semana", tags=["academic"]),
+)
+class DayOfWeekViewSet(BaseAcademicViewSet):
+    serializer_class = DayOfWeekSerializer
+    action_permissions = {
+        "list": academic.VIEW_DAY_OF_WEEK,
+        "retrieve": academic.VIEW_DAY_OF_WEEK,
+        "create": academic.CREATE_DAY_OF_WEEK,
+        "update": academic.UPDATE_DAY_OF_WEEK,
+        "partial_update": academic.UPDATE_DAY_OF_WEEK,
+        "destroy": academic.DELETE_DAY_OF_WEEK,
+    }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.repository = DayOfWeekRepository()
+
+    def get_queryset(self):
+        return self.repository.get_all()
+
+
+@extend_schema_view(
+    list=extend_schema(summary="Listar horarios académicos", tags=["academic"]),
+    retrieve=extend_schema(summary="Obtener horario académico", tags=["academic"]),
+    create=extend_schema(summary="Crear horario académico", tags=["academic"]),
+    update=extend_schema(summary="Actualizar horario académico", tags=["academic"]),
+    partial_update=extend_schema(
+        summary="Actualizar horario académico parcialmente", tags=["academic"]
+    ),
+    destroy=extend_schema(summary="Eliminar horario académico", tags=["academic"]),
+    soft_delete=extend_schema(
+        summary="Desactivar horario académico", tags=["academic"]
+    ),
+)
+class ClassScheduleViewSet(BaseAcademicViewSet):
+    serializer_class = ClassScheduleSerializer
+    action_permissions = {
+        "list": academic.VIEW_CLASS_SCHEDULE,
+        "retrieve": academic.VIEW_CLASS_SCHEDULE,
+        "create": academic.CREATE_CLASS_SCHEDULE,
+        "update": academic.UPDATE_CLASS_SCHEDULE,
+        "partial_update": academic.UPDATE_CLASS_SCHEDULE,
+        "destroy": academic.DELETE_CLASS_SCHEDULE,
+        "soft_delete": academic.DELETE_CLASS_SCHEDULE,
+    }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.repository = ClassScheduleRepository()
 
     def get_queryset(self):
         return self.repository.get_all()

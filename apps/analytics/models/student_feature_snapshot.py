@@ -58,20 +58,26 @@ class StudentFeatureSnapshot(TimeStampedModel):
     has_special_needs = models.BooleanField(
         default=False, verbose_name="Tiene NEE"
     )
-    residential_zone = models.CharField(
-        max_length=50, blank=True, verbose_name="Zona de Residencia"
-    )
-    distance_to_school_km = models.DecimalField(
-        max_digits=5, decimal_places=2, null=True, blank=True,
-        verbose_name="Distancia al Colegio (km)",
-    )
     active_alerts = models.IntegerField(default=0, verbose_name="Alertas Activas")
+    is_current = models.BooleanField(default=False, verbose_name="Es actual")
+    snapshot_trigger = models.CharField(
+        max_length=10,
+        choices=[("MANUAL", "Manual"), ("AUTO", "Automático"), ("BATCH", "Por Lote")],
+        default="MANUAL",
+        verbose_name="Desencadenante",
+    )
     calculated_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Cálculo")
 
     class Meta:
         app_label = "analytics"
         verbose_name = "Instantánea de Métricas de Estudiante"
         verbose_name_plural = "Instantáneas de Métricas de Estudiantes"
+        unique_together = [("enrollment", "academic_period")]
+        indexes = [
+            models.Index(fields=["academic_period", "failing_subjects_count"]),
+            models.Index(fields=["academic_period", "attendance_rate"]),
+            models.Index(fields=["calculated_at"]),
+        ]
 
     def __str__(self):
         return f"Features for {self.enrollment} ({self.academic_period})"

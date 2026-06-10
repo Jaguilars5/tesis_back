@@ -6,6 +6,8 @@ from .subject_offering import SubjectOffering
 from .interdisciplinary_project import InterdisciplinaryProject
 from .subject_project import SubjectProject
 from .period_type import PeriodType
+from .day_of_week import DayOfWeek
+from .class_schedule import ClassSchedule
 
 __all__ = [
     "Subject",
@@ -16,4 +18,6 @@ __all__ = [
     "InterdisciplinaryProject",
     "SubjectProject",
     "PeriodType",
+    "DayOfWeek",
+    "ClassSchedule",
 ]

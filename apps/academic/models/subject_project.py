@@ -15,6 +15,10 @@ class SubjectProject(TimeStampedModel):
         related_name="subject_projects",
         verbose_name="Oferta de Asignatura",
     )
+    responsible_teacher = models.ForeignKey(
+        "iam.User", on_delete=models.SET_NULL, null=True,
+        verbose_name="Docente responsable",
+    )
 
     class Meta:
         app_label = "academic"

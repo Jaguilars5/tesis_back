@@ -110,7 +110,6 @@ class StudentFeatureSnapshotRepository(BaseRepository):
         mapped_metrics.setdefault("active_alerts", 0)
         mapped_metrics.setdefault("is_repeat", False)
         mapped_metrics.setdefault("has_special_needs", False)
-        mapped_metrics.setdefault("residential_zone", "")
 
         return cls.model.objects.create(
             enrollment_id=enrollment_id,

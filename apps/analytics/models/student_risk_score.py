@@ -32,6 +32,11 @@ class StudentRiskScore(TimeStampedModel):
         ordering = ["-calculated_at"]
         verbose_name = "Puntaje de Riesgo del Estudiante"
         verbose_name_plural = "Puntajes de Riesgo de los Estudiantes"
+        unique_together = [("enrollment", "academic_period")]
+        indexes = [
+            models.Index(fields=["academic_period", "risk_label"]),
+            models.Index(fields=["calculated_at"]),
+        ]
 
     def __str__(self):
         return f"{self.enrollment} - {self.risk_label} ({self.risk_score})"

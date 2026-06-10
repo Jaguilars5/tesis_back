@@ -71,7 +71,7 @@ Representa los grandes niveles educativos generales en los que se segmenta la en
 | :---------- | :--------------- | :-------------- | :----------------------------------------------------- |
 | `id`        | `AutoField`      | Primary Key     | Identificador del nivel académico.                     |
 | `name`      | `CharField(100)` | Obligatorio     | Nombre legible del nivel educativo (ej. "Secundaria"). |
-| `code`      | `CharField(20)`  | `unique=True`   | Código único del nivel (ej. `SEC`, `BAS`, `BACH`).    |
+| `code`      | `CharField(50)` | `blank=True, db_index=True` | Código único del nivel (ej. `SEC`, `BAS`, `BACH`).    |
 | `is_active` | `BooleanField`   | `default=True`  | Estado de vigencia del nivel.                          |
 
 ### 3. AcademicSublevel (Sublevel Académico)
@@ -95,7 +95,7 @@ Representa cada uno de los peldaños y cursos lectivos específicos dentro de lo
 | :----------------- | :----------------- | :---------------------------- | :----------------------------------------------------------------------- |
 | `id`               | `AutoField`        | Primary Key                   | Identificador del grado académico.                                       |
 | `academic_sublevel`| `ForeignKey`       | `on_delete=models.PROTECT`    | Relación con el sublevel (`institutions.AcademicSublevel`).              |
-| `code`             | `CharField(20)`   | `unique=True`                | Código único del grado (ej. `5TO_EGB`, `1ERO_BACH`).                    |
+| `code`             | `CharField(50)`   | `blank=True, db_index=True`                | Código único del grado (ej. `5TO_EGB`, `1ERO_BACH`).                    |
 | `name`             | `CharField(100)`   | Obligatorio                   | Nombre descriptivo del grado (ej. "1ero Bachillerato").                  |
 | `sequence_order`   | `IntegerField`     | Obligatorio                   | Número secuencial para ordenar cronológicamente los grados.              |
 | `is_active`        | `BooleanField`     | `default=True`                | Estado de vigencia del grado académico.                                  |
@@ -111,7 +111,7 @@ Representa un aula física y paralelo lectivo dentro de un año escolar determin
 | `id`             | `AutoField`      | Primary Key                          | Identificador de la sección.                                    |
 | `school_year`    | `ForeignKey`     | `on_delete=models.CASCADE`           | Relación con el año lectivo (`institutions.SchoolYear`).        |
 | `academic_grade` | `ForeignKey`     | `on_delete=models.CASCADE`, nullable | Relación con el grado académico (`institutions.AcademicGrade`). |
-| `code`           | `CharField(20)`  | `unique=True`                       | Código único de la sección (ej. `2024-8A`, `2025-1B`).         |
+| `code`           | `CharField(50)`  | `blank=True, db_index=True`| Código único de la sección (ej. `2024-8A`, `2025-1B`).         |
 | `parallel`       | `CharField(255)` | Obligatorio                          | Letra del paralelo asignado (ej. "A", "B").                     |
 | `capacity`       | `IntegerField`   | Obligatorio                          | Cupo o capacidad máxima de estudiantes admitidos en el aula.    |
 | `is_active`      | `BooleanField`   | `default=True`                       | Estado de operatividad de la sección física.                    |

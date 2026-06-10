@@ -25,6 +25,9 @@ class SubjectOffering(TimeStampedModel):
         verbose_name = "Oferta de Materia"
         verbose_name_plural = "Ofertas de Materias"
         unique_together = ("school_year", "section", "subject_academic_config")
+        indexes = [
+            models.Index(fields=["section", "school_year"]),
+        ]
 
     def __str__(self):
         return f"{self.school_year} - {self.section} - {self.subject_academic_config}"

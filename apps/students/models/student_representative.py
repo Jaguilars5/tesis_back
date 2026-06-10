@@ -3,15 +3,6 @@ from apps.core.models import TimeStampedModel
 
 
 class StudentRepresentative(TimeStampedModel):
-    KINSHIP_CHOICES = [
-        ("Padre", "Padre"),
-        ("Madre", "Madre"),
-        ("Abuelo/a", "Abuelo/a"),
-        ("Tío/a", "Tío/a"),
-        ("Hermano/a Mayor", "Hermano/a Mayor"),
-        ("Otro", "Otro"),
-    ]
-
     student = models.ForeignKey(
         "students.Student",
         on_delete=models.CASCADE,
@@ -25,10 +16,9 @@ class StudentRepresentative(TimeStampedModel):
         null=True, blank=True,
         verbose_name="Persona",
     )
-    kinship = models.CharField(
-        max_length=30,
-        choices=KINSHIP_CHOICES,
-        default="Padre",
+    kinship = models.ForeignKey(
+        "students.Kinship",
+        on_delete=models.PROTECT,
         verbose_name="Parentesco",
     )
     is_primary = models.BooleanField(default=False, verbose_name="Es Principal")

@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from django.test import TestCase
 
-from apps.academic.models import (
+from apps.academic.models import (PeriodType,
     AcademicPeriod, Subject, SubjectAcademicConfig, SubjectOffering, TeacherSubjectSection,
 )
 from apps.iam.models import User
@@ -31,6 +31,10 @@ class AnalyticsRepositoryTest(TestCase):
         self.period = AcademicPeriod.objects.create(
             school_year=self.school_year, name="P1",
             start_date=date(2025, 1, 1), end_date=date(2025, 3, 31),
+        )
+        self.period2 = AcademicPeriod.objects.create(
+            school_year=self.school_year, name="P2",
+            start_date=date(2025, 4, 1), end_date=date(2025, 6, 30),
         )
         self.academic_level = AcademicLevel.objects.create(name="Primaria")
         self.academic_sublevel = AcademicSublevel.objects.create(
@@ -108,7 +112,7 @@ class AnalyticsRepositoryTest(TestCase):
             risk_score=Decimal("10.00"), risk_label="BAJO",
         )
         s2 = StudentRiskScore.objects.create(
-            enrollment=self.enrollment, academic_period=self.period,
+            enrollment=self.enrollment, academic_period=self.period2,
             risk_score=Decimal("90.00"), risk_label="ALTO",
         )
         results = StudentRiskScoreRepository.get_all(active_only=False)
@@ -144,11 +148,12 @@ class AnalyticsRepositoryTest(TestCase):
             enrollment=self.enrollment, academic_period=self.period,
             risk_score=Decimal("10.00"), risk_label="BAJO",
         )
+        StudentRiskScore.objects.filter(enrollment=self.enrollment, academic_period=self.period).delete()
         StudentRiskScore.objects.create(
             enrollment=self.enrollment, academic_period=self.period,
             risk_score=Decimal("90.00"), risk_label="ALTO",
         )
-        self.assertEqual(StudentRiskScoreRepository.count(), 2)
+        self.assertEqual(StudentRiskScoreRepository.count(), 1)
 
     def test_student_risk_score_get_latest_by_enrollment(self):
         obj = StudentRiskScore.objects.create(
@@ -171,11 +176,12 @@ class AnalyticsRepositoryTest(TestCase):
             enrollment=self.enrollment, academic_period=self.period,
             risk_score=Decimal("50.00"), risk_label="MEDIO",
         )
+        StudentRiskScore.objects.filter(academic_period=self.period).exclude(enrollment=self.enrollment).delete()
         high = StudentRiskScore.objects.create(
-            enrollment=self.enrollment, academic_period=self.period,
+            enrollment=self.enrollment, academic_period=self.period2,
             risk_score=Decimal("85.00"), risk_label="ALTO",
         )
-        results = StudentRiskScoreRepository.list_high_risk(self.period.pk, threshold=70)
+        results = StudentRiskScoreRepository.list_high_risk(self.period2.pk, threshold=70)
         self.assertIn(high, results)
         self.assertEqual(len(results), 1)
 
@@ -199,10 +205,8 @@ class AnalyticsRepositoryTest(TestCase):
             attendance_rate=Decimal("95.00"),
             unjustified_absences=0,
             justified_absences=2,
-            residential_zone="Urbana",
         )
         self.assertEqual(obj.attendance_rate, Decimal("95.00"))
-        self.assertEqual(obj.residential_zone, "Urbana")
 
     def test_snapshot_get_by_id(self):
         obj = StudentFeatureSnapshot.objects.create(
@@ -217,6 +221,7 @@ class AnalyticsRepositoryTest(TestCase):
             enrollment=self.enrollment, academic_period=self.period,
             attendance_rate=Decimal("80.00"),
         )
+        StudentFeatureSnapshot.objects.filter(enrollment=self.enrollment, academic_period=self.period).delete()
         s2 = StudentFeatureSnapshot.objects.create(
             enrollment=self.enrollment, academic_period=self.period,
             attendance_rate=Decimal("95.00"),
@@ -262,6 +267,7 @@ class AnalyticsRepositoryTest(TestCase):
         self.assertEqual(result.pk, obj.pk)
 
     def test_create_snapshot_method(self):
+        StudentFeatureSnapshot.objects.filter(enrollment=self.enrollment, academic_period=self.period).delete()
         metrics = {
             "attendance_rate": Decimal("85.00"),
             "consecutive_absences_max": 3,
@@ -274,7 +280,6 @@ class AnalyticsRepositoryTest(TestCase):
             "active_alerts": 0,
             "is_repeat": False,
             "has_special_needs": False,
-            "residential_zone": "Urbana",
         }
         obj = StudentFeatureSnapshotRepository.create_snapshot(
             enrollment_id=self.enrollment.pk,
@@ -285,6 +290,7 @@ class AnalyticsRepositoryTest(TestCase):
         self.assertEqual(obj.consecutive_absences_max, 3)
 
     def test_create_snapshot_with_avg_grade_normalized_mapping(self):
+        StudentFeatureSnapshot.objects.filter(enrollment=self.enrollment, academic_period=self.period).delete()
         metrics = {
             "avg_grade_normalized": Decimal("7.50"),
             "consecutive_absences_max": 0,

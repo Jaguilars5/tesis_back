@@ -16,7 +16,7 @@ from apps.core.constants.permissions import analytics
 from apps.core.api.pagination import StandardResultsSetPagination
 from apps.core.api.permissions import HasPermission
 
-from ..models import AlertType, EarlyAlert, RiskFactor, StudentRiskFactor, UrgencyLevel
+from ..models import AlertType, DashboardMetric, EarlyAlert, RiskFactor, StudentRiskFactor, UrgencyLevel
 from ..repositories import (
     AlertTypeRepository,
     EarlyAlertRepository,
@@ -27,6 +27,9 @@ from ..repositories import (
     UrgencyLevelRepository,
 )
 from ..services.early_alert_service import EarlyAlertService
+from ..services.dashboard_service import DashboardService
+from ..services.csv_export_service import CSVExportService
+from django.http import HttpResponse
 from .serializers import (
     AlertTypeSerializer,
     EarlyAlertSerializer,
@@ -270,3 +273,85 @@ class EarlyAlertViewSet(viewsets.ModelViewSet):
         if alert:
             return Response(EarlyAlertSerializer(alert).data)
         return Response("Alerta no encontrada", status=400)
+
+
+@extend_schema_view(
+    overview=extend_schema(summary="KPIs globales del período", tags=["analytics"]),
+    risk_distribution=extend_schema(summary="Distribución semáforo por grado", tags=["analytics"]),
+    students_at_risk=extend_schema(summary="Estudiantes en nivel de riesgo", tags=["analytics"]),
+    export_csv=extend_schema(summary="Exportar CSV", tags=["analytics"]),
+    section_summary=extend_schema(summary="Resumen de sección", tags=["analytics"]),
+)
+class DashboardViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated, HasPermission]
+    action_permissions = {
+        "overview": analytics.VIEW_RISK_SCORE,
+        "risk_distribution": analytics.VIEW_RISK_SCORE,
+        "students_at_risk": analytics.VIEW_RISK_SCORE,
+        "export_csv": analytics.VIEW_RISK_SCORE,
+        "section_summary": analytics.VIEW_RISK_SCORE,
+    }
+
+    @action(detail=False, methods=["get"])
+    def overview(self, request):
+        period_id = request.query_params.get("period_id")
+        if not period_id:
+            return Response("period_id es requerido", status=400)
+        data = DashboardService.get_overview(period_id)
+        return Response(data)
+
+    @action(detail=False, methods=["get"])
+    def risk_distribution(self, request):
+        period_id = request.query_params.get("period_id")
+        if not period_id:
+            return Response("period_id es requerido", status=400)
+        data = DashboardService.get_risk_distribution_by_grade(period_id)
+        return Response(data)
+
+    @action(detail=False, methods=["get"])
+    def students_at_risk(self, request):
+        period_id = request.query_params.get("period_id")
+        risk_label = request.query_params.get("risk_label", "rojo")
+        if not period_id:
+            return Response("period_id es requerido", status=400)
+        data = DashboardService.get_students_at_risk(period_id, risk_label)
+        return Response(data)
+
+    @action(detail=False, methods=["get"])
+    def export_csv(self, request):
+        export_type = request.query_params.get("type")
+        period_id = request.query_params.get("period_id")
+        if not export_type or not period_id:
+            return Response("type y period_id son requeridos", status=400)
+        try:
+            csv_data = CSVExportService.generate_csv(export_type, period_id)
+            response = HttpResponse(csv_data, content_type="text/csv")
+            response["Content-Disposition"] = f'attachment; filename="{export_type}_{period_id}.csv"'
+            return response
+        except ValueError as e:
+            return Response(str(e), status=400)
+
+    @action(detail=False, methods=["get"])
+    def section_summary(self, request):
+        section_id = request.query_params.get("section_id")
+        if not section_id:
+            return Response("section_id es requerido", status=400)
+        from django.db.models import Avg
+        from ..models import StudentFeatureSnapshot, StudentRiskScore
+        snapshots = StudentFeatureSnapshot.objects.filter(
+            enrollment__section_id=section_id
+        )
+        scores = StudentRiskScore.objects.filter(
+            enrollment__section_id=section_id
+        )
+        return Response({
+            "section_id": section_id,
+            "total_students": snapshots.count(),
+            "attendance_rate_avg": snapshots.aggregate(Avg("attendance_rate"))["attendance_rate__avg"] or 0,
+            "formative_avg": snapshots.aggregate(Avg("formative_avg_normalized"))["formative_avg_normalized__avg"] or 0,
+            "risk_distribution": {
+                "rojo": scores.filter(risk_label="rojo").count(),
+                "amarillo": scores.filter(risk_label="amarillo").count(),
+                "verde": scores.filter(risk_label="verde").count(),
+            },
+        })

@@ -1,25 +1,20 @@
 from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.db import models
-import uuid
 from apps.core.models import TimeStampedModel
+from apps.integration.models.syncable_mixin import SyncableModel
 
 
-class StudentNote(TimeStampedModel):
+class StudentNote(TimeStampedModel, SyncableModel):
     """
     NOTA_ACTIVIDAD — Calificación individual de un estudiante en una actividad.
     Entidad de mayor volumen; soporte offline-first.
     """
 
-    uuid = models.UUIDField(
-        default=uuid.uuid4, editable=False, unique=True, verbose_name="UUID",
-        help_text="Identificador único global para sincronización offline",
-    )
     enrollment = models.ForeignKey(
         "students.Enrollment",
         on_delete=models.CASCADE,
         verbose_name="Matrícula",
-        null=True, blank=True,
     )
     evaluative_activity = models.ForeignKey(
         "grading.EvaluativeActivity",
@@ -32,6 +27,16 @@ class StudentNote(TimeStampedModel):
         on_delete=models.PROTECT,
         verbose_name="Tipo de Calificación",
         null=True, blank=True,
+    )
+    grading_mode = models.CharField(
+        max_length=20,
+        choices=[
+            ("NUMERIC", "Cuantitativa"),
+            ("QUALITATIVE", "Cualitativa"),
+        ],
+        default="NUMERIC",
+        verbose_name="Modo de Calificación",
+        help_text="Define si la nota es numérica o cualitativa",
     )
     qualitative_scale = models.ForeignKey(
         "grading.QualitativeScale",
@@ -52,31 +57,37 @@ class StudentNote(TimeStampedModel):
     teacher_observation = models.TextField(
         null=True, blank=True, verbose_name="Observación del Docente"
     )
-    sync_status = models.CharField(
-        max_length=20, default="PENDIENTE",
-        verbose_name="Estado de Sincronización",
-        help_text="PENDIENTE, SINCRONIZADO o ERROR",
+    created_by = models.ForeignKey(
+        "iam.User", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="student_notes_created", verbose_name="Creado por",
     )
-    synced_at = models.DateTimeField(null=True, blank=True, verbose_name="Sincronizado en")
-    sync_version = models.PositiveIntegerField(
-        default=1, verbose_name="Versión de Sincronización",
-        help_text="Número de versión para control de conflictos offline",
-    )
-    device_origin = models.CharField(
-        max_length=40, null=True, blank=True, verbose_name="Dispositivo de Origen"
+    modified_by = models.ForeignKey(
+        "iam.User", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="student_notes_modified", verbose_name="Modificado por",
     )
 
     class Meta:
         app_label = "grading"
         verbose_name = "Nota de Actividad"
         verbose_name_plural = "Notas de Actividades"
+        unique_together = [("enrollment", "evaluative_activity")]
         indexes = [
             models.Index(fields=["enrollment", "evaluative_activity"]),
+            models.Index(fields=["evaluative_activity", "numeric_score"]),
             models.Index(fields=["sync_status"]),
+            models.Index(fields=["enrollment", "sync_status"]),
         ]
 
     def clean(self):
         super().clean()
+        if self.grading_mode == "NUMERIC" and not self.numeric_score:
+            raise ValidationError(
+                {"numeric_score": "numeric_score es requerido para calificación cuantitativa"}
+            )
+        if self.grading_mode == "QUALITATIVE" and not self.qualitative_scale:
+            raise ValidationError(
+                {"qualitative_scale": "qualitative_scale es requerido para calificación cualitativa"}
+            )
         if self.evaluative_activity_id and self.numeric_score is not None:
             max_value = self.evaluative_activity.max_score
             if self.numeric_score < 0 or self.numeric_score > max_value:

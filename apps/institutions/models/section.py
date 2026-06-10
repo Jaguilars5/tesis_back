@@ -23,6 +23,7 @@ class Section(TimeStampedModel):
         app_label = "institutions"
         verbose_name = "Sección"
         verbose_name_plural = "Secciones"
+        unique_together = [("school_year", "academic_grade", "parallel")]
 
     def __str__(self):
         if self.academic_grade:

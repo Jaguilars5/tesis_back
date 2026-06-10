@@ -3,7 +3,7 @@ from datetime import date
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.academic.models import (
+from apps.academic.models import (PeriodType,
     AcademicPeriod,
     Subject,
     SubjectAcademicConfig,

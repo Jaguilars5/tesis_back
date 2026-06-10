@@ -18,7 +18,7 @@ from apps.analytics.models import (
     RiskFactor, StudentFeatureSnapshot, StudentRiskFactor, StudentRiskScore, EarlyAlert,
     AlertType, UrgencyLevel,
 )
-from apps.academic.models import AcademicPeriod
+from apps.academic.models import AcademicPeriod, PeriodType
 from apps.institutions.models import SchoolYear, AcademicGrade, AcademicLevel, AcademicSublevel, Section
 from apps.students.models import Enrollment, EnrollmentStatus
 

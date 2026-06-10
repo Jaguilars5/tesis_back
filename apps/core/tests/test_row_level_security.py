@@ -5,10 +5,11 @@ from rest_framework.test import APIClient
 from apps.iam.models import Permission, Role, RolePermission, User, UserRole
 from apps.people.models import Person
 from apps.core.tests.helpers import create_test_user
-from apps.academic.models import SubjectOffering, Subject, SubjectAcademicConfig, TeacherSubjectSection
+from apps.academic.models import SubjectOffering, Subject, SubjectAcademicConfig, TeacherSubjectSection, PeriodType
 from apps.institutions.models import Section, SchoolYear, AcademicGrade, AcademicLevel, AcademicSublevel
 from apps.students.models import Student, StudentRepresentative, Enrollment, EnrollmentStatus
 from apps.grading.models import EvaluativeActivity, StudentNote, ComponentIndicator, BlockComponent, EvaluationBlock
+from apps.students.models import Kinship
 from apps.grading.models import GradeType, EvaluationType, ActivityType
 
 
@@ -76,13 +77,16 @@ class RowLevelSecurityTestCase(TestCase):
             student=self.student_2, section=self.section, school_year=self.school_year, enrollment_status=self.enrollment_status
         )
 
+        # Kinship for representatives
+        self.kinship_padre = Kinship.objects.create(code="PADRE", name="Padre")
+
         # Representante (vinculado a Estudiante 1 únicamente)
         self.person_rep = Person.objects.create(names="Parent", last_names="One", email="rep@test.com", document_number="555")
         self.user_rep = User.objects.create_user(person=self.person_rep, password="test_password_123")
         UserRole.objects.create(user=self.user_rep, role=self.role_representante)
-        StudentRepresentative.objects.create(student=self.student_1, person=self.person_rep, kinship="Padre", is_primary=True)
+        StudentRepresentative.objects.create(student=self.student_1, person=self.person_rep, kinship=self.kinship_padre, is_primary=True)
 
-        # 4. Crear Asignación y Estructura Académica para Docente 1
+        # 5. Crear Asignación y Estructura Académica para Docente 1
         self.subject = Subject.objects.create(name="Matemáticas")
         self.subject_config = SubjectAcademicConfig.objects.create(
             subject=self.subject, academic_grade=self.academic_grade, weekly_hours=4, pedagogical_order=1
@@ -95,16 +99,18 @@ class RowLevelSecurityTestCase(TestCase):
         # Asignación ficticia para Docente 2
         self.tss_2 = TeacherSubjectSection.objects.create(user=self.user_t2, subject_offering=self.subject_offering)
 
-        # 5. Crear Notas y Calificaciones
         from apps.academic.models import AcademicPeriod
         self.eval_type = EvaluationType.objects.create(code="FORMATIVA", name="Formativa")
         self.activity_type = ActivityType.objects.create(code="TAREA", name="Tarea")
         self.activity_type2 = ActivityType.objects.create(code="EXAMEN", name="Examen")
         self.academic_period = AcademicPeriod.objects.create(
-            school_year=self.school_year, name="Primer Quimestre", start_date="2026-01-01", end_date="2026-06-30"
-        )
+            school_year=self.school_year, name="Primer Quimestre", start_date="2026-01-01", end_date="2026-06-30")
         self.eval_block = EvaluationBlock.objects.create(
-            academic_period=self.academic_period, name="Bloque 1", weight_percentage=50.00, evaluation_type=self.eval_type
+            academic_period=self.academic_period,
+            subject_offering=self.subject_offering,
+            name="Bloque 1",
+            weight_percentage=50.00,
+            evaluation_type=self.eval_type
         )
         self.block_comp = BlockComponent.objects.create(
             evaluation_block=self.eval_block, name="Tareas", internal_weight=100.00

@@ -10,6 +10,13 @@ class ConfigRepository(BaseRepository):
         return cls.model.objects.all().order_by("key")
 
     @classmethod
+    def get_by_key(cls, key):
+        try:
+            return cls.model.objects.get(key=key)
+        except cls.model.DoesNotExist:
+            return None
+
+    @classmethod
     def get_or_create(cls, key, defaults=None):
         obj, created = cls.model.objects.get_or_create(
             key=key,

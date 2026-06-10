@@ -1,114 +1,95 @@
-# Módulo Core
+# Módulo `core` — Componentes Transversales
 
-El módulo `core` contiene componentes transversales y utilidades globales que son utilizadas por múltiples aplicaciones dentro del proyecto. Su objetivo es reducir la duplicación de código y centralizar la lógica técnica que no pertenece a un dominio de negocio específico.
+> Utilidades globales, middleware de seguridad, permisos DRF, paginación, renderer de respuestas, modelo base, repositorio base y bitácora de auditoría.
 
-## Utilidades de API
+## Componentes
 
-### Respuestas Estandarizadas (`apps.core.utils.responses`)
+### `StandardResponseRenderer` (`apps.core.api.renderers`)
+Renderer global que envuelve todas las respuestas JSON en el formato `{"ok": bool, "data": ..., "msg": "..."}`.
+- Respuestas exitosas (<400): `{"ok": true, "data": ..., "msg": ""}`
+- Respuestas de error (≥400): `{"ok": false, "data": ..., "msg": "..."}`
+- Si la respuesta ya tiene el formato, no lo modifica.
 
-Proporciona funciones para asegurar que todas las respuestas de la API sigan el formato unificado requerido por el sistema.
+### `custom_exception_handler` (`apps.core.api.exceptions`)
+Manejador global de excepciones DRF. Garantiza que errores no controlados también retornen el formato estándar.
+- Errores DRF: reformatea con `{"ok": false, "data": response.data, "msg": str(exc)}`
+- Errores 500: retorna `{"ok": false, "data": {}, "msg": "Error interno del servidor: ..."}`
 
-#### `ok_response(data, status=200)`
-Retorna una respuesta exitosa.
-- **data**: El cuerpo de datos (diccionario o lista).
-- **status**: Código de estado HTTP (opcional, por defecto 200). Use 201 para creaciones exitosas.
+### `StandardResultsSetPagination` (`apps.core.api.pagination`)
+Paginación por defecto: 20 items/página, configurable vía `?page_size=` (máx 100).
+Respuesta paginada: `{ count, next, previous, results }`
 
-#### `error_response(msg, status=400)`
-Retorna una respuesta de error.
-- **msg**: Descripción del error (string o excepción).
-- **status**: Código de estado HTTP (opcional, por defecto 400).
+### `HasPermission` (`apps.core.api.permissions`), `require_permission` (`apps.core.api.permissions`)
+Control de acceso basado en permisos (RBAC).
+- `HasPermission`: clase de permiso DRF para ViewSets. Lee `action_permissions` del ViewSet y verifica `user.has_perm(codename)`.
+- `require_permission(codename)`: decorador para vistas basadas en función (`@api_view`).
+- Superusuarios bypassan todas las verificaciones.
 
-## Estándares de Uso
+### `BaseRepository` (`apps.core.repositories.base`)
+CRUD genérico: `get_all()`, `get_by_id()`, `get_by_uuid()`, `exists()`, `count()`, `create()`, `update()`, `delete()`.
 
-1. **Importación**: Siempre importe desde el paquete de utilidades:
-   ```python
-   from apps.core.utils import ok_response, error_response
-   ```
-2. **Consistencia**: No utilice la clase `Response` de DRF directamente en las vistas a menos que sea estrictamente necesario para un comportamiento no estándar (como descarga de archivos).
-3. **Mantenimiento**: Cualquier lógica que se repita en más de dos módulos de negocio debería ser evaluada para su promoción al módulo `core`.
+### `TimeStampedModel` (`apps.core.models.base`)
+Modelo abstracto: `created_at` (default=timezone.now), `updated_at` (default=timezone.now).
 
-## Middleware de Seguridad
+### `AuditLog` (`apps.core.models.audit_log`)
+Bitácora centralizada: `user` (FK), `action` (CREATE/UPDATE/DELETE/RECOVER), `model_name`, `record_id`, `changes` (JSON), `ip_address`, `user_agent`.
 
-### `SecurityHeadersMiddleware`
+### `SecurityHeadersMiddleware` (`apps.core.middleware.security`)
+Agrega headers de seguridad a todas las respuestas:
+`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `X-XSS-Protection: 1; mode=block`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(), geolocation=()`.
 
-Agrega headers de seguridad a todas las respuestas HTTP:
+### `RoleBasedFilterBackend` (`apps.core.api.filters`)
+Filtro global de seguridad a nivel de fila (RLS). Despacha según `user.user_category` a handlers específicos.
 
-- `X-Content-Type-Options: nosniff` — Previene MIME sniffing
-- `X-Frame-Options: DENY` — Previene clickjacking
-- `X-XSS-Protection: 1; mode=block` — Activa filtro XSS del navegador
-- `Referrer-Policy: strict-origin-when-cross-origin` — Controla información de referrer
-- `Permissions-Policy: camera=(), microphone=(), geolocation=()` — Restringe acceso a APIs del navegador
+### `StandardResponseAutoSchema` (`apps.core.api.schema`)
+Extiende `drf-spectacular AutoSchema` para documentar automáticamente el formato `{ok, data, msg}` en OpenAPI 3.0.
 
-Registrado en `MIDDLEWARE` después de `django.middleware.security.SecurityMiddleware`.
+### `RoleHandlers` (`apps.core.api.role_handlers`)
+Manejadores de RLS para cada categoría de usuario (ESTUDIANTE, DOCENTE, REPRESENTANTE, ADMIN).
 
-## Constantes de Permisos
+### `SeedCatalogsCommand` (`apps.core.management.commands.seed_catalogs`)
+Pobla 26+ catálogos del sistema. Idempotente: `python manage.py seed_catalogs`.
 
-### `apps/core/constants/permissions.py`
-
-Define constantes tipadas para todos los permisos del sistema.
-
-```python
-from apps.core.constants.permissions import grading, accounts
-
-# Uso en ViewSet
-action_permissions = {
-    "list": grading.VIEW_NOTE,
-    "create": grading.CREATE_NOTE,
-}
-
-# Uso en decorador
-@require_permission(grading.VIEW_NOTE)
-```
-
-### Módulos disponibles
+## Constantes de Permisos (`apps.core.constants.permissions`)
 
 | Instancia | Módulo |
 |-----------|--------|
-| `iam` | Cuentas de usuario, roles, permisos |
-| `institutions` | Instituciones, años escolares, aulas |
-| `academic` | Secciones, materias, períodos, actividades |
-| `students` | Estudiantes, representantes, relaciones |
-| `grading` | Calificaciones, asistencia, incidentes |
-
-| `analytics` | Puntajes de riesgo, snapshots |
-
-### Generación del Catálogo
-
-`seed_permissions.py` genera el catálogo de permisos automáticamente desde estas constantes, asegurando que siempre estén sincronizadas.
+| `iam` | Usuarios, roles, permisos |
+| `people` | Personas, tipos de documento |
+| `institutions` | Años escolares, niveles, subniveles, grados, secciones |
+| `academic` | Materias, períodos, configuraciones, ofertas, asignación docente, proyectos |
+| `students` | Estudiantes, representantes, matrículas |
+| `grading` | Notas, bloques, componentes, actividades, promedios, recuperación |
+| `attendance` | Asistencia, estados, tipos de ausencia |
+| `behavior` | Incidentes, evaluaciones conductuales, habilidades socioemocionales |
+| `analytics` | Scores de riesgo, snapshots, alertas, factores |
+| `configuration` | Configuración del sistema |
+| `integration` | Cola de sincronización, operaciones, estados |
 
 ## Tests
 
-### Tests de Seguridad
-
-| Archivo | Qué prueba |
-|---------|-----------|
-| `test_permissions.py` | `HasPermission` y `require_permission` |
-| `test_permission_integration.py` | Auth + permisos en todos los módulos |
-| `test_throttling.py` | Rate limiting |
-| `test_security_headers.py` | Headers de seguridad en respuestas |
-| `test_password_validation.py` | Validación de contraseñas |
-| `test_jwt_config.py` | Configuración JWT |
-| `test_openapi_schema.py` | Schema OpenAPI, Swagger UI y ReDoc |
-| `test_permission_constants.py` | Constantes de permisos |
-
-### Ejecutar
 ```bash
 python manage.py test apps.core.tests --settings=config.settings.test
 ```
 
-## Esquema OpenAPI
+| Archivo | Prueba |
+|---------|--------|
+| `test_permissions.py` | HasPermission, require_permission |
+| `test_permission_integration.py` | Auth + permisos multi-módulo |
+| `test_permission_constants.py` | Constantes de permisos |
+| `test_throttling.py` | Rate limiting |
+| `test_security_headers.py` | Headers de seguridad |
+| `test_password_validation.py` | Validación de contraseñas |
+| `test_jwt_config.py` | Configuración JWT |
+| `test_openapi_schema.py` | Schema OpenAPI |
+| `test_exceptions.py` | Manejador de excepciones |
+| `test_renderers.py` | StandardResponseRenderer |
+| `test_pagination.py` | Paginación |
+| `test_row_level_security.py` | RLS multi-rol |
+| `test_seed_catalogs.py` | Seed de catálogos |
+| `test_phase8_functional.py` | Flujos funcionales completos |
 
-### `apps/core/schema.py`
-
-`StandardResponseAutoSchema` extiende `drf_spectacular.openapi.AutoSchema` para integrar la generación automática de esquemas OpenAPI 3.0 con DRF.
-
-```python
-from apps.core.schema import StandardResponseAutoSchema
-```
-
-Configurado como `DEFAULT_SCHEMA_CLASS` en `REST_FRAMEWORK`.
-
-### Endpoints
+## OpenAPI
 
 | URL | Descripción |
 |-----|-------------|
@@ -117,51 +98,5 @@ Configurado como `DEFAULT_SCHEMA_CLASS` en `REST_FRAMEWORK`.
 | `GET /api/redoc/` | ReDoc UI |
 
 ```bash
-# Validar schema
-python manage.py spectacular --settings=config.settings.local --validate
-
-# Generar archivo
-python manage.py spectacular --settings=config.settings.local --file schema.yml
+python manage.py spectacular --validate
 ```
-
-## Permisos DRF
-
-### `HasPermission`
-
-Clase de permiso DRF para ViewSets. Verifica que el usuario autenticado tenga el permiso requerido para la acción actual.
-
-Uso en ViewSets:
-```python
-from apps.core.permissions import HasPermission
-
-class MyViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated, HasPermission]
-    action_permissions = {
-        "list": "modulo.view_modelo",
-        "create": "modulo.create_modelo",
-        "retrieve": "modulo.view_modelo",
-        "update": "modulo.update_modelo",
-        "partial_update": "modulo.update_modelo",
-        "destroy": "modulo.delete_modelo",
-    }
-```
-
-### `require_permission`
-
-Decorador para vistas basadas en funciones (`@api_view`).
-
-Uso:
-```python
-from apps.core.permissions import require_permission
-
-@require_permission("modulo.accion")
-@api_view(["POST"])
-def my_view(request):
-    ...
-```
-
-### Comportamiento
-
-- Superusuarios (`is_superuser=True`) bypassan todas las verificaciones
-- Si la acción no está mapeada en `action_permissions`, se deniega por defecto
-- Usa `user.has_perm(codename)` del sistema RBAC personalizado

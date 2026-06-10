@@ -1,145 +1,127 @@
 # API - Módulo Grading
 
-Esta API gestiona el desempeño estudiantil: calificaciones estructuradas en bloques de evaluación, tipos de calificación, escalas cualitativas y procesos de recuperación.
-
----
+Esta API gestiona calificaciones, estructura evaluativa (bloques → componentes → indicadores → actividades), promedios de período, procesos de recuperación, informes de aprendizaje y notas de proyectos.
 
 ## Formato de Respuesta
 
-Todas las peticiones devuelven el esquema estandarizado:
-
-```json
-{
-  "ok": true,
-  "data": {},
-  "msg": ""
-}
-```
-
----
+Todas las respuestas siguen el formato `{"ok": bool, "data": ..., "msg": "..."}`.
+Los listados paginados devuelven `data` con `{ count, next, previous, results }`.
 
 ## Autenticación y Permisos
 
-Header requerido:
-```
-Authorization: Bearer <access_token>
-```
+Header: `Authorization: Bearer <access_token>`
 
 | Endpoint | Método | Permiso |
 |---------|--------|---------|
-| `student-notes/` | GET | `grading.view_note` |
-| `student-notes/` | POST | `grading.create_note` |
-| `student-notes/{id}/` | GET | `grading.view_note` |
-| `student-notes/{id}/` | PATCH | `grading.update_note` |
-| `student-notes/{id}/` | DELETE | `grading.delete_note` |
-| `grade-types/` | GET | `grading.view_gradetype` |
-| `qualitative-scales/` | GET | `grading.view_qualitativescale` |
-| `evaluation-blocks/` | GET | `grading.view_evaluationblock` |
-| `evaluation-blocks/` | POST | `grading.create_evaluationblock` |
-| `block-components/` | GET | `grading.view_blockcomponent` |
-| `component-indicators/` | GET | `grading.view_componentindicator` |
-| `evaluative-activities/` | GET | `grading.view_evaluativeactivity` |
-| `grade-history/` | GET | `grading.view_gradechangehistory` |
-| `period-grade-summaries/` | GET | `grading.view_periodgradesummary` |
-| `recovery-processes/` | GET | `grading.view_recoveryprocess` |
-| `recovery-processes/` | POST | `grading.create_recoveryprocess` |
-| `diagnostic-evaluations/` | GET | `grading.view_diagnosticevaluation` |
-| `project-notes/` | GET | `grading.view_projectnote` |
+| `student-notes/` | GET/POST | `grading.view/create_note` |
+| `student-notes/{id}/` | GET/PATCH/DEL | `grading.view/update/delete_note` |
+| `evaluation-blocks/` | GET/POST | `grading.view/create_evaluation_macro` |
+| `evaluation-blocks/{id}/` | GET/PATCH/DEL | `grading.view/update/delete_evaluation_macro` |
+| `block-components/` | GET/POST | `grading.view/create_evaluation_criteria` |
+| `block-components/{id}/` | GET/PATCH/DEL | `grading.view/update/delete_evaluation_criteria` |
+| `component-indicators/` | GET/POST | `grading.view/create_evaluation_subcriteria` |
+| `component-indicators/{id}/` | GET/PATCH/DEL | `grading.view/update/delete_evaluation_subcriteria` |
+| `evaluative-activities/` | GET/POST | `grading.view/create_class_assignment` |
+| `evaluative-activities/{id}/` | GET/PATCH/DEL | `grading.view/update/delete_class_assignment` |
+| `grade-history/` | GET | `grading.view_grade_history` |
+| `period-grade-summaries/` | GET/POST | `grading.view/create_gradesummary` |
+| `period-grade-summaries/{id}/` | GET/PATCH/DEL | `grading.view/update/delete_gradesummary` |
+| `recovery-processes/` | GET/POST | `grading.view/create_recoveryprocess` |
+| `recovery-processes/{id}/` | GET/PATCH/DEL | `grading.view/update/delete_recoveryprocess` |
+| `project-notes/` | GET/POST | `grading.view/create_projectnote` |
+| `project-notes/{id}/` | GET/PATCH/DEL | `grading.view/update/delete_projectnote` |
+| `grade-types/` | GET/POST | `grading.view/create_grade_type` |
+| `qualitative-scales/` | GET/POST | `grading.view/create_qualitative_scale` |
+| `evaluation-types/` | GET/POST | `grading.view/create_evaluation_type` |
+| `activity-types/` | GET/POST | `grading.view/create_activity_type` |
+| `promotion-statuses/` | GET/POST | `grading.view/create_promotion_status` |
+| `recovery-process-types/` | GET/POST | `grading.view/create_recovery_process_type` |
 
 ---
 
 ## Calificaciones (`/api/grading/student-notes/`)
 
-### Listar
-**GET** `/api/grading/student-notes/`
+### POST — Crear nota
 
-Response (paginado):
+```json
+{
+  "enrollment": 1,
+  "evaluative_activity": 1,
+  "grading_mode": "NUMERIC",
+  "numeric_score": "8.50",
+  "grade_type": 1,
+  "teacher_observation": "Buen trabajo"
+}
+```
+
+**Response (201 Created):**
 ```json
 {
   "ok": true,
   "data": {
-    "count": 1,
-    "next": null,
-    "previous": null,
-    "results": [
-      {
-        "id": 1,
-        "uuid": "550e8400-e29b-41d4-a716-446655440000",
-        "enrollment": 1,
-        "evaluative_activity": 1,
-        "numeric_score": 8.5,
-        "qualitative_score": 8.5,
-        "qualitative_scale": 1,
-        "manually_overridden": false
-      }
-    ]
+    "id": 1,
+    "enrollment": 1,
+    "enrollment_name": "Juan Perez - 7mo A (Activa)",
+    "evaluative_activity": 1,
+    "evaluative_activity_title": "Examen Parcial",
+    "grading_mode": "NUMERIC",
+    "numeric_score": "8.50",
+    "grade_type": 1,
+    "grade_type_name": "Numérica",
+    "qualitative_scale": null,
+    "uuid": "550e8400-e29b-41d4-a716-446655440000",
+    "sync_status": "PENDING",
+    "sync_version": 1
   },
   "msg": ""
 }
 ```
 
-### Crear
-**POST** `/api/grading/student-notes/`
+### GET — Listar con filtros
 
-Request:
-```json
-{
-  "enrollment": 1,
-  "evaluative_activity": 1,
-  "numeric_score": 18.50,
-  "qualitative_score": 18.50,
-  "qualitative_scale": 1,
-  "teacher_observation": "Buen trabajo"
-}
-```
+**Filtros:** `?enrollment=1`, `?evaluative_activity=1`
 
 ---
 
 ## Bloques de Evaluación (`/api/grading/evaluation-blocks/`)
 
-### Listar
-**GET** `/api/grading/evaluation-blocks/`
+### POST — Crear
 
-### Crear
-**POST** `/api/grading/evaluation-blocks/`
-
-Request:
 ```json
 {
   "academic_period": 1,
+  "subject_offering": 1,
   "name": "Bloque 1 - Quimestre 1",
-  "weight": 40.0
+  "evaluation_type": 1,
+  "weight_percentage": "40.00"
 }
 ```
 
 ---
 
-## Componentes de Bloque (`/api/grading/block-components/`)
+## Componentes (`/api/grading/block-components/`)
 
-### Crear
-**POST** `/api/grading/block-components/`
+### POST — Crear
 
-Request:
 ```json
 {
   "evaluation_block": 1,
   "name": "Exámenes",
-  "weight": 60.0
+  "internal_weight": "60.00"
 }
 ```
 
 ---
 
-## Indicadores de Componente (`/api/grading/component-indicators/`)
+## Indicadores (`/api/grading/component-indicators/`)
 
-### Crear
-**POST** `/api/grading/component-indicators/`
+### POST — Crear
 
-Request:
 ```json
 {
   "block_component": 1,
-  "name": "Indicador 1"
+  "name": "Indicador 1",
+  "internal_weight": "100.00"
 }
 ```
 
@@ -147,60 +129,54 @@ Request:
 
 ## Actividades Evaluativas (`/api/grading/evaluative-activities/`)
 
-### Crear
-**POST** `/api/grading/evaluative-activities/`
+### POST — Crear
 
-Request:
 ```json
 {
   "component_indicator": 1,
   "teacher_subject_section": 1,
-  "grade_type": 1,
-  "name": "Examen Parcial 1",
-  "max_score": 10.0
+  "title": "Examen Parcial 1",
+  "activity_type": 1,
+  "max_score": "10.00",
+  "due_date": "2025-10-15"
 }
 ```
 
 ---
 
-## Tipos de Calificación (`/api/grading/grade-types/`)
+## Resúmenes de Período (`/api/grading/period-grade-summaries/`)
 
-### Listar
-**GET** `/api/grading/grade-types/`
+### POST — Crear
 
-Response:
 ```json
 {
-  "ok": true,
-  "data": [
-    {"id": 1, "code": "PAR", "name": "Parcial"},
-    {"id": 2, "code": "REC", "name": "Recuperación"}
-  ],
-  "msg": ""
+  "enrollment": 1,
+  "subject_offering": 1,
+  "academic_period": 1,
+  "formative_avg": "8.50",
+  "summative_avg": "9.00",
+  "final_avg_truncated": "8.75",
+  "qualitative_scale": 1,
+  "requires_recovery": false
 }
 ```
 
+**Filtros GET:** `?enrollment=1`, `?academic_period=1`
+
 ---
 
-## Escalas Cualitativas (`/api/grading/qualitative-scales/`)
+## Procesos de Recuperación (`/api/grading/recovery-processes/`)
 
-### Listar
-**GET** `/api/grading/qualitative-scales/`
+### POST — Crear
 
-Response:
 ```json
 {
-  "ok": true,
-  "data": [
-    {
-      "id": 1,
-      "name": "Escala Ecuador",
-      "min_value": 1,
-      "max_value": 10,
-      "passing_value": 7
-    }
-  ],
-  "msg": ""
+  "period_grade_summary": 1,
+  "subject_offering": 1,
+  "managed_by_user": 1,
+  "process_type": 1,
+  "initial_grade": "6.00",
+  "start_date": "2025-12-01"
 }
 ```
 
@@ -208,56 +184,47 @@ Response:
 
 ## Historial de Cambios (`/api/grading/grade-history/`)
 
-### Listar
-**GET** `/api/grading/grade-history/`
+### GET — Listar (solo lectura)
 
 ---
 
-## Resúmenes de Período (`/api/grading/period-grade-summaries/`)
+## Catálogos
 
-### Listar
-**GET** `/api/grading/period-grade-summaries/`
+### GradeTypes (`/api/grading/grade-types/`)
 
-Filtros: `enrollment`, `academic_period`
-
----
-
-## Procesos de Recuperación (`/api/grading/recovery-processes/`)
-
-### Listar
-**GET** `/api/grading/recovery-processes/`
-
-### Crear
-**POST** `/api/grading/recovery-processes/`
-
-Request:
 ```json
-{
-  "enrollment": 1,
-  "academic_period": 1,
-  "recovery_type": "EXAM",
-  "start_date": "2024-12-01",
-  "end_date": "2024-12-15"
-}
+{"code": "NUM", "name": "Numérica"}
+{"code": "CUAL", "name": "Cualitativa"}
+{"code": "RECUP", "name": "Recuperación"}
+```
+
+### QualitativeScales (`/api/grading/qualitative-scales/`)
+
+```json
+{"code": "SE", "name": "Superior", "description": "Supera los aprendizajes", "numeric_equivalence": "9.00"}
+{"code": "SA", "name": "Alcanza", "description": "Alcanza los aprendizajes", "numeric_equivalence": "7.00"}
+{"code": "AC", "name": "Básico", "description": "Está próximo", "numeric_equivalence": "5.00"}
+{"code": "NA", "name": "No Alcanza", "description": "No alcanza los aprendizajes", "numeric_equivalence": "3.00"}
+```
+
+### RecoveryProcessTypes (`/api/grading/recovery-process-types/`)
+
+```json
+{"code": "MEJORA_DIRECTA", "name": "Mejora Directa", "allows_improvement_eval": true}
+{"code": "MEJORA_CON_REFUERZO", "name": "Mejora con Refuerzo", "allows_suppletorio": false}
+{"code": "SUPLETORIA", "name": "Supletoria", "allows_suppletorio": true}
 ```
 
 ---
 
-## Evaluaciones Diagnósticas (`/api/grading/diagnostic-evaluations/`)
+## Códigos de Razón para GradeChangeHistory
 
-### Listar
-**GET** `/api/grading/diagnostic-evaluations/`
-
----
-
-## Notas de Proyecto (`/api/grading/project-notes/`)
-
-### Listar
-**GET** `/api/grading/project-notes/`
-
----
-
-## Notas
-
-- La asistencia y incidentes conductuales ahora se gestionan en el módulo **Attendance** (`/api/attendance/`).
-- Los endpoints de calificaciones ahora usan `evaluative_activity` en lugar de `class_assignment`.
+| reason_code | Descripción |
+|-------------|-------------|
+| ERROR_CAPTURA | Error de captura |
+| CORRECCION_DOCENTE | Corrección del docente |
+| RECUPERACION | Resultado de recuperación |
+| MEJORA | Mejora de calificaciones |
+| SUPLETORIO | Examen supletorio |
+| IMPORTACION | Importación de datos |
+| SINCRONIZACION | Sincronización offline |

@@ -1,3 +1,4 @@
+from datetime import date
 from django.db import transaction
 from apps.grading.models import QualitativeScale
 from apps.grading.repositories.grading_repo import QualitativeScaleRepository
@@ -25,12 +26,12 @@ class BehaviorEvaluationService:
             eval_obj, _ = BehaviorEvaluation.objects.get_or_create(
                 enrollment=enrollment,
                 academic_period=academic_period,
-                defaults={"calculated_scale": scale},
+                defaults={"calculated_scale": scale, "evaluation_date": date.today()},
             )
             return eval_obj
 
-        max_severity = max(i.severity for i in incidents)
-        severe_count = sum(1 for i in incidents if i.severity >= 3)
+        max_severity = max(i.severity.numeric_level for i in incidents)
+        severe_count = sum(1 for i in incidents if i.severity.numeric_level >= 3)
         total_incidents = incidents.count()
 
         if severe_count >= 3 or max_severity >= 3 and total_incidents >= 2:
@@ -54,7 +55,7 @@ class BehaviorEvaluationService:
         eval_obj, _ = BehaviorEvaluation.objects.get_or_create(
             enrollment=enrollment,
             academic_period=academic_period,
-            defaults={"calculated_scale": scale},
+            defaults={"calculated_scale": scale, "evaluation_date": date.today()},
         )
         if not eval_obj.final_scale:
             eval_obj.calculated_scale = scale

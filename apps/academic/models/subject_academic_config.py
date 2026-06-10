@@ -23,6 +23,7 @@ class SubjectAcademicConfig(TimeStampedModel):
         verbose_name = "Configuración de Materia por Grado"
         verbose_name_plural = "Configuraciones de Materia por Grado"
         ordering = ["pedagogical_order"]
+        unique_together = [("subject", "academic_grade")]
 
     def __str__(self):
         return f"{self.subject.name} - {self.academic_grade.name}"

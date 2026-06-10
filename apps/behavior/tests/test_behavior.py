@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from django.test import TestCase
 
-from apps.academic.models import (
+from apps.academic.models import (PeriodType,
     AcademicPeriod,
     Subject,
     SubjectAcademicConfig,
@@ -13,7 +13,7 @@ from apps.academic.models import (
 from apps.iam.models import Role
 from apps.core.tests.helpers import create_test_user, create_test_student
 from apps.grading.models import QualitativeScale
-from apps.behavior.models import BehaviorEvaluation, ConductIncident
+from apps.behavior.models import BehaviorEvaluation, ConductIncident, Severity
 from apps.behavior.services.behavior_service import (
     BehaviorEvaluationService,
 )
@@ -92,6 +92,12 @@ class BehaviorEvaluationModelTest(TestCase):
                 "description": "No Aceptable",
                 "numeric_equivalence": Decimal("4.00"),
             },
+        )
+        self.severity_leve = Severity.objects.create(
+            code="LEVE", name="Falta leve", numeric_level=1,
+        )
+        self.severity_muy_grave = Severity.objects.create(
+            code="MUY_GRAVE", name="Falta muy grave", numeric_level=4,
         )
 
     def test_create_behavior_evaluation(self):
@@ -224,6 +230,12 @@ class BehaviorEvaluationServiceTest(TestCase):
                 "numeric_equivalence": Decimal("4.00"),
             },
         )
+        self.severity_leve = Severity.objects.create(
+            code="LEVE", name="Falta leve", numeric_level=1,
+        )
+        self.severity_muy_grave = Severity.objects.create(
+            code="MUY_GRAVE", name="Falta muy grave", numeric_level=4,
+        )
 
     def test_calculate_no_incidents_returns_se(self):
         evaluation = BehaviorEvaluationService.calculate_behavior_evaluation(
@@ -240,7 +252,7 @@ class BehaviorEvaluationServiceTest(TestCase):
             academic_period=self.period,
             incident_date=date(2025, 2, 1),
             category="disciplina",
-            severity=1,
+            severity=self.severity_leve,
         )
 
         evaluation = BehaviorEvaluationService.calculate_behavior_evaluation(
@@ -257,7 +269,7 @@ class BehaviorEvaluationServiceTest(TestCase):
             academic_period=self.period,
             incident_date=date(2025, 2, 1),
             category="disciplina",
-            severity=4,
+            severity=self.severity_muy_grave,
         )
 
         evaluation = BehaviorEvaluationService.calculate_behavior_evaluation(
@@ -274,7 +286,7 @@ class BehaviorEvaluationServiceTest(TestCase):
             academic_period=self.period,
             incident_date=date(2025, 2, 1),
             category="disciplina",
-            severity=1,
+            severity=self.severity_leve,
         )
         ConductIncident.objects.create(
             enrollment=self.enrollment,
@@ -282,7 +294,7 @@ class BehaviorEvaluationServiceTest(TestCase):
             academic_period=self.period,
             incident_date=date(2025, 2, 5),
             category="disciplina",
-            severity=4,
+            severity=self.severity_muy_grave,
         )
 
         evaluation = BehaviorEvaluationService.calculate_behavior_evaluation(

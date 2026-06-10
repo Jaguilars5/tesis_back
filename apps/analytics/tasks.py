@@ -62,13 +62,15 @@ def calculate_student_academic_risk_task(self, student_id, academic_period_id):
                 academic_period_id=academic_period_id,
                 metrics=metrics,
             )
-            StudentRiskScoreRepository.create_score(
+            risk_score = StudentRiskScoreRepository.create_score(
                 student_id=student_id,
                 academic_period_id=academic_period_id,
                 risk_score=analysis["semaforo_riesgo"]["puntaje_riesgo"],
                 risk_label=analysis["semaforo_riesgo"]["nivel"],
                 model_version=analysis["model_version"],
             )
+
+            _populate_risk_factors(risk_score, analysis)
 
         logger.info(
             "Riesgo academico persistido student_id=%s academic_period_id=%s task_id=%s",
@@ -356,3 +358,78 @@ def _feature_vector(snapshot):
         "materias_reprobadas": calificaciones["materias_reprobadas"],
         "ultimo_examen": calificaciones["ultimo_examen"],
     }
+
+
+def _populate_risk_factors(risk_score, analysis):
+    from apps.analytics.repositories.risk_factor_repository import RiskFactorRepository
+    from apps.analytics.repositories.student_risk_factor_repository import StudentRiskFactorRepository
+
+    factor_mapping = {
+        "LOW_ATTENDANCE": ("attendance_rate", 0.35),
+        "FAILING_GRADES": ("failing_subjects_count", 0.35),
+        "BEHAVIOR_ISSUES": ("severe_incidents_count", 0.20),
+        "SOCIOEMOTIONAL": ("conduct_score", 0.10),
+    }
+
+    for factor_code, (variable_key, default_weight) in factor_mapping.items():
+        factor = RiskFactorRepository.get_by_code(factor_code)
+        if not factor:
+            continue
+
+        StudentRiskFactorRepository.create(
+            student_risk_score=risk_score,
+            risk_factor=factor,
+            contribution_weight=default_weight,
+        )
+
+
+from celery import shared_task
+from django.db import transaction as db_transaction
+
+
+@shared_task(bind=True)
+def auto_generate_early_alerts(self, period_id=None):
+    from ..services.early_alert_service import EarlyAlertService
+
+    if not period_id:
+        from apps.academic.models import AcademicPeriod
+        period = AcademicPeriod.objects.filter(is_active=True).first()
+        if not period:
+            return {"error": "No active period found"}
+        period_id = period.id
+
+    from apps.students.models import Enrollment
+    enrollments = Enrollment.objects.filter(
+        enrollment_status__code="ACT",
+    ).select_related("student")
+
+    alerts_created = 0
+    for enrollment in enrollments:
+        from apps.academic.models import AcademicPeriod
+        period = AcademicPeriod.objects.get(pk=period_id)
+        service = EarlyAlertService()
+        alerts = service.evaluate_student(enrollment, period)
+        alerts_created += len(alerts)
+
+    return {"processed": len(enrollments), "alerts_created": alerts_created}
+
+
+@shared_task(bind=True)
+def run_student_clustering(self, period_id=None):
+    from ..services.clustering_service import StudentClusteringService
+    if not period_id:
+        from apps.academic.models import AcademicPeriod
+        period = AcademicPeriod.objects.filter(is_active=True).first()
+        if not period:
+            return {"error": "No active period found"}
+        period_id = period.id
+    result = StudentClusteringService.cluster_students(period_id)
+    return result
+
+
+@shared_task(bind=True)
+def refresh_materialized_views(self):
+    from django.db import connection
+    with connection.cursor() as cursor:
+        cursor.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY analytics_section_risk_summary")
+    return {"ok": True}

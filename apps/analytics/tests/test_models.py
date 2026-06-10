@@ -4,7 +4,7 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSublevel, SchoolYear
 from apps.institutions.models import Section
-from apps.academic.models import AcademicPeriod
+from apps.academic.models import AcademicPeriod, PeriodType
 from apps.core.tests.helpers import create_test_student
 from apps.students.models import Student
 from apps.analytics.models import RiskFactor, StudentFeatureSnapshot, StudentRiskScore
@@ -87,6 +87,12 @@ class StudentRiskScoreModelTest(TestCase):
         self.assertFalse(StudentRiskScore.objects.filter(pk=risk.pk).exists())
 
     def test_multiple_risk_scores_ordering(self):
+        period2 = AcademicPeriod.objects.create(
+            school_year=self.school_year,
+            name="Periodo 2",
+            start_date=date(2025, 1, 1),
+            end_date=date(2025, 4, 30),
+        )
         StudentRiskScore.objects.create(
             enrollment=self.enrollment,
             academic_period=self.period,
@@ -96,12 +102,12 @@ class StudentRiskScoreModelTest(TestCase):
         )
         StudentRiskScore.objects.create(
             enrollment=self.enrollment,
-            academic_period=self.period,
+            academic_period=period2,
             risk_score=Decimal("80.00"),
             risk_label="Alto",
             model_version="v1.0",
         )
-        scores = StudentRiskScore.objects.filter(enrollment=self.enrollment)
+        scores = StudentRiskScore.objects.filter(enrollment=self.enrollment).order_by("-risk_score")
         self.assertEqual(scores.first().risk_score, Decimal("80.00"))
 
 

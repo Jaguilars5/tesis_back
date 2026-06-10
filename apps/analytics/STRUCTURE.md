@@ -1,132 +1,128 @@
-# Estructura Técnica: Módulo `analytics`
+# Módulo `analytics` — Estructura
 
-Este documento detalla la organización interna del módulo de análisis de datos.
+## Árbol de archivos
 
-## API — Serializers
-
-Los serializers del módulo exponen campos descriptivos adicionales para las ForeignKeys:
-
-| Serializer                         | Campos enriquecidos                                                |
-| ---------------------------------- | ------------------------------------------------------------------ |
-| `StudentRiskScoreSerializer`       | `enrollment_name`, `academic_period_name`                          |
-| `StudentFeatureSnapshotSerializer` | `enrollment_name`, `academic_period_name`                          |
-| `StudentRiskFactorSerializer`      | `risk_factor_name` (ya existente)                                  |
-| `EarlyAlertSerializer`             | `enrollment_name`, `academic_period_name`, `attended_by_user_name` |
-
-## Árbol de Directorios
-
-```text
+```
 analytics/
-├── api/                  # Capa de Entrada (REST)
-│   ├── serializers.py    # Esquemas para Scores y Snapshots
-│   ├── views.py          # ViewSets REST
-│   └── urls.py           # Definición de rutas
-├── models/               # Capa de Datos (Entidades)
-│   ├── risk_factor.py           # Catálogo de factores de riesgo
-│   ├── student_feature_snapshot.py # Métricas de un estudiante
-│   ├── student_risk_score.py    # Puntaje de riesgo
-│   ├── student_risk_factor.py   # Asociación score-factor
-│   └── early_alert.py           # Alertas tempranas
-├── repositories/         # Capa de Persistencia (Queries)
-│   ├── analytics_repo.py
-│   └── early_alert_repository.py
-├── services/             # Capa de Negocio (Orquestación)
-│   ├── analytics_service.py     # Lógica de perfiles de riesgo
-│   ├── early_alert_service.py   # Servicio de alertas tempranas
-│   └── feature_builder.py       # Construcción de features
-├── tasks.py              # Tasks Celery para cálculo async
-├── ml/                   # Modelos ML entrenados (placeholder)
-│   └── .gitkeep
-└── tests/                # Suites de Pruebas
+├── __init__.py
+├── admin.py
+├── apps.py
+├── urls.py                     # → api/urls.py
+├── tasks.py                    # Cálculo de riesgo, clustering, auto-alertas, refresh vistas
+├── tasks_handlers.py           # EarlyAlertSyncHandler
+├── README.md
+│
+├── models/
+│   ├── __init__.py             # 8 modelos exportados
+│   ├── alert_type.py           # AlertType
+│   ├── urgency_level.py        # UrgencyLevel
+│   ├── risk_factor.py          # RiskFactor
+│   ├── student_feature_snapshot.py # StudentFeatureSnapshot
+│   ├── student_risk_score.py   # StudentRiskScore
+│   ├── student_risk_factor.py  # StudentRiskFactor
+│   ├── early_alert.py          # EarlyAlert (TimeStampedModel, SyncableModel)
+│   └── dashboard.py            # DashboardMetric
+│
+├── repositories/
+│   ├── __init__.py             # 6 repositorios
+│   ├── alert_type_repository.py
+│   ├── urgency_level_repository.py
+│   ├── risk_factor_repository.py
+│   ├── analytics_repo.py       # StudentRiskScoreRepository, StudentFeatureSnapshotRepository
+│   ├── early_alert_repository.py
+│   └── student_risk_factor_repository.py
+│
+├── services/
+│   ├── __init__.py
+│   ├── analytics_service.py    # AnalyticsService (perfil de riesgo)
+│   ├── early_alert_service.py  # EarlyAlertService (3 reglas de alerta)
+│   ├── feature_builder.py      # AcademicRiskFeatureBuilder (construcción de features)
+│   ├── dashboard_service.py    # DashboardService (overview, risk distribution, students at risk)
+│   ├── csv_export_service.py   # CSVExportService (risk, attendance)
+│   └── clustering_service.py   # StudentClusteringService (KMeans)
+│
+├── api/
+│   ├── __init__.py
+│   ├── README.md
+│   ├── serializers.py          # 7 serializers
+│   ├── views.py                # 8 ViewSets + DashboardViewSet
+│   └── urls.py                 # Router con 9 registros
+│
+├── ml/
+│   ├── __init__.py
+│   └── train_model.py          # RiskModelTrainer (GradientBoostingClassifier)
+│
+├── management/
+│   └── commands/
+│       ├── __init__.py
+│       └── train_risk_model.py # Management command
+│
+└── tests/
+    ├── __init__.py
     ├── test_models.py
+    ├── test_repositories.py
     ├── test_services.py
     ├── test_api.py
     ├── test_api_gaps.py
     ├── test_api_permissions.py
-    ├── test_viewsets.py
     ├── test_risk_model.py
-    └── test_repositories.py
+    └── test_viewsets.py
 ```
 
-## Modelos de Datos
+## Serializers (7)
 
-### RiskFactor
+| Serializer | Modelo | Campos readonly |
+|------------|--------|-----------------|
+| `StudentRiskScoreSerializer` | StudentRiskScore | `enrollment_name`, `academic_period_name`, `risk_factors` (anidado) |
+| `StudentRiskFactorSerializer` | StudentRiskFactor | `risk_factor_name` |
+| `StudentFeatureSnapshotSerializer` | StudentFeatureSnapshot | `enrollment_name`, `academic_period_name` |
+| `AlertTypeSerializer` | AlertType | — |
+| `UrgencyLevelSerializer` | UrgencyLevel | — |
+| `RiskFactorSerializer` | RiskFactor | — |
+| `EarlyAlertSerializer` | EarlyAlert | `enrollment_name`, `academic_period_name`, `attended_by_user_name` |
 
-Catálogo de factores de riesgo (ej: "Baja Asistencia", "Bajo Rendimiento").
+## ViewSets (9 registrados en router)
 
-### StudentFeatureSnapshot
+| ViewSet | Endpoint | Tipo |
+|---------|----------|------|
+| `AlertTypeViewSet` | `alert-types/` | CRUD |
+| `UrgencyLevelViewSet` | `urgency-levels/` | CRUD |
+| `RiskFactorViewSet` | `risk-factors/` | Read-only |
+| `StudentRiskScoreViewSet` | `student-risk-scores/` | Read + actions (calculate, batch_calculate) |
+| `StudentRiskFactorViewSet` | `student-risk-factors/` | Read-only |
+| `StudentFeatureSnapshotViewSet` | `feature-snapshots/` | Read-only |
+| `EarlyAlertViewSet` | `early-alerts/` | CRUD + mark_attended |
+| `DashboardViewSet` | `dashboard/` | 5 actions (overview, risk_distribution, students_at_risk, export_csv, section_summary) |
 
-Instantánea de métricas de un estudiante para un período específico. Estas métricas sirven como entrada para el modelo de predicción.
+## Workflow
 
-### StudentRiskScore
+```
+Transaccional (asistencia, notas, conducta)
+    ↓
+AcademicRiskFeatureBuilder.build()
+    → snapshot JSON con 3 variables (conducta, asistencia, calificaciones)
+    ↓
+build_persistence_metrics() → StudentFeatureSnapshot.create()
+    ↓
+calculate_academic_risk() → reglas semáforo o ML opcional
+    ↓
+StudentRiskScore.create() + _populate_risk_factors()
+    ↓
+EarlyAlertService.evaluate_student() → 3 reglas → EarlyAlert.create()
+    ↓
+DashboardService.get_overview() / clustering / CSV export
+```
 
-Puntaje de riesgo calculado para un estudiante en un período.
-
-### StudentRiskFactor
-
-Asociación entre un puntaje de riesgo y los factores que contribuyen a ese score.
-
-### EarlyAlert
-
-Alertas tempranas generadas cuando un estudiante supera umbrales de riesgo.
-
-## Flujo de Trabajo Recomendado
-
-`API View` → `Service` → `Repository` → `Model`
-
-## Guía de Importación
-
-### ✅ Prácticas Correctas
+## Guía de imports
 
 ```python
+from apps.analytics.models import StudentRiskScore, StudentFeatureSnapshot, EarlyAlert, DashboardMetric
+from apps.analytics.repositories import StudentRiskScoreRepository, EarlyAlertRepository
 from apps.analytics.services.analytics_service import AnalyticsService
-from apps.analytics.models import StudentRiskScore, StudentFeatureSnapshot, RiskFactor, EarlyAlert
+from apps.analytics.services.early_alert_service import EarlyAlertService
+from apps.analytics.services.dashboard_service import DashboardService
+from apps.analytics.services.csv_export_service import CSVExportService
+from apps.analytics.services.clustering_service import StudentClusteringService
+from apps.analytics.services.feature_builder import AcademicRiskFeatureBuilder
+from apps.analytics.tasks import calculate_student_academic_risk_task, auto_generate_early_alerts
 ```
-
-## Riesgo Académico v1
-
-El módulo incluye un flujo asíncrono para calcular riesgo académico con
-snapshots de `grading`, un artefacto ML opcional y fallback de reglas.
-
-Flujo:
-
-```text
-Celery task
-  -> AcademicRiskFeatureBuilder
-  -> Grading repositories
-  -> StudentFeatureSnapshot
-  -> ML joblib opcional o fallback de reglas
-  -> StudentRiskScore
-  -> JSON estandarizado
-```
-
-Componentes:
-
-- `services/feature_builder.py`: construye el snapshot desde asistencia,
-  conducta y calificaciones.
-- `tasks.py`: expone `calculate_student_academic_risk_task`.
-- `ml/.gitkeep`: directorio placeholder para modelos ML.
-
-### Semáforo de Riesgo v1
-
-| Nivel    | Condiciones                                             |
-| -------- | ------------------------------------------------------- |
-| Rojo     | Asistencia < 70% O promedio < 6.0 O > 3 faltas graves   |
-| Amarillo | Asistencia 70-85% O promedio 6.0-7.0 O > 5 faltas leves |
-| Verde    | Asistencia > 85% Y promedio > 7.0 Y sin faltas graves   |
-
-### Puntaje Fallback
-
-Si no existe `risk_model.joblib`, el sistema calcula un puntaje 0-100 con:
-
-- Conducta: 30%
-- Asistencia: 35%
-- Calificaciones: 35%
-
-El resultado mantiene explicabilidad mediante `risk_factors`.
-
-## Responsabilidades de Capas
-
-1.  **Models**: Almacenan los resultados procesados del motor de riesgo.
-2.  **Repositories**: Centralizan las consultas de estudiantes con mayor prioridad (High Risk).
-3.  **Services**: Orquestan la recuperación del perfil completo de riesgo combinando scores y snapshots.

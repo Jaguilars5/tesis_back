@@ -10,10 +10,11 @@ from apps.core.constants.permissions import behavior
 
 from apps.behavior.models import (
     ConductIncident, SocioemotionalSkill,
-    SkillEvaluation, BehaviorEvaluation, IncidentType,
+    SkillEvaluation, BehaviorEvaluation, IncidentType, Severity,
+    SocioemotionalArea, DevelopmentLevel,
 )
 from apps.grading.models import QualitativeScale
-from apps.academic.models import AcademicPeriod, Subject, SubjectAcademicConfig, SubjectOffering, TeacherSubjectSection
+from apps.academic.models import AcademicPeriod, Subject, SubjectAcademicConfig, SubjectOffering, TeacherSubjectSection, PeriodType
 from apps.institutions.models import SchoolYear, AcademicGrade, AcademicLevel, AcademicSublevel, Section
 from apps.students.models import Enrollment, EnrollmentStatus
 
@@ -148,6 +149,18 @@ class BehaviorAPIGapsTest(TestCase):
             description="Habilidad de ponerse en el lugar del otro",
             is_active=True,
         )
+        self.severity_leve = Severity.objects.create(
+            code="LEVE", name="Falta leve", numeric_level=1,
+        )
+        self.severity_moderada = Severity.objects.create(
+            code="MODERADA", name="Falta moderada", numeric_level=2,
+        )
+        self.socioemotional_area = SocioemotionalArea.objects.create(
+            code="RELACIONES", name="Relaciones interpersonales",
+        )
+        self.development_level = DevelopmentLevel.objects.create(
+            code="LOGRADO", name="Logrado",
+        )
 
         self.conduct_incident = ConductIncident.objects.create(
             enrollment=self.enrollment,
@@ -155,7 +168,7 @@ class BehaviorAPIGapsTest(TestCase):
             academic_period=self.academic_period,
             incident_type=self.incident_type,
             incident_date=date(2025, 2, 1),
-            severity=1,
+            severity=self.severity_leve,
         )
         self.skill_evaluation = SkillEvaluation.objects.create(
             enrollment=self.enrollment,
@@ -183,7 +196,7 @@ class BehaviorAPIGapsTest(TestCase):
             "academic_period": self.academic_period.id,
             "incident_type": self.incident_type.id,
             "incident_date": "2025-02-02",
-            "severity": 2,
+            "severity": self.severity_moderada.id,
         }
         response = self.client.post("/api/behavior/conduct-incidents/", post_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -311,9 +324,9 @@ class BehaviorAPIGapsTest(TestCase):
             "enrollment": self.enrollment.id,
             "academic_period": self.academic_period.id,
             "applied_by_user": self.authorized_user.id,
-            "socioemotional_area": "Habilidades Sociales",
+            "socioemotional_area": self.socioemotional_area.id,
             "findings_description": "Excelente liderazgo",
-            "development_level": "Alto",
+            "development_level": self.development_level.id,
             "application_date": "2025-02-20",
         }
         response = self.client.post("/api/behavior/diagnostic-evaluations/", data, format="json")

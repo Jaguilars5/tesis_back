@@ -13,8 +13,12 @@ class Student(TimeStampedModel):
     student_code = models.CharField(
         max_length=50, unique=True, verbose_name="Código de Estudiante"
     )
-    residential_zone = models.CharField(
-        max_length=50, blank=True, verbose_name="Zona Residencial"
+    residential_zone = models.ForeignKey(
+        "students.ResidentialZone",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Zona Residencial",
     )
     distance_to_school_km = models.DecimalField(
         max_digits=5,
@@ -26,8 +30,12 @@ class Student(TimeStampedModel):
     has_special_needs = models.BooleanField(
         default=False, verbose_name="Tiene Necesidades Educativas Especiales (NEE)"
     )
-    special_needs_type = models.CharField(
-        max_length=100, null=True, blank=True, verbose_name="Tipo de NEE"
+    special_needs_type = models.ForeignKey(
+        "students.SpecialNeedsType",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Tipo de NEE",
     )
     is_active = models.BooleanField(default=True, verbose_name="Activo")
     class Meta:

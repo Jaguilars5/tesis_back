@@ -84,14 +84,30 @@ class AcademicPermissions:
     CREATE_SUBJECT_OFFERING: Final[str] = "academic.create_subject_offering"
     UPDATE_SUBJECT_OFFERING: Final[str] = "academic.update_subject_offering"
     DELETE_SUBJECT_OFFERING: Final[str] = "academic.delete_subject_offering"
-    VIEW_INTERDISCIPLINARY_PROJECT: Final[str] = "academic.view_interdisciplinary_project"
-    CREATE_INTERDISCIPLINARY_PROJECT: Final[str] = "academic.create_interdisciplinary_project"
-    UPDATE_INTERDISCIPLINARY_PROJECT: Final[str] = "academic.update_interdisciplinary_project"
-    DELETE_INTERDISCIPLINARY_PROJECT: Final[str] = "academic.delete_interdisciplinary_project"
+    VIEW_INTERDISCIPLINARY_PROJECT: Final[str] = (
+        "academic.view_interdisciplinary_project"
+    )
+    CREATE_INTERDISCIPLINARY_PROJECT: Final[str] = (
+        "academic.create_interdisciplinary_project"
+    )
+    UPDATE_INTERDISCIPLINARY_PROJECT: Final[str] = (
+        "academic.update_interdisciplinary_project"
+    )
+    DELETE_INTERDISCIPLINARY_PROJECT: Final[str] = (
+        "academic.delete_interdisciplinary_project"
+    )
     VIEW_SUBJECT_PROJECT: Final[str] = "academic.view_subject_project"
     CREATE_SUBJECT_PROJECT: Final[str] = "academic.create_subject_project"
     UPDATE_SUBJECT_PROJECT: Final[str] = "academic.update_subject_project"
     DELETE_SUBJECT_PROJECT: Final[str] = "academic.delete_subject_project"
+    VIEW_DAY_OF_WEEK: Final[str] = "academic.view_day_of_week"
+    CREATE_DAY_OF_WEEK: Final[str] = "academic.create_day_of_week"
+    UPDATE_DAY_OF_WEEK: Final[str] = "academic.update_day_of_week"
+    DELETE_DAY_OF_WEEK: Final[str] = "academic.delete_day_of_week"
+    VIEW_CLASS_SCHEDULE: Final[str] = "academic.view_class_schedule"
+    CREATE_CLASS_SCHEDULE: Final[str] = "academic.create_class_schedule"
+    UPDATE_CLASS_SCHEDULE: Final[str] = "academic.update_class_schedule"
+    DELETE_CLASS_SCHEDULE: Final[str] = "academic.delete_class_schedule"
 
 
 @dataclass(frozen=True)

@@ -5,7 +5,7 @@ from unittest.mock import patch
 from django.test import TestCase
 
 from apps.institutions.models import Section
-from apps.academic.models import (
+from apps.academic.models import (PeriodType,
     AcademicPeriod,
     Subject,
     SubjectAcademicConfig,
@@ -29,6 +29,7 @@ from apps.grading.models import (
     StudentNote,
     ActivityType,
 )
+from apps.behavior.models import Severity
 from apps.attendance.models import Attendance
 from apps.behavior.models import ConductIncident
 from apps.attendance.models import AttendanceStatus
@@ -89,6 +90,7 @@ class AcademicRiskModelTest(TestCase):
             user=self.teacher,
             subject_offering=offering,
         )
+        self.offering = offering
         self.student = create_test_student(
             document_number="0912345678",
             names="Juan",
@@ -119,12 +121,16 @@ class AcademicRiskModelTest(TestCase):
 
         self.eval_type = EvaluationType.objects.create(code="FORMATIVA", name="Formativa")
         self.activity_type_exam = ActivityType.objects.create(code="EXAMEN", name="Examen")
+        self.severity_leve = Severity.objects.create(
+            code="LEVE", name="Falta leve", numeric_level=1,
+        )
         self.exam = self._create_evaluative_activity("Examen parcial", 10)
         self.homework = self._create_evaluative_activity("Tarea 1", 10)
 
     def _create_evaluative_activity(self, title, max_score=10):
         block = EvaluationBlock.objects.create(
             academic_period=self.period,
+            subject_offering=self.offering,
             name=f"Bloque-{title}",
             evaluation_type=self.eval_type,
             weight_percentage=Decimal("100.00"),
@@ -210,7 +216,7 @@ class AcademicRiskModelTest(TestCase):
             academic_period=self.period,
             incident_type=inc_type,
             incident_date=date(2026, 1, 20),
-            severity=1,
+            severity=self.severity_leve,
             description="Llega sin materiales",
             family_notified=True,
         )

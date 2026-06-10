@@ -91,7 +91,7 @@ class AcademicRiskFeatureBuilder:
             conducta["faltas_graves"],
         )
 
-        return {
+        metrics = {
             "attendance_rate": _round_decimal(asistencia["porcentaje_asistencia"]),
             "consecutive_absences_max": asistencia["max_faltas_consecutivas"],
             "tardiness_count": asistencia["tardanzas"],
@@ -100,9 +100,54 @@ class AcademicRiskFeatureBuilder:
             "failing_subjects_count": calificaciones["materias_reprobadas"],
             "conduct_score": _round_decimal(conduct_score),
             "family_notified_ratio": _round_decimal(conducta["ratio_notificacion_familiar"]),
-            "prev_period_avg_grade": None,
-            "age_grade_gap": 0,
         }
+
+        student = StudentRepository.get_by_id(self.student_id)
+        enrollment = self._get_active_enrollment(student)
+        period = AcademicPeriodRepository.get_by_id(self.academic_period_id)
+
+        metrics["prev_period_avg_grade"] = self._get_previous_period_avg(student, period)
+        metrics["age_grade_gap"] = self._calculate_age_grade_gap(student, period)
+        metrics["is_repeat"] = enrollment.is_repeat if enrollment else False
+        metrics["has_special_needs"] = getattr(student, "has_special_needs", False)
+
+        return metrics
+
+    def _get_active_enrollment(self, student):
+        if not student:
+            return None
+        from apps.students.repositories.enrollment_repo import EnrollmentRepository
+        return EnrollmentRepository.get_active_by_student(student)
+
+    def _get_previous_period_avg(self, student, current_period):
+        if not current_period:
+            return None
+        prev_period_qs = type(current_period).objects.filter(
+            school_year=current_period.school_year,
+            start_date__lt=current_period.start_date,
+        ).order_by("-start_date")
+        prev_period = prev_period_qs.first()
+        if not prev_period:
+            return None
+        enrollment = self._get_active_enrollment(student)
+        if not enrollment:
+            return None
+        from apps.grading.models import PeriodGradeSummary
+        summary = PeriodGradeSummary.objects.filter(
+            enrollment=enrollment,
+            academic_period=prev_period,
+        ).first()
+        return _round_decimal(summary.final_avg_truncated) if summary else None
+
+    def _calculate_age_grade_gap(self, student, period):
+        if not student or not period:
+            return 0
+        person = getattr(student, "person", None)
+        if not person or not person.birth_date:
+            return 0
+        actual_age = (period.start_date - person.birth_date).days // 365
+        expected_age = 5 + (getattr(period.school_year, "grade_level", 0) or 0)
+        return max(0, actual_age - expected_age)
 
     def validate_snapshot(self, snapshot):
         variables = snapshot.get("variables", {})
@@ -125,9 +170,9 @@ class AcademicRiskFeatureBuilder:
         self._validate_non_negative(calificaciones, "tareas_pendientes")
 
     def _build_conduct(self, incidents):
-        leves = sum(1 for incident in incidents if incident.severity == 1)
-        moderadas = sum(1 for incident in incidents if incident.severity == 2)
-        graves = sum(1 for incident in incidents if incident.severity == 3)
+        leves = sum(1 for incident in incidents if incident.severity.numeric_level == 1)
+        moderadas = sum(1 for incident in incidents if incident.severity.numeric_level == 2)
+        graves = sum(1 for incident in incidents if incident.severity.numeric_level == 3)
         descriptions = [
             incident.description.strip()
             for incident in incidents[:3]
@@ -197,7 +242,8 @@ class AcademicRiskFeatureBuilder:
             note
             for note in notes
             if note.evaluative_activity
-            and note.evaluative_activity.activity_type == "EXAMEN"
+            and note.evaluative_activity.activity_type_id
+            and note.evaluative_activity.activity_type.code == "EXAMEN"
         ]
         source = exam_notes or notes
         if not source:

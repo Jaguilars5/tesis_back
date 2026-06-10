@@ -1,8 +1,9 @@
 from django.db import models
 from apps.core.models import TimeStampedModel
+from apps.integration.models.syncable_mixin import SyncableModel
 
 
-class Enrollment(TimeStampedModel):
+class Enrollment(TimeStampedModel, SyncableModel):
     student = models.ForeignKey(
         "students.Student",
         on_delete=models.CASCADE,
@@ -32,8 +33,12 @@ class Enrollment(TimeStampedModel):
     withdrawal_date = models.DateField(
         null=True, blank=True, verbose_name="Fecha de Retiro"
     )
-    withdrawal_reason = models.TextField(
-        blank=True, null=True, verbose_name="Motivo de Retiro"
+    withdrawal_reason = models.ForeignKey(
+        "students.WithdrawalReason",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Motivo de Retiro",
     )
     is_repeat = models.BooleanField(default=False, verbose_name="Es repitente")
     repeated_school_year = models.ForeignKey(
@@ -44,6 +49,15 @@ class Enrollment(TimeStampedModel):
         related_name="repeated_enrollments",
         verbose_name="Año escolar repetido",
     )
+    created_by = models.ForeignKey(
+        "iam.User", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="enrollments_created", verbose_name="Creado por",
+    )
+    approved_by = models.ForeignKey(
+        "iam.User", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="enrollments_approved", verbose_name="Aprobado por",
+    )
+
     class Meta:
         app_label = "students"
         verbose_name = "Matrícula"
@@ -52,6 +66,8 @@ class Enrollment(TimeStampedModel):
         indexes = [
             models.Index(fields=["student", "enrollment_status"]),
             models.Index(fields=["section", "enrollment_status"]),
+            models.Index(fields=["school_year", "enrollment_status"]),
+            models.Index(fields=["student", "school_year"]),
         ]
 
     def __str__(self):

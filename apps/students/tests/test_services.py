@@ -171,14 +171,14 @@ class StudentRepresentativeServiceTest(TestCase):
         StudentService.assign_representative(
             student_id=self.student.id,
             person_id=self.rep_person.id,
-            kinship="Madre",
+            kinship="MADRE",
         )
 
         with self.assertRaises(Exception):
             StudentService.assign_representative(
                 student_id=self.student.id,
                 person_id=self.rep_person.id,
-                kinship="Madre",
+                kinship="MADRE",
             )
 
     def test_set_primary_representative(self):

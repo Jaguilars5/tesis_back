@@ -1,8 +1,9 @@
 from django.db import models
 from apps.core.models import TimeStampedModel
+from apps.integration.models.syncable_mixin import SyncableModel
 
 
-class EvaluativeActivity(TimeStampedModel):
+class EvaluativeActivity(TimeStampedModel, SyncableModel):
     """
     ACTIVIDAD_EVALUATIVA — Tareas, lecciones, exámenes creados por el docente.
     Transaccional de alta frecuencia; creación continua durante el período.
@@ -37,6 +38,10 @@ class EvaluativeActivity(TimeStampedModel):
         verbose_name = "Actividad Evaluativa"
         verbose_name_plural = "Actividades Evaluativas"
         ordering = ["-due_date"]
+        indexes = [
+            models.Index(fields=["teacher_subject_section", "due_date"]),
+            models.Index(fields=["component_indicator", "due_date"]),
+        ]
 
     def __str__(self):
         return f"{self.title} ({self.activity_type})"

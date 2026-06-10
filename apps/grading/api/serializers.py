@@ -15,14 +15,17 @@ from ..models import (
     EvaluativeActivity,
     GradeChangeHistory,
     GradeType,
+    LearningReport,
     PeriodGradeSummary,
     ProjectNote,
     PromotionStatus,
     QualitativeScale,
     RecoveryProcess,
     RecoveryProcessType,
+    RecoverySession,
     StudentNote,
 )
+from ..models.qualitative_scale_sublevel import QualitativeScaleSublevel
 
 
 class StudentNoteSerializer(serializers.ModelSerializer):
@@ -34,6 +37,26 @@ class StudentNoteSerializer(serializers.ModelSerializer):
     qualitative_scale_name = serializers.CharField(
         source="qualitative_scale.name", read_only=True
     )
+
+    def validate(self, attrs):
+        grading_mode = attrs.get("grading_mode")
+        enrollment = attrs.get("enrollment")
+        if grading_mode and enrollment:
+            sublevel = enrollment.section.academic_grade.academic_sublevel
+            has_qualitative = QualitativeScaleSublevel.objects.filter(
+                sublevel=sublevel, is_active=True
+            ).exists()
+            if has_qualitative and grading_mode == "NUMERIC":
+                raise serializers.ValidationError(
+                    "El subnivel del estudiante usa calificación cualitativa. "
+                    "No se permiten calificaciones numéricas."
+                )
+            if not has_qualitative and grading_mode == "QUALITATIVE":
+                raise serializers.ValidationError(
+                    "El subnivel del estudiante usa calificación numérica. "
+                    "No se permiten calificaciones cualitativas."
+                )
+        return super().validate(attrs)
 
     class Meta:
         model = StudentNote
@@ -170,4 +193,31 @@ class PromotionStatusSerializer(serializers.ModelSerializer):
 class RecoveryProcessTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = RecoveryProcessType
+        fields = "__all__"
+
+
+class LearningReportSerializer(serializers.ModelSerializer):
+    enrollment_name = serializers.CharField(source="enrollment.__str__", read_only=True)
+    academic_period_name = serializers.CharField(
+        source="academic_period.name", read_only=True
+    )
+    created_by_name = serializers.CharField(
+        source="created_by.person.get_full_name", read_only=True
+    )
+    evaluated_by_name = serializers.CharField(
+        source="evaluated_by.person.get_full_name", read_only=True
+    )
+
+    class Meta:
+        model = LearningReport
+        fields = "__all__"
+
+
+class RecoverySessionSerializer(serializers.ModelSerializer):
+    recovery_process_name = serializers.CharField(
+        source="recovery_process.__str__", read_only=True
+    )
+
+    class Meta:
+        model = RecoverySession
         fields = "__all__"

@@ -17,7 +17,7 @@ from apps.iam.models import Role, User, Permission, UserRole, RolePermission
 from apps.core.tests.helpers import create_test_user, create_test_student
 from apps.core.constants.permissions import students
 
-from apps.students.models import Student, StudentRepresentative, Enrollment, EnrollmentStatus
+from apps.students.models import Student, StudentRepresentative, Enrollment, EnrollmentStatus, WithdrawalReason
 from apps.institutions.models import SchoolYear, AcademicGrade, AcademicLevel, AcademicSublevel, Section
 from apps.students.services.enrollment_service import EnrollmentService
 
@@ -89,6 +89,11 @@ class StudentsSecurityAndAPITest(TestCase):
             is_superuser=False,
         )
 
+        # Withdrawal reason for tests
+        self.withdrawal_reason_cambio = WithdrawalReason.objects.create(
+            code="CAMBIO_DOMICILIO", name="Cambio de domicilio"
+        )
+
     def test_list_students_with_proper_permission(self):
         """Usuario autorizado puede listar estudiantes."""
         self.client.force_authenticate(user=self.limited_user)
@@ -127,7 +132,7 @@ class StudentsSecurityAndAPITest(TestCase):
 
         # 3. Retirar Estudiante (con motivo)
         withdraw_data = {
-            "reason": "Cambio de domicilio",
+            "reason": self.withdrawal_reason_cambio.id,
         }
         response_withdraw = self.client.post(f"/api/students/enrollments/{enrollment_id}/withdraw/", withdraw_data, format="json")
         self.assertEqual(response_withdraw.status_code, status.HTTP_200_OK)
@@ -135,7 +140,7 @@ class StudentsSecurityAndAPITest(TestCase):
         # Verificar que se persistieron el motivo y la fecha
         enrollment = Enrollment.objects.get(id=enrollment_id)
         self.assertEqual(enrollment.enrollment_status.code, "RET")
-        self.assertEqual(enrollment.withdrawal_reason, "Cambio de domicilio")
+        self.assertEqual(enrollment.withdrawal_reason, self.withdrawal_reason_cambio)
         self.assertIsNotNone(enrollment.withdrawal_date)
 
         # 4. Transferir Estudiante a nueva sección

@@ -1,74 +1,97 @@
-# Estructura Técnica: Módulo `students`
+# Módulo `students` — Estructura
 
-Este documento detailing the internal organization and responsibilities of each component within the student management module.
+## Árbol de archivos
 
-## Árbol de Directorios
-
-```text
+```
 students/
-├── api/                  # Capa de Entrada (REST)
-│   ├── serializers.py    # Esquemas para Estudiantes y Matrículas
-│   ├── views.py          # ViewSets estándar
-│   └── urls.py           # Registro de rutas vía DefaultRouter
-├── models/               # Capa de Datos (Entidades)
-│   ├── student.py                # Entidad Estudiante
-│   ├── student_representative.py # Relación estudiante-representante
-│   ├── enrollment.py             # Matrícula
-│   └── enrollment_status.py      # Catálogo de estados
-├── repositories/         # Capa de Persistencia (Queries)
-│   └── students_repo.py  # Queries especializadas
-├── services/             # Capa de Negocio (Orquestación)
-│   └── students_service.py # Lógica de alta y vinculación
-└── tests/                # Suites de Pruebas
+├── __init__.py
+├── admin.py
+├── apps.py
+├── urls.py                     # Router: student, enrollments, student-representative, enrollment-statuses
+├── tasks.py                    # EnrollmentSyncHandler
+├── README.md
+│
+├── models/
+│   ├── __init__.py             # 9 modelos exportados
+│   ├── student.py              # Student (TimeStampedModel)
+│   ├── enrollment.py           # Enrollment (TimeStampedModel, SyncableModel)
+│   ├── enrollment_status.py    # EnrollmentStatus
+│   ├── student_representative.py # StudentRepresentative
+│   ├── withdrawal_reason.py    # WithdrawalReason (catálogo)
+│   ├── residential_zone.py     # ResidentialZone (catálogo)
+│   ├── special_needs_type.py   # SpecialNeedsType (catálogo)
+│   ├── kinship.py              # Kinship (catálogo)
+│   └── enrollment_history.py   # EnrollmentHistory
+│
+├── repositories/
+│   ├── __init__.py             # 5 repositorios
+│   ├── students_repo.py        # StudentRepository, StudentRepresentativeRepository
+│   ├── enrollment_repo.py      # EnrollmentRepository
+│   └── enrollment_status_repo.py # EnrollmentStatusRepository
+│
+├── services/
+│   ├── __init__.py
+│   ├── students_service.py     # StudentService
+│   └── enrollment_service.py   # EnrollmentService
+│
+├── api/
+│   ├── __init__.py
+│   ├── serializers/
+│   │   ├── __init__.py
+│   │   └── serializers.py      # StudentSerializer, StudentDetailSerializer, etc.
+│   ├── filters/
+│   │   ├── __init__.py
+│   │   └── filters.py          # StudentFilter
+│   ├── views.py                # 4 ViewSets
+│   └── urls.py                 # 4 registros router
+│
+└── tests/
+    ├── __init__.py
+    ├── test_api_gaps.py
+    ├── test_models.py
+    ├── test_repositories.py
+    └── test_services.py
 ```
 
-## Modelos Principales
+## Serializers
 
-### Student
-Información del estudiante vinculada a una Person. El campo `student_code` es único.
+| Serializer | Modelo | Campos readonly |
+|------------|--------|-----------------|
+| `StudentSerializer` | Student | `full_name`, `age` |
+| `StudentDetailSerializer` | Student | `full_name`, `age`, `representatives` (anidado) |
+| `StudentRepresentativeSerializer` | StudentRepresentative | `student_names`, `person_names` |
+| `EnrollmentSerializer` | Enrollment | — |
+| `EnrollmentCreateSerializer` | Enrollment | — |
+| `EnrollmentStatusSerializer` | EnrollmentStatus | — |
 
-### EnrollmentStatus
-Catálogo de estados de matrícula (Activo, Retirado, Suspendido, etc.)
+## ViewSets (4 registrados en router)
 
-### Enrollment
-Vinculación de un estudiante a una sección para un año escolar. Incluye campos de sync para operación offline.
+| ViewSet | Endpoint | Acciones custom |
+|---------|----------|----------------|
+| `StudentViewSet` | `student/` | `search/`, `{id}/representatives/` |
+| `EnrollmentViewSet` | `enrollments/` | `{id}/withdraw/`, `{id}/transfer/`, `by-section/`, `by-student/` |
+| `StudentRepresentativeViewSet` | `student-representative/` | `set_primary/`, `{id}/unlink/` |
+| `EnrollmentStatusViewSet` | `enrollment-statuses/` | — |
 
-### StudentRepresentative
-Vinculación entre estudiante y representante legal. Define parentesco y niveles de autorización.
+## Workflow
 
-**Modelo Legacy** (managed=False, no usar):
-- `Representative` — Será eliminado tras migración completa
+```
+StudentService.create_student() → Person + Student (código EST-XXXXX)
+    ↓
+EnrollmentService.enroll_student() → Enrollment (status=ACT)
+    ↓ (opcional)
+EnrollmentService.withdraw_student() → Enrollment (status=RET, withdrawal_reason FK)
+    ↓
+EnrollmentHistory.create(previous_status, new_status, changed_by)
+```
 
-## Flujo de Trabajo Recomendado
+## Guía de imports
 
-Para mantener el desacoplamiento, siga este flujo de llamadas:
-`API View` → `Service` → `Repository` → `Model`
-
-> [!IMPORTANT]
-> **Nunca** manipule directamente la tabla `StudentRepresentative` desde las vistas. Utilice siempre `StudentService.assign_representative`.
-
-## Guía de Importación
-
-### ✅ Prácticas Correctas
 ```python
-# Importar servicios
+from apps.students.models import Student, Enrollment, Kinship, WithdrawalReason
 from apps.students.services.students_service import StudentService
-
-# Importar modelos
-from apps.students.models import Student, Enrollment, StudentRepresentative
-
-# Importar repositorios
+from apps.students.services.enrollment_service import EnrollmentService
 from apps.students.repositories.students_repo import StudentRepository
+from apps.students.repositories.enrollment_repo import EnrollmentRepository
+from apps.students.api.views import StudentViewSet, EnrollmentViewSet
 ```
-
-### ❌ Prácticas a Evitar
-```python
-from apps.students.models.student import Student
-```
-
-## Responsabilidades de Capas
-
-1.  **Models**: Definen la estructura de los datos personales y reglas de parentesco.
-2.  **Repositories**: Centralizan la lógica de búsqueda (por código, secciones).
-3.  **Services**: Implementan validaciones (edad permitida, unicidad, integridad).
-4.  **API**: Exponen los recursos mediante ViewSets con respuestas estandarizadas.

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from ...models import Enrollment, EnrollmentStatus, Student, StudentRepresentative
+from ...models import Enrollment, EnrollmentStatus, Student, StudentRepresentative, Kinship
 
 
 class StudentSerializer(serializers.ModelSerializer):
@@ -48,6 +48,20 @@ class StudentRepresentativeSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]
+
+    def to_internal_value(self, data):
+        if "kinship" in data and isinstance(data["kinship"], str):
+            try:
+                data = dict(data)
+                kinship_code = data["kinship"].upper()[:30]
+                kinship_obj, _ = Kinship.objects.get_or_create(
+                    code=kinship_code,
+                    defaults={"name": data["kinship"]}
+                )
+                data["kinship"] = kinship_obj.id
+            except Exception:
+                pass
+        return super().to_internal_value(data)
 
 
 class StudentDetailSerializer(StudentSerializer):

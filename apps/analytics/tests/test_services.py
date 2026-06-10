@@ -3,7 +3,7 @@ from datetime import date
 from decimal import Decimal
 from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSublevel, SchoolYear
 from apps.institutions.models import Section
-from apps.academic.models import AcademicPeriod
+from apps.academic.models import AcademicPeriod, PeriodType
 from apps.core.tests.helpers import create_test_student
 from apps.students.models import Student
 from apps.analytics.models import StudentRiskScore, StudentFeatureSnapshot
@@ -24,6 +24,12 @@ class AnalyticsServiceTest(TestCase):
             name="Periodo 1",
             start_date=date(2024, 9, 1),
             end_date=date(2024, 12, 15),
+        )
+        self.period2 = AcademicPeriod.objects.create(
+            school_year=self.school_year,
+            name="Periodo 2",
+            start_date=date(2025, 1, 1),
+            end_date=date(2025, 4, 30),
         )
         self.academic_level = AcademicLevel.objects.create(name="Primaria")
         self.academic_sublevel = AcademicSublevel.objects.create(
@@ -115,7 +121,7 @@ class AnalyticsServiceTest(TestCase):
     def test_list_priority_students(self):
         self._create_risk(self.student, self.period, Decimal("85.00"), "Alto")
         self._create_risk(self.student2, self.period, Decimal("72.00"), "Alto")
-        self._create_risk(self.student, self.period, Decimal("30.00"), "Bajo")
+        self._create_risk(self.student, self.period2, Decimal("30.00"), "Bajo")
 
         high_risk = AnalyticsService.list_priority_students(self.period.id)
         self.assertEqual(high_risk.count(), 2)

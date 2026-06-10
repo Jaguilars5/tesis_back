@@ -1,13 +1,13 @@
 from django.core.management.base import BaseCommand
 
 from apps.people.models import DocumentType
-from apps.academic.models import PeriodType, Subject
-from apps.grading.models import GradeType, QualitativeScale, ActivityType, EvaluationType, PromotionStatus, RecoveryProcessType
+from apps.academic.models import PeriodType, Subject, DayOfWeek
+from apps.grading.models import GradeType, QualitativeScale, ActivityType, EvaluationType, PromotionStatus, RecoveryProcessType, RecoveryProcessStatus
 from apps.attendance.models import AttendanceStatus, AbsenceType
-from apps.behavior.models import IncidentType, SocioemotionalSkill
+from apps.behavior.models import IncidentType, SocioemotionalSkill, Severity, SocioemotionalArea, DevelopmentLevel
 from apps.analytics.models import AlertType, UrgencyLevel, RiskFactor
 from apps.integration.models import SyncOperation, SyncStatus
-from apps.students.models import EnrollmentStatus
+from apps.students.models import EnrollmentStatus, WithdrawalReason, ResidentialZone, SpecialNeedsType, Kinship
 from apps.institutions.models import AcademicLevel, AcademicSublevel
 
 
@@ -92,6 +92,16 @@ CATALOGS = {
             {"code": "SUPLETORIA", "name": "Supletoria"},
         ],
     },
+    "recovery_process_statuses": {
+        "model": RecoveryProcessStatus,
+        "data": [
+            {"code": "STARTED", "name": "Iniciado"},
+            {"code": "GRADE_UPDATED", "name": "Calificación Actualizada"},
+            {"code": "SESSION_COMPLETED", "name": "Sesión Completada"},
+            {"code": "COMPLETED", "name": "Completado"},
+            {"code": "CANCELLED", "name": "Cancelado"},
+        ],
+    },
     "absence_types": {
         "model": AbsenceType,
         "data": [
@@ -174,8 +184,11 @@ CATALOGS = {
         "model": SyncStatus,
         "data": [
             {"code": "PENDIENTE", "name": "Pendiente"},
+            {"code": "PROCESANDO", "name": "En procesamiento"},
             {"code": "PROCESADO", "name": "Procesado"},
+            {"code": "SYNCED", "name": "Sincronizado"},
             {"code": "ERROR", "name": "Error"},
+            {"code": "CONFLICT", "name": "Conflicto detectado"},
         ],
     },
     "academic_levels": {
@@ -193,6 +206,88 @@ CATALOGS = {
             {"code": "TRS", "name": "Transferido"},
             {"code": "SUS", "name": "Suspendido"},
             {"code": "GRA", "name": "Graduado"},
+        ],
+    },
+    "withdrawal_reasons": {
+        "model": WithdrawalReason,
+        "data": [
+            {"code": "CAMBIO_DOMICILIO", "name": "Cambio de domicilio"},
+            {"code": "TRASLADO", "name": "Traslado a otra institución"},
+            {"code": "FAMILIARES", "name": "Motivos familiares"},
+            {"code": "SALUD", "name": "Razones de salud"},
+            {"code": "DESISTIMIENTO", "name": "Desistimiento"},
+            {"code": "OTRO", "name": "Otro"},
+        ],
+    },
+    "residential_zones": {
+        "model": ResidentialZone,
+        "data": [
+            {"code": "URBANA", "name": "Zona Urbana"},
+            {"code": "RURAL", "name": "Zona Rural"},
+            {"code": "PERIFERICA", "name": "Zona Periférica"},
+        ],
+    },
+    "special_needs_types": {
+        "model": SpecialNeedsType,
+        "data": [
+            {"code": "DISCAPACIDAD_FISICA", "name": "Discapacidad Física"},
+            {"code": "DISCAPACIDAD_SENSorial", "name": "Discapacidad Sensorial"},
+            {"code": "DISCAPACIDAD_INTELECTUAL", "name": "Discapacidad Intelectual"},
+            {"code": "TRASTORNOS_APRENDIZAJE", "name": "Trastornos del Aprendizaje"},
+            {"code": "TDAH", "name": "TDAH"},
+            {"code": "AUTISMO", "name": "Autismo"},
+            {"code": "OTRO", "name": "Otro"},
+        ],
+    },
+    "kinships": {
+        "model": Kinship,
+        "data": [
+            {"code": "PADRE", "name": "Padre"},
+            {"code": "MADRE", "name": "Madre"},
+            {"code": "ABUELO", "name": "Abuelo/a"},
+            {"code": "TIO", "name": "Tío/a"},
+            {"code": "HERMANO", "name": "Hermano/a"},
+            {"code": "TUTOR", "name": "Tutor legal"},
+            {"code": "OTRO", "name": "Otro"},
+        ],
+    },
+    "severities": {
+        "model": Severity,
+        "data": [
+            {"code": "LEVE", "name": "Falta leve", "numeric_level": 1},
+            {"code": "MODERADA", "name": "Falta moderada", "numeric_level": 2},
+            {"code": "GRAVE", "name": "Falta grave", "numeric_level": 3},
+            {"code": "MUY_GRAVE", "name": "Falta muy grave", "numeric_level": 4},
+        ],
+    },
+    "socioemotional_areas": {
+        "model": SocioemotionalArea,
+        "data": [
+            {"code": "AUTOCONOCIMIENTO", "name": "Autoconocimiento"},
+            {"code": "AUTOCONTROL", "name": "Autocontrol emocional"},
+            {"code": "RELACIONES", "name": "Relaciones interpersonales"},
+            {"code": "AUTONOMIA", "name": "Autonomía"},
+            {"code": "EMPATIA", "name": "Empatía"},
+        ],
+    },
+    "development_levels": {
+        "model": DevelopmentLevel,
+        "data": [
+            {"code": "EN_PROCESO", "name": "En proceso"},
+            {"code": "LOGRADO", "name": "Logrado"},
+            {"code": "POR_LOGRAR", "name": "Por lograr"},
+        ],
+    },
+    "days_of_week": {
+        "model": DayOfWeek,
+        "data": [
+            {"code": 1, "name": "Lunes"},
+            {"code": 2, "name": "Martes"},
+            {"code": 3, "name": "Miércoles"},
+            {"code": 4, "name": "Jueves"},
+            {"code": 5, "name": "Viernes"},
+            {"code": 6, "name": "Sábado"},
+            {"code": 7, "name": "Domingo"},
         ],
     },
 }

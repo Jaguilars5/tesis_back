@@ -9,7 +9,7 @@ from apps.institutions.models import (
     SchoolYear,
 )
 from apps.institutions.models import Section
-from ..models import EnrollmentStatus, Student, StudentRepresentative
+from ..models import EnrollmentStatus, Student, StudentRepresentative, Kinship
 from apps.core.tests.helpers import create_test_student
 
 
@@ -28,6 +28,10 @@ def _create_person(document_number, names, last_names, phone=""):
 
 class StudentModelTest(TestCase):
     """Tests para el modelo Student"""
+
+    def setUp(self):
+        self.kinship_madre = Kinship.objects.create(code="MADRE", name="Madre")
+        self.kinship_padre = Kinship.objects.create(code="PADRE", name="Padre")
 
     def setUp(self):
         """Crear datos de prueba"""
@@ -151,13 +155,15 @@ class StudentRepresentativeModelTest(TestCase):
             last_names="Pérez",
             phone="0987654321",
         )
+        self.kinship_madre = Kinship.objects.create(code="MADRE", name="Madre")
+        self.kinship_padre = Kinship.objects.create(code="PADRE", name="Padre")
 
     def test_relationship_creation(self):
         """Probar creación de relación"""
         rel = StudentRepresentative.objects.create(
             student=self.student,
             person=self.representative,
-            kinship="Madre",
+            kinship=self.kinship_madre,
             is_primary=True,
             can_pickup=True,
         )
@@ -169,14 +175,14 @@ class StudentRepresentativeModelTest(TestCase):
     def test_relationship_unique_together(self):
         """Probar que no puede haber duplicados"""
         StudentRepresentative.objects.create(
-            student=self.student, person=self.representative, kinship="Madre"
+            student=self.student, person=self.representative, kinship=self.kinship_madre
         )
 
         with self.assertRaises(Exception):
             StudentRepresentative.objects.create(
                 student=self.student,
                 person=self.representative,
-                kinship="Madre",
+                kinship=self.kinship_madre,
             )
 
     def test_multiple_representatives(self):
@@ -191,11 +197,11 @@ class StudentRepresentativeModelTest(TestCase):
         StudentRepresentative.objects.create(
             student=self.student,
             person=self.representative,
-            kinship="Madre",
+            kinship=self.kinship_madre,
             is_primary=True,
         )
         StudentRepresentative.objects.create(
-            student=self.student, person=rep2, kinship="Padre", is_primary=False
+            student=self.student, person=rep2, kinship=self.kinship_padre, is_primary=False
         )
 
         rels = StudentRepresentative.objects.filter(student=self.student)

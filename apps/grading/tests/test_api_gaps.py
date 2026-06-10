@@ -21,7 +21,7 @@ from apps.grading.models import (
     ComponentIndicator, EvaluativeActivity, GradeChangeHistory, PeriodGradeSummary,
     RecoveryProcess, ProjectNote
 )
-from apps.academic.models import (
+from apps.academic.models import (PeriodType,
     AcademicPeriod, Subject, SubjectAcademicConfig, SubjectOffering, TeacherSubjectSection,
     InterdisciplinaryProject
 )
@@ -220,6 +220,7 @@ class GradingAPIGapsTest(TestCase):
             user=self.authorized_user,
             subject_offering=offering,
         )
+        self.offering = offering
         self.student = create_test_student(
             document_number="0987654321",
             names="Carlos",
@@ -267,6 +268,7 @@ class GradingAPIGapsTest(TestCase):
 
         self.block = EvaluationBlock.objects.create(
             academic_period=self.period,
+            subject_offering=self.offering,
             name="Macro 1",
             evaluation_type=self.eval_type_for,
             weight_percentage=Decimal("40.00"),
@@ -302,6 +304,7 @@ class GradingAPIGapsTest(TestCase):
         # Crear con permisos
         data = {
             "academic_period": self.period.id,
+            "subject_offering": self.offering.id,
             "name": "Macro 2",
             "evaluation_type": self.eval_type_sum.id,
             "weight_percentage": "60.00",
@@ -454,6 +457,7 @@ class GradingAPIGapsTest(TestCase):
 
         data = {
             "period_grade_summary": summary.id,
+            "subject_offering": self.teacher_subject_section.subject_offering.id,
             "managed_by_user": self.authorized_user.id,
             "process_type": self.recovery_process_type.id,
             "initial_grade": "8.75",
