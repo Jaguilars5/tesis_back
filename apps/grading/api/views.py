@@ -13,6 +13,7 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.core.utils import ok_response, error_response
+from .filters import BlockComponentFilter, EvaluativeActivityFilter
 
 from apps.core.api.pagination import StandardResultsSetPagination
 from apps.core.api.permissions import HasPermission
@@ -193,12 +194,7 @@ class BlockComponentViewSet(BaseGradingViewSet):
     serializer_class = BlockComponentSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = [
-        "evaluation_block",
-        "evaluation_block__subject_offering",
-        "evaluation_block__academic_period",
-        "is_active",
-    ]
+    filterset_class = BlockComponentFilter
     action_permissions = {
         "list": grading.VIEW_BLOCK_COMPONENT,
         "retrieve": grading.VIEW_BLOCK_COMPONENT,
@@ -233,10 +229,7 @@ class EvaluativeActivityViewSet(BaseGradingViewSet):
     ordering_fields = ["id", "title", "due_date", "created_at", "updated_at"]
     ordering = ["-due_date"]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = [
-        "teacher_subject_section",
-        "block_component__evaluation_block__academic_period",
-    ]
+    filterset_class = EvaluativeActivityFilter
     action_permissions = {
         "list": grading.VIEW_EVALUATIVE_ACTIVITY,
         "retrieve": grading.VIEW_EVALUATIVE_ACTIVITY,
