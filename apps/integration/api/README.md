@@ -14,11 +14,7 @@ Header: `Authorization: Bearer <access_token>`
 | Endpoint | Método | Permiso |
 |----------|--------|---------|
 | `sync-queue/` | GET/POST | `integration.view/create_syncqueue` |
-| `sync-queue/{id}/` | GET/PATCH/DELETE | `integration.view/update/delete_syncqueue` |
-| `sync-operations/` | GET/POST | `integration.view/create_sync_operation` |
-| `sync-operations/{id}/` | GET/PATCH/DELETE | `integration.view/update/delete_sync_operation` |
-| `sync-statuses/` | GET/POST | `integration.view/create_sync_status` |
-| `sync-statuses/{id}/` | GET/PATCH/DELETE | `integration.view/update/delete_sync_status` |
+| `sync-queue/{id}/` | GET/PUT/PATCH/DEL | `integration.view/update/delete_syncqueue` |
 | `sync/push/` | POST | Requiere autenticación |
 | `sync/pull/` | GET | Requiere autenticación |
 
@@ -159,40 +155,7 @@ GET /api/integration/sync/pull/?since=2025-06-01T00:00:00Z&source_table=student_
 
 ---
 
-## Catálogos
+## Notas
 
-### Operaciones (`/api/integration/sync-operations/`)
-
-```json
-{"code": "INSERT", "name": "Insertar"}
-{"code": "UPDATE", "name": "Actualizar"}
-{"code": "DELETE", "name": "Eliminar"}
-```
-
-### Estados (`/api/integration/sync-statuses/`)
-
-| code | name |
-|------|------|
-| PENDIENTE | Pendiente |
-| PROCESANDO | En procesamiento |
-| PROCESADO | Procesado |
-| SYNCED | Sincronizado |
-| ERROR | Error |
-| CONFLICT | Conflicto detectado |
-
----
-
-## Versionado de Payload
-
-El modelo `SyncSchemaVersion` permite registrar y validar la versión del schema de payload por tabla:
-
-```json
-{
-  "model_name": "student_note",
-  "schema_version": 2,
-  "fields_hash": "a1b2c3d4e5f6...",
-  "min_client_version": "1.0.0"
-}
-```
-
-Durante el push, si `client_version < min_client_version`, la operación es rechazada con `status: INCOMPATIBLE`.
+- `SyncOperation` y `SyncStatus` **no existen como modelos** — son `TextChoices` dentro de `syncable_mixin.py`. No hay endpoints `/sync-operations/` ni `/sync-statuses/`.
+- `SyncSchemaVersion` fue **eliminado** (migración 0004). El campo `client_version` en push se recibe pero actualmente no se valida contra `min_client_version`.

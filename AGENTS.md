@@ -5,7 +5,8 @@
 ```bash
 # Local dev (requires venv + PostgreSQL + Redis)
 # Default settings module: config.settings.local
-python manage.py runserver                # Dev server on :8000
+daphne -b 0.0.0.0 -p 8000 config.asgi:application  # ASGI dev server (needed for Socket.IO)
+# Alternativa (sin ASGI): python manage.py runserver --asgi 0.0.0.0:8000
 celery -A config worker --loglevel=info   # Celery worker (separate terminal)
 celery -A config flower --port=5555       # Celery monitor (optional)
 

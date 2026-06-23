@@ -7,20 +7,20 @@ attendance/
 ├── __init__.py
 ├── admin.py
 ├── apps.py
-├── urls.py                     # Router: attendances, attendance-statuses, absence-types
-├── tasks.py                    # AttendanceSyncHandler (BaseSyncHandler)
+├── urls.py                     # Router directo (no delega a api/urls.py): attendances, attendance-statuses, absence-types
+├── tasks.py                    # AttendanceSyncHandler
 │
 ├── models/
-│   ├── __init__.py             # AbsenceType, Attendance, AttendanceStatus
-│   ├── attendance.py           # Attendance(TimeStampedModel, SyncableModel)
-│   ├── attendance_status.py    # AttendanceStatus (code, name, tipo)
-│   └── absence_type.py         # AbsenceType (code, name)
+│   ├── __init__.py             # 3 modelos exportados
+│   ├── attendance.py           # Attendance (TimeStampedModel, SyncableModel)
+│   ├── attendance_status.py    # AttendanceStatus (code, name, description)
+│   └── absence_type.py         # AbsenceType (code, name, description)
 │
 ├── repositories/
-│   ├── __init__.py
-│   ├── attendance_repository.py            # AttendanceRepository
-│   ├── attendance_status_repository.py     # AttendanceStatusRepository
-│   └── absence_type_repository.py          # AbsenceTypeRepository
+│   ├── __init__.py             # 3 repositorios exportados
+│   ├── attendance_repository.py         # AttendanceRepository
+│   ├── attendance_status_repository.py  # AttendanceStatusRepository
+│   └── absence_type_repository.py       # AbsenceTypeRepository
 │
 ├── services/
 │   ├── __init__.py
@@ -28,23 +28,20 @@ attendance/
 │
 ├── api/
 │   ├── __init__.py
-│   ├── README.md               # Documentación de la API
+│   ├── README.md
 │   ├── serializers.py          # AttendanceSerializer, AttendanceStatusSerializer, AbsenceTypeSerializer
 │   └── views.py                # AttendanceViewSet, AttendanceStatusViewSet, AbsenceTypeViewSet
 │
-├── tests/
-│   ├── __init__.py
-│   ├── test_attendance_models.py
-│   ├── test_attendance_api.py
-│   ├── test_api_gaps.py
-│   ├── test_api_permissions.py
-│   └── test_repositories.py
-│
-└── migrations/
-    └── 0001_initial.py
+└── tests/
+    ├── __init__.py
+    ├── test_attendance_models.py
+    ├── test_attendance_api.py
+    ├── test_api_gaps.py
+    ├── test_api_permissions.py
+    └── test_repositories.py
 ```
 
-## Serializers
+## Serializers (3)
 
 | Serializer | Modelo | Campos readonly |
 |------------|--------|-----------------|
@@ -52,43 +49,13 @@ attendance/
 | `AttendanceStatusSerializer` | AttendanceStatus | — |
 | `AbsenceTypeSerializer` | AbsenceType | — |
 
-## Modelos
+## ViewSets (3 registrados en router)
 
-### Attendance
-```python
-class Attendance(TimeStampedModel, SyncableModel):
-    enrollment = FK(students.Enrollment, null=True)
-    teacher_subject_section = FK(academic.TeacherSubjectSection)
-    academic_period = FK(academic.AcademicPeriod)
-    attendance_status = FK(attendance.AttendanceStatus, null=True)
-    attendance_date = DateField(null=True)
-    absence_type = FK(attendance.AbsenceType, null=True, blank=True)
-    observation = TextField(null=True, blank=True)
-    created_by = FK(iam.User, null=True, blank=True)
-    modified_by = FK(iam.User, null=True, blank=True)
-    # Heredado de SyncableModel:
-    # uuid, sync_status, sync_version, synced_at, device_origin,
-    # conflict_resolved, conflict_notes
-```
-
-### AttendanceStatus
-```python
-class AttendanceStatus(TimeStampedModel):
-    code = CharField(unique=True)    # P, A, T, J
-    name = CharField()
-    description = TextField(blank=True)
-    tipo = CharField(choices=[POSITIVO, NEGATIVO], null=True)
-    is_active = BooleanField(default=True)
-```
-
-### AbsenceType
-```python
-class AbsenceType(TimeStampedModel):
-    code = CharField(unique=True)    # justified, unjustified, late, none
-    name = CharField()
-    description = TextField(blank=True)
-    is_active = BooleanField(default=True)
-```
+| ViewSet | Endpoint | Tipo |
+|---------|----------|------|
+| `AttendanceViewSet` | `attendances/` | CRUD (ModelViewSet) |
+| `AttendanceStatusViewSet` | `attendance-statuses/` | CRUD (ModelViewSet) |
+| `AbsenceTypeViewSet` | `absence-types/` | CRUD (ModelViewSet) |
 
 ## Workflow
 
@@ -105,19 +72,14 @@ AttendanceRepository.list_for_risk_snapshot() → para AcademicRiskFeatureBuilde
 ## Guía de imports
 
 ```python
-# Modelos
 from apps.attendance.models import Attendance, AttendanceStatus, AbsenceType
 
-# Repositorios
 from apps.attendance.repositories import AttendanceRepository, AttendanceStatusRepository, AbsenceTypeRepository
 
-# Servicios
 from apps.attendance.services import AttendanceService
 
-# API
 from apps.attendance.api.serializers import AttendanceSerializer, AttendanceStatusSerializer, AbsenceTypeSerializer
 from apps.attendance.api.views import AttendanceViewSet, AttendanceStatusViewSet, AbsenceTypeViewSet
 
-# Tareas (sync handler)
 from apps.attendance.tasks import AttendanceSyncHandler
 ```

@@ -7,29 +7,41 @@ people/
 ├── __init__.py
 ├── admin.py
 ├── apps.py
-├── urls.py                     # Router: persons, document-types
+├── urls.py                     # → api/urls.py (persons, document-types)
 ├── README.md
 │
+├── domain/                     # VACÍO
+├── signals/                    # VACÍO
+├── tasks/                      # VACÍO
+│
 ├── models/
-│   ├── __init__.py
-│   ├── person.py               # Person (documento, nombres, email, birth_date, género, full_name, age)
-│   └── document_type.py        # DocumentType (code unique: CC, CE, PP, RC, TI, NIT)
+│   ├── __init__.py             # 2 modelos exportados
+│   ├── person.py               # Person (TimeStampedModel)
+│   └── document_type.py        # DocumentType (TimeStampedModel)
 │
 ├── repositories/
-│   ├── __init__.py
-│   ├── person_repository.py    # PersonRepository (+ search_by_document)
-│   └── document_type_repository.py
+│   ├── __init__.py             # 2 repositorios exportados
+│   ├── person_repo.py          # PersonRepository (NO hereda BaseRepository)
+│   └── document_type_repository.py  # DocumentTypeRepository
 │
 ├── services/
-│   ├── __init__.py
-│   └── person_service.py       # PersonService (create_with_user, create_student)
+│   ├── __init__.py             # 2 servicios exportados
+│   ├── person_service.py       # PersonService
+│   └── document_type_service.py# DocumentTypeService
 │
 ├── api/
 │   ├── __init__.py
 │   ├── README.md
-│   ├── serializers.py          # PersonSerializer (full_name, age readonly), DocumentTypeSerializer
-│   ├── views.py                # PersonViewSet, DocumentTypeViewSet
-│   └── urls.py
+│   ├── serializers/
+│   │   ├── __init__.py         # PersonSerializer, DocumentTypeSerializer
+│   │   ├── person.py
+│   │   └── document_type.py
+│   ├── views/
+│   │   ├── __init__.py         # PersonViewSet, DocumentTypeViewSet
+│   │   └── views.py
+│   ├── filters/                # VACÍO
+│   ├── permissions/            # VACÍO
+│   └── urls.py                 # Router: persons, document-types
 │
 └── tests/
     ├── __init__.py
@@ -38,28 +50,22 @@ people/
     └── test_models.py
 ```
 
-## Serializers
-
-| Serializer | Campos readonly |
-|------------|-----------------|
-| `PersonSerializer` | `full_name`, `age`, `document_type_name` |
-| `DocumentTypeSerializer` | — |
-
 ## Workflow
 
 ```
-PersonService.create_person(document_number, names, last_names, ...) → Person.create()
-    ↓
-UserService.create_user(person=person, ...) → User.create() — en módulo iam
-    ↓
-StudentService.create_student(person=person, ...) → Student.create() — en módulo students
+PersonService.create_person_with_user(person_data, password) → Person + User
+PersonService.create_person_with_student(person_data, student_code) → Person + Student
 ```
 
 ## Guía de imports
 
 ```python
 from apps.people.models import Person, DocumentType
+
+from apps.people.repositories import PersonRepository, DocumentTypeRepository
+
 from apps.people.services.person_service import PersonService
+
 from apps.people.api.serializers import PersonSerializer, DocumentTypeSerializer
 from apps.people.api.views import PersonViewSet, DocumentTypeViewSet
 ```

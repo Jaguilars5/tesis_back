@@ -1,20 +1,20 @@
 from django.db.models import QuerySet
 from apps.iam.models import User
 from apps.people.models import Person
-from apps.students.models import Student, StudentRepresentative, Enrollment, EnrollmentStatus
+from apps.students.models import Student, StudentRepresentative, Enrollment
 from apps.academic.models import Subject, AcademicPeriod, SubjectAcademicConfig, SubjectOffering, TeacherSubjectSection
 from apps.grading.models import (
     StudentNote, EvaluationBlock,
-    BlockComponent, ComponentIndicator, EvaluativeActivity,
-    PeriodGradeSummary, RecoveryProcess, ProjectNote
+    BlockComponent, EvaluativeActivity,
+    PeriodGradeSummary
 )
 from apps.attendance.models import (
     Attendance, AttendanceStatus,
 )
 from apps.behavior.models import (
-    ConductIncident, SocioemotionalSkill, SkillEvaluation, BehaviorEvaluation, IncidentType,
+    ConductIncident, BehaviorEvaluation, IncidentType,
 )
-from apps.grading.models import GradeType, QualitativeScale
+from apps.grading.models import QualitativeScale
 from apps.analytics.models import StudentRiskScore, StudentRiskFactor, StudentFeatureSnapshot, RiskFactor, EarlyAlert
 
 
@@ -56,9 +56,8 @@ class StudentRoleHandler(BaseRoleHandler):
     """
     ALLOWED_MODELS = {
         User, Person, Student, Enrollment, TeacherSubjectSection,
-        EvaluativeActivity, StudentNote, ProjectNote, PeriodGradeSummary,
-        RecoveryProcess, Attendance, ConductIncident, BehaviorEvaluation,
-        SkillEvaluation
+        EvaluativeActivity, StudentNote, PeriodGradeSummary,
+        Attendance, ConductIncident, BehaviorEvaluation,
     }
     DENIED_MODELS = {
         EarlyAlert, StudentRiskScore, StudentRiskFactor, StudentFeatureSnapshot
@@ -88,15 +87,11 @@ class StudentRoleHandler(BaseRoleHandler):
             ).distinct()
 
         # Calificaciones y Notas
-        elif model in (StudentNote, ProjectNote, PeriodGradeSummary):
+        elif model in (StudentNote, PeriodGradeSummary):
             return queryset.filter(enrollment__student__person=self.user.person).distinct()
-        elif model is RecoveryProcess:
-            return queryset.filter(
-                student_note__enrollment__student__person=self.user.person
-            ).distinct()
 
         # Asistencia y Conducta
-        elif model in (Attendance, ConductIncident, BehaviorEvaluation, SkillEvaluation):
+        elif model in (Attendance, ConductIncident, BehaviorEvaluation):
             return queryset.filter(enrollment__student__person=self.user.person).distinct()
 
         return queryset.none()
@@ -109,9 +104,9 @@ class RepresentativeRoleHandler(BaseRoleHandler):
     """
     ALLOWED_MODELS = {
         User, Person, Student, StudentRepresentative, Enrollment,
-        TeacherSubjectSection, EvaluativeActivity, StudentNote, ProjectNote,
-        PeriodGradeSummary, RecoveryProcess, Attendance, ConductIncident,
-        BehaviorEvaluation, SkillEvaluation, EarlyAlert, StudentRiskScore,
+        TeacherSubjectSection, EvaluativeActivity, StudentNote,
+        PeriodGradeSummary, Attendance, ConductIncident,
+        BehaviorEvaluation, EarlyAlert, StudentRiskScore,
         StudentRiskFactor
     }
 
@@ -143,17 +138,13 @@ class RepresentativeRoleHandler(BaseRoleHandler):
             ).distinct()
 
         # Calificaciones y Notas
-        elif model in (StudentNote, ProjectNote, PeriodGradeSummary):
+        elif model in (StudentNote, PeriodGradeSummary):
             return queryset.filter(
                 enrollment__student__representatives_set__person=self.user.person
             ).distinct()
-        elif model is RecoveryProcess:
-            return queryset.filter(
-                student_note__enrollment__student__representatives_set__person=self.user.person
-            ).distinct()
 
         # Asistencia, Conducta e Incidentes
-        elif model in (Attendance, ConductIncident, BehaviorEvaluation, SkillEvaluation):
+        elif model in (Attendance, ConductIncident, BehaviorEvaluation):
             return queryset.filter(
                 enrollment__student__representatives_set__person=self.user.person
             ).distinct()
@@ -173,9 +164,9 @@ class TeacherRoleHandler(BaseRoleHandler):
     """
     ALLOWED_MODELS = {
         User, Person, TeacherSubjectSection, EvaluativeActivity,
-        StudentNote, ProjectNote, PeriodGradeSummary, RecoveryProcess,
-        Attendance, ConductIncident, BehaviorEvaluation, SkillEvaluation,
-        EarlyAlert, StudentRiskScore
+        StudentNote, PeriodGradeSummary,
+        Attendance, ConductIncident, BehaviorEvaluation,
+        EarlyAlert, StudentRiskScore, Enrollment
     }
 
     def filter(self, queryset) -> QuerySet:
@@ -200,7 +191,7 @@ class TeacherRoleHandler(BaseRoleHandler):
             return queryset.filter(teacher_subject_section__user=self.user)
 
         # Calificaciones
-        elif model in (StudentNote, ProjectNote):
+        elif model == StudentNote:
             return queryset.filter(
                 evaluative_activity__teacher_subject_section__user=self.user
             ).distinct()
@@ -208,13 +199,9 @@ class TeacherRoleHandler(BaseRoleHandler):
             return queryset.filter(
                 enrollment__section__teacher_subject_sections__user=self.user
             ).distinct()
-        elif model is RecoveryProcess:
-            return queryset.filter(
-                student_note__evaluative_activity__teacher_subject_section__user=self.user
-            ).distinct()
 
         # Asistencia y Comportamiento de sus alumnos en sus secciones
-        elif model in (Attendance, ConductIncident, BehaviorEvaluation, SkillEvaluation):
+        elif model in (Attendance, ConductIncident, BehaviorEvaluation):
             return queryset.filter(teacher_subject_section__user=self.user).distinct()
 
         # Alertas Tempranas y Riesgo predictivo de alumnos bajo su asignación
@@ -235,7 +222,7 @@ class CounselorRoleHandler(BaseRoleHandler):
     ALLOWED_MODELS = {
         Person, Student, StudentRepresentative, Enrollment,
         TeacherSubjectSection, EvaluativeActivity, ConductIncident,
-        BehaviorEvaluation, SkillEvaluation, EarlyAlert, StudentRiskScore,
+        BehaviorEvaluation, EarlyAlert, StudentRiskScore,
         StudentRiskFactor, StudentFeatureSnapshot
     }
 

@@ -2,7 +2,6 @@
 Construccion de snapshots de riesgo academico desde grading.
 """
 
-from collections import defaultdict
 from decimal import Decimal, ROUND_HALF_UP
 
 from apps.academic.repositories.academic_repo import AcademicPeriodRepository
@@ -10,9 +9,6 @@ from apps.attendance.repositories import AttendanceRepository
 from apps.behavior.repositories import ConductIncidentRepository
 from apps.grading.repositories import StudentNoteRepository
 from apps.students.repositories.students_repo import StudentRepository
-
-
-PASSING_GRADE = Decimal("7.00")
 
 
 def _decimal(value, default="0.00"):
@@ -66,6 +62,10 @@ class AcademicRiskFeatureBuilder:
         conducta = self._build_conduct(incidents)
         asistencia = self._build_attendance(attendances)
         calificaciones = self._build_grades(notes)
+        # Fuente única de "materia reprobada": PeriodGradeSummary.is_failing (§6.4).
+        # Misma definición que consume early_alert_service, garantizada por el
+        # signal de grading que mantiene sincronizado el resumen.
+        calificaciones["materias_reprobadas"] = self._count_failing_subjects(student)
 
         snapshot = {
             "estudiante_id": str(student.id),
@@ -95,10 +95,13 @@ class AcademicRiskFeatureBuilder:
             "attendance_rate": _round_decimal(asistencia["porcentaje_asistencia"]),
             "consecutive_absences_max": asistencia["max_faltas_consecutivas"],
             "tardiness_count": asistencia["tardanzas"],
+            "justified_absences": asistencia.get("faltas_justificadas", 0),
+            "unjustified_absences": asistencia.get("faltas_injustificadas", 0),
             "avg_grade_normalized": _round_decimal(calificaciones["promedio_actual"]),
             "grade_trend_slope": _round_decimal(calificaciones["tendencia_notas"]),
             "failing_subjects_count": calificaciones["materias_reprobadas"],
             "conduct_score": _round_decimal(conduct_score),
+            "severe_incidents_count": conducta.get("faltas_graves", 0),
             "family_notified_ratio": _round_decimal(conducta["ratio_notificacion_familiar"]),
         }
 
@@ -111,7 +114,20 @@ class AcademicRiskFeatureBuilder:
         metrics["is_repeat"] = enrollment.is_repeat if enrollment else False
         metrics["has_special_needs"] = getattr(student, "has_special_needs", False)
 
+        # Dimensiones analíticas / de segmentación (Fase 4 §5 F): ciudad de origen,
+        # tipo de NEE y motivo de retiro. No alimentan el modelo numérico; sirven
+        # para segmentar riesgo y deserción en dashboards/reportes.
+        metrics["city_id"] = self._get_city_id(student)
+        metrics["special_needs_type_id"] = getattr(student, "special_needs_type_id", None)
+        metrics["withdrawal_reason_id"] = (
+            enrollment.withdrawal_reason_id if enrollment else None
+        )
+
         return metrics
+
+    def _get_city_id(self, student):
+        person = getattr(getattr(student, "user", None), "person", None)
+        return getattr(person, "city_id", None) if person else None
 
     def _get_active_enrollment(self, student):
         if not student:
@@ -166,13 +182,14 @@ class AcademicRiskFeatureBuilder:
         self._validate_range(calificaciones.get("promedio_actual"), 0, 10, "promedio_actual")
         self._validate_range(calificaciones.get("ultimo_examen"), 0, 10, "ultimo_examen")
         self._validate_non_negative(calificaciones, "materias_reprobadas")
-        self._validate_non_negative(calificaciones, "tareas_entregadas")
-        self._validate_non_negative(calificaciones, "tareas_pendientes")
 
     def _build_conduct(self, incidents):
-        leves = sum(1 for incident in incidents if incident.severity.numeric_level == 1)
-        moderadas = sum(1 for incident in incidents if incident.severity.numeric_level == 2)
-        graves = sum(1 for incident in incidents if incident.severity.numeric_level == 3)
+        leves_codes = {"LEVE"}
+        moderadas_codes = {"MODERADA"}
+        graves_codes = {"GRAVE", "MUY_GRAVE"}
+        leves = sum(1 for incident in incidents if incident.severity.code in leves_codes)
+        moderadas = sum(1 for incident in incidents if incident.severity.code in moderadas_codes)
+        graves = sum(1 for incident in incidents if incident.severity.code in graves_codes)
         descriptions = [
             incident.description.strip()
             for incident in incidents[:3]
@@ -216,26 +233,27 @@ class AcademicRiskFeatureBuilder:
 
         return {
             "promedio_actual": float(_round_decimal(average)),
-            "materias_reprobadas": self._count_failing_subjects(notes),
-            "tareas_entregadas": 0,
-            "tareas_pendientes": 0,
+            # Se sobreescribe en build() desde PeriodGradeSummary (fuente única, §6.4).
+            "materias_reprobadas": 0,
             "ultimo_examen": float(_round_decimal(last_exam)),
             "tendencia_notas": float(_round_decimal(self._grade_trend(values))),
             "total_calificaciones": len(notes),
         }
 
-    def _count_failing_subjects(self, notes):
-        subject_values = defaultdict(list)
-        for note in notes:
-            subject_id = note.evaluative_activity.teacher_subject_section.subject_offering.subject_academic_config.subject_id
-            subject_values[subject_id].append(_decimal(note.calculate_normalized_value()))
-
-        failing = 0
-        for values in subject_values.values():
-            average = sum(values, Decimal("0.00")) / len(values)
-            if average < PASSING_GRADE:
-                failing += 1
-        return failing
+    def _count_failing_subjects(self, student):
+        """
+        Cuenta materias reprobadas desde PeriodGradeSummary.is_failing (fuente única,
+        §6.4) para la matrícula activa del estudiante en el periodo del snapshot.
+        """
+        enrollment = self._get_active_enrollment(student)
+        if not enrollment:
+            return 0
+        from apps.grading.repositories.period_grade_summary_repository import (
+            PeriodGradeSummaryRepository,
+        )
+        return PeriodGradeSummaryRepository.count_failing(
+            enrollment.id, self.academic_period_id
+        )
 
     def _last_exam_grade(self, notes):
         exam_notes = [

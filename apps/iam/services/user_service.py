@@ -1,3 +1,6 @@
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+
 from apps.people.models import Person
 from apps.iam.models import User, UserRole
 from apps.iam.repositories.role_repo import RoleRepository
@@ -60,13 +63,17 @@ class UserService:
     def list_users_by_role(self, role_id):
         return self.user_repo.get_by_role(role_id)
 
+    def list_users_by_role_code(self, code):
+        return self.user_repo.get_by_role_code(code)
+
     def update_user(self, user_id, **kwargs):
         user = self.user_repo.get_by_id(user_id)
         if not user:
             raise ValueError(f"Usuario con ID {user_id} no existe")
-        if "email" in kwargs and kwargs["email"] != user.email:
+        current_email = user.person.email if user.person else None
+        if "email" in kwargs and kwargs["email"] != current_email:
             existing = self.user_repo.get_by_email(kwargs["email"])
-            if existing:
+            if existing and existing.id != user.id:
                 raise ValueError(f"El email {kwargs['email']} ya está registrado")
         if "role" in kwargs:
             role = self.role_repo.get_by_id(kwargs["role"])
@@ -78,8 +85,10 @@ class UserService:
         user = self.user_repo.get_by_id(user_id)
         if not user:
             raise ValueError(f"Usuario con ID {user_id} no existe")
+        validate_password(new_password, user=user)
         user.set_password(new_password)
-        user.save()
+        user.must_change_password = False
+        user.save(update_fields=["password", "must_change_password", "updated_at"])
         return user
 
     def deactivate_user(self, user_id):

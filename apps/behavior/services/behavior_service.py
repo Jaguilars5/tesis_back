@@ -6,15 +6,21 @@ from ..models import BehaviorEvaluation
 from ..repositories import ConductIncidentRepository
 
 
+SEVERE_CODES = {"GRAVE", "MUY_GRAVE"}
+MODERATE_CODES = {"MODERADA"}
+
+
 class BehaviorEvaluationService:
     @staticmethod
     @transaction.atomic
     def calculate_behavior_evaluation(enrollment, academic_period):
-        incidents = ConductIncidentRepository.get_by_enrollment_and_period(
-            enrollment_id=enrollment.id,
-            academic_period_id=academic_period.id,
+        incidents = list(
+            ConductIncidentRepository.get_by_enrollment_and_period(
+                enrollment_id=enrollment.id,
+                academic_period_id=academic_period.id,
+            )
         )
-        if not incidents.exists():
+        if not incidents:
             scale = QualitativeScaleRepository.get_by_code("SE")
             if not scale:
                 scale, _ = QualitativeScale.objects.get_or_create(
@@ -30,13 +36,13 @@ class BehaviorEvaluationService:
             )
             return eval_obj
 
-        max_severity = max(i.severity.numeric_level for i in incidents)
-        severe_count = sum(1 for i in incidents if i.severity.numeric_level >= 3)
-        total_incidents = incidents.count()
+        severe_count = sum(1 for i in incidents if i.severity.code in SEVERE_CODES)
+        moderate_count = sum(1 for i in incidents if i.severity.code in MODERATE_CODES)
+        total_incidents = len(incidents)
 
-        if severe_count >= 3 or max_severity >= 3 and total_incidents >= 2:
+        if severe_count >= 3 or (severe_count >= 1 and total_incidents >= 2):
             scale_code = "NA"
-        elif max_severity >= 2 or total_incidents >= 3:
+        elif severe_count >= 1 or moderate_count >= 1 or total_incidents >= 3:
             scale_code = "AC"
         elif total_incidents >= 1:
             scale_code = "SA"

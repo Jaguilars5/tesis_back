@@ -1,4 +1,6 @@
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Sum
 from apps.core.models import TimeStampedModel
 
 
@@ -22,12 +24,25 @@ class BlockComponent(TimeStampedModel):
         verbose_name="Ponderación Interna (%)",
         help_text="Peso del componente dentro del bloque de evaluación",
     )
+    is_active = models.BooleanField(default=True, verbose_name="Activo")
 
     class Meta:
         app_label = "grading"
         verbose_name = "Componente de Bloque"
         verbose_name_plural = "Componentes de Bloque"
         ordering = ["evaluation_block", "name"]
+
+    def clean(self):
+        super().clean()
+        if self.internal_weight and self.evaluation_block_id:
+            total = BlockComponent.objects.filter(
+                evaluation_block=self.evaluation_block,
+                is_active=True,
+            ).exclude(pk=self.pk).aggregate(total=Sum("internal_weight"))["total"] or 0
+            if total + self.internal_weight > 100:
+                raise ValidationError(
+                    {"internal_weight": f"La suma de pesos internos excede 100%. Actualmente: {total}%, intentando agregar: {self.internal_weight}%"}
+                )
 
     def __str__(self):
         return f"{self.evaluation_block.name} — {self.name}"

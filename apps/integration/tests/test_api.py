@@ -1,9 +1,11 @@
+from unittest.mock import patch
+
 from rest_framework.test import APITestCase
 from rest_framework import status
 from django.contrib.auth import get_user_model
 from apps.iam.models import Role
 from apps.core.tests.helpers import create_test_user
-from ..models import SyncOperation, SyncStatus
+from ..models.syncable_mixin import SyncOperationChoices, SyncStatusChoices
 
 User = get_user_model()
 
@@ -16,38 +18,113 @@ class IntegrationAPITest(APITestCase):
             names="Integ", last_names="Test", is_superuser=True,
         )
         self.client.force_authenticate(user=self.user)
-        self.op = SyncOperation.objects.create(code="INSERT", name="Insertar")
-        self.sync_status = SyncStatus.objects.create(code="PENDIENTE", name="Pendiente")
-
-    def test_list_operations(self):
-        response = self.client.get("/api/integration/sync-operations/")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-    def test_create_operation(self):
-        data = {"code": "UPDATE", "name": "Actualizar"}
-        response = self.client.post("/api/integration/sync-operations/", data, format="json")
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-
-    def test_list_statuses(self):
-        response = self.client.get("/api/integration/sync-statuses/")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-    def test_create_status(self):
-        data = {"code": "PROCESADO", "name": "Procesado"}
-        response = self.client.post("/api/integration/sync-statuses/", data, format="json")
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
     def test_list_sync_queue(self):
         response = self.client.get("/api/integration/sync-queue/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-    def test_create_sync_queue(self):
+    @patch("apps.integration.tasks.sync_tasks.process_sync_queue_item.delay")
+    def test_create_sync_queue(self, mock_delay):
         data = {
             "user": self.user.id,
-            "source_table": "students.Student",
+            "source_table": "student_note",
             "record_uuid": "123e4567-e89b-12d3-a456-426614174000",
-            "operation": self.op.id,
-            "status": self.sync_status.id,
+            "operation": SyncOperationChoices.CREATE,
+            "status": SyncStatusChoices.PENDING,
         }
         response = self.client.post("/api/integration/sync-queue/", data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        mock_delay.assert_called_once()
+
+    @patch("apps.integration.tasks.sync_tasks.process_sync_queue_item.delay")
+    def test_sync_push_queues_operations(self, mock_delay):
+        payload = {
+            "operations": [
+                {
+                    "source_table": "student_note",
+                    "operation": SyncOperationChoices.CREATE,
+                    "record_uuid": "123e4567-e89b-12d3-a456-426614174111",
+                    "payload": {"note": "hola"},
+                    "client_version": "1.0.0",
+                }
+            ]
+        }
+        response = self.client.post(
+            "/api/integration/sync/push/", payload, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = response.json()
+        self.assertTrue(body["ok"])
+        self.assertEqual(body["data"]["accepted"], 1)
+        self.assertEqual(body["data"]["results"][0]["status"], "QUEUED")
+        mock_delay.assert_called_once()
+
+    def test_sync_push_idempotent_operation_is_synced(self):
+        from ..repositories import SyncQueueRepository
+
+        operation = {
+            "source_table": "student_note",
+            "operation": SyncOperationChoices.CREATE,
+            "record_uuid": "123e4567-e89b-12d3-a456-426614174222",
+        }
+        from ..services.sync_service import SyncQueueService
+
+        idempotency_key = SyncQueueService._build_idempotency_key(
+            operation["source_table"], operation["record_uuid"], operation["operation"]
+        )
+        SyncQueueRepository.create(
+            user=self.user,
+            source_table=operation["source_table"],
+            record_uuid=operation["record_uuid"],
+            operation=operation["operation"],
+            payload={},
+            status=SyncStatusChoices.SYNCED,
+            idempotency_key=idempotency_key,
+            attempts=0,
+        )
+
+        response = self.client.post(
+            "/api/integration/sync/push/", {"operations": [operation]}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = response.json()
+        self.assertEqual(body["data"]["accepted"], 1)
+        self.assertEqual(body["data"]["results"][0]["status"], "SYNCED")
+
+    def test_sync_pull_returns_items(self):
+        from ..repositories import SyncQueueRepository
+
+        SyncQueueRepository.create(
+            user=self.user,
+            source_table="student_note",
+            record_uuid="123e4567-e89b-12d3-a456-426614174333",
+            operation=SyncOperationChoices.CREATE,
+            payload={"a": 1},
+            status=SyncStatusChoices.PENDING,
+            idempotency_key="pullkey1",
+            attempts=0,
+        )
+        response = self.client.get("/api/integration/sync/pull/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = response.json()
+        self.assertTrue(body["ok"])
+        self.assertGreaterEqual(body["data"]["count"], 1)
+
+    def test_sync_pull_filters_by_source_table(self):
+        from ..repositories import SyncQueueRepository
+
+        SyncQueueRepository.create(
+            user=self.user,
+            source_table="attendance",
+            record_uuid="123e4567-e89b-12d3-a456-426614174444",
+            operation=SyncOperationChoices.CREATE,
+            payload={},
+            status=SyncStatusChoices.PENDING,
+            idempotency_key="pullkey2",
+            attempts=0,
+        )
+        response = self.client.get(
+            "/api/integration/sync/pull/?source_table=does_not_exist"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["data"]["count"], 0)

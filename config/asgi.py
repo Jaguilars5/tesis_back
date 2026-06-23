@@ -1,16 +1,20 @@
 """
-ASGI config for backend project.
+ASGI config for academic_system project.
 
-It exposes the ASGI callable as a module-level variable named ``application``.
-
-For more information on this file, see
-https://docs.djangoproject.com/en/6.0/howto/deployment/asgi/
+Monta Socket.IO (python-socketio) junto con la aplicación ASGI de Django.
+Socket.IO usa AsyncRedisManager para comunicación cross-process (Celery).
 """
 
 import os
 
 from django.core.asgi import get_asgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.local')
+from socketio import ASGIApp
 
-application = get_asgi_application()
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.local")
+
+django_asgi = get_asgi_application()
+
+from apps.analytics.socketio import sio
+
+application = ASGIApp(sio, other_asgi_app=django_asgi)

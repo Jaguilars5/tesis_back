@@ -2,85 +2,69 @@
 
 > Gestión de incidentes de conducta, habilidades socioemocionales, evaluaciones comportamentales y evaluaciones diagnósticas.
 
-## Modelos
+## Modelos (9)
 
 | Modelo | Descripción | Campos clave |
 |--------|-------------|-------------|
-| `ConductIncident` | Incidentes de conducta reportados | `enrollment`, `reported_by_user`, `academic_period`, `incident_type`, `incident_date`, `severity` (FK a Severity), `description`, `actions_taken`, `family_notified`, `created_by`, `modified_by`, `approved_by`, `sync_status`, `sync_version` |
-| `BehaviorEvaluation` | Evaluación de conducta con escala calculada/final | `enrollment`, `academic_period`, `calculated_scale`, `final_scale`, `general_observation`, `override_reason`, `created_by`, `evaluated_by`, `approved_by`, `evaluation_date`, `approval_date` |
-| `SkillEvaluation` | Evaluación de habilidad socioemocional por estudiante | `enrollment`, `academic_period`, `socioemotional_skill`, `qualitative_scale`, `observation`, `evaluation_date` |
-| `DiagnosticEvaluation` | Evaluación diagnóstica socioemocional | `enrollment`, `academic_period`, `applied_by_user`, `socioemotional_area` (FK), `findings_description`, `development_level` (FK), `application_date`, `recommendations` |
-| `IncidentType` | Catálogo de tipos de incidente | `code`, `name`, `description`, `is_active` |
-| `SocioemotionalSkill` | Habilidades socioemocionales evaluables | `code`, `name`, `description`, `is_active` |
-| `Severity` | Catálogo de niveles de severidad | `code`, `name`, `numeric_level` (1-4), `description`, `is_active` |
-| `SocioemotionalArea` | Catálogo de áreas socioemocionales | `code`, `name`, `description`, `is_active` |
-| `DevelopmentLevel` | Catálogo de niveles de desarrollo | `code`, `name`, `description`, `is_active` |
+| `ConductIncident` | Incidentes de conducta reportados | `enrollment` (FK, nullable), `reported_by_user` (FK), `academic_period` (FK), `incident_type` (FK), `incident_date`, `severity` (FK), `description`, `actions_taken`, `family_notified`, `created_by`, `modified_by`, `approved_by`. Hereda `TimeStampedModel` + `SyncableModel` |
+| `BehaviorEvaluation` | Evaluación de conducta con escala calculada/final | `enrollment` (FK), `academic_period` (FK), `calculated_scale` (FK), `final_scale` (FK), `general_observation`, `override_reason`, `created_by`, `evaluated_by`, `approved_by`, `evaluation_date`, `approval_date`. Unique: `(enrollment, academic_period)`. Hereda `TimeStampedModel` + `SyncableModel` |
+| `SkillEvaluation` | Evaluación de habilidad socioemocional | `enrollment` (FK), `academic_period` (FK), `socioemotional_skill` (FK), `qualitative_scale` (FK), `observation`, `evaluation_date`. Unique: `(enrollment, academic_period, socioemotional_skill)`. Hereda `TimeStampedModel` + `SyncableModel` |
+| `DiagnosticEvaluation` | Evaluación diagnóstica socioemocional | `enrollment` (FK), `academic_period` (FK), `applied_by_user` (FK), `socioemotional_area` (FK), `findings_description`, `development_level` (FK), `application_date`, `recommendations`. Hereda `TimeStampedModel` + `SyncableModel` |
+| `IncidentType` | Catálogo de tipos de incidente | `code` (unique), `name`, `description`, `is_active`. Ordenado por `name` |
+| `SocioemotionalSkill` | Habilidades socioemocionales evaluables | `code` (unique), `name`, `description`, `is_active`. Ordenado por `name` |
+| `Severity` | Catálogo de niveles de severidad | `code` (unique), `name`, `numeric_level` (1-4), `description`, `is_active`. Ordenado por `numeric_level`. **No hereda `TimeStampedModel`** |
+| `SocioemotionalArea` | Catálogo de áreas socioemocionales | `code` (unique), `name`, `description`, `is_active`. Ordenado por `name`. **No hereda `TimeStampedModel`** |
+| `DevelopmentLevel` | Catálogo de niveles de desarrollo | `code` (unique), `name`, `description`, `is_active`. Ordenado por `name`. **No hereda `TimeStampedModel`** |
+
+> Solo `ConductIncident`, `BehaviorEvaluation`, `SkillEvaluation` y `DiagnosticEvaluation` heredan de `SyncableModel`. `Severity`, `SocioemotionalArea` y `DevelopmentLevel` no tienen API endpoints.
+
+## Repositorios (6)
+
+| Repositorio | Métodos adicionales |
+|-------------|---------------------|
+| `ConductIncidentRepository` | `get_all()` ordenado por `-id`; `get_by_enrollment_and_period()`, `get_severe_by_enrollment()`, `list_by_filters()` (student_id, academic_period_id, category, severity, family_notified), `list_for_risk_snapshot()` |
+| `BehaviorEvaluationRepository` | `get_all()` ordenado por `-id` |
+| `SocioemotionalSkillRepository` | — |
+| `SkillEvaluationRepository` | `get_all()` ordenado por `-id` |
+| `IncidentTypeRepository` | `get_all()` ordenado por `name` |
+| `DiagnosticEvaluationRepository` | — |
 
 ## Servicios
 
 | Servicio | Métodos | Descripción |
 |----------|---------|-------------|
-| `BehaviorEvaluationService` | `calculate_behavior_evaluation(enrollment, academic_period)` | Cálculo automático de escala conductual basado en incidentes del período |
+| `BehaviorEvaluationService` | `calculate_behavior_evaluation(enrollment, academic_period)` | Cálculo automático de escala conductual basado en incidentes del período. Reglas: sin incidentes → SE, 1+ leves → SA, severidad ≥2 o ≥3 incidentes → AC, ≥3 graves o severidad ≥3 con ≥2 incidentes → NA |
 | `BehaviorEvaluationService` | `override_evaluation(evaluation, new_scale, reason)` | Asignación manual de escala final con justificación |
 
-### Reglas de cálculo de conducta
-- Sin incidentes → `SE` (Superior)
-- 1+ incidentes leves → `SA` (Satisfactorio)
-- Severidad ≥ 2 o ≥ 3 incidentes → `AC` (Aceptable)
-- ≥ 3 graves o severidad ≥ 3 con ≥ 2 incidentes → `NA` (No Aceptable)
+## API — Endpoints Registrados
 
-## API
+| Método | Endpoint | ViewSet |
+|--------|----------|---------|
+| GET/POST | `/api/behavior/conduct-incidents/` | ConductIncidentViewSet |
+| GET/PUT/PATCH/DEL | `/api/behavior/conduct-incidents/{id}/` | ConductIncidentViewSet |
+| GET/POST | `/api/behavior/incident-types/` | IncidentTypeViewSet |
+| GET/PUT/PATCH/DEL | `/api/behavior/incident-types/{id}/` | IncidentTypeViewSet |
+| GET/POST | `/api/behavior/socioemotional-skills/` | SocioemotionalSkillViewSet |
+| GET/PUT/PATCH/DEL | `/api/behavior/socioemotional-skills/{id}/` | SocioemotionalSkillViewSet |
+| GET/POST | `/api/behavior/skill-evaluations/` | SkillEvaluationViewSet |
+| GET/PUT/PATCH/DEL | `/api/behavior/skill-evaluations/{id}/` | SkillEvaluationViewSet |
+| GET/POST | `/api/behavior/behavior-evaluations/` | BehaviorEvaluationViewSet |
+| GET/PUT/PATCH/DEL | `/api/behavior/behavior-evaluations/{id}/` | BehaviorEvaluationViewSet |
+| GET/POST | `/api/behavior/diagnostic-evaluations/` | DiagnosticEvaluationViewSet |
+| GET/PUT/PATCH/DEL | `/api/behavior/diagnostic-evaluations/{id}/` | DiagnosticEvaluationViewSet |
 
-| Método | Endpoint | Descripción | Permiso requerido |
-|--------|----------|-------------|-------------------|
-| GET | `/api/behavior/conduct-incidents/` | Listar incidentes | `behavior.view_conduct_incident` |
-| POST | `/api/behavior/conduct-incidents/` | Crear incidente | `behavior.create_conduct_incident` |
-| GET/PATCH/DELETE | `/api/behavior/conduct-incidents/{id}/` | CRUD individual | `behavior.view/update/delete_conduct_incident` |
-| GET | `/api/behavior/incident-types/` | Listar tipos | `behavior.view_incident_type` |
-| POST | `/api/behavior/incident-types/` | Crear tipo | `behavior.create_incident_type` |
-| GET/PATCH/DELETE | `/api/behavior/incident-types/{id}/` | CRUD individual | `behavior.view/update/delete_incident_type` |
-| GET | `/api/behavior/socioemotional-skills/` | Listar habilidades | `behavior.view_socioemotional_skill` |
-| POST | `/api/behavior/socioemotional-skills/` | Crear habilidad | `behavior.create_socioemotional_skill` |
-| GET/PATCH/DELETE | `/api/behavior/socioemotional-skills/{id}/` | CRUD individual | `behavior.view/update/delete_socioemotional_skill` |
-| GET | `/api/behavior/skill-evaluations/` | Listar evaluaciones | `behavior.view_skill_evaluation` |
-| POST | `/api/behavior/skill-evaluations/` | Crear evaluación | `behavior.create_skill_evaluation` |
-| GET/PATCH/DELETE | `/api/behavior/skill-evaluations/{id}/` | CRUD individual | `behavior.view/update/delete_skill_evaluation` |
-| GET | `/api/behavior/behavior-evaluations/` | Listar evaluaciones | `behavior.view_behavior_evaluation` |
-| POST | `/api/behavior/behavior-evaluations/` | Crear evaluación | `behavior.create_behavior_evaluation` |
-| GET/PATCH/DELETE | `/api/behavior/behavior-evaluations/{id}/` | CRUD individual | `behavior.view/update/delete_behavior_evaluation` |
-| GET | `/api/behavior/diagnostic-evaluations/` | Listar diagnósticos | `behavior.view_diagnostic_evaluation` |
-| POST | `/api/behavior/diagnostic-evaluations/` | Crear diagnóstico | `behavior.create_diagnostic_evaluation` |
-| GET/PATCH/DELETE | `/api/behavior/diagnostic-evaluations/{id}/` | CRUD individual | `behavior.view/update/delete_diagnostic_evaluation` |
+> Los modelos `Severity`, `SocioemotionalArea` y `DevelopmentLevel` **no tienen API pública**. Son catálogos internos usados como FK.
 
-## Respuestas Enriquecidas
+## Serializers — Campos ReadOnly
 
-Todas las respuestas siguen el formato `{"ok": true, "data": {...}, "msg": ""}`.
-
-```json
-{
-  "ok": true,
-  "data": {
-    "id": 1,
-    "enrollment": 1,
-    "enrollment_name": "Juan Perez - 7mo A (Activa)",
-    "reported_by_user": 1,
-    "reported_by_user_name": "Ana Lopez",
-    "academic_period": 1,
-    "academic_period_name": "Primer Trimestre",
-    "incident_type": 1,
-    "incident_type_name": "Disciplina",
-    "incident_date": "2025-02-01",
-    "severity": 1,
-    "description": "Llegó tarde a clase",
-    "family_notified": true,
-    "sync_status": "PENDING",
-    "sync_version": 1
-  },
-  "msg": ""
-}
-```
-
-Los listados paginados devuelven `data` en el formato `{ count, next, previous, results }`.
+| Serializer | ReadOnly |
+|------------|----------|
+| `ConductIncidentSerializer` | `enrollment_name`, `reported_by_user_name`, `academic_period_name`, `incident_type_name`, `uuid`, `created_at`, `updated_at`, `sync_version` |
+| `BehaviorEvaluationSerializer` | `enrollment_name`, `academic_period_name`, `calculated_scale_name`, `final_scale_name` |
+| `SkillEvaluationSerializer` | `enrollment_name`, `academic_period_name`, `socioemotional_skill_name`, `qualitative_scale_name` |
+| `DiagnosticEvaluationSerializer` | `enrollment_name`, `academic_period_name`, `applied_by_user_name` |
+| `IncidentTypeSerializer` | — |
+| `SocioemotionalSkillSerializer` | — |
 
 ## Tests
 
@@ -88,14 +72,8 @@ Los listados paginados devuelven `data` en el formato `{ count, next, previous, 
 python manage.py test apps.behavior --settings=config.settings.test
 ```
 
-## Dependencias
-
-- `students.Enrollment`, `students.Student`
-- `academic.AcademicPeriod`
-- `iam.User`
-- `grading.QualitativeScale`
-- `institutions.Section`
-
 ## Sincronización
 
-ConductIncident, BehaviorEvaluation, SkillEvaluation y DiagnosticEvaluation heredan de `SyncableModel`, lo que les proporciona `uuid`, `sync_status`, `sync_version`, `synced_at`, `device_origin` y `conflict_resolved` para operación offline-first.
+`ConductIncident`, `BehaviorEvaluation`, `SkillEvaluation` y `DiagnosticEvaluation` heredan de `SyncableModel`. Handlers registrados en `tasks.py`:
+- `ConductIncidentSyncHandler` (con resolución de conflictos personalizada)
+- `BehaviorEvaluationSyncHandler`, `SkillEvaluationSyncHandler`, `DiagnosticEvaluationSyncHandler`

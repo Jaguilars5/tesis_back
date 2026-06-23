@@ -15,29 +15,31 @@ from rest_framework.response import Response
 from apps.core.constants.permissions import analytics
 from apps.core.api.pagination import StandardResultsSetPagination
 from apps.core.api.permissions import HasPermission
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import OrderingFilter, SearchFilter
 
-from ..models import AlertType, DashboardMetric, EarlyAlert, RiskFactor, StudentRiskFactor, UrgencyLevel
+from ..models import EarlyAlert, RiskFactor, StudentRiskFactor
 from ..repositories import (
-    AlertTypeRepository,
     EarlyAlertRepository,
     RiskFactorRepository,
+    RiskScoringConfigRepository,
     StudentFeatureSnapshotRepository,
     StudentRiskFactorRepository,
     StudentRiskScoreRepository,
-    UrgencyLevelRepository,
 )
 from ..services.early_alert_service import EarlyAlertService
 from ..services.dashboard_service import DashboardService
 from ..services.csv_export_service import CSVExportService
+from ..services.risk_scoring_config_service import PRESETS
 from django.http import HttpResponse
+from .filters import StudentFeatureSnapshotFilter, StudentRiskScoreFilter
 from .serializers import (
-    AlertTypeSerializer,
     EarlyAlertSerializer,
     RiskFactorSerializer,
+    RiskScoringConfigSerializer,
     StudentFeatureSnapshotSerializer,
     StudentRiskFactorSerializer,
     StudentRiskScoreSerializer,
-    UrgencyLevelSerializer,
 )
 
 
@@ -74,63 +76,13 @@ class BaseAnalyticsViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response(str(e), status=400)
 
-
-@extend_schema_view(
-    list=extend_schema(summary="Listar tipos de alerta", tags=["analytics"]),
-    retrieve=extend_schema(summary="Obtener tipo de alerta", tags=["analytics"]),
-    create=extend_schema(summary="Crear tipo de alerta", tags=["analytics"]),
-    update=extend_schema(summary="Actualizar tipo de alerta", tags=["analytics"]),
-    partial_update=extend_schema(summary="Actualizar tipo de alerta parcialmente", tags=["analytics"]),
-    destroy=extend_schema(summary="Eliminar tipo de alerta", tags=["analytics"]),
-)
-class AlertTypeViewSet(BaseAnalyticsViewSet):
-    serializer_class = AlertTypeSerializer
-    action_permissions = {
-        "list": analytics.VIEW_ALERT_TYPE,
-        "retrieve": analytics.VIEW_ALERT_TYPE,
-        "create": analytics.CREATE_ALERT_TYPE,
-        "update": analytics.UPDATE_ALERT_TYPE,
-        "partial_update": analytics.UPDATE_ALERT_TYPE,
-        "destroy": analytics.DELETE_ALERT_TYPE,
-    }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.repository = AlertTypeRepository()
-
-    def get_queryset(self):
-        return self.repository.get_all()
-
-
-@extend_schema_view(
-    list=extend_schema(summary="Listar niveles de urgencia", tags=["analytics"]),
-    retrieve=extend_schema(summary="Obtener nivel de urgencia", tags=["analytics"]),
-    create=extend_schema(summary="Crear nivel de urgencia", tags=["analytics"]),
-    update=extend_schema(summary="Actualizar nivel de urgencia", tags=["analytics"]),
-    partial_update=extend_schema(summary="Actualizar nivel de urgencia parcialmente", tags=["analytics"]),
-    destroy=extend_schema(summary="Eliminar nivel de urgencia", tags=["analytics"]),
-)
-class UrgencyLevelViewSet(BaseAnalyticsViewSet):
-    serializer_class = UrgencyLevelSerializer
-    action_permissions = {
-        "list": analytics.VIEW_URGENCY_LEVEL,
-        "retrieve": analytics.VIEW_URGENCY_LEVEL,
-        "create": analytics.CREATE_URGENCY_LEVEL,
-        "update": analytics.UPDATE_URGENCY_LEVEL,
-        "partial_update": analytics.UPDATE_URGENCY_LEVEL,
-        "destroy": analytics.DELETE_URGENCY_LEVEL,
-    }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.repository = UrgencyLevelRepository()
-
-    def get_queryset(self):
-        return self.repository.get_all()
-
-
 class StudentRiskScoreViewSet(BaseAnalyticsViewSet):
     serializer_class = StudentRiskScoreSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = StudentRiskScoreFilter
+    search_fields = ["enrollment__student__user__person__names"]
+    ordering_fields = ["risk_score", "calculated_at", "risk_label"]
+    ordering = ["-calculated_at"]
     action_permissions = {
         "list": analytics.VIEW_RISK_SCORE,
         "retrieve": analytics.VIEW_RISK_SCORE,
@@ -143,7 +95,14 @@ class StudentRiskScoreViewSet(BaseAnalyticsViewSet):
         self.repository = StudentRiskScoreRepository()
 
     def get_queryset(self):
-        return self.repository.get_all()
+        qs = self.repository.get_all()
+        user = self.request.user
+        if user.is_authenticated and user.user_roles.filter(role__code="DOCENTE").exists():
+            qs = qs.filter(
+                enrollment__section__subject_offerings__teacher_assignments__user=user,
+                enrollment__section__subject_offerings__teacher_assignments__is_active=True,
+            ).distinct()
+        return qs
 
     @action(detail=False, methods=["post"])
     def calculate(self, request):
@@ -176,6 +135,8 @@ class StudentRiskScoreViewSet(BaseAnalyticsViewSet):
 
 class StudentFeatureSnapshotViewSet(BaseAnalyticsViewSet):
     serializer_class = StudentFeatureSnapshotSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = StudentFeatureSnapshotFilter
     action_permissions = {
         "list": analytics.VIEW_FEATURE_SNAPSHOT,
         "retrieve": analytics.VIEW_FEATURE_SNAPSHOT,
@@ -281,15 +242,22 @@ class EarlyAlertViewSet(viewsets.ModelViewSet):
     students_at_risk=extend_schema(summary="Estudiantes en nivel de riesgo", tags=["analytics"]),
     export_csv=extend_schema(summary="Exportar CSV", tags=["analytics"]),
     section_summary=extend_schema(summary="Resumen de sección", tags=["analytics"]),
+    enrollment_trend=extend_schema(summary="Tendencia de matrículas por mes", tags=["analytics"]),
 )
 class DashboardViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated, HasPermission]
     action_permissions = {
         "overview": analytics.VIEW_RISK_SCORE,
         "risk_distribution": analytics.VIEW_RISK_SCORE,
+        "risk_by_city": analytics.VIEW_RISK_SCORE,
+        "risk_by_special_needs": analytics.VIEW_RISK_SCORE,
+        "dropout_by_city": analytics.VIEW_RISK_SCORE,
+        "withdrawal_reasons": analytics.VIEW_RISK_SCORE,
         "students_at_risk": analytics.VIEW_RISK_SCORE,
         "export_csv": analytics.VIEW_RISK_SCORE,
         "section_summary": analytics.VIEW_RISK_SCORE,
+        "enrollment_trend": analytics.VIEW_RISK_SCORE,
+        "recalculate_period": analytics.CREATE_STUDENT_RISK_FACTOR,
     }
 
     @action(detail=False, methods=["get"])
@@ -306,6 +274,34 @@ class DashboardViewSet(viewsets.ViewSet):
         if not period_id:
             return Response("period_id es requerido", status=400)
         data = DashboardService.get_risk_distribution_by_grade(period_id)
+        return Response(data)
+
+    @action(detail=False, methods=["get"])
+    def risk_by_city(self, request):
+        period_id = request.query_params.get("period_id")
+        if not period_id:
+            return Response("period_id es requerido", status=400)
+        data = DashboardService.get_risk_distribution_by_city(period_id)
+        return Response(data)
+
+    @action(detail=False, methods=["get"])
+    def risk_by_special_needs(self, request):
+        period_id = request.query_params.get("period_id")
+        if not period_id:
+            return Response("period_id es requerido", status=400)
+        data = DashboardService.get_risk_distribution_by_special_needs_type(period_id)
+        return Response(data)
+
+    @action(detail=False, methods=["get"])
+    def dropout_by_city(self, request):
+        school_year_id = request.query_params.get("school_year_id")
+        data = DashboardService.get_dropout_by_city(school_year_id)
+        return Response(data)
+
+    @action(detail=False, methods=["get"])
+    def withdrawal_reasons(self, request):
+        school_year_id = request.query_params.get("school_year_id")
+        data = DashboardService.get_withdrawal_reasons(school_year_id)
         return Response(data)
 
     @action(detail=False, methods=["get"])
@@ -355,3 +351,82 @@ class DashboardViewSet(viewsets.ViewSet):
                 "verde": scores.filter(risk_label="verde").count(),
             },
         })
+
+    @action(detail=False, methods=["get"])
+    def enrollment_trend(self, request):
+        school_year_id = request.query_params.get("school_year_id")
+        data = DashboardService.get_enrollment_trend(school_year_id)
+        return Response(data)
+
+    @action(detail=False, methods=["post"])
+    def recalculate_period(self, request):
+        from apps.analytics.tasks import batch_calculate_academic_risk
+        from apps.students.models import Enrollment
+
+        period_id = request.data.get("academic_period_id")
+        if not period_id:
+            return Response("academic_period_id es requerido", status=400)
+
+        student_ids = list(
+            Enrollment.objects.filter(
+                enrollment_status="ACT",
+                section__school_year__academic_periods__id=period_id,
+            ).values_list("student_id", flat=True)
+        )
+
+        if not student_ids:
+            return Response({"task_id": None, "status": "NO_STUDENTS"})
+
+        task = batch_calculate_academic_risk.delay(period_id, student_ids, user_id=request.user.id)
+        return Response({"task_id": task.id, "status": "PENDING"})
+
+
+@extend_schema_view(
+    list=extend_schema(summary="Obtener configuración del motor de riesgo", tags=["analytics"]),
+    update_config=extend_schema(summary="Actualizar configuración del motor de riesgo", tags=["analytics"]),
+    apply_preset=extend_schema(summary="Aplicar un preset de configuración", tags=["analytics"]),
+)
+class RiskScoringConfigViewSet(viewsets.ViewSet):
+    """
+    Configuración GLOBAL (singleton) del motor de riesgo académico (Fase 5).
+
+    - GET   `/scoring-config/`               → configuración actual (defaults si no existe)
+    - PATCH `/scoring-config/update_config/`  → actualizar pesos/umbrales/motor
+    - POST  `/scoring-config/apply_preset/`   → aplicar preset Conservador/Equilibrado/Estricto
+    """
+
+    permission_classes = [IsAuthenticated, HasPermission]
+    action_permissions = {
+        "list": analytics.VIEW_SCORING_CONFIG,
+        "update_config": analytics.UPDATE_SCORING_CONFIG,
+        "apply_preset": analytics.UPDATE_SCORING_CONFIG,
+    }
+
+    def list(self, request):
+        config = RiskScoringConfigRepository.get_or_create_singleton()
+        return Response(RiskScoringConfigSerializer(config).data)
+
+    @action(detail=False, methods=["patch"])
+    def update_config(self, request):
+        config = RiskScoringConfigRepository.get_or_create_singleton()
+        serializer = RiskScoringConfigSerializer(
+            config, data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["post"])
+    def apply_preset(self, request):
+        preset = request.data.get("preset")
+        if preset not in PRESETS:
+            return Response(
+                f"Preset inválido. Opciones: {', '.join(PRESETS.keys())}",
+                status=400,
+            )
+        config = RiskScoringConfigRepository.get_or_create_singleton()
+        payload = {**PRESETS[preset], "preset": preset}
+        serializer = RiskScoringConfigSerializer(config, data=payload, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)

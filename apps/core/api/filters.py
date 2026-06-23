@@ -2,18 +2,16 @@ from rest_framework.filters import BaseFilterBackend
 
 # Importar los modelos necesarios para la validación tipada de catálogos públicos
 from apps.people.models import DocumentType
-from apps.grading.models import GradeType, QualitativeScale
+from apps.grading.models import QualitativeScale
 from apps.attendance.models import AttendanceStatus
 from apps.behavior.models import IncidentType
 from apps.institutions.models import SchoolYear, AcademicLevel, AcademicGrade, Section
 from apps.academic.models import AcademicPeriod, Subject, SubjectAcademicConfig, SubjectOffering
-from apps.students.models import EnrollmentStatus
-from apps.behavior.models import SocioemotionalSkill
+
 from apps.analytics.models import RiskFactor
 
 from .role_handlers import ROLE_HANDLERS
 
-# Definir la lista blanca de catálogos públicos usando tipos reales (clases)
 PUBLIC_CATALOGS = {
     DocumentType,
     SchoolYear,
@@ -24,12 +22,9 @@ PUBLIC_CATALOGS = {
     SubjectAcademicConfig,
     SubjectOffering,
     Section,
-    EnrollmentStatus,
-    GradeType,
     QualitativeScale,
     AttendanceStatus,
     IncidentType,
-    SocioemotionalSkill,
     RiskFactor,
 }
 

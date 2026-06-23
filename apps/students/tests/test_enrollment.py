@@ -10,7 +10,7 @@ from apps.institutions.models import (
     SchoolYear,
 )
 from apps.institutions.models import Section
-from apps.students.models import Enrollment, EnrollmentStatus, Student
+from apps.students.models import Enrollment, Student
 from apps.students.services.enrollment_service import EnrollmentService
 from apps.core.tests.helpers import create_test_student
 
@@ -20,7 +20,6 @@ class EnrollmentModelTest(TestCase):
 
     def setUp(self):
         self.school_year = SchoolYear.objects.create(
-            name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
@@ -29,7 +28,7 @@ class EnrollmentModelTest(TestCase):
             academic_level=self.academic_level, code="ELEMENTAL", name="Elemental", 
         )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_sublevel=self.academic_sublevel, name="6to", sequence_order=1,
+            academic_sublevel=self.academic_sublevel, name="6to",
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
@@ -43,42 +42,38 @@ class EnrollmentModelTest(TestCase):
             last_names="Perez",
             birth_date=date(2012, 5, 15),
         )
-        self.status, _ = EnrollmentStatus.objects.get_or_create(
-            code="ACT", defaults={"name": "Activa"}
-        )
-
     def test_create_enrollment(self):
         enrollment = Enrollment.objects.create(
             student=self.student,
             section=self.section,
-            enrollment_status=self.status,
+            enrollment_status="ACT",
         )
 
         self.assertIsNotNone(enrollment.id)
         self.assertEqual(enrollment.student, self.student)
         self.assertEqual(enrollment.section, self.section)
-        self.assertEqual(enrollment.enrollment_status.code, "ACT")
+        self.assertEqual(enrollment.enrollment_status, "ACT")
         self.assertIsNotNone(enrollment.enrollment_date)
 
     def test_enrollment_unique_together(self):
         Enrollment.objects.create(
             student=self.student,
             section=self.section,
-            enrollment_status=self.status,
+            enrollment_status="ACT",
         )
 
         with self.assertRaises(IntegrityError):
             Enrollment.objects.create(
                 student=self.student,
                 section=self.section,
-                enrollment_status=self.status,
+                enrollment_status="ACT",
             )
 
     def test_enrollment_str(self):
         enrollment = Enrollment.objects.create(
             student=self.student,
             section=self.section,
-            enrollment_status=self.status,
+            enrollment_status="ACT",
         )
 
         self.assertIn("Juan Perez", str(enrollment))
@@ -90,7 +85,6 @@ class EnrollmentServiceTest(TestCase):
 
     def setUp(self):
         self.school_year = SchoolYear.objects.create(
-            name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
@@ -99,7 +93,7 @@ class EnrollmentServiceTest(TestCase):
             academic_level=self.academic_level, code="ELEMENTAL", name="Elemental", 
         )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_sublevel=self.academic_sublevel, name="6to", sequence_order=1,
+            academic_sublevel=self.academic_sublevel, name="6to",
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
@@ -128,7 +122,7 @@ class EnrollmentServiceTest(TestCase):
         )
 
         self.assertIsNotNone(enrollment.id)
-        self.assertEqual(enrollment.enrollment_status.code, "ACT")
+        self.assertEqual(enrollment.enrollment_status, "ACT")
 
     def test_enroll_student_already_active(self):
         EnrollmentService.enroll_student(
@@ -154,7 +148,7 @@ class EnrollmentServiceTest(TestCase):
             enrollment, reason="Retiro voluntario"
         )
 
-        self.assertEqual(withdrawn.enrollment_status.code, "RET")
+        self.assertEqual(withdrawn.enrollment_status, "RET")
 
     def test_get_active_enrollment(self):
         enrollment = EnrollmentService.enroll_student(

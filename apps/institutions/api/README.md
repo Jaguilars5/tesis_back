@@ -40,7 +40,7 @@ Todos los endpoints requieren autenticación (`IsAuthenticated`) + permiso espec
 | `academic-grades/`   | `institutions.view_academic_grade`    | `institutions.create_academic_grade`    | `institutions.update_academic_grade`    | `institutions.delete_academic_grade`    | —                             |
 | `section/`           | `institutions.view_section`           | `institutions.create_section`           | `institutions.update_section`           | `institutions.delete_section`           | `institutions.delete_section` |
 
-> ¹ `school-year/` **DELETE** realiza borrado lógico vía `InstitutionService.deactivate_school_year` (no elimina físicamente, desactiva con `is_active=False`).
+> ¹ `school-year/` **DELETE** realiza borrado lógico vía `InstitutionService.deactivate_school_year` (no elimina físicamente, desactiva con `is_active=False`). `school-year/` no tiene soft-delete.
 
 ---
 

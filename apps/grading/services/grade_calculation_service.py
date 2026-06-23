@@ -5,7 +5,7 @@ from apps.academic.repositories.academic_repo import (
     SubjectOfferingRepository,
 )
 from apps.students.repositories.enrollment_repo import EnrollmentRepository
-from ..models import PromotionStatus
+from ..models.period_grade_summary import PromotionStatusChoices
 from ..repositories.period_grade_summary_repository import (
     PeriodGradeSummaryRepository,
 )
@@ -33,7 +33,7 @@ class GradeCalculationService:
         if periodo_grade is None:
             return None
 
-        requires_recovery = periodo_grade < Decimal("7.00")
+        is_failing = periodo_grade < Decimal("7.00")
 
         summary = PeriodGradeSummaryRepository.get_by_enrollment_offering_period(
             enrollment=enrollment,
@@ -41,17 +41,12 @@ class GradeCalculationService:
             academic_period=academic_period,
         )
 
-        promo_code = "RECUPERACION" if requires_recovery else "APROBADO"
-        promo_name = "Recuperación" if requires_recovery else "Aprobado"
-        promotion_status, _ = PromotionStatus.objects.get_or_create(
-            code=promo_code,
-            defaults={"name": promo_name},
-        )
+        promotion_status = PromotionStatusChoices.FAILED if is_failing else PromotionStatusChoices.APPROVED
 
         if summary:
             summary.formative_avg = periodo_grade
             summary.final_avg_truncated = periodo_grade
-            summary.requires_recovery = requires_recovery
+            summary.is_failing = is_failing
             summary.promotion_status = promotion_status
             summary.save()
         else:
@@ -62,7 +57,7 @@ class GradeCalculationService:
                 formative_avg=periodo_grade,
                 summative_avg=Decimal("0.00"),
                 final_avg_truncated=periodo_grade,
-                requires_recovery=requires_recovery,
+                is_failing=is_failing,
                 promotion_status=promotion_status,
             )
         return summary

@@ -47,10 +47,6 @@ class PersonModelTest(TestCase):
         self.assertIsNotNone(self.person.get_age())
 
     def test_get_age_no_birth_date(self):
-        person = Person.objects.create(
-            document_type=self.doc_type,
-            document_number="0987654321",
-            names="Ana",
-            last_names="López",
-        )
-        self.assertIsNone(person.get_age())
+        person = Person.objects.first()
+        person.birth_date = None
+        self.assertEqual(person.get_age(), None)

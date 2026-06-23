@@ -9,11 +9,11 @@ from apps.institutions.models import (
     SchoolYear,
 )
 from apps.institutions.models import Section
-from ..models import EnrollmentStatus, Student, StudentRepresentative, Kinship
-from apps.core.tests.helpers import create_test_student
+from ..models import Student, StudentRepresentative, Kinship
+from apps.core.tests.helpers import create_test_student, create_test_user
 
 
-def _create_person(document_number, names, last_names, phone=""):
+def _create_person(document_number, names, last_names, phone="", birth_date=None):
     doc_type = DocumentType.objects.get_or_create(
         code="CC", defaults={"name": "Cédula de Ciudadanía"}
     )[0]
@@ -22,6 +22,7 @@ def _create_person(document_number, names, last_names, phone=""):
         document_number=document_number,
         names=names,
         last_names=last_names,
+        birth_date=birth_date or date(1985, 6, 15),
         phone=phone,
     )
 
@@ -36,7 +37,6 @@ class StudentModelTest(TestCase):
     def setUp(self):
         """Crear datos de prueba"""
         self.school_year = SchoolYear.objects.create(
-            name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
@@ -45,7 +45,7 @@ class StudentModelTest(TestCase):
             academic_level=self.academic_level, code="ELEMENTAL", name="Elemental", 
         )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_sublevel=self.academic_sublevel, name="6to", sequence_order=1,
+            academic_sublevel=self.academic_sublevel, name="6to",
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
@@ -64,7 +64,7 @@ class StudentModelTest(TestCase):
         )
 
         self.assertIsNotNone(student.id)
-        self.assertEqual(student.person.document_number, "1234567890")
+        self.assertEqual(student.user.person.document_number, "1234567890")
         self.assertTrue(student.is_active)
 
     def test_student_dni_unique(self):
@@ -126,7 +126,6 @@ class StudentRepresentativeModelTest(TestCase):
     def setUp(self):
         """Crear datos de prueba"""
         self.school_year = SchoolYear.objects.create(
-            name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
@@ -135,7 +134,7 @@ class StudentRepresentativeModelTest(TestCase):
             academic_level=self.academic_level, code="ELEMENTAL", name="Elemental", 
         )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_sublevel=self.academic_sublevel, name="6to", sequence_order=1,
+            academic_sublevel=self.academic_sublevel, name="6to",
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
@@ -155,6 +154,10 @@ class StudentRepresentativeModelTest(TestCase):
             last_names="Pérez",
             phone="0987654321",
         )
+        self.representative_user = create_test_user(
+            email="rep@test.com", dni="9876543211",
+            names="María", last_names="Pérez",
+        )
         self.kinship_madre = Kinship.objects.create(code="MADRE", name="Madre")
         self.kinship_padre = Kinship.objects.create(code="PADRE", name="Padre")
 
@@ -162,65 +165,46 @@ class StudentRepresentativeModelTest(TestCase):
         """Probar creación de relación"""
         rel = StudentRepresentative.objects.create(
             student=self.student,
-            person=self.representative,
+            user=self.representative_user,
             kinship=self.kinship_madre,
             is_primary=True,
-            can_pickup=True,
         )
 
         self.assertIsNotNone(rel.id)
         self.assertTrue(rel.is_primary)
-        self.assertTrue(rel.can_pickup)
 
     def test_relationship_unique_together(self):
         """Probar que no puede haber duplicados"""
         StudentRepresentative.objects.create(
-            student=self.student, person=self.representative, kinship=self.kinship_madre
+            student=self.student, user=self.representative_user, kinship=self.kinship_madre
         )
 
         with self.assertRaises(Exception):
             StudentRepresentative.objects.create(
                 student=self.student,
-                person=self.representative,
+                user=self.representative_user,
                 kinship=self.kinship_madre,
             )
 
     def test_multiple_representatives(self):
         """Probar múltiples representantes por estudiante"""
-        rep2 = _create_person(
-            document_number="1111111111",
-            names="Pedro",
-            last_names="García",
-            phone="0987654322",
+        rep2_user = create_test_user(
+            email="pedro@test.com", dni="1111111111",
+            names="Pedro", last_names="García",
         )
 
         StudentRepresentative.objects.create(
             student=self.student,
-            person=self.representative,
+            user=self.representative_user,
             kinship=self.kinship_madre,
             is_primary=True,
         )
         StudentRepresentative.objects.create(
-            student=self.student, person=rep2, kinship=self.kinship_padre, is_primary=False
+            student=self.student, user=rep2_user, kinship=self.kinship_padre, is_primary=False
         )
 
         rels = StudentRepresentative.objects.filter(student=self.student)
         self.assertEqual(rels.count(), 2)
 
 
-class EnrollmentStatusModelTest(TestCase):
-    def setUp(self):
-        self.status, _ = EnrollmentStatus.objects.get_or_create(
-            code="ACT", defaults={"name": "Activa"}
-        )
 
-    def test_creation(self):
-        self.assertEqual(self.status.code, "ACT")
-        self.assertEqual(self.status.name, "Activa")
-
-    def test_code_unique(self):
-        with self.assertRaises(Exception):
-            EnrollmentStatus.objects.create(code="ACT", name="Duplicado")
-
-    def test_str(self):
-        self.assertEqual(str(self.status), "Activa")

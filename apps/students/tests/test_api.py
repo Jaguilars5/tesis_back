@@ -5,7 +5,7 @@ from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSuble
 from apps.institutions.models import Section
 from apps.iam.models import Role, User
 from apps.core.tests.helpers import create_test_user, create_test_student
-from apps.students.models import EnrollmentStatus, Student
+from apps.students.models import Student
 
 # Compatibilidad Python 3.14: patch Context.__copy__
 import django.template.context as _context
@@ -26,7 +26,6 @@ class StudentAPITest(APITestCase):
     def setUp(self):
         """Crear datos de prueba"""
         self.school_year = SchoolYear.objects.create(
-            name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
@@ -35,7 +34,7 @@ class StudentAPITest(APITestCase):
             academic_level=self.academic_level, code="BASICA", name="Básica"
         )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_sublevel=self.academic_sublevel, name="6to", sequence_order=6
+            academic_sublevel=self.academic_sublevel, name="6to"
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
@@ -108,30 +107,4 @@ class StudentAPITest(APITestCase):
         )
 
 
-class EnrollmentStatusAPITest(APITestCase):
-    def setUp(self):
-        self.role = Role.objects.create(name="Admin")
-        self.user = create_test_user(
-            email="enrstatus@test.com",
-            dni="4040404040",
-            names="EnrStatus",
-            last_names="Tester",
-            is_superuser=True,
-        )
-        self.client.force_authenticate(user=self.user)
-        EnrollmentStatus.objects.get_or_create(code="ACT", defaults={"name": "Activa"})
-        EnrollmentStatus.objects.create(code="RET", name="Retirado")
-        self.url = "/api/students/enrollment-statuses/"
 
-    def test_list(self):
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-    def test_retrieve(self):
-        obj = EnrollmentStatus.objects.first()
-        response = self.client.get(f"{self.url}{obj.id}/")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-    def test_create_not_allowed(self):
-        response = self.client.post(self.url, {"code": "GRAD", "name": "Graduado"})
-        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)

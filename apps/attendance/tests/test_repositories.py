@@ -11,15 +11,14 @@ from apps.attendance.repositories.attendance_repository import AttendanceReposit
 from apps.core.tests.helpers import create_test_user, create_test_student
 from apps.grading.models import QualitativeScale
 from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSublevel, SchoolYear, Section
-from apps.students.models import Enrollment, EnrollmentStatus
+from apps.students.models import Enrollment
 
 
 class AttendanceRepositoryTest(TestCase):
     """Tests para los repositorios del módulo attendance."""
 
     def setUp(self):
-        self.school_year = SchoolYear.objects.create(
-            name="2025", start_date=date(2025, 1, 1), end_date=date(2025, 12, 31),
+        self.school_year = SchoolYear.objects.create( start_date=date(2025, 1, 1), end_date=date(2025, 12, 31),
         )
         self.period = AcademicPeriod.objects.create(
             school_year=self.school_year, name="P1",
@@ -30,7 +29,7 @@ class AttendanceRepositoryTest(TestCase):
             academic_level=self.academic_level, name="Básica"
         )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_sublevel=self.academic_sublevel, name="7", sequence_order=1,
+            academic_sublevel=self.academic_sublevel, name="7",
         )
         self.section = Section.objects.create(
             school_year=self.school_year, academic_grade=self.academic_grade,
@@ -39,10 +38,10 @@ class AttendanceRepositoryTest(TestCase):
         self.subject = Subject.objects.create(name="Matemática", code="MAT-7A")
         subj_config = SubjectAcademicConfig.objects.create(
             subject=self.subject, academic_grade=self.academic_grade,
-            weekly_hours=5, pedagogical_order=1,
+            weekly_hours=5,
         )
         self.offering = SubjectOffering.objects.create(
-            school_year=self.school_year, section=self.section,
+            section=self.section,
             subject_academic_config=subj_config,
         )
         self.user = create_test_user(
@@ -56,12 +55,9 @@ class AttendanceRepositoryTest(TestCase):
             document_number="0912345678", names="Juan", last_names="Lopez",
             birth_date=date(2010, 1, 1),
         )
-        self.status_enr, _ = EnrollmentStatus.objects.get_or_create(
-            code="ACT", defaults={"name": "Activa"},
-        )
         self.enrollment = Enrollment.objects.create(
             student=self.student, section=self.section,
-            enrollment_status=self.status_enr,
+            enrollment_status="ACT",
         )
         self.absence_type_none = AbsenceType.objects.get_or_create(
             code="none", defaults={"name": "Ninguno"}
@@ -185,8 +181,10 @@ class AttendanceRepositoryTest(TestCase):
         self.assertIn(att, results)
 
     def test_attendance_get_absences_summary(self):
+        # Taxonomía canónica: attendance_status.code (P/J/A/T). Fase 2 §6.3.
         p_status = AttendanceStatus.objects.create(code="P", name="Presente")
         a_status = AttendanceStatus.objects.create(code="A", name="Ausente")
+        j_status = AttendanceStatus.objects.create(code="J", name="Justificado")
         Attendance.objects.create(
             enrollment=self.enrollment, teacher_subject_section=self.tss,
             academic_period=self.period, attendance_date=date(2025, 2, 1),
@@ -200,12 +198,13 @@ class AttendanceRepositoryTest(TestCase):
         Attendance.objects.create(
             enrollment=self.enrollment, teacher_subject_section=self.tss,
             academic_period=self.period, attendance_date=date(2025, 2, 3),
-            attendance_status=a_status, absence_type=self.absence_type_justified,
+            attendance_status=j_status, absence_type=self.absence_type_justified,
         )
         summary = AttendanceRepository.get_absences_summary(
             self.enrollment.pk, self.period.pk,
         )
         self.assertEqual(summary["total"], 3)
+        self.assertEqual(summary["present"], 1)
         self.assertEqual(summary["justified"], 1)
         self.assertEqual(summary["unjustified"], 1)
         self.assertEqual(summary["late"], 0)

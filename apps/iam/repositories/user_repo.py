@@ -21,7 +21,7 @@ class UserRepository:
     @staticmethod
     def get_by_email(email):
         try:
-            return User.objects.get(email=email)
+            return User.objects.get(person__email=email)
         except User.DoesNotExist:
             return None
 
@@ -44,6 +44,12 @@ class UserRepository:
         ).distinct().order_by("username")
 
     @staticmethod
+    def get_by_role_code(code):
+        return User.objects.filter(
+            user_roles__role__code=code, is_active=True
+        ).distinct().order_by("username")
+
+    @staticmethod
     def create(person, password, is_superuser=False, **extra_fields):
         now = timezone.now()
         extra_fields.setdefault("created_at", now)
@@ -57,12 +63,15 @@ class UserRepository:
 
     @staticmethod
     def update(user, **kwargs):
-        allowed_fields = {"username", "email", "is_active"}
+        allowed_fields = {"username", "is_active"}
+        email_value = kwargs.pop("email", None)
         for key, value in kwargs.items():
             if key in allowed_fields and value is not None:
                 setattr(user, key, value)
-        user.updated_at = timezone.now()
         user.save()
+        if email_value is not None and user.person:
+            user.person.email = email_value
+            user.person.save(update_fields=["email", "updated_at"])
         return user
 
     @staticmethod
@@ -77,7 +86,6 @@ class UserRepository:
         for user_data in user_list:
             user = User(
                 person=user_data["person"],
-                email=user_data["email"],
                 created_at=now,
                 updated_at=now,
             )
@@ -92,6 +100,6 @@ class UserRepository:
             Q(person__names__icontains=query_string)
             | Q(person__last_names__icontains=query_string)
             | Q(username__icontains=query_string)
-            | Q(email__icontains=query_string),
+            | Q(person__email__icontains=query_string),
             is_active=True,
         ).order_by("username")

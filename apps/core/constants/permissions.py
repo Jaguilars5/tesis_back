@@ -28,6 +28,7 @@ class PeoplePermissions:
     CREATE_DOCUMENT_TYPE: Final[str] = "people.create_document_type"
     UPDATE_DOCUMENT_TYPE: Final[str] = "people.update_document_type"
     DELETE_DOCUMENT_TYPE: Final[str] = "people.delete_document_type"
+    VIEW_CITY: Final[str] = "people.view_city"
 
 
 @dataclass(frozen=True)
@@ -72,10 +73,6 @@ class AcademicPermissions:
     CREATE_TEACHER_SUBJECT: Final[str] = "academic.create_teacher_subject"
     UPDATE_TEACHER_SUBJECT: Final[str] = "academic.update_teacher_subject"
     DELETE_TEACHER_SUBJECT: Final[str] = "academic.delete_teacher_subject"
-    VIEW_CONFIG: Final[str] = "academic.view_config"
-    CREATE_CONFIG: Final[str] = "academic.create_config"
-    UPDATE_CONFIG: Final[str] = "academic.update_config"
-    DELETE_CONFIG: Final[str] = "academic.delete_config"
     VIEW_SUBJECT_CONFIG: Final[str] = "academic.view_subject_config"
     CREATE_SUBJECT_CONFIG: Final[str] = "academic.create_subject_config"
     UPDATE_SUBJECT_CONFIG: Final[str] = "academic.update_subject_config"
@@ -84,26 +81,6 @@ class AcademicPermissions:
     CREATE_SUBJECT_OFFERING: Final[str] = "academic.create_subject_offering"
     UPDATE_SUBJECT_OFFERING: Final[str] = "academic.update_subject_offering"
     DELETE_SUBJECT_OFFERING: Final[str] = "academic.delete_subject_offering"
-    VIEW_INTERDISCIPLINARY_PROJECT: Final[str] = (
-        "academic.view_interdisciplinary_project"
-    )
-    CREATE_INTERDISCIPLINARY_PROJECT: Final[str] = (
-        "academic.create_interdisciplinary_project"
-    )
-    UPDATE_INTERDISCIPLINARY_PROJECT: Final[str] = (
-        "academic.update_interdisciplinary_project"
-    )
-    DELETE_INTERDISCIPLINARY_PROJECT: Final[str] = (
-        "academic.delete_interdisciplinary_project"
-    )
-    VIEW_SUBJECT_PROJECT: Final[str] = "academic.view_subject_project"
-    CREATE_SUBJECT_PROJECT: Final[str] = "academic.create_subject_project"
-    UPDATE_SUBJECT_PROJECT: Final[str] = "academic.update_subject_project"
-    DELETE_SUBJECT_PROJECT: Final[str] = "academic.delete_subject_project"
-    VIEW_DAY_OF_WEEK: Final[str] = "academic.view_day_of_week"
-    CREATE_DAY_OF_WEEK: Final[str] = "academic.create_day_of_week"
-    UPDATE_DAY_OF_WEEK: Final[str] = "academic.update_day_of_week"
-    DELETE_DAY_OF_WEEK: Final[str] = "academic.delete_day_of_week"
     VIEW_CLASS_SCHEDULE: Final[str] = "academic.view_class_schedule"
     CREATE_CLASS_SCHEDULE: Final[str] = "academic.create_class_schedule"
     UPDATE_CLASS_SCHEDULE: Final[str] = "academic.update_class_schedule"
@@ -116,24 +93,18 @@ class StudentsPermissions:
     CREATE_STUDENT: Final[str] = "students.create_student"
     UPDATE_STUDENT: Final[str] = "students.update_student"
     DELETE_STUDENT: Final[str] = "students.delete_student"
-    VIEW_REPRESENTATIVE: Final[str] = "students.view_representative"
-    CREATE_REPRESENTATIVE: Final[str] = "students.create_representative"
-    UPDATE_REPRESENTATIVE: Final[str] = "students.update_representative"
-    DELETE_REPRESENTATIVE: Final[str] = "students.delete_representative"
-    VIEW_RELATIONSHIP: Final[str] = "students.view_relationship"
-    CREATE_RELATIONSHIP: Final[str] = "students.create_relationship"
-    UPDATE_RELATIONSHIP: Final[str] = "students.update_relationship"
-    DELETE_RELATIONSHIP: Final[str] = "students.delete_relationship"
-    VIEW_ENROLLMENT_STATUS: Final[str] = "students.view_enrollment_status"
-    CREATE_ENROLLMENT_STATUS: Final[str] = "students.create_enrollment_status"
-    UPDATE_ENROLLMENT_STATUS: Final[str] = "students.update_enrollment_status"
-    DELETE_ENROLLMENT_STATUS: Final[str] = "students.delete_enrollment_status"
+    VIEW_REPRESENTATIVE_RELATIONSHIP: Final[str] = "students.view_representative_relationship"
+    CREATE_REPRESENTATIVE_RELATIONSHIP: Final[str] = "students.create_representative_relationship"
+    UPDATE_REPRESENTATIVE_RELATIONSHIP: Final[str] = "students.update_representative_relationship"
+    DELETE_REPRESENTATIVE_RELATIONSHIP: Final[str] = "students.delete_representative_relationship"
     VIEW_ENROLLMENT: Final[str] = "students.view_enrollment"
     CREATE_ENROLLMENT: Final[str] = "students.create_enrollment"
     UPDATE_ENROLLMENT: Final[str] = "students.update_enrollment"
     DELETE_ENROLLMENT: Final[str] = "students.delete_enrollment"
     WITHDRAW_STUDENT: Final[str] = "students.withdraw_student"
     TRANSFER_STUDENT: Final[str] = "students.transfer_student"
+    VIEW_KINSHIP: Final[str] = "students.view_kinship"
+    VIEW_SPECIAL_NEEDS_TYPE: Final[str] = "students.view_special_needs_type"
 
 
 @dataclass(frozen=True)
@@ -142,59 +113,33 @@ class GradingPermissions:
     CREATE_NOTE: Final[str] = "grading.create_note"
     UPDATE_NOTE: Final[str] = "grading.update_note"
     DELETE_NOTE: Final[str] = "grading.delete_note"
-    VIEW_GRADE_TYPE: Final[str] = "grading.view_grade_type"
-    CREATE_GRADE_TYPE: Final[str] = "grading.create_grade_type"
-    UPDATE_GRADE_TYPE: Final[str] = "grading.update_grade_type"
-    DELETE_GRADE_TYPE: Final[str] = "grading.delete_grade_type"
     VIEW_QUALITATIVE_SCALE: Final[str] = "grading.view_qualitative_scale"
     CREATE_QUALITATIVE_SCALE: Final[str] = "grading.create_qualitative_scale"
     UPDATE_QUALITATIVE_SCALE: Final[str] = "grading.update_qualitative_scale"
     DELETE_QUALITATIVE_SCALE: Final[str] = "grading.delete_qualitative_scale"
-    VIEW_EVALUATION_TYPE: Final[str] = "grading.view_evaluation_type"
-    CREATE_EVALUATION_TYPE: Final[str] = "grading.create_evaluation_type"
-    UPDATE_EVALUATION_TYPE: Final[str] = "grading.update_evaluation_type"
-    DELETE_EVALUATION_TYPE: Final[str] = "grading.delete_evaluation_type"
     VIEW_ACTIVITY_TYPE: Final[str] = "grading.view_activity_type"
     CREATE_ACTIVITY_TYPE: Final[str] = "grading.create_activity_type"
     UPDATE_ACTIVITY_TYPE: Final[str] = "grading.update_activity_type"
     DELETE_ACTIVITY_TYPE: Final[str] = "grading.delete_activity_type"
-    VIEW_PROMOTION_STATUS: Final[str] = "grading.view_promotion_status"
-    CREATE_PROMOTION_STATUS: Final[str] = "grading.create_promotion_status"
-    UPDATE_PROMOTION_STATUS: Final[str] = "grading.update_promotion_status"
-    DELETE_PROMOTION_STATUS: Final[str] = "grading.delete_promotion_status"
-    VIEW_RECOVERY_PROCESS_TYPE: Final[str] = "grading.view_recovery_process_type"
-    CREATE_RECOVERY_PROCESS_TYPE: Final[str] = "grading.create_recovery_process_type"
-    UPDATE_RECOVERY_PROCESS_TYPE: Final[str] = "grading.update_recovery_process_type"
-    DELETE_RECOVERY_PROCESS_TYPE: Final[str] = "grading.delete_recovery_process_type"
-    VIEW_EVALUATION_MACRO: Final[str] = "grading.view_evaluation_macro"
-    CREATE_EVALUATION_MACRO: Final[str] = "grading.create_evaluation_macro"
-    UPDATE_EVALUATION_MACRO: Final[str] = "grading.update_evaluation_macro"
-    DELETE_EVALUATION_MACRO: Final[str] = "grading.delete_evaluation_macro"
-    VIEW_EVALUATION_CRITERIA: Final[str] = "grading.view_evaluation_criteria"
-    CREATE_EVALUATION_CRITERIA: Final[str] = "grading.create_evaluation_criteria"
-    UPDATE_EVALUATION_CRITERIA: Final[str] = "grading.update_evaluation_criteria"
-    DELETE_EVALUATION_CRITERIA: Final[str] = "grading.delete_evaluation_criteria"
-    VIEW_EVALUATION_SUBCRITERIA: Final[str] = "grading.view_evaluation_subcriteria"
-    CREATE_EVALUATION_SUBCRITERIA: Final[str] = "grading.create_evaluation_subcriteria"
-    UPDATE_EVALUATION_SUBCRITERIA: Final[str] = "grading.update_evaluation_subcriteria"
-    DELETE_EVALUATION_SUBCRITERIA: Final[str] = "grading.delete_evaluation_subcriteria"
-    VIEW_CLASS_ASSIGNMENT: Final[str] = "grading.view_class_assignment"
-    CREATE_CLASS_ASSIGNMENT: Final[str] = "grading.create_class_assignment"
-    UPDATE_CLASS_ASSIGNMENT: Final[str] = "grading.update_class_assignment"
-    DELETE_CLASS_ASSIGNMENT: Final[str] = "grading.delete_class_assignment"
+    VIEW_EVALUATION_BLOCK: Final[str] = "grading.view_evaluation_block"
+    CREATE_EVALUATION_BLOCK: Final[str] = "grading.create_evaluation_block"
+    UPDATE_EVALUATION_BLOCK: Final[str] = "grading.update_evaluation_block"
+    DELETE_EVALUATION_BLOCK: Final[str] = "grading.delete_evaluation_block"
+    VIEW_BLOCK_COMPONENT: Final[str] = "grading.view_block_component"
+    CREATE_BLOCK_COMPONENT: Final[str] = "grading.create_block_component"
+    UPDATE_BLOCK_COMPONENT: Final[str] = "grading.update_block_component"
+    DELETE_BLOCK_COMPONENT: Final[str] = "grading.delete_block_component"
+    VIEW_EVALUATIVE_ACTIVITY: Final[str] = "grading.view_evaluative_activity"
+    CREATE_EVALUATIVE_ACTIVITY: Final[str] = "grading.create_evaluative_activity"
+    UPDATE_EVALUATIVE_ACTIVITY: Final[str] = "grading.update_evaluative_activity"
+    DELETE_EVALUATIVE_ACTIVITY: Final[str] = "grading.delete_evaluative_activity"
     VIEW_GRADE_HISTORY: Final[str] = "grading.view_grade_history"
     VIEW_GRADE_SUMMARY: Final[str] = "grading.view_grade_summary"
     CREATE_GRADE_SUMMARY: Final[str] = "grading.create_grade_summary"
     UPDATE_GRADE_SUMMARY: Final[str] = "grading.update_grade_summary"
     DELETE_GRADE_SUMMARY: Final[str] = "grading.delete_grade_summary"
-    VIEW_RECOVERY_PROCESS: Final[str] = "grading.view_recovery_process"
-    CREATE_RECOVERY_PROCESS: Final[str] = "grading.create_recovery_process"
-    UPDATE_RECOVERY_PROCESS: Final[str] = "grading.update_recovery_process"
-    DELETE_RECOVERY_PROCESS: Final[str] = "grading.delete_recovery_process"
-    VIEW_PROJECT_NOTE: Final[str] = "grading.view_project_note"
-    CREATE_PROJECT_NOTE: Final[str] = "grading.create_project_note"
-    UPDATE_PROJECT_NOTE: Final[str] = "grading.update_project_note"
-    DELETE_PROJECT_NOTE: Final[str] = "grading.delete_project_note"
+    RECALCULATE_GRADE_SUMMARY: Final[str] = "grading.recalculate_grade_summary"
+
 
 
 @dataclass(frozen=True)
@@ -204,19 +149,14 @@ class AnalyticsPermissions:
     VIEW_RISK_FACTOR: Final[str] = "analytics.view_risk_factor"
     VIEW_STUDENT_RISK_FACTOR: Final[str] = "analytics.view_student_risk_factor"
     CREATE_STUDENT_RISK_FACTOR: Final[str] = "analytics.create_student_risk_factor"
+    UPDATE_STUDENT_RISK_FACTOR: Final[str] = "analytics.update_student_risk_factor"
     DELETE_STUDENT_RISK_FACTOR: Final[str] = "analytics.delete_student_risk_factor"
     VIEW_EARLY_ALERT: Final[str] = "analytics.view_early_alert"
     CREATE_EARLY_ALERT: Final[str] = "analytics.create_early_alert"
     UPDATE_EARLY_ALERT: Final[str] = "analytics.update_early_alert"
     DELETE_EARLY_ALERT: Final[str] = "analytics.delete_early_alert"
-    VIEW_ALERT_TYPE: Final[str] = "analytics.view_alert_type"
-    CREATE_ALERT_TYPE: Final[str] = "analytics.create_alert_type"
-    UPDATE_ALERT_TYPE: Final[str] = "analytics.update_alert_type"
-    DELETE_ALERT_TYPE: Final[str] = "analytics.delete_alert_type"
-    VIEW_URGENCY_LEVEL: Final[str] = "analytics.view_urgency_level"
-    CREATE_URGENCY_LEVEL: Final[str] = "analytics.create_urgency_level"
-    UPDATE_URGENCY_LEVEL: Final[str] = "analytics.update_urgency_level"
-    DELETE_URGENCY_LEVEL: Final[str] = "analytics.delete_urgency_level"
+    VIEW_SCORING_CONFIG: Final[str] = "analytics.view_scoring_config"
+    UPDATE_SCORING_CONFIG: Final[str] = "analytics.update_scoring_config"
 
 
 @dataclass(frozen=True)
@@ -249,26 +189,10 @@ class BehaviorPermissions:
     CREATE_INCIDENT_TYPE: Final[str] = "behavior.create_incident_type"
     UPDATE_INCIDENT_TYPE: Final[str] = "behavior.update_incident_type"
     DELETE_INCIDENT_TYPE: Final[str] = "behavior.delete_incident_type"
-    VIEW_SOCIOEMOTIONAL_SKILL: Final[str] = "behavior.view_socioemotional_skill"
-    CREATE_SOCIOEMOTIONAL_SKILL: Final[str] = "behavior.create_socioemotional_skill"
-    UPDATE_SOCIOEMOTIONAL_SKILL: Final[str] = "behavior.update_socioemotional_skill"
-    DELETE_SOCIOEMOTIONAL_SKILL: Final[str] = "behavior.delete_socioemotional_skill"
-    VIEW_SKILL_EVALUATION: Final[str] = "behavior.view_skill_evaluation"
-    CREATE_SKILL_EVALUATION: Final[str] = "behavior.create_skill_evaluation"
-    UPDATE_SKILL_EVALUATION: Final[str] = "behavior.update_skill_evaluation"
-    DELETE_SKILL_EVALUATION: Final[str] = "behavior.delete_skill_evaluation"
-    VIEW_DIAGNOSTIC_EVALUATION: Final[str] = "behavior.view_diagnostic_evaluation"
-    CREATE_DIAGNOSTIC_EVALUATION: Final[str] = "behavior.create_diagnostic_evaluation"
-    UPDATE_DIAGNOSTIC_EVALUATION: Final[str] = "behavior.update_diagnostic_evaluation"
-    DELETE_DIAGNOSTIC_EVALUATION: Final[str] = "behavior.delete_diagnostic_evaluation"
-
-
-@dataclass(frozen=True)
-class ConfigurationPermissions:
-    VIEW_SYSTEM_CONFIG: Final[str] = "configuration.view_systemconfig"
-    CREATE_SYSTEM_CONFIG: Final[str] = "configuration.create_systemconfig"
-    UPDATE_SYSTEM_CONFIG: Final[str] = "configuration.update_systemconfig"
-    DELETE_SYSTEM_CONFIG: Final[str] = "configuration.delete_systemconfig"
+    VIEW_SEVERITY: Final[str] = "behavior.view_severity"
+    CREATE_SEVERITY: Final[str] = "behavior.create_severity"
+    UPDATE_SEVERITY: Final[str] = "behavior.update_severity"
+    DELETE_SEVERITY: Final[str] = "behavior.delete_severity"
 
 
 @dataclass(frozen=True)
@@ -277,14 +201,6 @@ class IntegrationPermissions:
     CREATE_SYNC_QUEUE: Final[str] = "integration.create_syncqueue"
     UPDATE_SYNC_QUEUE: Final[str] = "integration.update_syncqueue"
     DELETE_SYNC_QUEUE: Final[str] = "integration.delete_syncqueue"
-    VIEW_SYNC_OPERATION: Final[str] = "integration.view_sync_operation"
-    CREATE_SYNC_OPERATION: Final[str] = "integration.create_sync_operation"
-    UPDATE_SYNC_OPERATION: Final[str] = "integration.update_sync_operation"
-    DELETE_SYNC_OPERATION: Final[str] = "integration.delete_sync_operation"
-    VIEW_SYNC_STATUS: Final[str] = "integration.view_sync_status"
-    CREATE_SYNC_STATUS: Final[str] = "integration.create_sync_status"
-    UPDATE_SYNC_STATUS: Final[str] = "integration.update_sync_status"
-    DELETE_SYNC_STATUS: Final[str] = "integration.delete_sync_status"
 
 
 iam = IamPermissions()
@@ -296,5 +212,4 @@ grading = GradingPermissions()
 analytics = AnalyticsPermissions()
 attendance = AttendancePermissions()
 behavior = BehaviorPermissions()
-configuration = ConfigurationPermissions()
 integration = IntegrationPermissions()

@@ -1,300 +1,557 @@
+"""
+seed_catalogs.py
+Management command: seed_catalogs
+Pobla las tablas de catálogo (valores estables que no cambian entre entornos).
+Idempotente: get_or_create garantiza que re-ejecuciones no duplican registros.
+"""
 from django.core.management.base import BaseCommand
 
-from apps.people.models import DocumentType
-from apps.academic.models import PeriodType, Subject, DayOfWeek
-from apps.grading.models import GradeType, QualitativeScale, ActivityType, EvaluationType, PromotionStatus, RecoveryProcessType, RecoveryProcessStatus
+from apps.people.models import City, DocumentType
+from apps.academic.models import PeriodType, Subject
+from apps.grading.models import QualitativeScale, QualitativeScaleSublevel, ActivityType
 from apps.attendance.models import AttendanceStatus, AbsenceType
-from apps.behavior.models import IncidentType, SocioemotionalSkill, Severity, SocioemotionalArea, DevelopmentLevel
-from apps.analytics.models import AlertType, UrgencyLevel, RiskFactor
-from apps.integration.models import SyncOperation, SyncStatus
-from apps.students.models import EnrollmentStatus, WithdrawalReason, ResidentialZone, SpecialNeedsType, Kinship
+from apps.behavior.models import IncidentType, Severity
+from apps.analytics.models import RiskFactor
+from apps.students.models import WithdrawalReason, SpecialNeedsType, Kinship
 from apps.institutions.models import AcademicLevel, AcademicSublevel
 
+# ---------------------------------------------------------------------------
+# Datos de catálogo
+# ---------------------------------------------------------------------------
 
 CATALOGS = {
+    # ------------------------------------------------------------------
+    # Geografía
+    # ------------------------------------------------------------------
+    "cities": {
+        "model": City,
+        "data": [
+            {"code": "ZARU",  "name": "Zaruma",     "is_active": True},
+            {"code": "PINA",  "name": "Piñas",       "is_active": True},
+            {"code": "PORTO", "name": "Portovelo",   "is_active": True},
+            {"code": "MILAG", "name": "Milagro",     "is_active": True},
+            {"code": "GUAYA", "name": "Guayaquil",   "is_active": True},
+        ],
+    },
+
+    # ------------------------------------------------------------------
+    # Tipos de documento de identidad (Ecuador)
+    # ------------------------------------------------------------------
     "document_types": {
         "model": DocumentType,
         "data": [
-            {"code": "CC", "name": "Cédula de Ciudadanía"},
-            {"code": "CE", "name": "Cédula de Extranjería"},
-            {"code": "PP", "name": "Pasaporte"},
-            {"code": "RC", "name": "Registro Civil"},
-            {"code": "TI", "name": "Tarjeta de Identidad"},
-            {"code": "NIT", "name": "NIT"},
-        ],
-    },
-    "attendance_statuses": {
-        "model": AttendanceStatus,
-        "data": [
-            {"code": "P", "name": "Presente"},
-            {"code": "A", "name": "Ausente"},
-            {"code": "T", "name": "Tardanza"},
-            {"code": "J", "name": "Justificado"},
-        ],
-    },
-    "grade_types": {
-        "model": GradeType,
-        "data": [
-            {"code": "NUM", "name": "Numérica"},
-            {"code": "CUAL", "name": "Cualitativa"},
-            {"code": "RECUP", "name": "Recuperación"},
-        ],
-    },
-    "qualitative_scales": {
-        "model": QualitativeScale,
-        "data": [
-            {"code": "SE", "description": "Superior", "numeric_equivalence": 9.0, "name": "Superior"},
-            {"code": "SA", "description": "Alto", "numeric_equivalence": 7.0, "name": "Alto"},
-            {"code": "AC", "description": "Básico", "numeric_equivalence": 5.0, "name": "Básico"},
-            {"code": "NA", "description": "No alcanzado", "numeric_equivalence": 3.0, "name": "No alcanzado"},
-        ],
-    },
-    "period_types": {
-        "model": PeriodType,
-        "data": [
-            {"code": "REGULAR", "name": "Regular"},
-            {"code": "SUPLETORIO", "name": "Supletorio"},
-            {"code": "REFUERZO", "name": "Refuerzo"},
-        ],
-    },
-    "activity_types": {
-        "model": ActivityType,
-        "data": [
-            {"code": "TAREA", "name": "Tarea"},
-            {"code": "LECCION_ORAL", "name": "Lección Oral"},
-            {"code": "TALLER", "name": "Taller"},
-            {"code": "EXAMEN", "name": "Examen"},
-            {"code": "PROYECTO", "name": "Proyecto"},
-            {"code": "INVESTIGACION", "name": "Investigación"},
-        ],
-    },
-    "evaluation_types": {
-        "model": EvaluationType,
-        "data": [
-            {"code": "DIAGNOSTICA", "name": "Diagnóstica"},
-            {"code": "FORMATIVA", "name": "Formativa"},
-            {"code": "SUMATIVA", "name": "Sumativa"},
-        ],
-    },
-    "promotion_statuses": {
-        "model": PromotionStatus,
-        "data": [
-            {"code": "approved", "name": "Aprobado"},
-            {"code": "failed", "name": "Reprobado"},
-            {"code": "recovery", "name": "En Recuperación"},
-        ],
-    },
-    "recovery_process_types": {
-        "model": RecoveryProcessType,
-        "data": [
-            {"code": "MEJORA_DIRECTA", "name": "Mejora Directa"},
-            {"code": "MEJORA_CON_REFUERZO", "name": "Mejora con Refuerzo"},
-            {"code": "SUPLETORIA", "name": "Supletoria"},
-        ],
-    },
-    "recovery_process_statuses": {
-        "model": RecoveryProcessStatus,
-        "data": [
-            {"code": "STARTED", "name": "Iniciado"},
-            {"code": "GRADE_UPDATED", "name": "Calificación Actualizada"},
-            {"code": "SESSION_COMPLETED", "name": "Sesión Completada"},
-            {"code": "COMPLETED", "name": "Completado"},
-            {"code": "CANCELLED", "name": "Cancelado"},
-        ],
-    },
-    "absence_types": {
-        "model": AbsenceType,
-        "data": [
-            {"code": "justified", "name": "Justificada"},
-            {"code": "unjustified", "name": "Injustificada"},
-            {"code": "late", "name": "Atraso"},
-            {"code": "none", "name": "Sin falta"},
-        ],
-    },
-    "incident_types": {
-        "model": IncidentType,
-        "data": [
-            {"code": "LEVE", "name": "Leve"},
-            {"code": "MODERADO", "name": "Moderado"},
-            {"code": "GRAVE", "name": "Grave"},
-            {"code": "MUY_GRAVE", "name": "Muy Grave"},
-        ],
-    },
-    "socioemotional_skills": {
-        "model": SocioemotionalSkill,
-        "data": [
-            {"code": "EMPATIA", "name": "Empatía"},
-            {"code": "AUTORREGULACION", "name": "Autorregulación"},
-            {"code": "RESPONSABILIDAD", "name": "Responsabilidad"},
-            {"code": "TRABAJO_EQUIPO", "name": "Trabajo en Equipo"},
-            {"code": "COMUNICACION", "name": "Comunicación Asertiva"},
-        ],
-    },
-    "subjects": {
-        "model": Subject,
-        "data": [
-            {"code": "MAT", "name": "Matemáticas"},
-            {"code": "LEN", "name": "Lengua y Literatura"},
-            {"code": "CIE", "name": "Ciencias Naturales"},
-            {"code": "SOC", "name": "Estudios Sociales"},
-            {"code": "ING", "name": "Inglés"},
-            {"code": "EDU_FIS", "name": "Educación Física"},
-            {"code": "EDU_ART", "name": "Educación Artística"},
+            {"code": "CC",  "name": "Cédula de Ciudadanía",  "is_active": True},
+            {"code": "CE",  "name": "Cédula de Extranjería", "is_active": True},
+            {"code": "PP",  "name": "Pasaporte",             "is_active": True},
+            {"code": "RC",  "name": "Registro Civil",        "is_active": True},
+            {"code": "TI",  "name": "Tarjeta de Identidad",  "is_active": True},
         ],
     },
 
-    "alert_types": {
-        "model": AlertType,
+    # ------------------------------------------------------------------
+    # Estados de asistencia
+    # ------------------------------------------------------------------
+    "attendance_statuses": {
+        "model": AttendanceStatus,
         "data": [
-            {"code": "low_attendance", "name": "Baja Asistencia"},
-            {"code": "failing_grades", "name": "Calificaciones Bajas"},
-            {"code": "behavioral", "name": "Problemas de Conducta"},
-            {"code": "dropout_risk", "name": "Riesgo de Deserción"},
-            {"code": "socioemotional", "name": "Problemas Socioemocionales"},
+            {
+                "code": "P",
+                "name": "Presente",
+                "description": "Estudiante asistió a clase puntualmente",
+                "is_active": True,
+            },
+            {
+                "code": "A",
+                "name": "Ausente",
+                "description": "Estudiante no asistió a clase",
+                "is_active": True,
+            },
+            {
+                "code": "T",
+                "name": "Tardanza",
+                "description": "Estudiante llegó con retraso a clase",
+                "is_active": True,
+            },
+            {
+                "code": "J",
+                "name": "Justificado",
+                "description": "Ausencia justificada con documentación válida",
+                "is_active": True,
+            },
         ],
     },
-    "urgency_levels": {
-        "model": UrgencyLevel,
+
+    # ------------------------------------------------------------------
+    # Escala cualitativa de calificaciones (BGU – Ecuador)
+    # ------------------------------------------------------------------
+    "qualitative_scales": {
+        "model": QualitativeScale,
         "data": [
-            {"code": "low", "name": "Baja"},
-            {"code": "medium", "name": "Media"},
-            {"code": "high", "name": "Alta"},
-            {"code": "critical", "name": "Crítica"},
+            {
+                "code": "SE",
+                "name": "Superior",
+                "description": "Dominio excelente de los aprendizajes requeridos",
+                "numeric_equivalence": 9.0,
+                "is_active": True,
+            },
+            {
+                "code": "SA",
+                "name": "Alto",
+                "description": "Dominio satisfactorio de los aprendizajes requeridos",
+                "numeric_equivalence": 7.0,
+                "is_active": True,
+            },
+            {
+                "code": "AC",
+                "name": "Básico",
+                "description": "Dominio mínimo de los aprendizajes requeridos",
+                "numeric_equivalence": 5.0,
+                "is_active": True,
+            },
+            {
+                "code": "NA",
+                "name": "No alcanzado",
+                "description": "No alcanza los aprendizajes mínimos requeridos",
+                "numeric_equivalence": 3.0,
+                "is_active": True,
+            },
         ],
     },
+
+    # ------------------------------------------------------------------
+    # Tipos de período académico
+    # ------------------------------------------------------------------
+    "period_types": {
+        "model": PeriodType,
+        "data": [
+            {
+                "code": "TRIMESTRE",
+                "name": "Trimestre",
+                "description": "División del año escolar en 3 períodos de aproximadamente 3 meses",
+                "divisions_per_year": 3,
+                "is_active": True,
+            },
+            {
+                "code": "QUIMESTRE",
+                "name": "Quimestre",
+                "description": "División del año escolar en 2 períodos de 5 meses",
+                "divisions_per_year": 2,
+                "is_active": True,
+            },
+            {
+                "code": "BIMESTRE",
+                "name": "Bimestre",
+                "description": "División del año escolar en 4 períodos de 2 meses",
+                "divisions_per_year": 4,
+                "is_active": True,
+            },
+            {
+                "code": "SEMESTRE",
+                "name": "Semestre",
+                "description": "División del año escolar en 2 períodos de 6 meses",
+                "divisions_per_year": 2,
+                "is_active": True,
+            },
+            {
+                "code": "ANUAL",
+                "name": "Anual",
+                "description": "Período único que cubre todo el año escolar",
+                "divisions_per_year": 1,
+                "is_active": True,
+            },
+        ],
+    },
+
+    # ------------------------------------------------------------------
+    # Tipos de actividad evaluativa
+    # ------------------------------------------------------------------
+    "activity_types": {
+        "model": ActivityType,
+        "data": [
+            {
+                "code": "TAREA",
+                "name": "Tarea",
+                "description": "Trabajo asignado para realizar fuera de clase",
+                "is_active": True,
+            },
+            {
+                "code": "LECCION_ORAL",
+                "name": "Lección Oral",
+                "description": "Evaluación oral individual o grupal frente al docente",
+                "is_active": True,
+            },
+            {
+                "code": "TALLER",
+                "name": "Taller",
+                "description": "Actividad práctica realizada en el aula",
+                "is_active": True,
+            },
+            {
+                "code": "EXAMEN",
+                "name": "Examen",
+                "description": "Evaluación escrita formal de conocimientos",
+                "is_active": True,
+            },
+            {
+                "code": "PROYECTO",
+                "name": "Proyecto",
+                "description": "Trabajo integrador de mediano o largo plazo",
+                "is_active": True,
+            },
+            {
+                "code": "INVESTIGACION",
+                "name": "Investigación",
+                "description": "Trabajo de investigación documental o de campo",
+                "is_active": True,
+            },
+            {
+                "code": "EXPOSICION",
+                "name": "Exposición",
+                "description": "Presentación oral de un tema ante el grupo",
+                "is_active": True,
+            },
+        ],
+    },
+
+    # ------------------------------------------------------------------
+    # Tipos de ausencia / falta
+    # ------------------------------------------------------------------
+    "absence_types": {
+        "model": AbsenceType,
+        "data": [
+            {
+                "code": "justified",
+                "name": "Justificada",
+                "description": "Ausencia con justificación válida (médica, familiar u oficial)",
+                "is_active": True,
+            },
+            {
+                "code": "unjustified",
+                "name": "Injustificada",
+                "description": "Ausencia sin justificación presentada",
+                "is_active": True,
+            },
+            {
+                "code": "late",
+                "name": "Atraso",
+                "description": "Llegada tardía registrada formalmente",
+                "is_active": True,
+            },
+            {
+                "code": "none",
+                "name": "Sin falta",
+                "description": "Registro sin ninguna falta asociada",
+                "is_active": True,
+            },
+        ],
+    },
+
+    # ------------------------------------------------------------------
+    # Tipos de incidente conductual
+    # ------------------------------------------------------------------
+    "incident_types": {
+        "model": IncidentType,
+        "data": [
+            {
+                "code": "PERTURBACION",
+                "name": "Perturbación del orden",
+                "description": "Comportamiento que interrumpe el desarrollo normal de la clase",
+                "is_active": True,
+            },
+            {
+                "code": "IRRESPETO",
+                "name": "Irrespeto a compañero",
+                "description": "Actitud irrespetuosa hacia un compañero dentro o fuera del aula",
+                "is_active": True,
+            },
+            {
+                "code": "IRRESPETO_DOC",
+                "name": "Irrespeto a docente",
+                "description": "Actitud irrespetuosa o desafiante hacia un docente o autoridad",
+                "is_active": True,
+            },
+            {
+                "code": "ACOSO",
+                "name": "Acoso o bullying",
+                "description": "Comportamiento sistemático de hostigamiento hacia un compañero",
+                "is_active": True,
+            },
+            {
+                "code": "DANO_PROPIEDAD",
+                "name": "Daño a propiedad",
+                "description": "Deterioro o destrucción de bienes del plantel o de compañeros",
+                "is_active": True,
+            },
+            {
+                "code": "INASISTENCIA",
+                "name": "Inasistencia reiterada",
+                "description": "Patrón de ausencias injustificadas frecuentes",
+                "is_active": True,
+            },
+        ],
+    },
+
+    # ------------------------------------------------------------------
+    # Asignaturas (catálogo global; la carga horaria se define por grado)
+    # ------------------------------------------------------------------
+    "subjects": {
+        "model": Subject,
+        "data": [
+            {"code": "MAT",     "name": "Matemática",              "is_active": True},
+            {"code": "LEN",     "name": "Lengua y Literatura",     "is_active": True},
+            {"code": "FIS",     "name": "Física",                  "is_active": True},
+            {"code": "QUI",     "name": "Química",                 "is_active": True},
+            {"code": "BIO",     "name": "Biología",                "is_active": True},
+            {"code": "SOC",     "name": "Historia y Ciencias Sociales", "is_active": True},
+            {"code": "ING",     "name": "Inglés",                  "is_active": True},
+            {"code": "FIL",     "name": "Filosofía",               "is_active": True},
+            {"code": "EDU_FIS", "name": "Educación Física",        "is_active": True},
+            {"code": "EDU_ART", "name": "Educación Cultural y Artística", "is_active": True},
+            # Mantenidos por compatibilidad con grados previos
+            {"code": "CIE",     "name": "Ciencias Naturales",      "is_active": True},
+        ],
+    },
+
+    # ------------------------------------------------------------------
+    # Factores de riesgo (analytics / modelo predictivo)
+    # ------------------------------------------------------------------
     "risk_factors": {
         "model": RiskFactor,
         "data": [
-            {"code": "LOW_ATTENDANCE", "name": "Baja Asistencia"},
-            {"code": "FAILING_GRADES", "name": "Calificaciones Bajas"},
-            {"code": "BEHAVIOR_ISSUES", "name": "Problemas de Conducta"},
-            {"code": "SOCIOEMOTIONAL", "name": "Problemas Socioemocionales"},
-            {"code": "HIGH-absences", "name": "Ausentismo Frecuente"},
+            {
+                "code": "LOW_ATTENDANCE",
+                "name": "Baja Asistencia",
+                "description": "Porcentaje de asistencia inferior al 80 %",
+            },
+            {
+                "code": "FAILING_GRADES",
+                "name": "Calificaciones Bajas",
+                "description": "Promedio de calificaciones inferior a 7.00 sobre 10",
+            },
+            {
+                "code": "BEHAVIOR_ISSUES",
+                "name": "Problemas de Conducta",
+                "description": "Múltiples incidentes conductuales registrados en el período",
+            },
+            {
+                "code": "SOCIOEMOTIONAL",
+                "name": "Indicadores Socioemocionales",
+                "description": "Señales de dificultades emocionales, sociales o familiares",
+            },
+            {
+                "code": "HIGH_ABSENCES",
+                "name": "Ausentismo Frecuente",
+                "description": "Más de 10 ausencias injustificadas en el período",
+            },
+            {
+                "code": "GRADE_DECLINE",
+                "name": "Descenso Sostenido de Notas",
+                "description": "Tendencia negativa en el promedio de calificaciones entre períodos",
+            },
         ],
     },
-    "sync_operations": {
-        "model": SyncOperation,
-        "data": [
-            {"code": "INSERT", "name": "Insertar"},
-            {"code": "UPDATE", "name": "Actualizar"},
-            {"code": "DELETE", "name": "Eliminar"},
-        ],
-    },
-    "sync_statuses": {
-        "model": SyncStatus,
-        "data": [
-            {"code": "PENDIENTE", "name": "Pendiente"},
-            {"code": "PROCESANDO", "name": "En procesamiento"},
-            {"code": "PROCESADO", "name": "Procesado"},
-            {"code": "SYNCED", "name": "Sincronizado"},
-            {"code": "ERROR", "name": "Error"},
-            {"code": "CONFLICT", "name": "Conflicto detectado"},
-        ],
-    },
+
+    # ------------------------------------------------------------------
+    # Niveles académicos del sistema educativo ecuatoriano
+    # ------------------------------------------------------------------
     "academic_levels": {
         "model": AcademicLevel,
         "data": [
-            {"code": "EGB", "name": "Educación General Básica"},
-            {"code": "BGU", "name": "Bachillerato General Unificado"},
+            {"code": "EGB", "name": "Educación General Básica",       "is_active": True},
+            {"code": "BGU", "name": "Bachillerato General Unificado", "is_active": True},
         ],
     },
-    "enrollment_statuses": {
-        "model": EnrollmentStatus,
-        "data": [
-            {"code": "ACT", "name": "Activa"},
-            {"code": "RET", "name": "Retirado"},
-            {"code": "TRS", "name": "Transferido"},
-            {"code": "SUS", "name": "Suspendido"},
-            {"code": "GRA", "name": "Graduado"},
-        ],
-    },
+
+    # ------------------------------------------------------------------
+    # Razones de retiro / egreso anticipado
+    # ------------------------------------------------------------------
     "withdrawal_reasons": {
         "model": WithdrawalReason,
         "data": [
-            {"code": "CAMBIO_DOMICILIO", "name": "Cambio de domicilio"},
-            {"code": "TRASLADO", "name": "Traslado a otra institución"},
-            {"code": "FAMILIARES", "name": "Motivos familiares"},
-            {"code": "SALUD", "name": "Razones de salud"},
-            {"code": "DESISTIMIENTO", "name": "Desistimiento"},
-            {"code": "OTRO", "name": "Otro"},
+            {
+                "code": "CAMBIO_DOMICILIO",
+                "name": "Cambio de domicilio",
+                "description": "El estudiante o su familia se muda a otra zona o ciudad",
+                "is_active": True,
+            },
+            {
+                "code": "TRASLADO",
+                "name": "Traslado a otra institución",
+                "description": "El estudiante se transfiere a otra institución educativa",
+                "is_active": True,
+            },
+            {
+                "code": "FAMILIARES",
+                "name": "Motivos familiares",
+                "description": "Situaciones familiares que impiden la continuidad escolar",
+                "is_active": True,
+            },
+            {
+                "code": "SALUD",
+                "name": "Razones de salud",
+                "description": "Condición de salud que impide la asistencia regular",
+                "is_active": True,
+            },
+            {
+                "code": "TRABAJO",
+                "name": "Ingreso al mercado laboral",
+                "description": "El estudiante abandona el sistema escolar para trabajar",
+                "is_active": True,
+            },
+            {
+                "code": "DESISTIMIENTO",
+                "name": "Desistimiento voluntario",
+                "description": "El estudiante decide voluntariamente abandonar los estudios",
+                "is_active": True,
+            },
+            {
+                "code": "OTRO",
+                "name": "Otro",
+                "description": "Razón no contemplada en las categorías anteriores",
+                "is_active": True,
+            },
         ],
     },
-    "residential_zones": {
-        "model": ResidentialZone,
-        "data": [
-            {"code": "URBANA", "name": "Zona Urbana"},
-            {"code": "RURAL", "name": "Zona Rural"},
-            {"code": "PERIFERICA", "name": "Zona Periférica"},
-        ],
-    },
+
+    # ------------------------------------------------------------------
+    # Tipos de necesidades educativas especiales (NEE)
+    # ------------------------------------------------------------------
     "special_needs_types": {
         "model": SpecialNeedsType,
         "data": [
-            {"code": "DISCAPACIDAD_FISICA", "name": "Discapacidad Física"},
-            {"code": "DISCAPACIDAD_SENSorial", "name": "Discapacidad Sensorial"},
-            {"code": "DISCAPACIDAD_INTELECTUAL", "name": "Discapacidad Intelectual"},
-            {"code": "TRASTORNOS_APRENDIZAJE", "name": "Trastornos del Aprendizaje"},
-            {"code": "TDAH", "name": "TDAH"},
-            {"code": "AUTISMO", "name": "Autismo"},
-            {"code": "OTRO", "name": "Otro"},
+            {
+                "code": "DISCAPACIDAD_FISICA",
+                "name": "Discapacidad Física",
+                "description": "Limitación motora que requiere adaptaciones físicas o de accesibilidad",
+                "is_active": True,
+            },
+            {
+                "code": "DISCAPACIDAD_SENSORIAL",
+                "name": "Discapacidad Sensorial",
+                "description": "Limitación visual o auditiva que requiere adaptaciones sensoriales",
+                "is_active": True,
+            },
+            {
+                "code": "DISCAPACIDAD_INTELECTUAL",
+                "name": "Discapacidad Intelectual",
+                "description": "Limitación cognitiva que requiere adaptaciones curriculares",
+                "is_active": True,
+            },
+            {
+                "code": "TRASTORNOS_APRENDIZAJE",
+                "name": "Trastornos del Aprendizaje",
+                "description": "Dislexia, disgrafía, discalculia u otros trastornos específicos del aprendizaje",
+                "is_active": True,
+            },
+            {
+                "code": "TDAH",
+                "name": "TDAH",
+                "description": "Trastorno por Déficit de Atención e Hiperactividad",
+                "is_active": True,
+            },
+            {
+                "code": "AUTISMO",
+                "name": "Trastorno del Espectro Autista",
+                "description": "TEA con distintos niveles de soporte requerido",
+                "is_active": True,
+            },
+            {
+                "code": "OTRO",
+                "name": "Otra NEE",
+                "description": "Necesidad educativa especial no especificada en el catálogo",
+                "is_active": True,
+            },
         ],
     },
+
+    # ------------------------------------------------------------------
+    # Parentescos / vínculos de representación
+    # ------------------------------------------------------------------
     "kinships": {
         "model": Kinship,
         "data": [
-            {"code": "PADRE", "name": "Padre"},
-            {"code": "MADRE", "name": "Madre"},
-            {"code": "ABUELO", "name": "Abuelo/a"},
-            {"code": "TIO", "name": "Tío/a"},
-            {"code": "HERMANO", "name": "Hermano/a"},
-            {"code": "TUTOR", "name": "Tutor legal"},
-            {"code": "OTRO", "name": "Otro"},
+            {
+                "code": "PADRE",
+                "name": "Padre",
+                "description": "Padre biológico o adoptivo del estudiante",
+                "is_active": True,
+            },
+            {
+                "code": "MADRE",
+                "name": "Madre",
+                "description": "Madre biológica o adoptiva del estudiante",
+                "is_active": True,
+            },
+            {
+                "code": "ABUELO",
+                "name": "Abuelo/a",
+                "description": "Abuelo o abuela del estudiante con custodia o representación",
+                "is_active": True,
+            },
+            {
+                "code": "TIO",
+                "name": "Tío/a",
+                "description": "Tío o tía del estudiante",
+                "is_active": True,
+            },
+            {
+                "code": "HERMANO",
+                "name": "Hermano/a mayor",
+                "description": "Hermano o hermana mayor de edad con representación legal",
+                "is_active": True,
+            },
+            {
+                "code": "TUTOR",
+                "name": "Tutor legal",
+                "description": "Persona con tutela legal o representación judicial del estudiante",
+                "is_active": True,
+            },
+            {
+                "code": "OTRO",
+                "name": "Otro vínculo",
+                "description": "Otro tipo de parentesco o relación de representación",
+                "is_active": True,
+            },
         ],
     },
+
+    # ------------------------------------------------------------------
+    # Severidades de faltas conductuales
+    # ------------------------------------------------------------------
     "severities": {
         "model": Severity,
         "data": [
-            {"code": "LEVE", "name": "Falta leve", "numeric_level": 1},
-            {"code": "MODERADA", "name": "Falta moderada", "numeric_level": 2},
-            {"code": "GRAVE", "name": "Falta grave", "numeric_level": 3},
-            {"code": "MUY_GRAVE", "name": "Falta muy grave", "numeric_level": 4},
-        ],
-    },
-    "socioemotional_areas": {
-        "model": SocioemotionalArea,
-        "data": [
-            {"code": "AUTOCONOCIMIENTO", "name": "Autoconocimiento"},
-            {"code": "AUTOCONTROL", "name": "Autocontrol emocional"},
-            {"code": "RELACIONES", "name": "Relaciones interpersonales"},
-            {"code": "AUTONOMIA", "name": "Autonomía"},
-            {"code": "EMPATIA", "name": "Empatía"},
-        ],
-    },
-    "development_levels": {
-        "model": DevelopmentLevel,
-        "data": [
-            {"code": "EN_PROCESO", "name": "En proceso"},
-            {"code": "LOGRADO", "name": "Logrado"},
-            {"code": "POR_LOGRAR", "name": "Por lograr"},
-        ],
-    },
-    "days_of_week": {
-        "model": DayOfWeek,
-        "data": [
-            {"code": 1, "name": "Lunes"},
-            {"code": 2, "name": "Martes"},
-            {"code": 3, "name": "Miércoles"},
-            {"code": 4, "name": "Jueves"},
-            {"code": 5, "name": "Viernes"},
-            {"code": 6, "name": "Sábado"},
-            {"code": 7, "name": "Domingo"},
+            {
+                "code": "LEVE",
+                "name": "Falta leve",
+                "description": "Falta que no interrumpe significativamente el proceso educativo",
+                "is_active": True,
+            },
+            {
+                "code": "MODERADA",
+                "name": "Falta moderada",
+                "description": "Falta que afecta el clima del aula y requiere intervención del docente",
+                "is_active": True,
+            },
+            {
+                "code": "GRAVE",
+                "name": "Falta grave",
+                "description": "Falta que requiere intervención de autoridades del plantel",
+                "is_active": True,
+            },
+            {
+                "code": "MUY_GRAVE",
+                "name": "Falta muy grave",
+                "description": "Falta que pone en riesgo la integridad de personas o bienes",
+                "is_active": True,
+            },
         ],
     },
 }
 
 
 class Command(BaseCommand):
-    help = "Seed catalog tables with initial data"
+    help = "Siembra las tablas de catálogo con datos iniciales (idempotente)"
 
     def handle(self, *args, **options):
         created_count = 0
@@ -302,8 +559,7 @@ class Command(BaseCommand):
 
         for catalog_name, catalog in CATALOGS.items():
             model = catalog["model"]
-            entries = catalog["data"]
-            for entry in entries:
+            for entry in catalog["data"]:
                 _, created = model.objects.get_or_create(
                     code=entry["code"], defaults=entry
                 )
@@ -312,15 +568,48 @@ class Command(BaseCommand):
                 else:
                     existing_count += 1
 
-        # AcademicSublevel requiere FK academic_level (no se puede crear en el loop genérico)
+        # ----------------------------------------------------------------
+        # AcademicSublevel: requiere FK a AcademicLevel
+        # ----------------------------------------------------------------
         nivel_egb = AcademicLevel.objects.get(code="EGB")
         nivel_bgu = AcademicLevel.objects.get(code="BGU")
+
         sublevels = [
-            {"code": "PREPARATORIA", "name": "Preparatoria", "academic_level": nivel_egb},
-            {"code": "BASICA_ELEMENTAL", "name": "Básica Elemental", "academic_level": nivel_egb},
-            {"code": "BASICA_MEDIA", "name": "Básica Media", "academic_level": nivel_egb},
-            {"code": "BASICA_SUPERIOR", "name": "Básica Superior", "academic_level": nivel_egb},
-            {"code": "BACHILLERATO", "name": "Bachillerato", "academic_level": nivel_bgu},
+            {
+                "code": "PREPARATORIA",
+                "name": "Preparatoria",
+                "description": "Nivel inicial del sistema educativo (1er grado)",
+                "academic_level": nivel_egb,
+                "is_active": True,
+            },
+            {
+                "code": "BASICA_ELEMENTAL",
+                "name": "Básica Elemental",
+                "description": "Primer ciclo de EGB (2do a 4to grado)",
+                "academic_level": nivel_egb,
+                "is_active": True,
+            },
+            {
+                "code": "BASICA_MEDIA",
+                "name": "Básica Media",
+                "description": "Segundo ciclo de EGB (5to a 7mo grado)",
+                "academic_level": nivel_egb,
+                "is_active": True,
+            },
+            {
+                "code": "BASICA_SUPERIOR",
+                "name": "Básica Superior",
+                "description": "Tercer ciclo de EGB (8vo a 10mo grado)",
+                "academic_level": nivel_egb,
+                "is_active": True,
+            },
+            {
+                "code": "BACHILLERATO",
+                "name": "Bachillerato General Unificado",
+                "description": "Educación media superior (1ro a 3ro BGU)",
+                "academic_level": nivel_bgu,
+                "is_active": True,
+            },
         ]
         for data in sublevels:
             _, created = AcademicSublevel.objects.get_or_create(
@@ -331,9 +620,34 @@ class Command(BaseCommand):
             else:
                 existing_count += 1
 
+        # ----------------------------------------------------------------
+        # QualitativeScaleSublevel: relación escala × subnivel
+        # ----------------------------------------------------------------
+        scale_codes = ["SE", "SA", "AC", "NA"]
+        sublevel_codes = [
+            "PREPARATORIA",
+            "BASICA_ELEMENTAL",
+            "BASICA_MEDIA",
+            "BASICA_SUPERIOR",
+            "BACHILLERATO",
+        ]
+        for scale_code in scale_codes:
+            scale = QualitativeScale.objects.get(code=scale_code)
+            for sublevel_code in sublevel_codes:
+                sublevel = AcademicSublevel.objects.get(code=sublevel_code)
+                _, created = QualitativeScaleSublevel.objects.get_or_create(
+                    scale=scale,
+                    sublevel=sublevel,
+                    defaults={"is_active": True},
+                )
+                if created:
+                    created_count += 1
+                else:
+                    existing_count += 1
+
         self.stdout.write(
             self.style.SUCCESS(
-                f"Catalogs seed complete: {created_count} created, "
-                f"{existing_count} already existed"
+                f"Catálogos: {created_count} registros creados, "
+                f"{existing_count} ya existían."
             )
         )

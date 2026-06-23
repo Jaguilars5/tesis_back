@@ -14,7 +14,7 @@ from apps.iam.models import Role
 from apps.core.tests.helpers import create_test_user, create_test_student
 from apps.attendance.models import AbsenceType, AttendanceStatus
 from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSublevel, SchoolYear, Section
-from apps.students.models import Enrollment, EnrollmentStatus
+from apps.students.models import Enrollment
 
 
 class AttendanceAPITest(APITestCase):
@@ -22,7 +22,6 @@ class AttendanceAPITest(APITestCase):
 
     def setUp(self):
         school_year = SchoolYear.objects.create(
-            name="2025",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 12, 31),
         )
@@ -38,9 +37,7 @@ class AttendanceAPITest(APITestCase):
         )
         self.academic_grade = AcademicGrade.objects.create(
             academic_sublevel=self.academic_sublevel,
-            name="7",
-            sequence_order=1,
-        )
+            name="7"        )
         self.section = Section.objects.create(
             school_year=school_year,
             academic_grade=self.academic_grade,
@@ -63,11 +60,8 @@ class AttendanceAPITest(APITestCase):
         subj_config = SubjectAcademicConfig.objects.create(
             subject=self.subject,
             academic_grade=self.academic_grade,
-            weekly_hours=5,
-            pedagogical_order=1,
-        )
+            weekly_hours=5        )
         offering = SubjectOffering.objects.create(
-            school_year=school_year,
             section=self.section,
             subject_academic_config=subj_config,
         )
@@ -82,13 +76,10 @@ class AttendanceAPITest(APITestCase):
             birth_date=date(2010, 1, 1),
         )
 
-        status, _ = EnrollmentStatus.objects.get_or_create(
-            code="ACT", defaults={"name": "Activa"}
-        )
         self.enrollment = Enrollment.objects.create(
             student=self.student,
             section=self.section,
-            enrollment_status=status,
+            enrollment_status="ACT",
         )
         self.att_status = AttendanceStatus.objects.create(code="P", name="Presente")
 

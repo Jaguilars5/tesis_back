@@ -22,7 +22,9 @@ class StudentRiskFactor(TimeStampedModel):
         app_label = "analytics"
         verbose_name = "Factor de Riesgo del Estudiante"
         verbose_name_plural = "Factores de Riesgo de los Estudiantes"
-        unique_together = ("student_risk_score", "risk_factor")
+        constraints = [
+            models.UniqueConstraint(fields=["student_risk_score", "risk_factor"], name="unique_student_risk_factor"),
+        ]
 
     def __str__(self):
         return f"{self.student_risk_score} - {self.risk_factor.name} ({self.contribution_weight}%)"

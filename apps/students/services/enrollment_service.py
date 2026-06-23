@@ -2,8 +2,8 @@ from datetime import date
 from django.db import transaction
 from apps.institutions.repositories.section_repository import SectionRepository
 from ..models import Enrollment
+from ..models.enrollment import EnrollmentStatusChoices
 from ..repositories.enrollment_repo import EnrollmentRepository
-from ..repositories.enrollment_status_repo import EnrollmentStatusRepository
 
 
 class EnrollmentService:
@@ -13,6 +13,11 @@ class EnrollmentService:
         if EnrollmentRepository.has_active_enrollment(student):
             raise ValueError("El estudiante ya tiene una matrícula activa")
 
+        if EnrollmentRepository.has_enrollment_in_school_year(
+            student, section.school_year
+        ):
+            raise ValueError("El estudiante ya tiene una matrícula en este año lectivo")
+
         if section.capacity:
             active_count = EnrollmentRepository.count_active_in_section(section)
             if active_count >= section.capacity:
@@ -20,15 +25,10 @@ class EnrollmentService:
                     f"La sección ha alcanzado su capacidad máxima ({section.capacity})"
                 )
 
-        active_status = EnrollmentStatusRepository.get_or_create(
-            code="ACT", defaults={"name": "Activa"}
-        )
-
         enrollment = Enrollment(
             student=student,
             section=section,
-            school_year=section.school_year,
-            enrollment_status=active_status,
+            enrollment_status=EnrollmentStatusChoices.ACTIVE,
             enrollment_date=enrollment_date or date.today(),
         )
         enrollment.save()
@@ -36,12 +36,44 @@ class EnrollmentService:
 
     @staticmethod
     @transaction.atomic
+    def update_enrollment(enrollment, section=None, enrollment_status=None, is_repeat=None):
+        if section is not None and section.id != enrollment.section_id:
+            if enrollment.enrollment_status == EnrollmentStatusChoices.ACTIVE:
+                other_active = EnrollmentRepository.get_active_by_student_excluding(
+                    enrollment.student, enrollment.id
+                )
+                if other_active:
+                    raise ValueError("El estudiante tiene otra matrícula activa")
+
+            if section.capacity:
+                active_count = EnrollmentRepository.count_active_in_section(section)
+                already_counted = (
+                    1
+                    if enrollment.section_id == section.id
+                    and enrollment.enrollment_status == EnrollmentStatusChoices.ACTIVE
+                    else 0
+                )
+                if active_count - already_counted >= section.capacity:
+                    raise ValueError(
+                        f"La sección ha alcanzado su capacidad máxima ({section.capacity})"
+                    )
+
+            enrollment.section = section
+
+        if enrollment_status is not None:
+            enrollment.enrollment_status = enrollment_status
+
+        if is_repeat is not None:
+            enrollment.is_repeat = is_repeat
+
+        enrollment.save()
+        return enrollment
+
+    @staticmethod
+    @transaction.atomic
     def withdraw_student(enrollment, reason=None):
         from ..models import WithdrawalReason
-        withdrawn_status = EnrollmentStatusRepository.get_or_create(
-            code="RET", defaults={"name": "Retirado"}
-        )
-        enrollment.enrollment_status = withdrawn_status
+        enrollment.enrollment_status = EnrollmentStatusChoices.WITHDRAWN
         if reason:
             if isinstance(reason, int):
                 enrollment.withdrawal_reason_id = reason
@@ -78,13 +110,17 @@ class EnrollmentService:
                     f"La sección destino ha alcanzado su capacidad máxima ({new_section.capacity})"
                 )
 
-        active_status = EnrollmentStatusRepository.get_or_create(
-            code="ACT", defaults={"name": "Activa"}
-        )
         enrollment.section = new_section
-        enrollment.enrollment_status = active_status
+        enrollment.enrollment_status = EnrollmentStatusChoices.ACTIVE
         enrollment.save()
         return enrollment
+
+    @staticmethod
+    @transaction.atomic
+    def soft_delete_enrollment(enrollment):
+        enrollment.enrollment_status = EnrollmentStatusChoices.INACTIVE
+        enrollment.save()
+        return {"id": enrollment.id}
 
     @staticmethod
     def get_active_enrollment(student):

@@ -2,10 +2,10 @@ import hashlib
 
 from django.db import transaction
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 
 from ..repositories import SyncQueueRepository
-from ..repositories.sync_status_repository import SyncStatusRepository
-from ..models import SyncQueue, SyncSchemaVersion
+from ..models.syncable_mixin import SyncStatusChoices
 
 
 class IncompatibleSchemaError(ValueError):
@@ -16,30 +16,18 @@ class SyncQueueService:
     @staticmethod
     @transaction.atomic
     def queue_operation(user, source_table, record_uuid, operation, payload=None, client_version=None):
-        if client_version:
-            try:
-                schema = SyncSchemaVersion.objects.get(model_name=source_table)
-                if _is_incompatible(client_version, schema.min_client_version):
-                    raise IncompatibleSchemaError(
-                        f"Client v{client_version} requires schema v{schema.min_client_version}"
-                    )
-            except SyncSchemaVersion.DoesNotExist:
-                pass
+        idempotency_key = SyncQueueService._build_idempotency_key(source_table, record_uuid, operation)
 
-        idempotency_key = SyncQueueService._build_idempotency_key(source_table, record_uuid, operation.code if hasattr(operation, 'code') else operation)
-
-        procesado_status = SyncStatusRepository.get_by_code("PROCESADO")
-        if SyncQueue.objects.filter(idempotency_key=idempotency_key, status=procesado_status).exists():
+        if SyncQueueRepository.is_synced(idempotency_key):
             return None
 
-        status_pendiente = SyncStatusRepository.get_by_code("PENDIENTE")
         return SyncQueueRepository.create(
             user=user,
             source_table=source_table,
             record_uuid=record_uuid,
             operation=operation,
             payload=payload or {},
-            status=status_pendiente,
+            status=SyncStatusChoices.PENDING,
             idempotency_key=idempotency_key,
             attempts=0,
         )
@@ -50,14 +38,106 @@ class SyncQueueService:
         return hashlib.sha256(raw.encode()).hexdigest()[:64]
 
     @staticmethod
+    def process_push(user, operations):
+        """Encola un lote de operaciones de sincronización del cliente.
+
+        Devuelve un resumen con conteos y el resultado por operación. Las
+        operaciones aceptadas que generan un nuevo item de cola se procesan
+        de forma asíncrona vía Celery.
+        """
+        from ..tasks.sync_tasks import process_sync_queue_item
+
+        results = []
+        accepted = 0
+        rejected = 0
+        conflicts = 0
+
+        for op in operations:
+            record_uuid = op.get("record_uuid")
+            try:
+                result = SyncQueueService.queue_operation(
+                    user=user,
+                    source_table=op.get("source_table"),
+                    record_uuid=record_uuid,
+                    operation=op.get("operation"),
+                    payload=op.get("payload", {}),
+                    client_version=op.get("client_version"),
+                )
+
+                if result is None:
+                    accepted += 1
+                    results.append({
+                        "record_uuid": record_uuid,
+                        "status": "SYNCED",
+                        "server_version": 1,
+                    })
+                elif hasattr(result, "id"):
+                    accepted += 1
+                    process_sync_queue_item.delay(result.id)
+                    results.append({
+                        "record_uuid": record_uuid,
+                        "status": "QUEUED",
+                        "queue_id": result.id,
+                    })
+                else:
+                    rejected += 1
+                    results.append({
+                        "record_uuid": record_uuid,
+                        "status": "REJECTED",
+                        "message": str(result),
+                    })
+            except IncompatibleSchemaError as exc:
+                rejected += 1
+                results.append({
+                    "record_uuid": record_uuid,
+                    "status": "INCOMPATIBLE",
+                    "message": str(exc),
+                })
+            except Exception as exc:  # noqa: BLE001 - se reporta por operación
+                rejected += 1
+                results.append({
+                    "record_uuid": record_uuid,
+                    "status": "ERROR",
+                    "message": str(exc),
+                })
+
+        return {
+            "accepted": accepted,
+            "rejected": rejected,
+            "conflicts": conflicts,
+            "results": results,
+        }
+
+    @staticmethod
+    def pull_changes(since=None, source_table=None, limit=100):
+        """Devuelve los items de cola para que el cliente sincronice."""
+        parsed_since = parse_datetime(since) if since else None
+        items = SyncQueueRepository.get_for_pull(
+            since=parsed_since,
+            source_table=source_table,
+            limit=limit,
+        )
+        return [
+            {
+                "uuid": str(item.uuid),
+                "source_table": item.source_table,
+                "operation": item.operation or None,
+                "record_uuid": item.record_uuid,
+                "payload": item.payload,
+                "status": item.status or None,
+                "processed_at": item.processed_at.isoformat() if item.processed_at else None,
+            }
+            for item in items
+        ]
+
+    @staticmethod
     @transaction.atomic
     def mark_processing(sync_id):
         sync_item = SyncQueueRepository.get_by_id(sync_id)
         if sync_item:
-            status_procesando = SyncStatusRepository.get_by_code("PROCESANDO")
             SyncQueueRepository.update(
                 sync_item.id,
-                status=status_procesando,
+                status=SyncStatusChoices.PROCESSING,
                 attempts=sync_item.attempts + 1,
                 last_attempt_at=timezone.now(),
             )
@@ -66,10 +146,9 @@ class SyncQueueService:
     @staticmethod
     @transaction.atomic
     def mark_completed(sync_id):
-        status_procesado = SyncStatusRepository.get_by_code("PROCESADO")
         return SyncQueueRepository.update(
             sync_id,
-            status=status_procesado,
+            status=SyncStatusChoices.SYNCED,
             processed_at=timezone.now(),
             last_error=None,
         )
@@ -80,7 +159,7 @@ class SyncQueueService:
         sync_item = SyncQueueRepository.get_by_id(sync_id)
         if not sync_item:
             return None
-        status = SyncStatusRepository.get_by_code("PENDIENTE" if sync_item.attempts < 3 else "ERROR")
+        status = SyncStatusChoices.PENDING if sync_item.attempts < 3 else SyncStatusChoices.ERROR
         return SyncQueueRepository.update(
             sync_item.id,
             status=status,

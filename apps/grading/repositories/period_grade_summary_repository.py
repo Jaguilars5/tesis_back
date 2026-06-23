@@ -25,8 +25,21 @@ class PeriodGradeSummaryRepository(BaseRepository):
         ).first()
 
     @classmethod
-    def get_needing_recovery(cls, academic_period_id):
+    def get_failing(cls, academic_period_id):
         return cls.model.objects.filter(
             academic_period_id=academic_period_id,
-            requires_recovery=True,
+            is_failing=True,
         ).select_related("enrollment__student", "subject_offering")
+
+    @classmethod
+    def count_failing(cls, enrollment_id, academic_period_id):
+        """
+        Fuente ÚNICA del número de materias reprobadas para un (matrícula, periodo).
+        Consumida tanto por `feature_builder` (riesgo) como por `early_alert_service`
+        (alertas) para garantizar el mismo conteo (Fase 2, §6.4).
+        """
+        return cls.model.objects.filter(
+            enrollment_id=enrollment_id,
+            academic_period_id=academic_period_id,
+            is_failing=True,
+        ).count()

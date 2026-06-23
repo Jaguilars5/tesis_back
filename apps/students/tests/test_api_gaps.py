@@ -17,7 +17,7 @@ from apps.iam.models import Role, User, Permission, UserRole, RolePermission
 from apps.core.tests.helpers import create_test_user, create_test_student
 from apps.core.constants.permissions import students
 
-from apps.students.models import Student, StudentRepresentative, Enrollment, EnrollmentStatus, WithdrawalReason
+from apps.students.models import Student, StudentRepresentative, Enrollment, WithdrawalReason
 from apps.institutions.models import SchoolYear, AcademicGrade, AcademicLevel, AcademicSublevel, Section
 from apps.students.services.enrollment_service import EnrollmentService
 
@@ -29,7 +29,6 @@ class StudentsSecurityAndAPITest(TestCase):
         self.client = APIClient()
 
         self.school_year = SchoolYear.objects.create(
-            name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
@@ -38,7 +37,7 @@ class StudentsSecurityAndAPITest(TestCase):
             academic_level=self.level, code="BASICA", name="Básica"
         )
         self.grade = AcademicGrade.objects.create(
-            academic_sublevel=self.sublevel, name="6to", sequence_order=6
+            academic_sublevel=self.sublevel, name="6to"
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
@@ -139,7 +138,7 @@ class StudentsSecurityAndAPITest(TestCase):
         
         # Verificar que se persistieron el motivo y la fecha
         enrollment = Enrollment.objects.get(id=enrollment_id)
-        self.assertEqual(enrollment.enrollment_status.code, "RET")
+        self.assertEqual(enrollment.enrollment_status, "RET")
         self.assertEqual(enrollment.withdrawal_reason, self.withdrawal_reason_cambio)
         self.assertIsNotNone(enrollment.withdrawal_date)
 
@@ -159,28 +158,23 @@ class StudentsSecurityAndAPITest(TestCase):
         # Verificar estado ACT tras transferencia
         enrollment.refresh_from_db()
         self.assertEqual(enrollment.section, new_section)
-        self.assertEqual(enrollment.enrollment_status.code, "ACT")
+        self.assertEqual(enrollment.enrollment_status, "ACT")
 
     def test_student_representatives_api(self):
         """Prueba integraciones en StudentRepresentativeViewSet (crear, set_primary, unlink)."""
         admin = create_test_user(email="admin_st_rep@example.com", is_superuser=True)
         self.client.force_authenticate(user=admin)
 
-        # Crear representante persona
-        from apps.people.models import DocumentType
-        doc_type, _ = DocumentType.objects.get_or_create(code="CC", defaults={"name": "Cedula"})
-        representante = Person.objects.create(
-            document_type=doc_type,
-            document_number="88888888",
-            names="Carlos",
-            last_names="Perez",
-            email="carlos@example.com",
+        # Crear representante (usuario con persona)
+        representante = create_test_user(
+            email="carlos@example.com", dni="88888888",
+            names="Carlos", last_names="Perez",
         )
 
         # 1. Asignar Representante
         data = {
             "student": self.student.id,
-            "person": representante.id,
+            "user": representante.id,
             "kinship": "Padre",
             "is_primary": True,
         }
@@ -189,31 +183,28 @@ class StudentsSecurityAndAPITest(TestCase):
         rel_id = response.json()["data"]["id"]
 
         # 2. Cambiar Principal
-        other_rep = Person.objects.create(
-            document_type=doc_type,
-            document_number="77777777",
-            names="Marta",
-            last_names="Perez",
-            email="marta@example.com",
+        other_rep = create_test_user(
+            email="marta@example.com", dni="77777777",
+            names="Marta", last_names="Perez",
         )
         # Crear segunda relacion
         self.client.post("/api/students/student-representative/", {
             "student": self.student.id,
-            "person": other_rep.id,
+            "user": other_rep.id,
             "kinship": "Madre",
             "is_primary": False,
         }, format="json")
 
         set_primary_data = {
             "student": self.student.id,
-            "person": other_rep.id,
+            "user": other_rep.id,
         }
         response_primary = self.client.post("/api/students/student-representative/set_primary/", set_primary_data, format="json")
         self.assertEqual(response_primary.status_code, status.HTTP_200_OK)
-        
+
         # Verificar cambio en BD
-        rel1 = StudentRepresentative.objects.get(student=self.student, person=representante)
-        rel2 = StudentRepresentative.objects.get(student=self.student, person=other_rep)
+        rel1 = StudentRepresentative.objects.get(student=self.student, user=representante)
+        rel2 = StudentRepresentative.objects.get(student=self.student, user=other_rep)
         self.assertFalse(rel1.is_primary)
         self.assertTrue(rel2.is_primary)
 

@@ -1,5 +1,13 @@
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import TextChoices, Sum
 from apps.core.models import TimeStampedModel
+
+
+class EvaluationBlockTypeChoices(TextChoices):
+    FORMATIVA = "FORMATIVA", "Formativa"
+    SUMATIVA = "SUMATIVA", "Sumativa"
+    PROJECT = "PROJECT", "Proyecto"
 
 
 class EvaluationBlock(TimeStampedModel):
@@ -22,7 +30,10 @@ class EvaluationBlock(TimeStampedModel):
         verbose_name="Oferta de Materia",
     )
     name = models.CharField(max_length=100, verbose_name="Nombre")
-    evaluation_type = models.ForeignKey("grading.EvaluationType", on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Tipo de evaluación")
+    block_type = models.CharField(
+        max_length=20, choices=EvaluationBlockTypeChoices.choices,
+        null=True, blank=True, verbose_name="Tipo de bloque",
+    )
     weight_percentage = models.DecimalField(
         max_digits=5,
         decimal_places=2,
@@ -35,10 +46,23 @@ class EvaluationBlock(TimeStampedModel):
         app_label = "grading"
         verbose_name = "Bloque de Evaluación"
         verbose_name_plural = "Bloques de Evaluación"
-        ordering = ["academic_period", "subject_offering", "evaluation_type"]
+        ordering = ["academic_period", "subject_offering", "block_type"]
         indexes = [
             models.Index(fields=["subject_offering", "academic_period"]),
         ]
 
+    def clean(self):
+        super().clean()
+        if self.weight_percentage and self.subject_offering_id and self.academic_period_id:
+            total = EvaluationBlock.objects.filter(
+                subject_offering=self.subject_offering,
+                academic_period=self.academic_period,
+                is_active=True,
+            ).exclude(pk=self.pk).aggregate(total=Sum("weight_percentage"))["total"] or 0
+            if total + self.weight_percentage > 100:
+                raise ValidationError(
+                    {"weight_percentage": f"La suma de pesos excede 100%. Actualmente: {total}%, intentando agregar: {self.weight_percentage}%"}
+                )
+
     def __str__(self):
-        return f"{self.academic_period.name} — {self.name} ({self.evaluation_type})"
+        return f"{self.academic_period.name} — {self.name} ({self.get_block_type_display()})"

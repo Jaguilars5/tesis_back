@@ -4,6 +4,12 @@ from apps.core.models import TimeStampedModel
 
 
 class Person(TimeStampedModel):
+    city = models.ForeignKey(
+        "people.City",
+        on_delete=models.PROTECT,
+        verbose_name="Ciudad de Residencia",
+        null=True,
+    )
     document_type = models.ForeignKey(
         "people.DocumentType",
         on_delete=models.PROTECT,
@@ -13,14 +19,14 @@ class Person(TimeStampedModel):
     document_number = models.CharField(
         max_length=20, unique=True, verbose_name="Número de Documento"
     )
+    birth_date = models.DateField(verbose_name="Fecha de Nacimiento")
     names = models.CharField(max_length=100, verbose_name="Nombres")
     last_names = models.CharField(max_length=100, verbose_name="Apellidos")
-    birth_date = models.DateField(
-        null=True, blank=True, verbose_name="Fecha de Nacimiento"
-    )
+
     email = models.EmailField(blank=True, verbose_name="Correo Electrónico")
     phone = models.CharField(max_length=15, blank=True, verbose_name="Teléfono")
     is_active = models.BooleanField(default=True, verbose_name="Activo")
+
     class Meta:
         app_label = "people"
         verbose_name = "Persona"

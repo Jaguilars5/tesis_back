@@ -1,6 +1,9 @@
+import logging
 from datetime import date
 from django.db import transaction
 from ..repositories import AttendanceRepository, AttendanceStatusRepository
+
+logger = logging.getLogger(__name__)
 
 
 class AttendanceService:
@@ -8,16 +11,24 @@ class AttendanceService:
     @transaction.atomic
     def create_attendance(enrollment_id, teacher_subject_section_id, academic_period_id,
                           attendance_date, attendance_status_id, absence_type_id=None,
-                          observation="", device_origin=None):
-        existing = AttendanceRepository.get_by_unique_key(
-            enrollment_id, teacher_subject_section_id, attendance_date
-        )
+                          observation="", device_origin=None, class_schedule_id=None):
+        if class_schedule_id:
+            existing = AttendanceRepository.get_by_unique_key_with_schedule(
+                enrollment_id, class_schedule_id, attendance_date
+            )
+        else:
+            existing = AttendanceRepository.get_by_unique_key(
+                enrollment_id, teacher_subject_section_id, attendance_date
+            )
+
         if existing:
             existing.academic_period_id = academic_period_id
             existing.attendance_status_id = attendance_status_id
             existing.absence_type_id = absence_type_id
             existing.observation = observation
             existing.device_origin = device_origin
+            if class_schedule_id:
+                existing.class_schedule_id = class_schedule_id
             existing.save()
             return existing
 
@@ -31,8 +42,23 @@ class AttendanceService:
             absence_type_id=absence_type_id,
             observation=observation,
             device_origin=device_origin,
+            class_schedule_id=class_schedule_id,
         )
         attendance.save()
+
+        if class_schedule_id:
+            try:
+                from apps.academic.models import ClassSchedule
+                cs = ClassSchedule.objects.get(id=class_schedule_id)
+                date_day = attendance_date.isoweekday()
+                if cs.day_of_week != date_day:
+                    logger.warning(
+                        f"Attendance #{attendance.id}: date {attendance_date} (day {date_day}) "
+                        f"doesn't match schedule day {cs.day_of_week} for ClassSchedule #{class_schedule_id}"
+                    )
+            except ClassSchedule.DoesNotExist:
+                pass
+
         return attendance
 
     @staticmethod

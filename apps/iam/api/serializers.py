@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import (
     TokenObtainPairSerializer,
@@ -10,6 +12,8 @@ from apps.iam.models import (
     RolePermission,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class UserLoginDataSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
@@ -20,7 +24,9 @@ class UserLoginDataSerializer(serializers.Serializer):
     email = serializers.EmailField(read_only=True)
     role = serializers.CharField(read_only=True, allow_null=True)
     role_id = serializers.IntegerField(read_only=True, allow_null=True)
+    student_id = serializers.IntegerField(read_only=True, allow_null=True)
     is_active = serializers.BooleanField(read_only=True)
+    must_change_password = serializers.BooleanField(read_only=True)
     permissions = serializers.ListField(child=serializers.CharField(), read_only=True)
 
 
@@ -47,16 +53,21 @@ class CustomTokenRefreshSerializer(TokenRefreshSerializer):
                 user = User.objects.get(id=int(user_id))
                 person = user.person
                 first_role = user.user_roles.select_related("role").first()
+                from apps.students.models import Student
+                student = Student.objects.filter(user=user).first()
+                student_id = student.pk if student else None
                 data["user"] = {
                     "id": user.id,
                     "username": user.username,
                     "dni": person.document_number if person else "",
                     "names": person.names if person else "",
                     "last_names": person.last_names if person else "",
-                    "email": user.email,
+                    "email": person.email if person else "",
                     "role": first_role.role.code if first_role else None,
                     "role_id": first_role.role.id if first_role else None,
+                    "student_id": student_id,
                     "is_active": user.is_active,
+                    "must_change_password": user.must_change_password,
                     "permissions": list(user.get_all_permissions()),
                 }
             except User.DoesNotExist:
@@ -70,16 +81,22 @@ class LoginSerializer(TokenObtainPairSerializer):
         user = self.user
         person = user.person
         first_role = user.user_roles.select_related("role").first()
+        from apps.students.models import Student
+        student = Student.objects.filter(user=user).first()
+        student_id = student.pk if student else None
+        logger.info("[LoginSerializer] user=%s, student=%s, student_id=%s", user.id, student, student_id)
         data["user"] = {
             "id": user.id,
             "username": user.username,
             "dni": person.document_number if person else "",
             "names": person.names if person else "",
             "last_names": person.last_names if person else "",
-            "email": user.email,
+            "email": person.email if person else "",
             "role": first_role.role.code if first_role else None,
             "role_id": first_role.role.id if first_role else None,
+            "student_id": student_id,
             "is_active": user.is_active,
+            "must_change_password": user.must_change_password,
             "permissions": list(user.get_all_permissions()),
         }
         return data
@@ -129,6 +146,7 @@ class UserListSerializer(serializers.ModelSerializer):
     dni = serializers.CharField(source="person.document_number", read_only=True)
     names = serializers.CharField(source="person.names", read_only=True)
     last_names = serializers.CharField(source="person.last_names", read_only=True)
+    email = serializers.CharField(source="person.email", read_only=True)
     role = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
@@ -155,6 +173,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
     dni = serializers.CharField(source="person.document_number", read_only=True)
     names = serializers.CharField(source="person.names", read_only=True)
     last_names = serializers.CharField(source="person.last_names", read_only=True)
+    email = serializers.CharField(source="person.email", read_only=True)
     role = serializers.SerializerMethodField(read_only=True)
     role_id = serializers.IntegerField(write_only=True, required=False)
 
@@ -183,12 +202,13 @@ class UserDetailSerializer(serializers.ModelSerializer):
         return None
 
     def validate_email(self, value):
+        from apps.people.models import Person
+
         instance = self.instance
-        if (
-            User.objects.filter(email=value)
-            .exclude(id=instance.id if instance else None)
-            .exists()
-        ):
+        qs = Person.objects.filter(email=value)
+        if instance and instance.person_id:
+            qs = qs.exclude(id=instance.person_id)
+        if qs.exists():
             raise serializers.ValidationError("Este email ya está registrado.")
         return value
 
@@ -203,7 +223,9 @@ class UserCreateSerializer(serializers.Serializer):
     role_id = serializers.IntegerField()
 
     def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
+        from apps.people.models import Person
+
+        if Person.objects.filter(email=value).exists():
             raise serializers.ValidationError("Este email ya está registrado.")
         return value
 

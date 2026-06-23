@@ -9,7 +9,7 @@ class StudentRepository(BaseRepository):
     @classmethod
     def get_by_dni(cls, dni):
         try:
-            return cls.model.objects.get(person__document_number=dni)
+            return cls.model.objects.get(user__person__document_number=dni)
         except cls.model.DoesNotExist:
             return None
 
@@ -17,7 +17,7 @@ class StudentRepository(BaseRepository):
     def get_by_section(cls, section_id, status_code="ACT"):
         return cls.model.objects.filter(
             enrollments__section_id=section_id,
-            enrollments__enrollment_status__code=status_code,
+            enrollments__enrollment_status=status_code,
             is_active=True,
         ).distinct()
 
@@ -26,12 +26,12 @@ class StudentRepository(BaseRepository):
         return (
             cls.model.objects.filter(is_active=True)
             .filter(
-                models.Q(person__names__icontains=query)
-                | models.Q(person__last_names__icontains=query)
-                | models.Q(person__document_number__icontains=query)
+                models.Q(user__person__names__icontains=query)
+                | models.Q(user__person__last_names__icontains=query)
+                | models.Q(user__person__document_number__icontains=query)
                 | models.Q(student_code__icontains=query)
             )
-            .order_by("person__last_names", "person__names")
+            .order_by("user__person__last_names", "user__person__names")
         )
 
 
@@ -39,18 +39,27 @@ class StudentRepresentativeRepository(BaseRepository):
     model = StudentRepresentative
 
     @classmethod
+    def get_all(cls, active_only=True):
+        queryset = super().get_all(active_only=active_only)
+        return queryset.select_related("user__person", "student__user__person")
+
+    @classmethod
     def get_by_student(cls, student_id):
-        return cls.model.objects.filter(student_id=student_id).select_related("person")
+        return cls.model.objects.filter(
+            student_id=student_id
+        ).select_related("user__person", "student__user__person")
 
     @classmethod
-    def get_by_person(cls, person_id):
-        return cls.model.objects.filter(person_id=person_id).select_related("student")
+    def get_by_user(cls, user_id):
+        return cls.model.objects.filter(
+            user_id=user_id
+        ).select_related("student__user__person")
 
     @classmethod
-    def get_relationship(cls, student_id, person_id):
+    def get_relationship(cls, student_id, user_id):
         try:
-            return cls.model.objects.get(
-                student_id=student_id, person_id=person_id
-            )
+            return cls.model.objects.select_related(
+                "user__person", "student__user__person"
+            ).get(student_id=student_id, user_id=user_id)
         except cls.model.DoesNotExist:
             return None

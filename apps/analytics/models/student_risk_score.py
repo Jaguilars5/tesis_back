@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import UniqueConstraint
 from apps.core.models import TimeStampedModel
 
 
@@ -7,7 +8,6 @@ class StudentRiskScore(TimeStampedModel):
         "students.Enrollment",
         on_delete=models.CASCADE,
         verbose_name="Matrícula",
-        null=True,  # Permite null temporal para facilitar migraciones desde el modelo antiguo
     )
     academic_period = models.ForeignKey(
         "academic.AcademicPeriod",
@@ -32,7 +32,12 @@ class StudentRiskScore(TimeStampedModel):
         ordering = ["-calculated_at"]
         verbose_name = "Puntaje de Riesgo del Estudiante"
         verbose_name_plural = "Puntajes de Riesgo de los Estudiantes"
-        unique_together = [("enrollment", "academic_period")]
+        constraints = [
+            UniqueConstraint(
+                fields=["enrollment", "academic_period", "model_version"],
+                name="unique_enrollment_period_model_version"
+            ),
+        ]
         indexes = [
             models.Index(fields=["academic_period", "risk_label"]),
             models.Index(fields=["calculated_at"]),

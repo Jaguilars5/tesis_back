@@ -13,7 +13,7 @@ from apps.attendance.models import AttendanceStatus
 from apps.grading.models import QualitativeScale
 from apps.academic.models import AcademicPeriod, Subject, SubjectAcademicConfig, SubjectOffering, TeacherSubjectSection, PeriodType
 from apps.institutions.models import SchoolYear, AcademicGrade, AcademicLevel, AcademicSublevel, Section
-from apps.students.models import Enrollment, EnrollmentStatus
+from apps.students.models import Enrollment
 
 
 class AttendanceAPIGapsTest(TestCase):
@@ -24,7 +24,6 @@ class AttendanceAPIGapsTest(TestCase):
 
         # 1. Estructura académica básica
         self.school_year = SchoolYear.objects.create(
-            name="2025",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 12, 31),
         )
@@ -40,9 +39,7 @@ class AttendanceAPIGapsTest(TestCase):
         )
         self.academic_grade = AcademicGrade.objects.create(
             academic_sublevel=self.academic_sublevel,
-            name="7",
-            sequence_order=1,
-        )
+            name="7"        )
         self.section = Section.objects.create(
             school_year=self.school_year,
             academic_grade=self.academic_grade,
@@ -59,14 +56,10 @@ class AttendanceAPIGapsTest(TestCase):
             last_names="Lopez",
             birth_date=date(2010, 1, 1),
         )
-        enr_status, _ = EnrollmentStatus.objects.get_or_create(
-            code="ACT", defaults={"name": "Activa"}
-        )
         self.enrollment = Enrollment.objects.create(
             student=self.student,
             section=self.section,
-            school_year=self.school_year,
-            enrollment_status=enr_status,
+            enrollment_status="ACT",
         )
 
         # 2. Configuración de Usuarios de Prueba (user_type="ADMIN" para omitir RLS)
@@ -96,11 +89,8 @@ class AttendanceAPIGapsTest(TestCase):
         subj_config = SubjectAcademicConfig.objects.create(
             subject=self.subject,
             academic_grade=self.academic_grade,
-            weekly_hours=5,
-            pedagogical_order=1,
-        )
+            weekly_hours=5        )
         offering = SubjectOffering.objects.create(
-            school_year=self.school_year,
             section=self.section,
             subject_academic_config=subj_config,
         )
@@ -135,7 +125,6 @@ class AttendanceAPIGapsTest(TestCase):
         self.attendance_status = AttendanceStatus.objects.create(
             code="P",
             name="Presente",
-            tipo="POSITIVO",
         )
 
         self.absence_type_none = AbsenceType.objects.create(
@@ -168,7 +157,7 @@ class AttendanceAPIGapsTest(TestCase):
         self.assertEqual(len(results), 1)
 
         # 2. Petición Autorizada (Crear)
-        new_status = AttendanceStatus.objects.create(code="FJ", name="Falta Justificada", tipo="NEGATIVO")
+        new_status = AttendanceStatus.objects.create(code="FJ", name="Falta Justificada")
         post_data = {
             "enrollment": self.enrollment.id,
             "teacher_subject_section": self.teacher_subject_section.id,

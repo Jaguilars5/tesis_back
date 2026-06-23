@@ -5,7 +5,7 @@ from django.test import TestCase
 from apps.people.models import Person
 from apps.core.tests.helpers import create_test_user, create_test_student
 from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSublevel, SchoolYear, Section
-from apps.students.models import Enrollment, EnrollmentStatus, Student, StudentRepresentative, Kinship, ResidentialZone
+from apps.students.models import Enrollment, Student, StudentRepresentative, Kinship
 from apps.students.repositories.enrollment_repo import EnrollmentRepository
 from apps.students.repositories.students_repo import StudentRepresentativeRepository, StudentRepository
 
@@ -14,15 +14,14 @@ class StudentsRepositoryTest(TestCase):
     """Tests para los repositorios del módulo students."""
 
     def setUp(self):
-        self.school_year = SchoolYear.objects.create(
-            name="2025", start_date=date(2025, 1, 1), end_date=date(2025, 12, 31),
+        self.school_year = SchoolYear.objects.create( start_date=date(2025, 1, 1), end_date=date(2025, 12, 31),
         )
         self.academic_level = AcademicLevel.objects.create(name="Primaria")
         self.academic_sublevel = AcademicSublevel.objects.create(
             academic_level=self.academic_level, code="BASICA", name="Básica"
         )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_sublevel=self.academic_sublevel, name="7", sequence_order=1,
+            academic_sublevel=self.academic_sublevel, name="7",
         )
         self.section = Section.objects.create(
             school_year=self.school_year, academic_grade=self.academic_grade,
@@ -30,7 +29,6 @@ class StudentsRepositoryTest(TestCase):
         )
         self.kinship_padre = Kinship.objects.create(code="PADRE", name="Padre")
         self.kinship_madre = Kinship.objects.create(code="MADRE", name="Madre")
-        self.residential_zone_urbana = ResidentialZone.objects.create(code="URBANA", name="Zona Urbana")
         self.student = create_test_student(
             document_number="0912345678", names="Juan", last_names="Lopez",
             birth_date=date(2010, 1, 1), student_code="EST-001",
@@ -39,12 +37,9 @@ class StudentsRepositoryTest(TestCase):
             document_number="0987654321", names="Maria", last_names="Garcia",
             birth_date=date(2011, 5, 10), student_code="EST-002",
         )
-        self.status, _ = EnrollmentStatus.objects.get_or_create(
-            code="ACT", defaults={"name": "Activa"},
-        )
         self.enrollment = Enrollment.objects.create(
             student=self.student, section=self.section,
-            enrollment_status=self.status,
+            enrollment_status="ACT",
         )
         self.user = create_test_user(
             email="rep@test.com", dni="0102030405",
@@ -55,16 +50,23 @@ class StudentsRepositoryTest(TestCase):
 
     def test_student_create(self):
         from apps.people.models import DocumentType
+        from apps.iam.models import User
         doc_type = DocumentType.objects.get_or_create(
             code="CC", defaults={"name": "Cédula de Ciudadanía"},
         )[0]
         new_person = Person.objects.create(
             document_type=doc_type, document_number="1234567890",
             names="Nuevo", last_names="Estudiante", email="nuevo@test.com",
+            birth_date=date(2010, 1, 1),
+        )
+        new_user = User.objects.create_user(
+            person=new_person,
+            username="nuevo.user",
+            password=None,
         )
         obj = StudentRepository.create(
             student_code="EST-003",
-            person=new_person,
+            user=new_user,
         )
         self.assertEqual(obj.student_code, "EST-003")
 
@@ -77,8 +79,8 @@ class StudentsRepositoryTest(TestCase):
         self.assertEqual(results.count(), 2)
 
     def test_student_update(self):
-        updated = StudentRepository.update(self.student.pk, residential_zone=self.residential_zone_urbana)
-        self.assertEqual(updated.residential_zone, self.residential_zone_urbana)
+        updated = StudentRepository.update(self.student.pk, student_code="EST-001-NEW")
+        self.assertEqual(updated.student_code, "EST-001-NEW")
 
     def test_student_delete(self):
         pk = self.student2.pk
@@ -117,7 +119,7 @@ class StudentsRepositoryTest(TestCase):
 
     def test_representative_create(self):
         obj = StudentRepresentativeRepository.create(
-            student=self.student, person=self.user.person,
+            student=self.student, user=self.user,
             kinship=self.kinship_padre, is_primary=True,
         )
         self.assertEqual(obj.kinship, self.kinship_padre)
@@ -125,31 +127,31 @@ class StudentsRepositoryTest(TestCase):
 
     def test_representative_get_by_id(self):
         rep = StudentRepresentative.objects.create(
-            student=self.student, person=self.user.person, kinship=self.kinship_padre,
+            student=self.student, user=self.user, kinship=self.kinship_padre,
         )
         result = StudentRepresentativeRepository.get_by_id(rep.pk)
         self.assertEqual(result.kinship, self.kinship_padre)
 
     def test_representative_get_by_student(self):
         StudentRepresentative.objects.create(
-            student=self.student, person=self.user.person, kinship=self.kinship_padre,
+            student=self.student, user=self.user, kinship=self.kinship_padre,
         )
         results = StudentRepresentativeRepository.get_by_student(self.student.pk)
         self.assertEqual(results.count(), 1)
 
-    def test_representative_get_by_person(self):
+    def test_representative_get_by_user(self):
         StudentRepresentative.objects.create(
-            student=self.student, person=self.user.person, kinship=self.kinship_padre,
+            student=self.student, user=self.user, kinship=self.kinship_padre,
         )
-        results = StudentRepresentativeRepository.get_by_person(self.user.person.pk)
+        results = StudentRepresentativeRepository.get_by_user(self.user.pk)
         self.assertEqual(results.count(), 1)
 
     def test_representative_get_relationship(self):
         StudentRepresentative.objects.create(
-            student=self.student, person=self.user.person, kinship=self.kinship_padre,
+            student=self.student, user=self.user, kinship=self.kinship_padre,
         )
         result = StudentRepresentativeRepository.get_relationship(
-            self.student.pk, self.user.person.pk,
+            self.student.pk, self.user.pk,
         )
         self.assertIsNotNone(result)
 
@@ -159,7 +161,7 @@ class StudentsRepositoryTest(TestCase):
 
     def test_representative_delete(self):
         rep = StudentRepresentative.objects.create(
-            student=self.student, person=self.user.person, kinship=self.kinship_madre,
+            student=self.student, user=self.user, kinship=self.kinship_madre,
         )
         pk = rep.pk
         StudentRepresentativeRepository.delete(pk)

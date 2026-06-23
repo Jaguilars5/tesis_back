@@ -18,6 +18,7 @@ class StandardResponseRendererTest(TestCase):
         data = {"name": "test"}
         result = self.renderer.render(data, renderer_context=self.context)
         import json
+
         parsed = json.loads(result)
         self.assertTrue(parsed["ok"])
         self.assertEqual(parsed["data"], {"name": "test"})
@@ -28,15 +29,17 @@ class StandardResponseRendererTest(TestCase):
         data = {"detail": "Not found"}
         result = self.renderer.render(data, renderer_context=error_context)
         import json
+
         parsed = json.loads(result)
         self.assertFalse(parsed["ok"])
         self.assertEqual(parsed["data"], {"detail": "Not found"})
-        self.assertEqual(parsed["msg"], "Error de validaci\u00f3n o proceso.")
+        self.assertEqual(parsed["msg"], "Error de validación o proceso.")
 
     def test_already_formatted_response(self):
         data = {"ok": True, "data": {"id": 1}, "msg": "Success"}
         result = self.renderer.render(data, renderer_context=self.context)
         import json
+
         parsed = json.loads(result)
         self.assertEqual(parsed, data)
 
@@ -45,6 +48,7 @@ class StandardResponseRendererTest(TestCase):
         data = {"error": "Internal error"}
         result = self.renderer.render(data, renderer_context=error_context)
         import json
+
         parsed = json.loads(result)
         self.assertFalse(parsed["ok"])
-        self.assertEqual(parsed["msg"], "Error de validaci\u00f3n o proceso.")
+        self.assertEqual(parsed["msg"], "Error de validación o proceso.")

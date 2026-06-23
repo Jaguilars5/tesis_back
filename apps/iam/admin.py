@@ -4,9 +4,9 @@ from .models import User, Role, Permission, UserRole, RolePermission
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
-    list_display = ["email", "is_active", "is_staff", "is_superuser", "created_at"]
+    list_display = ["username", "is_active", "is_staff", "is_superuser", "created_at"]
     list_filter = ["is_active", "is_staff", "is_superuser"]
-    search_fields = ["email", "person__names", "person__last_names"]
+    search_fields = ["username", "person__names", "person__last_names"]
 
 
 @admin.register(Role)

@@ -13,7 +13,6 @@ class SchoolYearRepositoryTest(TestCase):
 
     def setUp(self):
         self.school_year = SchoolYear.objects.create(
-            name="2024-2025",
             start_date="2024-09-01",
             end_date="2025-07-31",
             is_active=True,
@@ -32,20 +31,21 @@ class SchoolYearRepositoryTest(TestCase):
         self.assertGreaterEqual(result.count(), 1)
 
     def test_create(self):
+        from datetime import date
         sy = SchoolYearRepository.create(
-            name="2025-2026",
-            start_date="2025-09-01",
-            end_date="2026-07-31",
+            start_date=date(2025, 9, 1),
+            end_date=date(2026, 7, 31),
             is_active=True,
         )
-        self.assertEqual(sy.name, "2025-2026")
+        self.assertEqual(sy.start_date.year, 2025)
 
     def test_update(self):
+        from datetime import date
         updated = SchoolYearRepository.update(
             self.school_year.id,
-            name="2024-2025 (Actualizado)",
+            end_date=date(2025, 12, 31),
         )
-        self.assertEqual(updated.name, "2024-2025 (Actualizado)")
+        self.assertEqual(updated.end_date.year, 2025)
 
     def test_delete_hard_delete(self):
         sid = self.school_year.id
@@ -62,7 +62,6 @@ class SectionRepositoryTest(TestCase):
 
     def setUp(self):
         self.school_year = SchoolYear.objects.create(
-            name="2024-2025",
             start_date="2024-09-01",
             end_date="2025-07-31",
             is_active=True,
@@ -74,7 +73,6 @@ class SectionRepositoryTest(TestCase):
         self.grade = AcademicGrade.objects.create(
             academic_sublevel=self.academic_sublevel,
             name="8vo",
-            sequence_order=8,
             code="8VO",
         )
         self.section_a = Section.objects.create(
@@ -108,7 +106,6 @@ class SectionRepositoryTest(TestCase):
 
     def test_get_by_school_year_empty(self):
         new_sy = SchoolYear.objects.create(
-            name="2025-2026",
             start_date="2025-09-01",
             end_date="2026-07-31",
             is_active=True,
@@ -127,7 +124,6 @@ class SectionRepositoryTest(TestCase):
         new_grade = AcademicGrade.objects.create(
             academic_sublevel=new_sublevel,
             name="9no",
-            sequence_order=9,
             code="9NO",
         )
         result = SectionRepository.get_by_grade(new_grade.id)

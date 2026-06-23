@@ -21,7 +21,9 @@ class RolePermission(TimeStampedModel):
         app_label = "iam"
         verbose_name = "Permiso del Rol"
         verbose_name_plural = "Permisos del Rol"
-        unique_together = ("role", "permission")
+        constraints = [
+            models.UniqueConstraint(fields=["role", "permission"], name="unique_role_permission"),
+        ]
         indexes = [
             models.Index(fields=["role"]),
             models.Index(fields=["permission"]),

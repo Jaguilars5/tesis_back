@@ -52,7 +52,6 @@ class RoleRepository:
         for key, value in kwargs.items():
             if key in allowed_fields and value is not None:
                 setattr(role, key, value)
-        role.updated_at = timezone.now()
         role.save()
         return role
 

@@ -57,7 +57,6 @@ class PermissionRepository:
         for key, value in kwargs.items():
             if key in allowed_fields and value is not None:
                 setattr(permission, key, value)
-        permission.updated_at = timezone.now()
         permission.save()
         return permission
 

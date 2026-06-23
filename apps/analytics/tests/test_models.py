@@ -15,7 +15,6 @@ class StudentRiskScoreModelTest(TestCase):
 
     def setUp(self):
         self.school_year = SchoolYear.objects.create(
-            name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
@@ -30,7 +29,7 @@ class StudentRiskScoreModelTest(TestCase):
             academic_level=self.academic_level, name="Básica"
         )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_sublevel=self.academic_sublevel, name="6to", sequence_order=6
+            academic_sublevel=self.academic_sublevel, name="6to"
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
@@ -44,12 +43,11 @@ class StudentRiskScoreModelTest(TestCase):
             last_names="Perez",
             birth_date=date(2012, 5, 15),
         )
-        from apps.students.models import EnrollmentStatus, Enrollment
-        act_status, _ = EnrollmentStatus.objects.get_or_create(code="ACT", defaults={"name": "Activa"})
+        from apps.students.models import Enrollment
         self.enrollment = Enrollment.objects.create(
             student=self.student,
             section=self.section,
-            enrollment_status=act_status,
+            enrollment_status="ACT",
         )
 
     def test_risk_score_creation(self):
@@ -116,7 +114,6 @@ class StudentFeatureSnapshotModelTest(TestCase):
 
     def setUp(self):
         self.school_year = SchoolYear.objects.create(
-            name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
@@ -131,7 +128,7 @@ class StudentFeatureSnapshotModelTest(TestCase):
             academic_level=self.academic_level, name="Básica"
         )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_sublevel=self.academic_sublevel, name="6to", sequence_order=6
+            academic_sublevel=self.academic_sublevel, name="6to"
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
@@ -145,12 +142,11 @@ class StudentFeatureSnapshotModelTest(TestCase):
             last_names="Lopez",
             birth_date=date(2012, 3, 10),
         )
-        from apps.students.models import EnrollmentStatus, Enrollment
-        act_status, _ = EnrollmentStatus.objects.get_or_create(code="ACT", defaults={"name": "Activa"})
+        from apps.students.models import Enrollment
         self.enrollment = Enrollment.objects.create(
             student=self.student,
             section=self.section,
-            enrollment_status=act_status,
+            enrollment_status="ACT",
         )
 
     def test_snapshot_creation(self):

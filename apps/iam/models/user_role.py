@@ -26,7 +26,9 @@ class UserRole(TimeStampedModel):
         app_label = "iam"
         verbose_name = "Rol del Usuario"
         verbose_name_plural = "Roles del Usuario"
-        unique_together = ("user", "role")
+        constraints = [
+            models.UniqueConstraint(fields=["user", "role"], name="unique_user_role"),
+        ]
 
     def __str__(self):
         return f"{self.user} → {self.role.name}"

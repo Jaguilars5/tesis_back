@@ -1,61 +1,48 @@
 # Módulo `people` — Gestión de Personas
 
-> Gestión de personas físicas y sus tipos de documento. Es la base para estudiantes, docentes, representantes y cualquier actor del sistema.
+> Gestión de personas físicas y sus tipos de documento. Base para estudiantes, docentes, representantes y cualquier actor del sistema.
 
-## Modelos
+## Modelos (2)
 
 | Modelo | Descripción | Campos clave |
 |--------|-------------|-------------|
-| `DocumentType` | Catálogo de tipos de documento de identidad | `code` (unique: CC, CE, PP, RC, TI, NIT), `name` |
-| `Person` | Persona física con datos personales | `document_type` (FK), `document_number` (unique), `names`, `last_names`, `email`, `phone`, `birth_date`, `gender`, `address`, `full_name` (property), `age` (property) |
+| `DocumentType` | Catálogo de tipos de documento | `code` (unique: CC, CE, PP, RC, TI, NIT), `name`, `is_active`. Ordenado por `name`. `db_table = "people_document_type"`. Hereda `TimeStampedModel` |
+| `Person` | Persona física con datos personales | `document_type` (FK, nullable), `document_number` (unique), `names`, `last_names`, `birth_date`, `email`, `phone`, `is_active`. Properties: `get_full_name()`, `get_age()`. Hereda `TimeStampedModel` |
 
-## API
+## Repositorios (2)
 
-| Método | Endpoint | Descripción | Permiso requerido |
-|--------|----------|-------------|-------------------|
-| GET | `/api/people/persons/` | Listar personas | `people.view_person` |
-| POST | `/api/people/persons/` | Crear persona | `people.create_person` |
-| GET | `/api/people/persons/{id}/` | Obtener persona | `people.view_person` |
-| PATCH | `/api/people/persons/{id}/` | Actualizar persona | `people.update_person` |
-| DELETE | `/api/people/persons/{id}/` | Eliminar persona | `people.delete_person` |
-| GET | `/api/people/persons/search/?document_number=` | Buscar por documento | `people.view_person` |
-| GET/POST | `/api/people/document-types/` | Listar/Crear tipos | `people.view/create_document_type` |
-| GET/PATCH/DELETE | `/api/people/document-types/{id}/` | CRUD individual | `people.view/update/delete_document_type` |
+| Repositorio | Métodos adicionales | Nota |
+|-------------|-------------------|------|
+| `PersonRepository` | `get_all()`, `get_by_id()`, `get_by_document_number()`, `search()`, `get_by_email()`, `create()` | **No hereda `BaseRepository`** |
+| `DocumentTypeRepository` | `get_all()` ordenado por `name` | Hereda `BaseRepository` |
 
-## Respuestas Enriquecidas
+## Servicios (2)
 
-Todas las respuestas siguen el formato `{"ok": true, "data": {...}, "msg": ""}`.
+| Servicio | Métodos | Descripción |
+|----------|---------|-------------|
+| `PersonService` | `create_person_with_user()`, `create_person_with_student()`, `search_person()` | Creación transaccional de Person + User o Person + Student |
+| `DocumentTypeService` | `list_document_types()`, `get_document_type()`, `create_document_type()`, `update_document_type()`, `delete_document_type()` | CRUD de tipos de documento |
 
-```json
-{
-  "ok": true,
-  "data": {
-    "id": 1,
-    "document_type": 1,
-    "document_type_name": "Cédula de Ciudadanía",
-    "document_number": "1234567890",
-    "names": "Juan",
-    "last_names": "Pérez",
-    "full_name": "Juan Pérez",
-    "email": "juan@example.com",
-    "phone": "0987654321",
-    "birth_date": "2000-01-15",
-    "age": 25,
-    "gender": "M",
-    "address": "Av. Siempre Viva 123"
-  },
-  "msg": ""
-}
-```
+## API — Endpoints
 
-Los listados paginados devuelven `data` con `{ count, next, previous, results }`.
+| Método | Endpoint | ViewSet | Permiso |
+|--------|----------|---------|---------|
+| GET/POST | `/api/people/persons/` | PersonViewSet | `people.view/create_person` |
+| GET/PUT/PATCH/DEL | `/api/people/persons/{id}/` | PersonViewSet | `people.view/update/delete_person` |
+| GET/POST | `/api/people/document-types/` | DocumentTypeViewSet | `people.view/create_document_type` |
+| GET/PUT/PATCH/DEL | `/api/people/document-types/{id}/` | DocumentTypeViewSet | `people.view/update/delete_document_type` |
+
+> No existe endpoint `persons/search/` — no hay acción `search` definida en `PersonViewSet`.
+
+## Serializers — Campos ReadOnly
+
+| Serializer | ReadOnly |
+|------------|----------|
+| `PersonSerializer` | `full_name`, `age`, `id`, `created_at`, `updated_at` |
+| `DocumentTypeSerializer` | — |
 
 ## Tests
 
 ```bash
 python manage.py test apps.people --settings=config.settings.test
 ```
-
-## Dependencias
-
-- Ninguna (app base, otras apps dependen de Person)

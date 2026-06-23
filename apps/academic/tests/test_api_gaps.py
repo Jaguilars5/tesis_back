@@ -24,8 +24,6 @@ from apps.academic.models import (
     TeacherSubjectSection,
     SubjectAcademicConfig,
     SubjectOffering,
-    InterdisciplinaryProject,
-    SubjectProject,
     PeriodType,
 )
 from apps.academic.services.academic_service import AcademicService
@@ -36,7 +34,6 @@ class AcademicModelGapsTest(TestCase):
 
     def setUp(self):
         self.school_year = SchoolYear.objects.create(
-            name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
@@ -45,7 +42,7 @@ class AcademicModelGapsTest(TestCase):
             academic_level=self.level, name="Básica"
         )
         self.grade = AcademicGrade.objects.create(
-            academic_sublevel=self.sublevel, name="1ero Bachillerato", sequence_order=10
+            academic_sublevel=self.sublevel, name="1ero Bachillerato"
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
@@ -58,16 +55,15 @@ class AcademicModelGapsTest(TestCase):
             subject=self.subject,
             academic_grade=self.grade,
             weekly_hours=5,
-            pedagogical_order=1,
             is_required=True,
         )
         self.offering = SubjectOffering.objects.create(
-            school_year=self.school_year,
             section=self.section,
             subject_academic_config=self.config,
         )
         self.period_type = PeriodType.objects.get_or_create(
-            code="REGULAR", defaults={"name": "Regular"}
+            code="TRIMESTRE",
+            defaults={"name": "Trimestre", "divisions_per_year": 3},
         )[0]
         self.period = AcademicPeriod.objects.create(
             school_year=self.school_year,
@@ -81,14 +77,14 @@ class AcademicModelGapsTest(TestCase):
     def test_academic_period_creation(self):
         """Verifica la creación del período académico."""
         self.assertEqual(self.period.name, "Primer Trimestre")
-        self.assertEqual(self.period.period_type.code, "REGULAR")
+        self.assertEqual(self.period.period_type.code, "TRIMESTRE")
+        self.assertEqual(self.period.period_type.divisions_per_year, 3)
         self.assertTrue(self.period.is_regular_period)
         self.assertEqual(str(self.period), "Primer Trimestre")
 
     def test_subject_academic_config_creation(self):
         """Verifica la relación de configuración de materia por grado."""
         self.assertEqual(self.config.weekly_hours, 5)
-        self.assertEqual(self.config.pedagogical_order, 1)
         self.assertTrue(self.config.is_required)
         self.assertEqual(str(self.config), "Matemáticas - 1ero Bachillerato")
 
@@ -108,40 +104,12 @@ class AcademicModelGapsTest(TestCase):
         self.assertEqual(assignment.subject_offering, self.offering)
         self.assertTrue(assignment.is_active)
 
-    def test_interdisciplinary_project_creation(self):
-        """Verifica la creación del proyecto interdisciplinario."""
-        project = InterdisciplinaryProject.objects.create(
-            academic_period=self.period,
-            title="Proyecto del Medio Ambiente",
-            description="Cuidado del entorno escolar",
-            start_date=date(2024, 10, 1),
-            delivery_date=date(2024, 10, 31),
-        )
-        self.assertEqual(project.title, "Proyecto del Medio Ambiente")
-        self.assertEqual(str(project), "Proyecto del Medio Ambiente")
-
-    def test_subject_project_creation(self):
-        """Verifica el modelo de asignatura del proyecto."""
-        project = InterdisciplinaryProject.objects.create(
-            academic_period=self.period,
-            title="Proyecto del Medio Ambiente",
-            start_date=date(2024, 10, 1),
-            delivery_date=date(2024, 10, 31),
-        )
-        sub_proj = SubjectProject.objects.create(
-            interdisciplinary_project=project,
-            subject_offering=self.offering,
-        )
-        self.assertEqual(sub_proj.interdisciplinary_project, project)
-        self.assertEqual(sub_proj.subject_offering, self.offering)
-
 
 class AcademicServiceGapsTest(TestCase):
     """Tests para los métodos corregidos del AcademicService."""
 
     def setUp(self):
         self.school_year = SchoolYear.objects.create(
-            name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
@@ -150,7 +118,7 @@ class AcademicServiceGapsTest(TestCase):
             academic_level=self.level, name="Básica"
         )
         self.grade = AcademicGrade.objects.create(
-            academic_sublevel=self.sublevel, name="1ero Bachillerato", sequence_order=10
+            academic_sublevel=self.sublevel, name="1ero Bachillerato"
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
@@ -162,22 +130,22 @@ class AcademicServiceGapsTest(TestCase):
         self.config = SubjectAcademicConfig.objects.create(
             subject=self.subject,
             academic_grade=self.grade,
-            weekly_hours=5,
-            pedagogical_order=1,
-        )
+            weekly_hours=5        )
         self.offering = SubjectOffering.objects.create(
-            school_year=self.school_year,
             section=self.section,
             subject_academic_config=self.config,
         )
-        PeriodType.objects.get_or_create(code="REGULAR", defaults={"name": "Regular"})
+        PeriodType.objects.get_or_create(
+            code="TRIMESTRE",
+            defaults={"name": "Trimestre", "divisions_per_year": 3},
+        )
 
     def test_service_create_academic_period(self):
         """Prueba create_academic_period con parámetros reales."""
         period = AcademicService.create_academic_period(
             name="Segundo Trimestre",
             school_year_id=self.school_year.id,
-            period_type="REGULAR",
+            period_type="TRIMESTRE",
             start_date=date(2024, 12, 1),
             end_date=date(2025, 3, 1),
         )
@@ -220,7 +188,6 @@ class AcademicSecurityAndAPITest(TestCase):
         self.client = APIClient()
 
         self.school_year = SchoolYear.objects.create(
-            name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
@@ -229,7 +196,7 @@ class AcademicSecurityAndAPITest(TestCase):
             academic_level=self.level, name="Básica"
         )
         self.grade = AcademicGrade.objects.create(
-            academic_sublevel=self.sublevel, name="1ero Bachillerato", sequence_order=10
+            academic_sublevel=self.sublevel, name="1ero Bachillerato"
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
@@ -241,16 +208,14 @@ class AcademicSecurityAndAPITest(TestCase):
         self.config = SubjectAcademicConfig.objects.create(
             subject=self.subject,
             academic_grade=self.grade,
-            weekly_hours=5,
-            pedagogical_order=1,
-        )
+            weekly_hours=5        )
         self.offering = SubjectOffering.objects.create(
-            school_year=self.school_year,
             section=self.section,
             subject_academic_config=self.config,
         )
         self.period_type = PeriodType.objects.get_or_create(
-            code="REGULAR", defaults={"name": "Regular"}
+            code="TRIMESTRE",
+            defaults={"name": "Trimestre", "divisions_per_year": 3},
         )[0]
         self.period = AcademicPeriod.objects.create(
             school_year=self.school_year,
@@ -319,8 +284,8 @@ class AcademicSecurityAndAPITest(TestCase):
             "school_year": self.school_year.id,
             "name": "Segundo Trimestre",
             "period_type": self.period_type.id,
-            "start_date": "2024-12-01",
-            "end_date": "2025-03-01",
+            "start_date": "2025-01-16",
+            "end_date": "2025-04-15",
         }
         
         # Debe fallar con 403
@@ -361,26 +326,4 @@ class AcademicSecurityAndAPITest(TestCase):
         self.assertEqual(response_del.status_code, status.HTTP_200_OK)
         self.assertFalse(response_del.json()["data"]["is_active"])
 
-    def test_interdisciplinary_project_api(self):
-        """Prueba integraciones en InterdisciplinaryProjectViewSet y SubjectProjectViewSet."""
-        admin = create_test_user(email="admin_ac_proj@example.com", is_superuser=True)
-        self.client.force_authenticate(user=admin)
 
-        # POST InterdisciplinaryProject
-        proj_data = {
-            "academic_period": self.period.id,
-            "title": "Proyecto Tecnológico",
-            "start_date": "2024-11-01",
-            "delivery_date": "2024-11-30",
-        }
-        response_proj = self.client.post("/api/academic/interdisciplinary-projects/", proj_data, format="json")
-        self.assertEqual(response_proj.status_code, status.HTTP_201_CREATED)
-        proj_id = response_proj.json()["data"]["id"]
-
-        # POST SubjectProject
-        sub_proj_data = {
-            "interdisciplinary_project": proj_id,
-            "subject_offering": self.offering.id,
-        }
-        response_sub = self.client.post("/api/academic/subject-projects/", sub_proj_data, format="json")
-        self.assertEqual(response_sub.status_code, status.HTTP_201_CREATED)

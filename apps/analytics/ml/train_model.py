@@ -1,38 +1,28 @@
 """
 Script para entrenar el modelo de riesgo académico.
 Ejecutar con: python manage.py train_risk_model --period-id=X
+
+El contrato de features (nombres y orden de columnas) vive en `features.py` y es
+compartido con la inferencia (`apps/analytics/tasks`). NO duplicar la lista aquí.
 """
-import joblib
-import pandas as pd
-from pathlib import Path
-from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report
 from ..models import StudentFeatureSnapshot, StudentRiskScore
+from .features import FEATURE_COLUMNS, MODEL_PATH, _to_number
 
 
 class RiskModelTrainer:
 
-    FEATURE_COLUMNS = [
-        "attendance_rate",
-        "consecutive_absences_max",
-        "tardiness_count",
-        "justified_absences",
-        "unjustified_absences",
-        "formative_avg_normalized",
-        "summative_avg_normalized",
-        "grade_trend_slope",
-        "failing_subjects_count",
-        "conduct_score",
-        "severe_incidents_count",
-        "family_notified_ratio",
-        "prev_period_avg_grade",
-        "age_grade_gap",
-        "is_repeat",
-        "has_special_needs",
-    ]
+    # Fuente de verdad única: el mismo contrato que consume la inferencia.
+    FEATURE_COLUMNS = FEATURE_COLUMNS
 
-    def train(self, period_id=None):
+    def train(self, period_id=None, model_path=None):
+        # Imports perezosos: joblib/pandas/scikit-learn solo se requieren al
+        # entrenar (no para importar el contrato de features ni la clase).
+        import joblib
+        import pandas as pd
+        from sklearn.ensemble import GradientBoostingClassifier
+        from sklearn.model_selection import train_test_split
+        from sklearn.metrics import classification_report
+
         snapshots = StudentFeatureSnapshot.objects.all()
         if period_id:
             snapshots = snapshots.filter(academic_period_id=period_id)
@@ -48,7 +38,7 @@ class RiskModelTrainer:
             if not score:
                 continue
 
-            features = [getattr(snapshot, col, 0) or 0 for col in self.FEATURE_COLUMNS]
+            features = [_to_number(getattr(snapshot, col, 0)) for col in self.FEATURE_COLUMNS]
             X.append(features)
             y.append(score.risk_label)
 
@@ -69,8 +59,8 @@ class RiskModelTrainer:
         y_pred = model.predict(X_test)
         print(classification_report(y_test, y_pred))
 
-        model_path = Path(__file__).parent / "risk_model.joblib"
-        joblib.dump(model, model_path)
-        print(f"Modelo guardado en: {model_path}")
+        target_path = model_path or MODEL_PATH
+        joblib.dump(model, target_path)
+        print(f"Modelo guardado en: {target_path}")
 
         return model

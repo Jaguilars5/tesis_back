@@ -3,27 +3,21 @@ from io import StringIO
 from django.core.management import call_command
 from django.test import TestCase
 
-from apps.academic.models import DayOfWeek, PeriodType, Subject
-from apps.analytics.models import AlertType, RiskFactor, UrgencyLevel
+from apps.academic.models import PeriodType, Subject
+from apps.analytics.models import RiskFactor
 from apps.attendance.models import AbsenceType, AttendanceStatus
 from apps.behavior.models import (
-    DevelopmentLevel, IncidentType, Severity,
-    SocioemotionalArea, SocioemotionalSkill,
+    IncidentType, Severity,
 )
 from apps.grading.models import (
     ActivityType,
-    EvaluationType,
-    GradeType,
-    PromotionStatus,
     QualitativeScale,
-    RecoveryProcessType,
-    RecoveryProcessStatus,
+    QualitativeScaleSublevel,
 )
-from apps.institutions.models import AcademicSublevel
-from apps.integration.models import SyncOperation, SyncStatus
+from apps.institutions.models import AcademicLevel, AcademicSublevel
 from apps.people.models import DocumentType
 from apps.students.models import (
-    EnrollmentStatus, Kinship, ResidentialZone,
+    Kinship,
     SpecialNeedsType, WithdrawalReason,
 )
 
@@ -31,34 +25,20 @@ from apps.students.models import (
 CATALOG_COUNTS = {
     DocumentType: 6,
     AttendanceStatus: 4,
-    GradeType: 3,
     QualitativeScale: 4,
-    PeriodType: 3,
+    QualitativeScaleSublevel: 20,
+    PeriodType: 6,
     ActivityType: 6,
-    EvaluationType: 3,
-    PromotionStatus: 3,
-    RecoveryProcessType: 3,
-    RecoveryProcessStatus: 5,
     AbsenceType: 4,
     IncidentType: 4,
-    SocioemotionalSkill: 5,
     Subject: 7,
+    AcademicLevel: 2,
     AcademicSublevel: 5,
-    AlertType: 5,
-    UrgencyLevel: 4,
     RiskFactor: 5,
-    SyncOperation: 3,
-    SyncStatus: 6,
-    EnrollmentStatus: 5,
     WithdrawalReason: 6,
-    ResidentialZone: 3,
     SpecialNeedsType: 7,
     Kinship: 7,
     Severity: 4,
-    SocioemotionalArea: 5,
-    DevelopmentLevel: 3,
-    DayOfWeek: 7,
-    RecoveryProcessStatus: 5,
 }
 
 

@@ -8,7 +8,6 @@ class StudentFeatureSnapshot(TimeStampedModel):
         on_delete=models.CASCADE,
         verbose_name="Matrícula",
         help_text="Matrícula del estudiante",
-        null=True,  # Permite null temporal para facilitar migraciones desde el modelo antiguo
     )
     academic_period = models.ForeignKey(
         "academic.AcademicPeriod",
@@ -58,7 +57,34 @@ class StudentFeatureSnapshot(TimeStampedModel):
     has_special_needs = models.BooleanField(
         default=False, verbose_name="Tiene NEE"
     )
-    active_alerts = models.IntegerField(default=0, verbose_name="Alertas Activas")
+    # ─── Dimensiones analíticas / de segmentación (Fase 4 · Auditoría §5 F) ───
+    # NO son features numéricas del modelo ML (ciudad = alta cardinalidad,
+    # motivo de retiro = variable de resultado / fuga de información). Se persisten
+    # para segmentar riesgo y deserción en dashboards y reportes.
+    city = models.ForeignKey(
+        "people.City",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="feature_snapshots",
+        verbose_name="Ciudad de Origen",
+    )
+    special_needs_type = models.ForeignKey(
+        "students.SpecialNeedsType",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="feature_snapshots",
+        verbose_name="Tipo de NEE",
+    )
+    withdrawal_reason = models.ForeignKey(
+        "students.WithdrawalReason",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="feature_snapshots",
+        verbose_name="Motivo de Retiro",
+    )
     is_current = models.BooleanField(default=False, verbose_name="Es actual")
     snapshot_trigger = models.CharField(
         max_length=10,
@@ -72,12 +98,22 @@ class StudentFeatureSnapshot(TimeStampedModel):
         app_label = "analytics"
         verbose_name = "Instantánea de Métricas de Estudiante"
         verbose_name_plural = "Instantáneas de Métricas de Estudiantes"
-        unique_together = [("enrollment", "academic_period")]
+        unique_together = ["enrollment", "academic_period"]
         indexes = [
             models.Index(fields=["academic_period", "failing_subjects_count"]),
             models.Index(fields=["academic_period", "attendance_rate"]),
             models.Index(fields=["calculated_at"]),
+            models.Index(fields=["enrollment", "academic_period", "is_current"]),
         ]
 
     def __str__(self):
         return f"Features for {self.enrollment} ({self.academic_period})"
+
+    def save(self, *args, **kwargs):
+        if self.is_current:
+            StudentFeatureSnapshot.objects.filter(
+                enrollment=self.enrollment,
+                academic_period=self.academic_period,
+                is_current=True,
+            ).exclude(pk=self.pk).update(is_current=False)
+        super().save(*args, **kwargs)

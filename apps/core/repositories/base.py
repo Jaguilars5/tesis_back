@@ -33,6 +33,14 @@ class BaseRepository:
             return None
 
     @classmethod
+    def filter(cls, **filters):
+        return cls.model.objects.filter(**filters)
+
+    @classmethod
+    def first(cls, **filters):
+        return cls.model.objects.filter(**filters).first()
+
+    @classmethod
     def exists(cls, **filters):
         return cls.model.objects.filter(**filters).exists()
 
@@ -46,6 +54,10 @@ class BaseRepository:
         data.setdefault("created_at", now)
         data["updated_at"] = now
         return cls.model.objects.create(**data)
+
+    @classmethod
+    def get_or_create(cls, defaults=None, **lookup):
+        return cls.model.objects.get_or_create(defaults=defaults, **lookup)
 
     @classmethod
     def update(cls, pk, **data):

@@ -22,9 +22,7 @@ from apps.analytics.tasks import (
 )
 from apps.grading.models import (
     BlockComponent,
-    ComponentIndicator,
     EvaluationBlock,
-    EvaluationType,
     EvaluativeActivity,
     StudentNote,
     ActivityType,
@@ -35,13 +33,12 @@ from apps.behavior.models import ConductIncident
 from apps.attendance.models import AttendanceStatus
 from apps.behavior.models import IncidentType
 from apps.institutions.models import AcademicLevel, AcademicGrade, AcademicSublevel, SchoolYear
-from apps.students.models import Enrollment, EnrollmentStatus, Student
+from apps.students.models import Enrollment, Student
 
 
 class AcademicRiskModelTest(TestCase):
     def setUp(self):
         self.school_year = SchoolYear.objects.create(
-            name="2026",
             start_date=date(2026, 1, 1),
             end_date=date(2026, 12, 31),
         )
@@ -56,7 +53,7 @@ class AcademicRiskModelTest(TestCase):
             academic_level=self.academic_level, name="Básica"
         )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_sublevel=self.academic_sublevel, name="8", sequence_order=8
+            academic_sublevel=self.academic_sublevel, name="8"
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
@@ -78,11 +75,8 @@ class AcademicRiskModelTest(TestCase):
         subj_config = SubjectAcademicConfig.objects.create(
             subject=self.subject,
             academic_grade=self.academic_grade,
-            weekly_hours=5,
-            pedagogical_order=1,
-        )
+            weekly_hours=5        )
         offering = SubjectOffering.objects.create(
-            school_year=self.school_year,
             section=self.section,
             subject_academic_config=subj_config,
         )
@@ -98,14 +92,10 @@ class AcademicRiskModelTest(TestCase):
             birth_date=date(2012, 1, 1),
         )
 
-        status, _ = EnrollmentStatus.objects.get_or_create(
-            code="ACT", defaults={"name": "Activa"}
-        )
         self.enrollment = Enrollment.objects.create(
             student=self.student,
             section=self.section,
-            school_year=self.school_year,
-            enrollment_status=status,
+            enrollment_status="ACT",
         )
         self.attendance_statuses = {}
         for code, name in [
@@ -119,10 +109,9 @@ class AcademicRiskModelTest(TestCase):
             )
             self.attendance_statuses[code] = s
 
-        self.eval_type = EvaluationType.objects.create(code="FORMATIVA", name="Formativa")
         self.activity_type_exam = ActivityType.objects.create(code="EXAMEN", name="Examen")
         self.severity_leve = Severity.objects.create(
-            code="LEVE", name="Falta leve", numeric_level=1,
+            code="LEVE", name="Falta leve",
         )
         self.exam = self._create_evaluative_activity("Examen parcial", 10)
         self.homework = self._create_evaluative_activity("Tarea 1", 10)
@@ -132,7 +121,7 @@ class AcademicRiskModelTest(TestCase):
             academic_period=self.period,
             subject_offering=self.offering,
             name=f"Bloque-{title}",
-            evaluation_type=self.eval_type,
+            block_type="FORMATIVA",
             weight_percentage=Decimal("100.00"),
         )
         component = BlockComponent.objects.create(
@@ -140,17 +129,13 @@ class AcademicRiskModelTest(TestCase):
             name=f"Componente-{title}",
             internal_weight=Decimal("100.00"),
         )
-        indicator = ComponentIndicator.objects.create(
-            block_component=component,
-            name=f"Indicador-{title}",
-            internal_weight=Decimal("100.00"),
-        )
         return EvaluativeActivity.objects.create(
-            component_indicator=indicator,
+            block_component=component,
             teacher_subject_section=self.teacher_subject_section,
             title=title,
             activity_type=self.activity_type_exam,
             max_score=Decimal(str(max_score)),
+            internal_weight=Decimal("100.00"),
             due_date=date(2026, 2, 1),
         )
 
@@ -197,8 +182,6 @@ class AcademicRiskModelTest(TestCase):
                 "calificaciones": {
                     "promedio_actual": 8.0,
                     "materias_reprobadas": 0,
-                    "tareas_entregadas": 0,
-                    "tareas_pendientes": 0,
                     "ultimo_examen": 8.0,
                     "tendencia_notas": 0.0,
                     "total_calificaciones": 1,
@@ -212,7 +195,6 @@ class AcademicRiskModelTest(TestCase):
         self._create_note(self.exam, 8)
         ConductIncident.objects.create(
             enrollment=self.enrollment,
-            reported_by_user=self.teacher,
             academic_period=self.period,
             incident_type=inc_type,
             incident_date=date(2026, 1, 20),
@@ -245,7 +227,11 @@ class AcademicRiskModelTest(TestCase):
             snapshot["variables"]["calificaciones"]["promedio_actual"], 0.0
         )
         self.assertEqual(
-            snapshot["variables"]["calificaciones"]["tareas_pendientes"], 0
+            snapshot["variables"]["calificaciones"]["materias_reprobadas"], 0
+        )
+        # §6.2: las features muertas tareas_entregadas/pendientes ya no existen.
+        self.assertNotIn(
+            "tareas_pendientes", snapshot["variables"]["calificaciones"]
         )
 
     def test_risk_rules_red_by_low_attendance(self):
@@ -298,4 +284,6 @@ class AcademicRiskModelTest(TestCase):
         )
         self.assertTrue(StudentRiskScore.objects.filter(enrollment__student=self.student).exists())
         self.assertNotIn("model_version", result)
-        mocked_predict.assert_called_once()
+        # Fase 5: con el motor por defecto ("reglas") NO se invoca el ML; el
+        # cálculo usa directamente el fallback por reglas (ML sólo con engine=ML).
+        mocked_predict.assert_not_called()

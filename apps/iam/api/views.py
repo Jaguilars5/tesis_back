@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from drf_spectacular.utils import extend_schema, extend_schema_view
 
 from rest_framework import viewsets, status, permissions
@@ -243,6 +244,9 @@ class RoleViewSet(viewsets.ModelViewSet):
     change_password=extend_schema(summary="Cambiar contraseña", tags=["iam"]),
     permissions=extend_schema(summary="Permisos del usuario", tags=["iam"]),
     search=extend_schema(summary="Buscar usuarios", tags=["iam"]),
+    teachers=extend_schema(summary="Listar usuarios con rol docente", tags=["iam"]),
+    students=extend_schema(summary="Listar usuarios con rol estudiante", tags=["iam"]),
+    representatives=extend_schema(summary="Listar usuarios con rol representante", tags=["iam"]),
 )
 class UserViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated, HasPermission]
@@ -256,6 +260,9 @@ class UserViewSet(viewsets.ModelViewSet):
         "change_password": iam.UPDATE_USER,
         "permissions": iam.VIEW_USER,
         "search": iam.VIEW_USER,
+        "teachers": iam.VIEW_USER,
+        "students": iam.VIEW_USER,
+        "representatives": iam.VIEW_USER,
     }
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = UserFilter
@@ -263,10 +270,10 @@ class UserViewSet(viewsets.ModelViewSet):
         "username",
         "person__names",
         "person__last_names",
-        "email",
+        "person__email",
         "person__document_number",
     ]
-    ordering_fields = ["username", "email", "created_at"]
+    ordering_fields = ["username", "person__email", "created_at"]
     ordering = ["username"]
 
     def __init__(self, *args, **kwargs):
@@ -308,9 +315,14 @@ class UserViewSet(viewsets.ModelViewSet):
 
         try:
             user = self.service.change_password(pk, new_password)
-            return Response({"message": "Contraseña actualizada"})
+            return Response({
+                "message": "Contraseña actualizada",
+                "must_change_password": user.must_change_password,
+            })
         except ValueError as e:
             return Response(str(e), status=400)
+        except ValidationError as e:
+            return Response({"password_errors": list(e.messages)}, status=400)
 
     @action(detail=True, methods=["get"])
     def permissions(self, request, pk=None):
@@ -328,5 +340,35 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response('Se requiere el parámetro "q"', status=400)
 
         users = self.service.search_users(query)
+        serializer = UserListSerializer(users, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"])
+    def teachers(self, request):
+        users = self.service.list_users_by_role_code("DOCENTE")
+        serializer = UserListSerializer(users, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"])
+    def students(self, request):
+        users = self.service.list_users_by_role_code("ESTUDIANTE")
+        serializer = UserListSerializer(users, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"])
+    def representatives(self, request):
+        from django.db.models import Q
+        users = self.service.list_users_by_role_code("REPRESENTANTE")
+        search = request.query_params.get("search", "")
+        if search:
+            users = users.filter(
+                Q(person__names__icontains=search) |
+                Q(person__last_names__icontains=search) |
+                Q(person__document_number__icontains=search)
+            )
+        page = self.paginate_queryset(users)
+        if page is not None:
+            serializer = UserListSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
         serializer = UserListSerializer(users, many=True)
         return Response(serializer.data)

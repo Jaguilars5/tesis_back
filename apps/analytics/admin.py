@@ -3,7 +3,7 @@ Panel administrativo para el módulo Analytics.
 """
 
 from django.contrib import admin
-from .models import StudentRiskScore, StudentFeatureSnapshot, EarlyAlert, RiskFactor, StudentRiskFactor, AlertType, UrgencyLevel
+from .models import StudentRiskScore, StudentFeatureSnapshot, EarlyAlert, RiskFactor, StudentRiskFactor
 
 
 @admin.register(StudentRiskScore)
@@ -39,13 +39,3 @@ class StudentRiskFactorAdmin(admin.ModelAdmin):
     list_filter = ("risk_factor",)
 
 
-@admin.register(AlertType)
-class AlertTypeAdmin(admin.ModelAdmin):
-    list_display = ("code", "name")
-    search_fields = ("code", "name")
-
-
-@admin.register(UrgencyLevel)
-class UrgencyLevelAdmin(admin.ModelAdmin):
-    list_display = ("code", "name")
-    search_fields = ("code", "name")

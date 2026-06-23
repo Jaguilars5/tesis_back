@@ -89,6 +89,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "config.wsgi.application"
+ASGI_APPLICATION = "config.asgi.application"
 
 # ─── Validación de contraseñas ────────────────────────────────────────────────
 AUTH_PASSWORD_VALIDATORS = [
@@ -226,6 +227,11 @@ SIMPLE_JWT = {
 # ─── CSRF ─────────────────────────────────────────────────────────────────────
 CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "http://localhost:3000").split(
     ","
+)
+
+# ─── Socket.IO ───────────────────────────────────────────────────────────────
+SOCKETIO_REDIS_URL = os.getenv(
+    "SOCKETIO_REDIS_URL", os.getenv("REDIS_URL", "redis://localhost:6379/0")
 )
 
 # ─── Celery ──────────────────────────────────────────────────────────────────

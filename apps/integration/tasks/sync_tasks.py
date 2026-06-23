@@ -5,8 +5,8 @@ from django.db import transaction
 from django.utils import timezone
 
 from ..repositories import SyncQueueRepository
-from ..repositories.sync_status_repository import SyncStatusRepository
 from ..services.conflict_resolver import ConflictResolutionStrategy
+from ..models.syncable_mixin import SyncStatusChoices
 
 logger = logging.getLogger(__name__)
 
@@ -76,24 +76,22 @@ def process_sync_queue_item(self, sync_id):
             logger.warning("SyncQueue item %s no encontrado", sync_id)
             return {"ok": False, "error": "not_found"}
 
-        pendiente = SyncStatusRepository.get_by_code("PENDIENTE")
-        if sync_item.status != pendiente:
+        if sync_item.status != SyncStatusChoices.PENDING:
             logger.info("SyncQueue item %s ya procesado (status=%s)", sync_id, sync_item.status)
             return {"ok": True, "status": str(sync_item.status)}
 
-        procesando = SyncStatusRepository.get_by_code("PROCESANDO")
-        SyncQueueRepository.update(sync_item.id, status=procesando, attempts=sync_item.attempts + 1, last_attempt_at=timezone.now())
+        SyncQueueRepository.update(sync_item.id, status=SyncStatusChoices.PROCESSING, attempts=sync_item.attempts + 1, last_attempt_at=timezone.now())
 
         handler = SYNC_HANDLERS.get(sync_item.source_table)
         if not handler:
             raise ValueError(f"No hay handler para source_table='{sync_item.source_table}'")
 
-        operation = sync_item.operation.code if sync_item.operation else ""
+        operation = sync_item.operation or ""
         record_uuid = sync_item.record_uuid
         payload = sync_item.payload or {}
 
         with transaction.atomic():
-            if operation == "INSERT":
+            if operation in ("INSERT", "CREATE"):
                 result = handler.handle_insert(record_uuid, payload)
             elif operation == "UPDATE":
                 result = handler.handle_update(record_uuid, payload)
@@ -102,10 +100,9 @@ def process_sync_queue_item(self, sync_id):
             else:
                 raise ValueError(f"Operación desconocida: {operation}")
 
-            procesado = SyncStatusRepository.get_by_code("PROCESADO")
             SyncQueueRepository.update(
                 sync_item.id,
-                status=procesado,
+                status=SyncStatusChoices.SYNCED,
                 processed_at=timezone.now(),
                 last_error=None,
             )
@@ -119,8 +116,7 @@ def process_sync_queue_item(self, sync_id):
             sync_item = SyncQueueRepository.get_by_id(sync_id)
             if sync_item:
                 attempts = sync_item.attempts + 1
-                status_code = "ERROR" if attempts >= 3 else "PENDIENTE"
-                new_status = SyncStatusRepository.get_by_code(status_code)
+                new_status = SyncStatusChoices.ERROR if attempts >= 3 else SyncStatusChoices.PENDING
                 SyncQueueRepository.update(
                     sync_item.id,
                     status=new_status,

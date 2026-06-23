@@ -43,7 +43,6 @@ class GradeChangeHistory(TimeStampedModel):
     reason_code = models.CharField(max_length=30, blank=True, verbose_name="Código de Razón")
     origin = models.CharField(max_length=20, choices=[
         ("MANUAL", "Manual"),
-        ("RECOVERY", "Recuperación"),
         ("IMPORT", "Importación"),
         ("SYNC", "Sincronización"),
     ], default="MANUAL", verbose_name="Origen")

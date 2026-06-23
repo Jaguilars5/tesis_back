@@ -18,10 +18,12 @@ class ConductIncidentRepository(BaseRepository):
         ).select_related("incident_type")
 
     @classmethod
-    def get_severe_by_enrollment(cls, enrollment_id, severity_threshold=3):
+    def get_severe_by_enrollment(cls, enrollment_id, severity_codes=None):
+        if severity_codes is None:
+            severity_codes = ["GRAVE", "MUY_GRAVE"]
         return cls.model.objects.filter(
             enrollment_id=enrollment_id,
-            severity__numeric_level__gte=severity_threshold,
+            severity__code__in=severity_codes,
         ).order_by("-incident_date")
 
     @classmethod
@@ -41,12 +43,13 @@ class ConductIncidentRepository(BaseRepository):
         if category:
             queryset = queryset.filter(incident_type__code=category)
         if severity:
-            severity_val = getattr(severity, 'numeric_level', severity)
-            queryset = queryset.filter(severity__numeric_level=severity_val)
+            severity_code = getattr(severity, "code", severity)
+            queryset = queryset.filter(severity__code=severity_code)
         if family_notified is not None:
             queryset = queryset.filter(family_notified=family_notified)
         return queryset.order_by(
-            "-incident_date", "enrollment__student__last_names", "enrollment__student__names"
+            "-incident_date", "enrollment__student__user__person__last_names",
+            "enrollment__student__user__person__names",
         )
 
     @classmethod

@@ -2,6 +2,7 @@ import uuid
 import hashlib
 from django.db import models
 from apps.core.models import TimeStampedModel
+from .syncable_mixin import SyncOperationChoices, SyncStatusChoices
 
 
 class SyncQueue(TimeStampedModel):
@@ -22,7 +23,9 @@ class SyncQueue(TimeStampedModel):
     record_uuid = models.CharField(
         max_length=36, verbose_name="UUID del Registro",
     )
-    operation = models.ForeignKey("integration.SyncOperation", on_delete=models.PROTECT, verbose_name="Operación")
+    operation = models.CharField(
+        max_length=20, choices=SyncOperationChoices.choices, verbose_name="Operación",
+    )
     payload = models.JSONField(
         verbose_name="Payload", default=dict, blank=True,
     )
@@ -31,9 +34,12 @@ class SyncQueue(TimeStampedModel):
     )
     attempts = models.PositiveIntegerField(default=0, verbose_name="Intentos")
     max_attempts = models.PositiveIntegerField(default=5, verbose_name="Máximo de Intentos")
-    last_error = models.TextField(null=True, blank=True, verbose_name="Último Error")
+    last_error = models.TextField(blank=True, default='', verbose_name="Último Error")
     last_attempt_at = models.DateTimeField(null=True, blank=True, verbose_name="Último Intento")
-    status = models.ForeignKey("integration.SyncStatus", on_delete=models.PROTECT, null=True, blank=True, verbose_name="Estado")
+    status = models.CharField(
+        max_length=20, choices=SyncStatusChoices.choices, default=SyncStatusChoices.PENDING,
+        db_index=True, verbose_name="Estado",
+    )
     conflict_detected = models.BooleanField(default=False, verbose_name="Conflicto Detectado")
     resolution_strategy = models.CharField(max_length=30, null=True, blank=True, verbose_name="Estrategia de Resolución")
     processed_by = models.ForeignKey(
@@ -45,7 +51,7 @@ class SyncQueue(TimeStampedModel):
         "iam.User", on_delete=models.SET_NULL, null=True, blank=True,
         related_name="sync_resolved", verbose_name="Resuelto por",
     )
-    resolution_notes = models.TextField(null=True, blank=True, verbose_name="Notas de resolución")
+    resolution_notes = models.TextField(blank=True, default='', verbose_name="Notas de resolución")
 
     class Meta:
         app_label = "integration"
@@ -61,7 +67,7 @@ class SyncQueue(TimeStampedModel):
 
     def save(self, *args, **kwargs):
         if not self.idempotency_key:
-            op_code = self.operation.code if self.operation else "UNKNOWN"
+            op_code = self.operation if self.operation else "UNKNOWN"
             raw = f"{self.source_table}:{self.record_uuid}:{op_code}:{self.attempts}"
             self.idempotency_key = hashlib.sha256(raw.encode()).hexdigest()[:64]
         super().save(*args, **kwargs)

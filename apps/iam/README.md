@@ -1,68 +1,72 @@
 # Módulo `iam` — Identity & Access Management
 
-> Gestión de identidad, roles y permisos. Administra usuarios, sus roles y los permisos asociados a cada rol.
+> Gestión de identidad, roles y permisos. Administra usuarios, sus roles y los permisos asociados a cada rol. `AUTH_USER_MODEL = "iam.User"`.
 
-## Modelos
+## Modelos (5)
 
 | Modelo | Descripción | Campos clave |
 |--------|-------------|-------------|
-| `User` (AbstractBaseUser) | Usuario del sistema con autenticación por email | `username`, `email` (unique), `person` (FK OneToOne a Person), `is_active`, `is_staff`, `is_superuser`. `dni` expuesto via serializer desde `person.document_number`. `AUTH_USER_MODEL = "iam.User"` |
-| `Role` | Rol funcional (ESTUDIANTE, DOCENTE, ADMIN, etc.) | `name`, `code` (unique), `description`, `is_active` |
-| `Permission` | Permiso granular formato `<módulo>.<acción>` | `code`, `module`, `description` |
-| `UserRole` | Asignación de rol a usuario | `user` (FK), `role` (FK). Unique: `(user, role)` |
+| `User` (AbstractBaseUser) | Usuario del sistema con autenticación por **username** | `username` (unique), `email` (unique), `person` (FK OneToOne, nullable), `is_active`, `is_staff`, `is_superuser`. `USERNAME_FIELD = "username"` |
+| `Role` | Rol funcional (ESTUDIANTE, DOCENTE, ADMIN, etc.) | `name` (unique), `code` (unique, nullable), `description`, `is_active`. Ordenado por `name` |
+| `Permission` | Permiso granular formato `<módulo>.<acción>` | `code` (unique), `module`, `description`. Ordenado por `code` |
+| `UserRole` | Asignación de rol a usuario | `user` (FK), `role` (FK), `assigned_at`, `expires_at`. Unique: `(user, role)` |
 | `RolePermission` | Permisos asociados a un rol | `role` (FK), `permission` (FK). Unique: `(role, permission)` |
 
-## Servicios
+## Repositorios (3)
 
-| Servicio | Métodos | Descripción |
-|----------|---------|-------------|
-| `UserService` | `create_user()`, `get_by_email()`, `search()` | Creación y búsqueda de usuarios |
-| `UserService` | `change_password()` | Cambio de contraseña con validación |
-| `UserService` | `assign_role()`, `remove_role()` | Gestión de roles de usuario |
+| Repositorio | Métodos clave |
+|-------------|---------------|
+| `UserRepository` | `get_by_id()`, `get_by_username()`, `get_by_email()`, `get_by_dni()`, `get_all_active()`, `get_by_role()`, `create()`, `update()`, `delete()` (desactiva), `search()`, `bulk_create()` |
+| `RoleRepository` | `get_by_id()`, `get_by_name()`, `get_all()`, `get_all_active()`, `create()`, `update()`, `delete()` (desactiva), `add_permission()`, `remove_permission()`, `set_permissions()` |
+| `PermissionRepository` | `get_by_id()`, `get_by_code()`, `get_all()`, `get_by_module()`, `create()`, `create_many()`, `update()`, `delete()`, `search()` |
 
-## API
+> **Nota:** Los repositorios NO heredan de `BaseRepository`. Son clases con métodos `@staticmethod`.
 
-| Método | Endpoint | Descripción | Permiso requerido |
-|--------|----------|-------------|-------------------|
-| POST | `/api/iam/login/` | Iniciar sesión → JWT tokens | Público |
-| POST | `/api/iam/refresh/` | Refrescar access token | Público (requiere refresh token) |
-| GET/POST | `/api/iam/users/` | Listar/Crear usuarios | `iam.view/create_user` |
-| GET/PATCH/DELETE | `/api/iam/users/{id}/` | CRUD individual | `iam.view/update/delete_user` |
-| POST | `/api/iam/users/{id}/change-password/` | Cambiar contraseña | `iam.update_user` |
-| GET | `/api/iam/users/{id}/permissions/` | Permisos del usuario | `iam.view_user` |
-| GET | `/api/iam/users/search/` | Buscar usuarios | `iam.view_user` |
-| GET/POST | `/api/iam/roles/` | Listar/Crear roles | `iam.view/create_role` |
-| GET/PATCH/DELETE | `/api/iam/roles/{id}/` | CRUD individual | `iam.view/update/delete_role` |
-| POST | `/api/iam/roles/{id}/add-permission/` | Asignar permiso a rol | `iam.update_role` |
-| POST | `/api/iam/roles/{id}/remove-permission/` | Quitar permiso a rol | `iam.update_role` |
-| POST | `/api/iam/roles/{id}/assign-permissions/` | Asignar múltiples permisos | `iam.update_role` |
-| GET/POST | `/api/iam/permissions/` | Listar/Crear permisos | `iam.view/create_permission` |
-| PATCH/DELETE | `/api/iam/permissions/{id}/` | Actualizar/Eliminar | `iam.update/delete_permission` |
-| POST | `/api/iam/permissions/bulk-create/` | Crear múltiples permisos | `iam.create_permission` |
-| GET | `/api/iam/permissions/by-module/` | Permisos agrupados por módulo | `iam.view_permission` |
+## Servicios (3)
 
-## Respuestas Enriquecidas
+| Servicio | Métodos principales |
+|----------|---------------------|
+| `UserService` | `create_user()`, `get_user()`, `get_user_by_email()`, `list_users()`, `update_user()`, `change_password()`, `deactivate_user()`, `has_permission()`, `get_user_permissions()`, `search_users()` |
+| `RoleService` | `create_role()`, `get_role()`, `list_roles()`, `update_role()`, `deactivate_role()`, `add_permission_to_role()`, `remove_permission_from_role()`, `assign_permissions_to_role()` |
+| `PermissionService` | `create_permission()`, `create_permissions_bulk()`, `list_permissions()`, `list_permissions_by_module()`, `update_permission()`, `delete_permission()`, `search_permissions()` |
 
-Todas las respuestas siguen el formato `{"ok": bool, "data": ..., "msg": ""}`.
+## API — Endpoints
 
-```json
-{
-  "ok": true,
-  "data": {
-    "id": 1,
-    "username": "juan@example.com",
-    "dni": "1234567890",
-    "names": "Juan",
-    "last_names": "Pérez",
-    "email": "juan@example.com",
-    "role": "DOCENTE",
-    "role_id": 2,
-    "is_active": true,
-    "permissions": ["grading.view_note", "grading.create_note"]
-  },
-  "msg": ""
-}
-```
+| Método | Endpoint | ViewSet/Auth | Permiso |
+|--------|----------|-------------|---------|
+| POST | `/api/iam/login/` | CustomTokenObtainPairView | Público |
+| POST | `/api/iam/refresh/` | CustomTokenRefreshView | Público |
+| GET/POST | `/api/iam/users/` | UserViewSet | `iam.view/create_user` |
+| GET/PUT/PATCH/DEL | `/api/iam/users/{id}/` | UserViewSet | `iam.view/update/delete_user` |
+| POST | `/api/iam/users/{id}/change-password/` | UserViewSet | `iam.update_user` |
+| GET | `/api/iam/users/{id}/permissions/` | UserViewSet | `iam.view_user` |
+| GET | `/api/iam/users/search/` | UserViewSet | `iam.view_user` |
+| GET/POST | `/api/iam/roles/` | RoleViewSet | `iam.view/create_role` |
+| GET/PUT/PATCH/DEL | `/api/iam/roles/{id}/` | RoleViewSet | `iam.view/update/delete_role` |
+| POST | `/api/iam/roles/{id}/add-permission/` | RoleViewSet | `iam.update_role` |
+| POST | `/api/iam/roles/{id}/remove-permission/` | RoleViewSet | `iam.update_role` |
+| POST | `/api/iam/roles/{id}/assign-permissions/` | RoleViewSet | `iam.update_role` |
+| GET/POST | `/api/iam/permissions/` | PermissionViewSet | `iam.view/create_permission` |
+| GET/PUT/PATCH/DEL | `/api/iam/permissions/{id}/` | PermissionViewSet | `iam.view/update/delete_permission` |
+| POST | `/api/iam/permissions/bulk-create/` | PermissionViewSet | `iam.create_permission` |
+| GET | `/api/iam/permissions/by-module/` | PermissionViewSet | `iam.view_permission` |
+
+## Serializers (12)
+
+| Serializer | Campos readonly |
+|------------|-----------------|
+| `UserListSerializer` | `dni`, `names`, `last_names`, `role` (code), `created_at` |
+| `UserDetailSerializer` | `dni`, `names`, `last_names`, `role` (objeto RoleDetail), `username`, `created_at`, `updated_at` |
+| `UserCreateSerializer` | `username` (autogenerado) |
+| `UserLoginDataSerializer` | `id`, `username`, `dni`, `names`, `last_names`, `email`, `role`, `role_id`, `is_active`, `permissions` |
+| `LoginResponseSerializer` | `access`, `refresh`, `user` |
+| `TokenRefreshResponseSerializer` | `access`, `user` |
+| `LoginSerializer` | TokenObtainPairSerializer personalizado |
+| `CustomTokenRefreshSerializer` | TokenRefreshSerializer personalizado |
+| `PermissionSerializer` | `id`, `created_at`, `updated_at` |
+| `RolePermissionSerializer` | `id`, `created_at`, `permission` (anidado) |
+| `RoleListSerializer` | `id`, `created_at` |
+| `RoleDetailSerializer` | `id`, `created_at`, `updated_at`, `role_permissions` (anidado) |
 
 ## Tests
 
@@ -81,4 +85,4 @@ python manage.py test apps.iam --settings=config.settings.test
 | Access token | 15 minutos |
 | Refresh token | 7 días (con rotación) |
 | Algoritmo | HS256 |
-| Blacklist | Refresh tokens invalidados al refrescar |
+| Campo login | `username` (con `password`) |

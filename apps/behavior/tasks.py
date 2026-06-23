@@ -1,7 +1,6 @@
 from django.db import transaction
 from apps.behavior.models import (
-    ConductIncident, BehaviorEvaluation,
-    SkillEvaluation, DiagnosticEvaluation,
+    ConductIncident, IncidentType, BehaviorEvaluation,
 )
 from apps.integration.tasks.sync_tasks import BaseSyncHandler, register_sync_handler
 
@@ -12,25 +11,36 @@ class ConductIncidentSyncHandler(BaseSyncHandler):
     model = ConductIncident
 
     @classmethod
+    def _resolve_incident_type(cls, payload):
+        category = payload.pop("incident_type", None) if payload else None
+        if isinstance(category, str):
+            incident_type_obj, _ = IncidentType.objects.get_or_create(
+                code=category,
+                defaults={"name": category.capitalize(), "description": f"Tipo de incidente: {category}"},
+            )
+            return incident_type_obj
+        return category
+
+    @classmethod
     def handle_insert(cls, record_uuid, payload):
-        category = payload.pop("category", None) if payload else None
         payload = payload or {}
+        incident_type = cls._resolve_incident_type(payload)
         with transaction.atomic():
             instance = cls.model(**payload)
             instance.uuid = record_uuid
             instance.sync_status = "SYNCED"
             instance.synced_at = None
             instance.sync_version = 1
-            if category:
-                instance.category = category
+            if incident_type:
+                instance.incident_type = incident_type
             instance.full_clean()
             instance.save()
         return instance
 
     @classmethod
     def handle_update(cls, record_uuid, payload):
-        category = payload.pop("category", None) if payload else None
         payload = payload or {}
+        incident_type = cls._resolve_incident_type(payload)
         incoming_version = payload.get("sync_version", 1)
         with transaction.atomic():
             instance = cls.model.objects.get(uuid=record_uuid)
@@ -45,8 +55,8 @@ class ConductIncidentSyncHandler(BaseSyncHandler):
             for key, value in payload.items():
                 if hasattr(instance, key) and key not in ["uuid", "sync_version", "id"]:
                     setattr(instance, key, value)
-            if category:
-                instance.category = category
+            if incident_type:
+                instance.incident_type = incident_type
             instance.sync_version = max(instance.sync_version, incoming_version) + 1
             instance.mark_synced()
             instance.full_clean()
@@ -58,15 +68,3 @@ class ConductIncidentSyncHandler(BaseSyncHandler):
 class BehaviorEvaluationSyncHandler(BaseSyncHandler):
     source_table = "behavior_evaluation"
     model = BehaviorEvaluation
-
-
-@register_sync_handler("skill_evaluation")
-class SkillEvaluationSyncHandler(BaseSyncHandler):
-    source_table = "skill_evaluation"
-    model = SkillEvaluation
-
-
-@register_sync_handler("diagnostic_evaluation")
-class DiagnosticEvaluationSyncHandler(BaseSyncHandler):
-    source_table = "diagnostic_evaluation"
-    model = DiagnosticEvaluation

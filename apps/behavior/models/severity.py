@@ -1,10 +1,10 @@
 from django.db import models
+from apps.core.models import TimeStampedModel
 
 
-class Severity(models.Model):
+class Severity(TimeStampedModel):
     code = models.CharField(max_length=20, unique=True, verbose_name="Código")
     name = models.CharField(max_length=100, verbose_name="Nombre")
-    numeric_level = models.IntegerField(verbose_name="Nivel Numérico")
     description = models.TextField(blank=True, verbose_name="Descripción")
     is_active = models.BooleanField(default=True, verbose_name="Activo")
 
@@ -12,7 +12,7 @@ class Severity(models.Model):
         app_label = "behavior"
         verbose_name = "Severidad"
         verbose_name_plural = "Severidades"
-        ordering = ["numeric_level"]
+        ordering = ["name"]
 
     def __str__(self):
         return self.name

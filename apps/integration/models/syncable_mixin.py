@@ -12,6 +12,12 @@ class SyncStatusChoices(models.TextChoices):
     CONFLICT = "CONFLICT", "Conflicto detectado"
 
 
+class SyncOperationChoices(models.TextChoices):
+    CREATE = "CREATE", "Crear"
+    UPDATE = "UPDATE", "Actualizar"
+    DELETE = "DELETE", "Eliminar"
+
+
 class SyncableModel(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, verbose_name="UUID")
     sync_status = models.CharField(
@@ -25,7 +31,7 @@ class SyncableModel(models.Model):
     synced_at = models.DateTimeField(null=True, blank=True, verbose_name="Sincronizado en")
     device_origin = models.CharField(max_length=40, null=True, blank=True, verbose_name="Dispositivo de Origen")
     conflict_resolved = models.BooleanField(default=False, verbose_name="Conflicto Resuelto")
-    conflict_notes = models.TextField(null=True, blank=True, verbose_name="Notas de Conflicto")
+    conflict_notes = models.TextField(blank=True, default='', verbose_name="Notas de Conflicto")
 
     class Meta:
         abstract = True

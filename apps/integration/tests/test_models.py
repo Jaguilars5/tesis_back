@@ -1,28 +1,29 @@
 from django.test import TestCase
-from ..models import SyncOperation, SyncStatus
+from apps.core.tests.helpers import create_test_user
+from ..models import SyncQueue
+from ..models.syncable_mixin import SyncOperationChoices, SyncStatusChoices
 
 
-class SyncOperationModelTest(TestCase):
-    def setUp(self):
-        self.op = SyncOperation.objects.create(code="INSERT", name="Insertar")
+class SyncQueueModelTest(TestCase):
+    def test_create_sync_queue(self):
+        user = create_test_user(email="test@test.com")
+        item = SyncQueue.objects.create(
+            user=user,
+            source_table="test",
+            record_uuid="123",
+            operation=SyncOperationChoices.CREATE,
+            status=SyncStatusChoices.PENDING,
+        )
+        self.assertEqual(item.operation, "CREATE")
 
-    def test_creation(self):
-        self.assertEqual(self.op.code, "INSERT")
-        self.assertEqual(str(self.op), "Insertar")
-
-    def test_code_unique(self):
+    def test_unique_idempotency_key(self):
+        user = create_test_user(email="test2@test.com")
+        SyncQueue.objects.create(
+            user=user, source_table="test", record_uuid="456",
+            operation=SyncOperationChoices.UPDATE,
+        )
         with self.assertRaises(Exception):
-            SyncOperation.objects.create(code="INSERT", name="Duplicado")
-
-
-class SyncStatusModelTest(TestCase):
-    def setUp(self):
-        self.status = SyncStatus.objects.create(code="PENDIENTE", name="Pendiente")
-
-    def test_creation(self):
-        self.assertEqual(self.status.code, "PENDIENTE")
-        self.assertEqual(str(self.status), "Pendiente")
-
-    def test_code_unique(self):
-        with self.assertRaises(Exception):
-            SyncStatus.objects.create(code="PENDIENTE", name="Duplicado")
+            SyncQueue.objects.create(
+                user=user, source_table="test", record_uuid="456",
+                operation=SyncOperationChoices.UPDATE,
+            )

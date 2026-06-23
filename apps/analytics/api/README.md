@@ -1,11 +1,20 @@
-# API - Módulo Analytics
+# API — Módulo Analytics
 
-Esta API permite consultar perfiles de riesgo, snapshots de métricas, alertas tempranas, catálogos analíticos y KPIs de dashboard.
+API para consultar perfiles de riesgo, snapshots de métricas, alertas tempranas, catálogos analíticos y KPIs de dashboard.
 
 ## Formato de Respuesta
 
-Todas las respuestas siguen el formato `{"ok": bool, "data": ..., "msg": "..."}`.
+Todas las respuestas usan `{"ok": bool, "data": ..., "msg": "..."}` via `StandardResponseRenderer`.
 Los listados paginados devuelven `data` con `{ count, next, previous, results }`.
+
+| Código | Descripción |
+| ------ | ----------- |
+| 200 | Éxito (listar, obtener) |
+| 201 | Creación exitosa |
+| 400 | Error de validación/solicitud |
+| 401 | No autenticado |
+| 403 | Sin permisos |
+| 404 | No encontrado |
 
 ## Autenticación y Permisos
 
@@ -19,14 +28,12 @@ Header: `Authorization: Bearer <access_token>`
 | `student-risk-scores/batch_calculate/` | POST | `analytics.create_student_risk_factor` |
 | `feature-snapshots/` | GET | `analytics.view_feature_snapshot` |
 | `feature-snapshots/{id}/` | GET | `analytics.view_feature_snapshot` |
-| `alert-types/` | GET/POST | `analytics.view/create_alert_type` |
-| `alert-types/{id}/` | GET/PATCH/DEL | `analytics.view/update/delete_alert_type` |
-| `urgency-levels/` | GET/POST | `analytics.view/create_urgency_level` |
-| `urgency-levels/{id}/` | GET/PATCH/DEL | `analytics.view/update/delete_urgency_level` |
 | `risk-factors/` | GET | `analytics.view_risk_factor` |
+| `risk-factors/{id}/` | GET | `analytics.view_risk_factor` |
 | `student-risk-factors/` | GET | `analytics.view_student_risk_factor` |
+| `student-risk-factors/{id}/` | GET | `analytics.view_student_risk_factor` |
 | `early-alerts/` | GET/POST | `analytics.view/create_early_alert` |
-| `early-alerts/{id}/` | GET/PATCH/DEL | `analytics.view/update/delete_early_alert` |
+| `early-alerts/{id}/` | GET/PUT/PATCH/DEL | `analytics.view/update/delete_early_alert` |
 | `early-alerts/{id}/mark_attended/` | POST | `analytics.update_early_alert` |
 | `dashboard/overview/` | GET | `analytics.view_risk_score` |
 | `dashboard/risk-distribution/` | GET | `analytics.view_risk_score` |
@@ -34,37 +41,33 @@ Header: `Authorization: Bearer <access_token>`
 | `dashboard/export-csv/` | GET | `analytics.view_risk_score` |
 | `dashboard/section-summary/` | GET | `analytics.view_risk_score` |
 
+> No existen endpoints para `alert-types/` ni `urgency-levels/` (no son modelos, son `TextChoices` dentro de `EarlyAlert`).
+
 ---
 
 ## Riesgo Estudiantil (`/api/analytics/student-risk-scores/`)
 
-### GET — Listar
+### GET — Listar / Obtener
 
-**Response (200 OK):**
 ```json
 {
   "ok": true,
-  "data": {
-    "count": 2,
-    "next": null,
-    "previous": null,
-    "results": [
-      {
-        "id": 1,
-        "enrollment": 1,
-        "enrollment_name": "Juan Perez - 7mo A (Activa)",
-        "academic_period": 1,
-        "academic_period_name": "Primer Trimestre",
-        "risk_score": "75.00",
-        "risk_label": "rojo",
-        "model_version": "rules-fallback-v1",
-        "calculated_at": "2025-06-01T00:00:00Z",
-        "risk_factors": [
-          {"id": 1, "risk_factor_name": "Baja Asistencia", "contribution_weight": "35.00"}
-        ]
-      }
-    ]
-  },
+  "data": [
+    {
+      "id": 1,
+      "enrollment": 1,
+      "enrollment_name": "Juan Perez - 7mo A (Activa)",
+      "academic_period": 1,
+      "academic_period_name": "Primer Trimestre",
+      "risk_score": "75.00",
+      "risk_label": "rojo",
+      "model_version": "rules-fallback-v1",
+      "calculated_at": "2025-06-01T00:00:00Z",
+      "risk_factors": [
+        {"id": 1, "risk_factor_name": "Baja Asistencia", "contribution_weight": "35.00"}
+      ]
+    }
+  ],
   "msg": ""
 }
 ```
@@ -74,28 +77,25 @@ Header: `Authorization: Bearer <access_token>`
 **POST** `/api/analytics/student-risk-scores/calculate/`
 
 ```json
-{
-  "student_id": 1,
-  "academic_period_id": 1
-}
+{"student_id": 1, "academic_period_id": 1}
 ```
 
-**Response (200 OK):**
+Response: `{"task_id": "uuid...", "status": "PENDING"}`
+
+### POST — Cálculo batch
+
+**POST** `/api/analytics/student-risk-scores/batch_calculate/`
+
 ```json
-{
-  "ok": true,
-  "data": {"task_id": "550e8400-...", "status": "PENDING"},
-  "msg": ""
-}
+{"academic_period_id": 1, "student_ids": [1, 2, 3]}
 ```
 
 ---
 
 ## Snapshots de Métricas (`/api/analytics/feature-snapshots/`)
 
-### GET — Listar
+### GET — Listar / Obtener
 
-**Response (200 OK):**
 ```json
 {
   "ok": true,
@@ -132,9 +132,9 @@ Header: `Authorization: Bearer <access_token>`
 {
   "enrollment": 1,
   "academic_period": 1,
-  "alert_type": 1,
+  "alert_type": "low_attendance",
   "description": "Tasa de asistencia por debajo del 70%",
-  "urgency_level": 2
+  "urgency_level": "high"
 }
 ```
 
@@ -143,9 +143,7 @@ Header: `Authorization: Bearer <access_token>`
 **POST** `/api/analytics/early-alerts/{id}/mark_attended/`
 
 ```json
-{
-  "response_actions": "Contacto telefónico con representante. Compromiso firmado."
-}
+{"response_actions": "Contacto telefónico con representante."}
 ```
 
 ---
@@ -177,31 +175,16 @@ Header: `Authorization: Bearer <access_token>`
 
 **GET** `/api/analytics/dashboard/export-csv/?type=risk&period_id=1`
 
-Response: `Content-Type: text/csv` con headers `Código Estudiante, Score Riesgo, Nivel`.
+Response: `Content-Type: text/csv`
 
-### GET — Sección
+### GET — Resumen de sección
 
 **GET** `/api/analytics/dashboard/section-summary/?section_id=1`
 
 ---
 
-## Catálogos
+## Características Comunes
 
-### AlertTypes (`/api/analytics/alert-types/`)
+### Paginación
 
-```json
-{"code": "low_attendance", "name": "Baja Asistencia"}
-{"code": "failing_grades", "name": "Calificaciones Bajas"}
-{"code": "behavioral", "name": "Problemas de Conducta"}
-{"code": "dropout_risk", "name": "Riesgo de Deserción"}
-{"code": "socioemotional", "name": "Problemas Socioemocionales"}
-```
-
-### UrgencyLevels (`/api/analytics/urgency-levels/`)
-
-```json
-{"code": "low", "name": "Baja"}
-{"code": "medium", "name": "Media"}
-{"code": "high", "name": "Alta"}
-{"code": "critical", "name": "Crítica"}
-```
+Usa `StandardResultsSetPagination`. Respuesta paginada: `{ count, next, previous, results }`.

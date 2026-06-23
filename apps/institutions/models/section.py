@@ -3,7 +3,6 @@ from apps.core.models import TimeStampedModel
 
 
 class Section(TimeStampedModel):
-    code = models.CharField(max_length=50, blank=True, db_index=True, verbose_name="Código")
     school_year = models.ForeignKey(
         "institutions.SchoolYear",
         on_delete=models.CASCADE,
@@ -14,6 +13,9 @@ class Section(TimeStampedModel):
         on_delete=models.CASCADE,
         verbose_name="Grado Académico",
         null=True,
+    )
+    code = models.CharField(
+        max_length=50, blank=True, db_index=True, verbose_name="Código"
     )
     parallel = models.CharField(max_length=255, verbose_name="Paralelo")
     capacity = models.IntegerField(verbose_name="Capacidad")
@@ -27,7 +29,5 @@ class Section(TimeStampedModel):
 
     def __str__(self):
         if self.academic_grade:
-            return (
-                f"{self.school_year.name} - {self.academic_grade.name} {self.parallel}"
-            )
-        return f"{self.school_year.name} - {self.parallel}"
+            return f"{self.academic_grade.name} {self.parallel}"
+        return f"{self.parallel}"

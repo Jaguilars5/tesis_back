@@ -4,19 +4,15 @@ from apps.integration.models.syncable_mixin import SyncableModel
 
 
 class ConductIncident(TimeStampedModel, SyncableModel):
-    enrollment = models.ForeignKey(
-        "students.Enrollment",
-        on_delete=models.CASCADE,
-        related_name="conduct_incidents",
-        verbose_name="Matrícula",
-        null=True,
+    incident_type = models.ForeignKey(
+        "behavior.IncidentType",
+        on_delete=models.PROTECT,
+        verbose_name="Tipo de incidente",
     )
-    reported_by_user = models.ForeignKey(
-        "iam.User",
-        on_delete=models.SET_NULL,
-        related_name="reported_conduct_incidents",
-        null=True,
-        verbose_name="Reportado por",
+    severity = models.ForeignKey(
+        "behavior.Severity",
+        on_delete=models.PROTECT,
+        verbose_name="Severidad",
     )
     academic_period = models.ForeignKey(
         "academic.AcademicPeriod",
@@ -24,32 +20,21 @@ class ConductIncident(TimeStampedModel, SyncableModel):
         related_name="conduct_incidents",
         verbose_name="Período Académico",
     )
-    incident_type = models.ForeignKey(
-        "behavior.IncidentType",
-        on_delete=models.PROTECT,
-        verbose_name="Tipo de incidente",
-        null=True,
+    enrollment = models.ForeignKey(
+        "students.Enrollment",
+        on_delete=models.CASCADE,
+        related_name="conduct_incidents",
+        verbose_name="Matrícula",
     )
+
     incident_date = models.DateField(verbose_name="Fecha del Incidente")
-    severity = models.ForeignKey(
-        "behavior.Severity",
-        on_delete=models.PROTECT,
-        verbose_name="Severidad",
+
+    description = models.TextField(blank=True, default="", verbose_name="Descripción")
+    actions_taken = models.TextField(
+        blank=True, default="", verbose_name="Acciones tomadas"
     )
-    description = models.TextField(null=True, blank=True, verbose_name="Descripción")
-    actions_taken = models.TextField(null=True, blank=True, verbose_name="Acciones tomadas")
-    family_notified = models.BooleanField(default=False, verbose_name="Familia Notificada")
-    created_by = models.ForeignKey(
-        "iam.User", on_delete=models.SET_NULL, null=True, blank=True,
-        related_name="incidents_created", verbose_name="Creado por",
-    )
-    modified_by = models.ForeignKey(
-        "iam.User", on_delete=models.SET_NULL, null=True, blank=True,
-        related_name="incidents_modified", verbose_name="Modificado por",
-    )
-    approved_by = models.ForeignKey(
-        "iam.User", on_delete=models.SET_NULL, null=True, blank=True,
-        related_name="incidents_approved", verbose_name="Aprobado por",
+    family_notified = models.BooleanField(
+        default=False, verbose_name="Familia Notificada"
     )
 
     class Meta:
@@ -63,33 +48,5 @@ class ConductIncident(TimeStampedModel, SyncableModel):
             models.Index(fields=["incident_date"]),
         ]
 
-    def __init__(self, *args, **kwargs):
-        category = kwargs.pop("category", None)
-        super().__init__(*args, **kwargs)
-        if category:
-            from apps.behavior.models import IncidentType
-            incident_type, _ = IncidentType.objects.get_or_create(
-                code=category,
-                defaults={"name": category.capitalize(), "description": f"Tipo de incidente: {category}"}
-            )
-            self.incident_type = incident_type
-
-    @property
-    def category(self):
-        return self.incident_type.code if self.incident_type else ""
-
-    @category.setter
-    def category(self, value):
-        if value:
-            from apps.behavior.models import IncidentType
-            incident_type, _ = IncidentType.objects.get_or_create(
-                code=value,
-                defaults={"name": value.capitalize(), "description": f"Tipo de incidente: {value}"}
-            )
-            self.incident_type = incident_type
-        else:
-            self.incident_type = None
-
     def __str__(self):
-        category_str = self.category if self.category else (str(self.incident_type) if self.incident_type else "")
-        return f"{self.enrollment} - {category_str} ({self.incident_date})"
+        return f"{self.enrollment} - {self.incident_type} ({self.incident_date})"

@@ -7,11 +7,7 @@ class ConflictResolutionStrategy:
         "early_alert": "SERVER_WINS",
         "evaluative_activity": "SERVER_WINS",
         "enrollment": "MANUAL",
-        "recovery_process": "SERVER_WINS",
         "behavior_evaluation": "LAST_WRITE_WINS",
-        "skill_evaluation": "LAST_WRITE_WINS",
-        "diagnostic_evaluation": "LAST_WRITE_WINS",
-        "learning_report": "SERVER_WINS",
     }
 
     @classmethod

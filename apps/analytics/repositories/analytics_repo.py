@@ -51,13 +51,16 @@ class StudentRiskScoreRepository(BaseRepository):
             if enrollment:
                 enrollment_id = enrollment.id
 
-        return cls.model.objects.create(
+        obj, _ = cls.model.objects.update_or_create(
             enrollment_id=enrollment_id,
             academic_period_id=academic_period_id,
-            risk_score=risk_score,
-            risk_label=risk_label,
             model_version=model_version,
+            defaults={
+                "risk_score": risk_score,
+                "risk_label": risk_label,
+            },
         )
+        return obj
 
 
 class StudentFeatureSnapshotRepository(BaseRepository):
@@ -107,12 +110,12 @@ class StudentFeatureSnapshotRepository(BaseRepository):
         mapped_metrics.setdefault("justified_absences", 0)
         mapped_metrics.setdefault("unjustified_absences", 0)
         mapped_metrics.setdefault("severe_incidents_count", 0)
-        mapped_metrics.setdefault("active_alerts", 0)
         mapped_metrics.setdefault("is_repeat", False)
         mapped_metrics.setdefault("has_special_needs", False)
 
-        return cls.model.objects.create(
+        obj, _ = cls.model.objects.update_or_create(
             enrollment_id=enrollment_id,
             academic_period_id=academic_period_id,
-            **mapped_metrics,
+            defaults=mapped_metrics,
         )
+        return obj

@@ -1,0 +1,67 @@
+{
+  "_comment": "Snapshot dorado (Fase 0 del PLAN_IMPLEMENTACION). Congela el comportamiento vigente del calculo de riesgo academico por reglas (fallback), ya que no existe risk_model.joblib. Cualquier cambio en _risk_level / _fallback_risk_score / WEIGHTS que altere estos valores debe ser intencional y revisado contra este baseline. Los puntajes son los retornados por calculate_academic_risk()['semaforo_riesgo']['puntaje_riesgo'].",
+  "generated_for_phase": "Fase 0 - Baseline y red de seguridad",
+  "model_version_expected": "rules-fallback-v1",
+  "weights": {
+    "conducta": 0.30,
+    "asistencia": 0.35,
+    "calificaciones": 0.35
+  },
+  "profiles": [
+    {
+      "name": "verde_ideal",
+      "descripcion": "Estudiante sano: alta asistencia, buen promedio, sin incidencias.",
+      "variables": {
+        "conducta": {"faltas_leves": 0, "faltas_moderadas": 0, "faltas_graves": 0},
+        "asistencia": {"porcentaje_asistencia": 95.0, "total_registros": 20, "total_faltas": 1, "faltas_injustificadas": 1},
+        "calificaciones": {"promedio_actual": 9.0, "materias_reprobadas": 0, "total_calificaciones": 5, "ultimo_examen": 9.0}
+      },
+      "expected_level": "verde",
+      "expected_score": 5.25
+    },
+    {
+      "name": "amarillo_por_asistencia",
+      "descripcion": "Asistencia en banda 70-85 fuerza nivel amarillo y piso de 40.",
+      "variables": {
+        "conducta": {"faltas_leves": 0, "faltas_moderadas": 0, "faltas_graves": 0},
+        "asistencia": {"porcentaje_asistencia": 80.0, "total_registros": 20, "total_faltas": 4, "faltas_injustificadas": 4},
+        "calificaciones": {"promedio_actual": 7.0, "materias_reprobadas": 0, "total_calificaciones": 5, "ultimo_examen": 7.0}
+      },
+      "expected_level": "amarillo",
+      "expected_score": 40.0
+    },
+    {
+      "name": "amarillo_por_promedio",
+      "descripcion": "Promedio en banda 6.0-7.0 fuerza nivel amarillo y piso de 40.",
+      "variables": {
+        "conducta": {"faltas_leves": 0, "faltas_moderadas": 0, "faltas_graves": 0},
+        "asistencia": {"porcentaje_asistencia": 90.0, "total_registros": 20, "total_faltas": 2, "faltas_injustificadas": 2},
+        "calificaciones": {"promedio_actual": 6.5, "materias_reprobadas": 0, "total_calificaciones": 5, "ultimo_examen": 6.5}
+      },
+      "expected_level": "amarillo",
+      "expected_score": 40.0
+    },
+    {
+      "name": "rojo_critico",
+      "descripcion": "Multiples factores de riesgo: baja asistencia, bajo promedio, faltas graves y materias reprobadas.",
+      "variables": {
+        "conducta": {"faltas_leves": 2, "faltas_moderadas": 1, "faltas_graves": 4},
+        "asistencia": {"porcentaje_asistencia": 50.0, "total_registros": 20, "total_faltas": 10, "faltas_injustificadas": 8},
+        "calificaciones": {"promedio_actual": 4.0, "materias_reprobadas": 3, "total_calificaciones": 5, "ultimo_examen": 4.0}
+      },
+      "expected_level": "rojo",
+      "expected_score": 82.5
+    },
+    {
+      "name": "rojo_por_piso",
+      "descripcion": "Asistencia <70 fuerza nivel rojo; el piso de 70 domina al puntaje calculado bajo.",
+      "variables": {
+        "conducta": {"faltas_leves": 0, "faltas_moderadas": 0, "faltas_graves": 0},
+        "asistencia": {"porcentaje_asistencia": 69.0, "total_registros": 20, "total_faltas": 6, "faltas_injustificadas": 6},
+        "calificaciones": {"promedio_actual": 9.0, "materias_reprobadas": 0, "total_calificaciones": 5, "ultimo_examen": 9.0}
+      },
+      "expected_level": "rojo",
+      "expected_score": 70.0
+    }
+  ]
+}

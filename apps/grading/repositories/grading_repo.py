@@ -10,16 +10,11 @@ from apps.core.repositories.base import BaseRepository
 from ..models import (
     ActivityType,
     BlockComponent,
-    ComponentIndicator,
     EvaluationBlock,
-    EvaluationType,
     EvaluativeActivity,
     GradeChangeHistory,
-    GradeType,
-    ProjectNote,
-    PromotionStatus,
     QualitativeScale,
-    RecoveryProcessType,
+    QualitativeScaleSublevel,
     StudentNote,
 )
 
@@ -62,7 +57,7 @@ class StudentNoteRepository(BaseRepository):
             queryset = queryset.filter(enrollment__student_id=student_id)
         if academic_period_id:
             queryset = queryset.filter(
-                evaluative_activity__component_indicator__block_component__evaluation_block__academic_period_id=academic_period_id
+                evaluative_activity__block_component__evaluation_block__academic_period_id=academic_period_id
             )
         if subject_id:
             queryset = queryset.filter(
@@ -80,7 +75,7 @@ class StudentNoteRepository(BaseRepository):
         return (
             cls.model.objects.filter(
                 enrollment__student_id=student_id,
-                evaluative_activity__component_indicator__block_component__evaluation_block__academic_period_id=academic_period_id,
+                evaluative_activity__block_component__evaluation_block__academic_period_id=academic_period_id,
             )
             .select_related(
                 "evaluative_activity__teacher_subject_section__subject_offering__subject_academic_config__subject",
@@ -96,7 +91,7 @@ class EvaluationBlockRepository(BaseRepository):
     @classmethod
     def get_all(cls, active_only=True):
         queryset = super().get_all(active_only=active_only)
-        return queryset.select_related("academic_period", "evaluation_type")
+        return queryset.select_related("academic_period")
 
 
 class BlockComponentRepository(BaseRepository):
@@ -108,15 +103,6 @@ class BlockComponentRepository(BaseRepository):
         return queryset.select_related("evaluation_block")
 
 
-class ComponentIndicatorRepository(BaseRepository):
-    model = ComponentIndicator
-
-    @classmethod
-    def get_all(cls, active_only=True):
-        queryset = super().get_all(active_only=active_only)
-        return queryset.select_related("block_component")
-
-
 class EvaluativeActivityRepository(BaseRepository):
     model = EvaluativeActivity
 
@@ -124,7 +110,7 @@ class EvaluativeActivityRepository(BaseRepository):
     def get_all(cls, active_only=True):
         queryset = super().get_all(active_only=active_only)
         return queryset.select_related(
-            "component_indicator", "teacher_subject_section", "activity_type"
+            "block_component", "teacher_subject_section", "activity_type"
         )
 
 
@@ -135,24 +121,6 @@ class GradeChangeHistoryRepository(BaseRepository):
     def get_all(cls, active_only=True):
         queryset = super().get_all(active_only=active_only)
         return queryset.select_related("student_note", "modified_by_user")
-
-
-class ProjectNoteRepository(BaseRepository):
-    model = ProjectNote
-
-    @classmethod
-    def get_all(cls, active_only=True):
-        queryset = super().get_all(active_only=active_only)
-        return queryset.select_related("enrollment", "interdisciplinary_project").order_by("-id")
-
-
-class GradeTypeRepository(BaseRepository):
-    model = GradeType
-
-    @classmethod
-    def get_all(cls, active_only=True):
-        queryset = super().get_all(active_only=active_only)
-        return queryset.order_by("name")
 
 
 class QualitativeScaleRepository(BaseRepository):
@@ -171,15 +139,6 @@ class QualitativeScaleRepository(BaseRepository):
             return None
 
 
-class EvaluationTypeRepository(BaseRepository):
-    model = EvaluationType
-
-    @classmethod
-    def get_all(cls, active_only=True):
-        queryset = super().get_all(active_only=active_only)
-        return queryset.order_by("name")
-
-
 class ActivityTypeRepository(BaseRepository):
     model = ActivityType
 
@@ -189,20 +148,10 @@ class ActivityTypeRepository(BaseRepository):
         return queryset.order_by("name")
 
 
-class PromotionStatusRepository(BaseRepository):
-    model = PromotionStatus
+class QualitativeScaleSublevelRepository(BaseRepository):
+    model = QualitativeScaleSublevel
 
     @classmethod
     def get_all(cls, active_only=True):
         queryset = super().get_all(active_only=active_only)
-        return queryset.order_by("name")
-
-
-class RecoveryProcessTypeRepository(BaseRepository):
-    model = RecoveryProcessType
-
-    @classmethod
-    def get_all(cls, active_only=True):
-        queryset = super().get_all(active_only=active_only)
-        return queryset.order_by("name")
-
+        return queryset.select_related("scale", "sublevel")

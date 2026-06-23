@@ -1,7 +1,6 @@
 from django.db import transaction
 from apps.analytics.repositories.early_alert_repository import EarlyAlertRepository
-from apps.analytics.repositories.alert_type_repository import AlertTypeRepository
-from apps.analytics.repositories.urgency_level_repository import UrgencyLevelRepository
+from apps.analytics.models.early_alert import AlertTypeChoices, UrgencyLevelChoices
 
 
 class EarlyAlertService:
@@ -32,9 +31,8 @@ class EarlyAlertService:
                 attendance_summary["total"]
             )
             if attendance_rate < 0.7:
-                alert_type = AlertTypeRepository.get_by_code("low_attendance")
-                urgency_code = "high" if attendance_rate < 0.5 else "medium"
-                urgency_level = UrgencyLevelRepository.get_by_code(urgency_code)
+                alert_type = AlertTypeChoices.LOW_ATTENDANCE
+                urgency_level = UrgencyLevelChoices.HIGH if attendance_rate < 0.5 else UrgencyLevelChoices.MEDIUM
                 alert = EarlyAlertRepository.create(
                     enrollment=enrollment,
                     academic_period=academic_period,
@@ -45,20 +43,22 @@ class EarlyAlertService:
                 alerts.append(alert)
 
         # Regla 2: Calificaciones bajas
+        # Fuente única y MISMA definición que feature_builder: PeriodGradeSummary
+        # .is_failing, acotada al (matrícula, periodo) evaluado (Fase 2, §6.4).
         from apps.grading.repositories.period_grade_summary_repository import (
             PeriodGradeSummaryRepository,
         )
-        summaries = PeriodGradeSummaryRepository.get_by_enrollment(enrollment.id)
-        failing = [s for s in summaries if s.requires_recovery]
-        if len(failing) >= 2:
-            alert_type = AlertTypeRepository.get_by_code("failing_grades")
-            urgency_code = "high" if len(failing) >= 4 else "medium"
-            urgency_level = UrgencyLevelRepository.get_by_code(urgency_code)
+        failing_count = PeriodGradeSummaryRepository.count_failing(
+            enrollment.id, academic_period.id
+        )
+        if failing_count >= 2:
+            alert_type = AlertTypeChoices.FAILING_GRADES
+            urgency_level = UrgencyLevelChoices.HIGH if failing_count >= 4 else UrgencyLevelChoices.MEDIUM
             alert = EarlyAlertRepository.create(
                 enrollment=enrollment,
                 academic_period=academic_period,
                 alert_type=alert_type,
-                description=f"{len(failing)} materias requieren recuperación",
+                description=f"{failing_count} materias reprobadas",
                 urgency_level=urgency_level,
             )
             alerts.append(alert)
@@ -67,12 +67,10 @@ class EarlyAlertService:
         from apps.behavior.repositories.conduct_incident_repository import (
             ConductIncidentRepository,
         )
-        severe = ConductIncidentRepository.get_severe_by_enrollment(
-            enrollment.id, severity_threshold=4
-        )
+        severe = ConductIncidentRepository.get_severe_by_enrollment(enrollment.id)
         if severe.count() >= 2:
-            alert_type = AlertTypeRepository.get_by_code("behavioral")
-            urgency_level = UrgencyLevelRepository.get_by_code("critical")
+            alert_type = AlertTypeChoices.BEHAVIORAL
+            urgency_level = UrgencyLevelChoices.CRITICAL
             alert = EarlyAlertRepository.create(
                 enrollment=enrollment,
                 academic_period=academic_period,

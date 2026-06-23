@@ -2,34 +2,37 @@
 
 > Gestiona la cola de sincronización entre dispositivos offline y el servidor central, resolución de conflictos y versionado de esquemas.
 
-## Modelos
+## Modelos (1 concreto + 1 mixin abstracto)
 
 | Modelo | Descripción | Campos clave |
 |--------|-------------|-------------|
-| `SyncQueue` | Cola de operaciones de sincronización | `idempotency_key` (unique), `user`, `source_table`, `record_uuid`, `operation`, `payload`, `previous_state`, `attempts`, `max_attempts` (default 5), `status`, `conflict_detected`, `resolution_strategy`, `processed_by`, `resolved_by` |
-| `SyncOperation` | Catálogo de operaciones | `code` (INSERT/UPDATE/DELETE), `name` |
-| `SyncStatus` | Catálogo de estados | `code` (PENDIENTE/PROCESANDO/PROCESADO/SYNCED/ERROR/CONFLICT), `name` |
-| `SyncSchemaVersion` | Versionado de esquema de payload | `model_name`, `schema_version`, `fields_hash`, `min_client_version` |
-| `SyncableModel` (abstracto) | Mixin base para modelos sincronizables | `uuid`, `sync_status`, `sync_version`, `synced_at`, `device_origin`, `conflict_resolved`, `conflict_notes` |
+| `SyncQueue` | Cola de operaciones de sincronización | `uuid`, `idempotency_key` (unique, SHA-256), `user` (FK), `source_table`, `record_uuid`, `operation` (choices: CREATE/UPDATE/DELETE), `payload` (JSON), `previous_state` (JSON), `attempts`, `max_attempts` (default 5), `last_error`, `last_attempt_at`, `status` (choices: PENDING/PROCESSING/SYNCED/ERROR/CONFLICT), `conflict_detected`, `resolution_strategy`, `processed_by`, `processed_at`, `resolved_by`, `resolution_notes`. Hereda `TimeStampedModel` |
+| `SyncableModel` | Mixin abstracto para modelos sincronizables | `uuid`, `sync_status`, `sync_version`, `synced_at`, `device_origin`, `conflict_resolved`, `conflict_notes` |
 
-## Servicios
+> **Nota:** `SyncOperation` y `SyncStatus` **no existen como modelos**. Son `TextChoices` dentro de `syncable_mixin.py` (`SyncOperationChoices`, `SyncStatusChoices`). `SyncSchemaVersion` fue eliminado (migración 0004).
+
+## Repositorios (1)
+
+| Repositorio | Métodos adicionales |
+|-------------|---------------------|
+| `SyncQueueRepository` | `get_all()` con `select_related("user")`; `get_pending()`, `get_failed()` |
+
+## Servicios (2)
 
 | Servicio | Métodos | Descripción |
 |----------|---------|-------------|
-| `SyncQueueService` | `queue_operation()` | Encola operación con idempotencia y validación de schema |
-| `SyncQueueService` | `mark_processing()`, `mark_completed()`, `mark_failed()` | Gestión de ciclo de vida de items |
-| `ConflictResolutionStrategy` | `resolve(source_table, local, remote)` | Resuelve conflictos por estrategia por entidad |
-| `ConflictResolutionStrategy` | `_last_write_wins()`, `_server_wins()`, `_manual_resolution_required()` | Estrategias de resolución |
+| `SyncQueueService` | `queue_operation()`, `mark_processing()`, `mark_completed()`, `mark_failed()` | Encola operación con idempotencia; gestión de ciclo de vida |
+| `ConflictResolutionStrategy` | `resolve(source_table, local, remote)` | Resuelve conflictos por tabla con estrategias: `LAST_WRITE_WINS`, `SERVER_WINS`, `MANUAL` |
 
-### Estrategias de resolución por entidad
+### Estrategias de resolución
 
-| Modelo | Estrategia | Comportamiento |
-|--------|-----------|----------------|
-| StudentNote, Attendance, ConductIncident, ProjectNote | `LAST_WRITE_WINS` | Gana la versión con mayor `sync_version` |
-| EarlyAlert, EvaluativeActivity, RecoveryProcess, LearningReport | `SERVER_WINS` | El servidor siempre prevalece |
-| Enrollment | `MANUAL` | Requiere intervención humana, marca `CONFLICT` |
+| Tabla | Estrategia |
+|-------|-----------|
+| student_note, attendance, conduct_incident, project_note, behavior_evaluation, skill_evaluation, diagnostic_evaluation | `LAST_WRITE_WINS` |
+| early_alert, evaluative_activity, recovery_process, learning_report | `SERVER_WINS` |
+| enrollment | `MANUAL` |
 
-## Handlers de Sincronización (15 registrados)
+## Handlers de Sincronización (13 registrados via `@register_sync_handler`)
 
 | App | Handler | source_table |
 |-----|---------|-------------|
@@ -37,7 +40,6 @@
 | grading | `ProjectNoteSyncHandler` | `project_note` |
 | grading | `EvaluativeActivitySyncHandler` | `evaluative_activity` |
 | grading | `RecoveryProcessSyncHandler` | `recovery_process` |
-| grading | `RecoverySessionSyncHandler` | `recovery_session` |
 | grading | `LearningReportSyncHandler` | `learning_report` |
 | attendance | `AttendanceSyncHandler` | `attendance` |
 | behavior | `ConductIncidentSyncHandler` | `conduct_incident` |
@@ -47,18 +49,18 @@
 | students | `EnrollmentSyncHandler` | `enrollment` |
 | analytics | `EarlyAlertSyncHandler` | `early_alert` |
 
-## API
+## API — Endpoints
 
-| Método | Endpoint | Descripción | Permiso requerido |
-|--------|----------|-------------|-------------------|
-| GET/POST | `/api/integration/sync-queue/` | Listar/Crear items | `integration.view/create_syncqueue` |
-| GET/PATCH/DELETE | `/api/integration/sync-queue/{id}/` | CRUD individual | `integration.view/update/delete_syncqueue` |
-| GET/POST | `/api/integration/sync-operations/` | CRUD operaciones | `integration.view/create_sync_operation` |
-| GET/POST | `/api/integration/sync-statuses/` | CRUD estados | `integration.view/create_sync_status` |
-| POST | `/api/integration/sync/push/` | Push batch desde cliente | `IsAuthenticated` |
-| GET | `/api/integration/sync/pull/?since=&source_table=` | Pull cambios desde servidor | `IsAuthenticated` |
+| Método | Endpoint | Tipo | Permiso |
+|--------|----------|------|---------|
+| GET/POST | `/api/integration/sync-queue/` | SyncQueueViewSet | `integration.view/create_syncqueue` |
+| GET/PUT/PATCH/DEL | `/api/integration/sync-queue/{id}/` | SyncQueueViewSet | `integration.view/update/delete_syncqueue` |
+| POST | `/api/integration/sync/push/` | `SyncQueueViewSet.push` | `IsAuthenticated` |
+| GET | `/api/integration/sync/pull/` | `SyncQueueViewSet.pull` | `IsAuthenticated` |
 
-## Tareas Celery
+> **No existen** endpoints para `sync-operations/` ni `sync-statuses/` (no son modelos).
+
+## Tareas Celery (2)
 
 | Tarea | Descripción |
 |-------|-------------|
@@ -71,18 +73,17 @@
 python manage.py test apps.integration --settings=config.settings.test
 ```
 
-## Dependencias
+## Modelos que heredan `SyncableModel` (12)
 
-- `iam.User`
-- `integration.SyncOperation`, `integration.SyncStatus`
-
-## Modelos que heredan SyncableModel (13)
-
-- `StudentNote`, `Attendance`, `ConductIncident`, `ProjectNote`
-- `EarlyAlert`, `EvaluativeActivity`, `Enrollment`
-- `RecoveryProcess`, `RecoverySession`, `BehaviorEvaluation`
-- `SkillEvaluation`, `DiagnosticEvaluation`, `LearningReport`
+- StudentNote, Attendance, ConductIncident, ProjectNote
+- EarlyAlert, EvaluativeActivity, Enrollment
+- RecoveryProcess, BehaviorEvaluation
+- SkillEvaluation, DiagnosticEvaluation, LearningReport
 
 ## Idempotencia
 
-Cada `SyncQueue` genera automáticamente un `idempotency_key` vía SHA-256 de `source_table:record_uuid:operation_code`. Si ya existe un item con la misma clave en estado `PROCESADO`, se rechaza el duplicado silenciosamente.
+`SyncQueue.idempotency_key` = SHA-256 de `source_table:record_uuid:operation_code`. Si ya existe un item con la misma key en estado `SYNCED`, se omite silenciosamente.
+
+## Dependencias
+
+- `iam.User`

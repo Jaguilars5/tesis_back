@@ -21,7 +21,6 @@ API_MODULES = [
     "analytics",
     "attendance",
     "behavior",
-    "configuration",
     "integration",
     "people",
 ]
@@ -39,7 +38,6 @@ urlpatterns = [
     path("api/behavior/", include("apps.behavior.urls")),
     path("api/people/", include("apps.people.urls")),
 
-    path("api/configuration/", include("apps.configuration.urls")),
     path("api/integration/", include("apps.integration.urls")),
     # OpenAPI Schema completo (público)
     path(

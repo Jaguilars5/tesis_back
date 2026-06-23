@@ -42,7 +42,6 @@ class GradingService:
         enrollment_id,
         evaluative_activity_id,
         numeric_score,
-        grade_type_id=None,
         qualitative_scale_id=None,
         teacher_observation="",
         device_origin=None,
@@ -61,8 +60,6 @@ class GradingService:
             existing.teacher_observation = teacher_observation
             existing.sync_status = "PENDING"
             existing.device_origin = device_origin
-            if grade_type_id:
-                existing.grade_type_id = grade_type_id
             if qualitative_scale_id:
                 existing.qualitative_scale_id = qualitative_scale_id
             existing.full_clean()
@@ -73,7 +70,6 @@ class GradingService:
             enrollment_id=enrollment_id,
             evaluative_activity_id=evaluative_activity_id,
             numeric_score=numeric_score,
-            grade_type_id=grade_type_id,
             qualitative_scale_id=qualitative_scale_id,
             teacher_observation=teacher_observation,
         )
@@ -247,7 +243,6 @@ class GradingService:
     @transaction.atomic
     def create_conduct_incident(
         enrollment_id,
-        reported_by_user_id,
         academic_period_id,
         incident_date,
         category,
@@ -259,22 +254,25 @@ class GradingService:
         """
         Registra un nuevo incidente de conducta.
         """
-        from apps.behavior.models import Severity
-        if isinstance(severity, int):
-            severity_obj = Severity.objects.filter(numeric_level=severity).first()
-            if not severity_obj:
-                severity_obj = Severity.objects.create(
-                    code=f"GRAVE_{severity}",
-                    name=f"Gravedad nivel {severity}",
-                    numeric_level=severity,
-                )
+        from apps.behavior.models import IncidentType, Severity
+        if isinstance(category, str):
+            incident_type_obj, _ = IncidentType.objects.get_or_create(
+                code=category,
+                defaults={"name": category.capitalize(), "description": f"Tipo de incidente: {category}"},
+            )
+        else:
+            incident_type_obj = category
+        if isinstance(severity, str):
+            severity_obj, _ = Severity.objects.get_or_create(
+                code=severity,
+                defaults={"name": severity.capitalize()},
+            )
             severity = severity_obj
         incident = ConductIncident(
             enrollment_id=enrollment_id,
-            reported_by_user_id=reported_by_user_id,
             academic_period_id=academic_period_id,
             incident_date=incident_date,
-            category=category,
+            incident_type=incident_type_obj,
             severity=severity,
             description=description,
             family_notified=family_notified,

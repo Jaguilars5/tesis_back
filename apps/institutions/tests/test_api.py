@@ -23,7 +23,6 @@ class SchoolYearAPITest(APITestCase):
         )
         self.client.force_authenticate(user=self.user)
         self.school_year = SchoolYear.objects.create(
-            name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
@@ -35,7 +34,6 @@ class SchoolYearAPITest(APITestCase):
 
     def test_create_school_year(self):
         data = {
-            "name": "2025-2026",
             "start_date": "2025-09-01",
             "end_date": "2026-07-31",
         }
@@ -47,7 +45,7 @@ class SchoolYearAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_update_school_year(self):
-        data = {"name": "2024-2025 Modified"}
+        data = {"end_date": "2025-12-31"}
         response = self.client.patch(
             f"{self.url}{self.school_year.id}/", data, format="json"
         )
@@ -68,7 +66,6 @@ class SectionAPITest(APITestCase):
         )
         self.client.force_authenticate(user=self.user)
         self.school_year = SchoolYear.objects.create(
-            name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
@@ -166,7 +163,7 @@ class AcademicGradeAPITest(APITestCase):
         self.client.force_authenticate(user=self.user)
         self.level = AcademicLevel.objects.create(name="Primaria", code="PRIM")
         self.grade = AcademicGrade.objects.create(
-            name="5to", sequence_order=5, code="5TO"
+            name="5to", code="5TO"
         )
         self.url = "/api/institutions/academic-grades/"
 
@@ -175,7 +172,7 @@ class AcademicGradeAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_create_academic_grade(self):
-        data = {"name": "6to", "sequence_order": 6, "code": "6TO"}
+        data = {"name": "6to", "code": "6TO"}
         response = self.client.post(self.url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 

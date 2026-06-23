@@ -7,11 +7,6 @@ class AttendanceStatus(TimeStampedModel):
     name = models.CharField(max_length=100, verbose_name="Nombre")
     description = models.TextField(blank=True, verbose_name="Descripción")
     is_active = models.BooleanField(default=True, verbose_name="Activo")
-    tipo = models.CharField(
-        max_length=10,
-        choices=[("POSITIVO", "Positivo"), ("NEGATIVO", "Negativo")],
-        null=True, blank=True, verbose_name="Tipo",
-    )
 
     class Meta:
         app_label = "attendance"

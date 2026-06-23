@@ -5,9 +5,8 @@ from .models import (
     TeacherSubjectSection,
     SubjectAcademicConfig,
     SubjectOffering,
-    InterdisciplinaryProject,
-    SubjectProject,
     PeriodType,
+    ClassSchedule,
 )
 
 
@@ -45,7 +44,6 @@ class SubjectAcademicConfigAdmin(admin.ModelAdmin):
         "subject",
         "academic_grade",
         "weekly_hours",
-        "pedagogical_order",
         "is_active",
     )
 
@@ -55,19 +53,25 @@ class SubjectOfferingAdmin(admin.ModelAdmin):
     list_display = ("school_year", "section", "subject_academic_config", "is_active")
 
 
-@admin.register(InterdisciplinaryProject)
-class InterdisciplinaryProjectAdmin(admin.ModelAdmin):
-    list_display = ("title", "academic_period", "start_date", "delivery_date", "is_active")
-    list_filter = ("is_active", "academic_period")
-    search_fields = ("title",)
-
-
-@admin.register(SubjectProject)
-class SubjectProjectAdmin(admin.ModelAdmin):
-    list_display = ("interdisciplinary_project", "subject_offering")
-
-
 @admin.register(PeriodType)
 class PeriodTypeAdmin(admin.ModelAdmin):
-    list_display = ("code", "name")
+    list_display = ("code", "name", "divisions_per_year", "is_active")
+    list_filter = ("is_active",)
     search_fields = ("code", "name")
+
+
+@admin.register(ClassSchedule)
+class ClassScheduleAdmin(admin.ModelAdmin):
+    list_display = (
+        "teacher_subject_section",
+        "get_day_of_week_display",
+        "start_time",
+        "end_time",
+        "is_active",
+    )
+    list_filter = ("day_of_week", "is_active")
+    raw_id_fields = ("teacher_subject_section",)
+    search_fields = (
+        "teacher_subject_section__user__person__names",
+        "teacher_subject_section__user__person__last_names",
+    )

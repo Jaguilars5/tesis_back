@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
-from ..models import StudentFeatureSnapshot, DashboardMetric
+from ..models import StudentFeatureSnapshot
 
 
 class StudentClusteringService:
@@ -32,22 +32,6 @@ class StudentClusteringService:
 
         kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init="auto")
         clusters = kmeans.fit_predict(X_scaled)
-
-        for i, snapshot in enumerate(snapshots):
-            DashboardMetric.objects.update_or_create(
-                academic_period_id=academic_period_id,
-                section=snapshot.enrollment.section,
-                metric_type="student_cluster",
-                defaults={
-                    "metric_value": {
-                        "cluster": int(clusters[i]),
-                        "label": cls.CLUSTER_LABELS.get(int(clusters[i]), "Desconocido"),
-                        "centroid_distance": float(
-                            np.linalg.norm(X_scaled[i] - kmeans.cluster_centers_[clusters[i]])
-                        ),
-                    }
-                },
-            )
 
         unique, counts = np.unique(clusters, return_counts=True)
         return {

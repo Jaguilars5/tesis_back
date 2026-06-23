@@ -1,6 +1,22 @@
 from django.db import models
+from django.db.models import TextChoices
 from apps.core.models import TimeStampedModel
 from apps.integration.models.syncable_mixin import SyncableModel
+
+
+class AlertTypeChoices(TextChoices):
+    LOW_ATTENDANCE = "low_attendance", "Baja Asistencia"
+    FAILING_GRADES = "failing_grades", "Calificaciones Bajas"
+    BEHAVIORAL = "behavioral", "Problemas de Conducta"
+    DROPOUT_RISK = "dropout_risk", "Riesgo de Deserción"
+    SOCIOEMOTIONAL = "socioemotional", "Problemas Socioemocionales"
+
+
+class UrgencyLevelChoices(TextChoices):
+    LOW = "low", "Baja"
+    MEDIUM = "medium", "Media"
+    HIGH = "high", "Alta"
+    CRITICAL = "critical", "Crítica"
 
 
 class EarlyAlert(TimeStampedModel, SyncableModel):
@@ -16,9 +32,9 @@ class EarlyAlert(TimeStampedModel, SyncableModel):
         related_name="early_alerts",
         verbose_name="Período Académico",
     )
-    alert_type = models.ForeignKey("analytics.AlertType", on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Tipo de alerta")
+    alert_type = models.CharField(max_length=30, choices=AlertTypeChoices.choices, null=True, blank=True, verbose_name="Tipo de alerta")
     description = models.TextField(verbose_name="Descripción")
-    urgency_level = models.ForeignKey("analytics.UrgencyLevel", on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Nivel de urgencia")
+    urgency_level = models.CharField(max_length=20, choices=UrgencyLevelChoices.choices, null=True, blank=True, verbose_name="Nivel de urgencia")
     attended = models.BooleanField(default=False, verbose_name="Atendida")
     attended_by_user = models.ForeignKey(
         "iam.User",
@@ -29,7 +45,7 @@ class EarlyAlert(TimeStampedModel, SyncableModel):
     )
     detected_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de detección")
     attended_at = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de atención")
-    response_actions = models.TextField(null=True, blank=True, verbose_name="Acciones de respuesta")
+    response_actions = models.TextField(blank=True, default='', verbose_name="Acciones de respuesta")
 
     class Meta:
         app_label = "analytics"
@@ -42,4 +58,4 @@ class EarlyAlert(TimeStampedModel, SyncableModel):
         ]
 
     def __str__(self):
-        return f"{self.alert_type.name if self.alert_type else ''} - {self.enrollment} ({self.urgency_level.name if self.urgency_level else ''})"
+        return f"{self.get_alert_type_display() if self.alert_type else ''} - {self.enrollment} ({self.get_urgency_level_display() if self.urgency_level else ''})"

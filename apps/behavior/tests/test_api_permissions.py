@@ -27,12 +27,12 @@ class BehaviorPermissionsTest(TestCase):
         )
 
         perm_codes = [
-            behavior.VIEW_CONDUCT_INCIDENT, behavior.CREATE_CONDUCT_INCIDENT, behavior.UPDATE_CONDUCT_INCIDENT, behavior.DELETE_CONDUCT_INCIDENT,
-            behavior.VIEW_BEHAVIOR_EVALUATION, behavior.CREATE_BEHAVIOR_EVALUATION, behavior.UPDATE_BEHAVIOR_EVALUATION, behavior.DELETE_BEHAVIOR_EVALUATION,
-            behavior.VIEW_INCIDENT_TYPE, behavior.CREATE_INCIDENT_TYPE, behavior.UPDATE_INCIDENT_TYPE, behavior.DELETE_INCIDENT_TYPE,
-            behavior.VIEW_SOCIOEMOTIONAL_SKILL, behavior.CREATE_SOCIOEMOTIONAL_SKILL, behavior.UPDATE_SOCIOEMOTIONAL_SKILL, behavior.DELETE_SOCIOEMOTIONAL_SKILL,
-            behavior.VIEW_SKILL_EVALUATION, behavior.CREATE_SKILL_EVALUATION, behavior.UPDATE_SKILL_EVALUATION, behavior.DELETE_SKILL_EVALUATION,
-            behavior.VIEW_DIAGNOSTIC_EVALUATION, behavior.CREATE_DIAGNOSTIC_EVALUATION, behavior.UPDATE_DIAGNOSTIC_EVALUATION, behavior.DELETE_DIAGNOSTIC_EVALUATION,
+            behavior.VIEW_CONDUCT_INCIDENT, behavior.CREATE_CONDUCT_INCIDENT,
+            behavior.UPDATE_CONDUCT_INCIDENT, behavior.DELETE_CONDUCT_INCIDENT,
+            behavior.VIEW_BEHAVIOR_EVALUATION, behavior.CREATE_BEHAVIOR_EVALUATION,
+            behavior.UPDATE_BEHAVIOR_EVALUATION, behavior.DELETE_BEHAVIOR_EVALUATION,
+            behavior.VIEW_INCIDENT_TYPE, behavior.CREATE_INCIDENT_TYPE,
+            behavior.UPDATE_INCIDENT_TYPE, behavior.DELETE_INCIDENT_TYPE,
         ]
         role = Role.objects.create(name="Behavior Test Role", code="ADMIN")
         for code in perm_codes:
@@ -58,42 +58,19 @@ class BehaviorPermissionsTest(TestCase):
         resp = getattr(self.client, method)(url, data or {}, format="json")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
-    # --- ConductIncidentViewSet ---
     def test_ci_list(self):    self._test_401_403("/api/behavior/conduct-incidents/")
     def test_ci_create(self):  self._test_401_403("/api/behavior/conduct-incidents/", "post", {"incident_date": "2025-01-01", "severity": 1})
     def test_ci_detail(self):  self._test_401_403("/api/behavior/conduct-incidents/999/")
     def test_ci_list_auth(self):    self._test_auth("/api/behavior/conduct-incidents/")
     def test_ci_superuser(self):    self._test_superuser("/api/behavior/conduct-incidents/")
 
-    # --- BehaviorEvaluationViewSet ---
     def test_be_list(self):    self._test_401_403("/api/behavior/behavior-evaluations/")
     def test_be_detail(self):  self._test_401_403("/api/behavior/behavior-evaluations/999/")
     def test_be_list_auth(self):    self._test_auth("/api/behavior/behavior-evaluations/")
     def test_be_superuser(self):    self._test_superuser("/api/behavior/behavior-evaluations/")
 
-    # --- IncidentTypeViewSet ---
     def test_it_list(self):    self._test_401_403("/api/behavior/incident-types/")
     def test_it_create(self):  self._test_401_403("/api/behavior/incident-types/", "post", {"code": "TEST", "name": "Test Type"})
     def test_it_detail(self):  self._test_401_403("/api/behavior/incident-types/999/")
     def test_it_list_auth(self):    self._test_auth("/api/behavior/incident-types/")
     def test_it_superuser(self):    self._test_superuser("/api/behavior/incident-types/")
-
-    # --- SocioemotionalSkillViewSet ---
-    def test_ss_list(self):    self._test_401_403("/api/behavior/socioemotional-skills/")
-    def test_ss_create(self):  self._test_401_403("/api/behavior/socioemotional-skills/", "post", {"code": "EMP", "name": "Empatía"})
-    def test_ss_detail(self):  self._test_401_403("/api/behavior/socioemotional-skills/999/")
-    def test_ss_list_auth(self):    self._test_auth("/api/behavior/socioemotional-skills/")
-    def test_ss_superuser(self):    self._test_superuser("/api/behavior/socioemotional-skills/")
-
-    # --- SkillEvaluationViewSet ---
-    def test_se_list(self):    self._test_401_403("/api/behavior/skill-evaluations/")
-    def test_se_detail(self):  self._test_401_403("/api/behavior/skill-evaluations/999/")
-    def test_se_list_auth(self):    self._test_auth("/api/behavior/skill-evaluations/")
-    def test_se_superuser(self):    self._test_superuser("/api/behavior/skill-evaluations/")
-
-    # --- DiagnosticEvaluationViewSet ---
-    def test_de_list(self):    self._test_401_403("/api/behavior/diagnostic-evaluations/")
-    def test_de_create(self):  self._test_401_403("/api/behavior/diagnostic-evaluations/", "post", {"application_date": "2025-01-01"})
-    def test_de_detail(self):  self._test_401_403("/api/behavior/diagnostic-evaluations/999/")
-    def test_de_list_auth(self):    self._test_auth("/api/behavior/diagnostic-evaluations/")
-    def test_de_superuser(self):    self._test_superuser("/api/behavior/diagnostic-evaluations/")

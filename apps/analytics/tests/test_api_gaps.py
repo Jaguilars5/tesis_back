@@ -16,11 +16,11 @@ from apps.core.constants.permissions import analytics
 
 from apps.analytics.models import (
     RiskFactor, StudentFeatureSnapshot, StudentRiskFactor, StudentRiskScore, EarlyAlert,
-    AlertType, UrgencyLevel,
 )
+from apps.analytics.models.early_alert import AlertTypeChoices, UrgencyLevelChoices
 from apps.academic.models import AcademicPeriod, PeriodType
 from apps.institutions.models import SchoolYear, AcademicGrade, AcademicLevel, AcademicSublevel, Section
-from apps.students.models import Enrollment, EnrollmentStatus
+from apps.students.models import Enrollment
 
 
 class AnalyticsAPIGapsTest(TestCase):
@@ -31,7 +31,6 @@ class AnalyticsAPIGapsTest(TestCase):
 
         # 1. Configuración básica académica
         self.school_year = SchoolYear.objects.create(
-            name="2025",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 12, 31),
         )
@@ -41,9 +40,7 @@ class AnalyticsAPIGapsTest(TestCase):
         )
         self.academic_grade = AcademicGrade.objects.create(
             academic_sublevel=self.academic_sublevel,
-            name="7",
-            sequence_order=1,
-        )
+            name="7"        )
         self.section = Section.objects.create(
             school_year=self.school_year,
             academic_grade=self.academic_grade,
@@ -63,21 +60,13 @@ class AnalyticsAPIGapsTest(TestCase):
             last_names="Lopez",
             birth_date=date(2010, 1, 1),
         )
-        status_enr, _ = EnrollmentStatus.objects.get_or_create(
-            code="ACT", defaults={"name": "Activa"}
-        )
         self.enrollment = Enrollment.objects.create(
             student=self.student,
             section=self.section,
-            school_year=self.school_year,
-            enrollment_status=status_enr,
+            enrollment_status="ACT",
         )
 
-        # 2. Creación de catálogos
-        AlertType.objects.create(code="dropout_risk", name="Riesgo de Deserción")
-        UrgencyLevel.objects.create(code="high", name="Alta")
-
-        # 3. Creación de Usuarios
+        # 2. Creación de Usuarios
         self.admin = create_test_user(
             email="admin_analytics@test.com",
             dni="8888888881",
@@ -168,9 +157,9 @@ class AnalyticsAPIGapsTest(TestCase):
         self.early_alert = EarlyAlert.objects.create(
             enrollment=self.enrollment,
             academic_period=self.period,
-            alert_type=AlertType.objects.get(code="dropout_risk"),
+            alert_type=AlertTypeChoices.DROPOUT_RISK,
             description="Alto riesgo de deserción por ausentismo y notas bajas",
-            urgency_level=UrgencyLevel.objects.get(code="high"),
+            urgency_level=UrgencyLevelChoices.HIGH,
             attended=False,
         )
 
@@ -257,18 +246,12 @@ class AnalyticsAPIGapsTest(TestCase):
         self.assertEqual(len(results), 1)
 
         # Crear alerta
-        alert_type_failing = AlertType.objects.create(
-            code="failing_grades", name="Notas bajas"
-        )
-        urgency_medium = UrgencyLevel.objects.create(
-            code="medium", name="Media"
-        )
         data = {
             "enrollment": self.enrollment.id,
             "academic_period": self.period.id,
-            "alert_type": alert_type_failing.id,
+            "alert_type": AlertTypeChoices.FAILING_GRADES,
             "description": "Notas rojas",
-            "urgency_level": urgency_medium.id,
+            "urgency_level": UrgencyLevelChoices.MEDIUM,
         }
         response = self.client.post("/api/analytics/early-alerts/", data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)

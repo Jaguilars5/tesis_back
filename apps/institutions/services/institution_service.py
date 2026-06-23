@@ -11,7 +11,7 @@ class InstitutionService:
     # =====================
 
     @staticmethod
-    def create_school_year(name, start_date, end_date):
+    def create_school_year(start_date, end_date):
         if start_date >= end_date:
             raise ValueError("Fecha de inicio debe ser anterior a fecha de cierre")
 
@@ -19,7 +19,6 @@ class InstitutionService:
             raise ValueError("Conflicto de fechas con otro año escolar")
 
         school_year = SchoolYearRepository.create(
-            name=name,
             start_date=start_date,
             end_date=end_date,
         )

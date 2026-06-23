@@ -8,7 +8,7 @@ class EvaluationService:
         """Calcula el promedio ponderado para un bloque de evaluación."""
         notes = StudentNote.objects.filter(
             enrollment=enrollment,
-            evaluative_activity__component_indicator__block_component__evaluation_block=evaluation_block,
+            evaluative_activity__block_component__evaluation_block=evaluation_block,
         )
         if not notes.exists():
             return None
@@ -18,10 +18,9 @@ class EvaluationService:
 
         for note in notes:
             activity = note.evaluative_activity
-            indicator = activity.component_indicator
-            component = indicator.block_component
+            component = activity.block_component
 
-            ind_weight = indicator.internal_weight
+            act_weight = activity.internal_weight
             comp_weight = component.internal_weight
 
             if activity.max_score > 0:
@@ -29,7 +28,7 @@ class EvaluationService:
             else:
                 normalized = Decimal("0.00")
 
-            combined_weight = (ind_weight / Decimal("100")) * (comp_weight / Decimal("100"))
+            combined_weight = (act_weight / Decimal("100")) * (comp_weight / Decimal("100"))
             total_score += normalized * combined_weight
             total_weight += combined_weight
 
@@ -63,14 +62,12 @@ class EvaluationService:
     @staticmethod
     def get_grade_hierarchy(evaluative_activity):
         """Retorna la jerarquía completa de una actividad evaluativa."""
-        indicator = evaluative_activity.component_indicator
-        component = indicator.block_component
+        component = evaluative_activity.block_component
         block = component.evaluation_block
         period = block.academic_period
 
         return {
             "evaluative_activity": evaluative_activity,
-            "indicator": indicator,
             "component": component,
             "block": block,
             "academic_period": period,

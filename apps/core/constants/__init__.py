@@ -7,7 +7,6 @@ from .permissions import (
     StudentsPermissions,
     AttendancePermissions,
     BehaviorPermissions,
-    ConfigurationPermissions,
     IntegrationPermissions,
     PeoplePermissions,
     academic,
@@ -18,7 +17,6 @@ from .permissions import (
     students,
     attendance,
     behavior,
-    configuration,
     integration,
     people,
 )
@@ -32,7 +30,6 @@ __all__ = [
     "AnalyticsPermissions",
     "AttendancePermissions",
     "BehaviorPermissions",
-    "ConfigurationPermissions",
     "IntegrationPermissions",
     "PeoplePermissions",
     "iam",

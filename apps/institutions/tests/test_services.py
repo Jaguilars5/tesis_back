@@ -10,7 +10,6 @@ class SchoolYearServiceTest(TestCase):
     def setUp(self):
         """Crear instancias de prueba"""
         self.school_year = SchoolYear.objects.create(
-            name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
@@ -18,17 +17,16 @@ class SchoolYearServiceTest(TestCase):
     def test_create_school_year(self):
         """Probar creación de año escolar"""
         school_year = InstitutionService.create_school_year(
-            "2025-2026", date(2025, 9, 1), date(2026, 7, 31)
+            date(2025, 9, 1), date(2026, 7, 31)
         )
 
         self.assertIsNotNone(school_year.id)
-        self.assertEqual(school_year.name, "2025-2026")
+        self.assertEqual(school_year.start_date, date(2025, 9, 1))
 
     def test_create_school_year_invalid_dates(self):
         """Probar que rechaza fechas inválidas"""
         with self.assertRaises(ValueError):
             InstitutionService.create_school_year(
-                "2025-2026",
                 date(2026, 7, 31),  # Fecha final
                 date(2025, 9, 1),  # Fecha inicial (invertidas)
             )
@@ -37,7 +35,6 @@ class SchoolYearServiceTest(TestCase):
         """Probar que detecta conflicto de fechas"""
         with self.assertRaises(ValueError):
             InstitutionService.create_school_year(
-                "2024-2025-2",
                 date(2024, 12, 1),  # Dentro del rango del año existente
                 date(2025, 3, 31),
             )
@@ -50,7 +47,7 @@ class SchoolYearServiceTest(TestCase):
     def test_list_school_years(self):
         """Probar listado de años escolares"""
         InstitutionService.create_school_year(
-            "2025-2026", date(2025, 9, 1), date(2026, 7, 31)
+            date(2025, 9, 1), date(2026, 7, 31)
         )
 
         years = InstitutionService.list_school_years()
@@ -59,7 +56,6 @@ class SchoolYearServiceTest(TestCase):
     def test_get_current_school_year(self):
         """Probar obtención del año escolar actual"""
         SchoolYear.objects.create(
-            name="Actual",
             start_date=date(2024, 1, 1),
             end_date=date(2024, 12, 31),
             is_active=True,
@@ -74,10 +70,10 @@ class SchoolYearServiceTest(TestCase):
     def test_update_school_year(self):
         """Probar actualización de año escolar"""
         updated = InstitutionService.update_school_year(
-            self.school_year.id, name="2024-2025 Modificado"
+            self.school_year.id, end_date=date(2025, 12, 31)
         )
 
-        self.assertEqual(updated.name, "2024-2025 Modificado")
+        self.assertEqual(updated.end_date, date(2025, 12, 31))
 
     def test_deactivate_school_year(self):
         """Probar desactivación de año escolar"""

@@ -21,4 +21,8 @@ class AcademicSublevel(TimeStampedModel):
         ordering = ["name"]
 
     def __str__(self):
-        return f"{self.academic_level.name} - {self.name}"
+        return f"{self.name}"
+
+    @property
+    def academic_level_name(self):
+        return self.academic_level.name if self.academic_level else None

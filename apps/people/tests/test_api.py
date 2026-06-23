@@ -1,3 +1,4 @@
+from datetime import date
 from rest_framework.test import APITestCase
 from rest_framework import status
 from django.contrib.auth import get_user_model
@@ -64,6 +65,7 @@ class PersonAPITest(APITestCase):
             "names": "María",
             "last_names": "Gómez",
             "email": "maria@example.com",
+            "birth_date": "1990-01-01",
         }
         response = self.client.post(self.url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -73,6 +75,7 @@ class PersonAPITest(APITestCase):
         person = Person.objects.create(
             document_type=self.doc_type, document_number="1111111111",
             names="Test", last_names="Person",
+            birth_date=date(1990, 1, 1),
         )
         response = self.client.get(f"{self.url}{person.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -82,6 +85,7 @@ class PersonAPITest(APITestCase):
         person = Person.objects.create(
             document_type=self.doc_type, document_number="2222222222",
             names="Test", last_names="Person",
+            birth_date=date(1990, 1, 1),
         )
         data = {"names": "Updated"}
         response = self.client.patch(f"{self.url}{person.id}/", data)
@@ -92,6 +96,7 @@ class PersonAPITest(APITestCase):
         person = Person.objects.create(
             document_type=self.doc_type, document_number="3333333333",
             names="Test", last_names="Person",
+            birth_date=date(1990, 1, 1),
         )
         response = self.client.delete(f"{self.url}{person.id}/")
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)

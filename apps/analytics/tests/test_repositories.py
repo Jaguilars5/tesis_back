@@ -9,8 +9,8 @@ from apps.academic.models import (PeriodType,
 from apps.iam.models import User
 from apps.analytics.models import (
     EarlyAlert, RiskFactor, StudentFeatureSnapshot, StudentRiskFactor, StudentRiskScore,
-    AlertType, UrgencyLevel,
 )
+from apps.analytics.models.early_alert import AlertTypeChoices, UrgencyLevelChoices
 from apps.analytics.repositories.analytics_repo import (
     StudentRiskScoreRepository, StudentFeatureSnapshotRepository,
 )
@@ -18,15 +18,14 @@ from apps.analytics.repositories.early_alert_repository import EarlyAlertReposit
 from apps.core.repositories.base import BaseRepository
 from apps.core.tests.helpers import create_test_user, create_test_student
 from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSublevel, SchoolYear, Section
-from apps.students.models import Enrollment, EnrollmentStatus
+from apps.students.models import Enrollment
 
 
 class AnalyticsRepositoryTest(TestCase):
     """Tests para los repositorios del módulo analytics."""
 
     def setUp(self):
-        self.school_year = SchoolYear.objects.create(
-            name="2025", start_date=date(2025, 1, 1), end_date=date(2025, 12, 31),
+        self.school_year = SchoolYear.objects.create( start_date=date(2025, 1, 1), end_date=date(2025, 12, 31),
         )
         self.period = AcademicPeriod.objects.create(
             school_year=self.school_year, name="P1",
@@ -41,7 +40,7 @@ class AnalyticsRepositoryTest(TestCase):
             academic_level=self.academic_level, name="Básica"
         )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_sublevel=self.academic_sublevel, name="7", sequence_order=1,
+            academic_sublevel=self.academic_sublevel, name="7",
         )
         self.section = Section.objects.create(
             school_year=self.school_year, academic_grade=self.academic_grade,
@@ -50,10 +49,10 @@ class AnalyticsRepositoryTest(TestCase):
         self.subject = Subject.objects.create(name="Matemática", code="MAT-7A")
         subj_config = SubjectAcademicConfig.objects.create(
             subject=self.subject, academic_grade=self.academic_grade,
-            weekly_hours=5, pedagogical_order=1,
+            weekly_hours=5,
         )
         self.offering = SubjectOffering.objects.create(
-            school_year=self.school_year, section=self.section,
+            section=self.section,
             subject_academic_config=subj_config,
         )
         self.user = create_test_user(
@@ -67,21 +66,18 @@ class AnalyticsRepositoryTest(TestCase):
             document_number="0912345678", names="Juan", last_names="Lopez",
             birth_date=date(2010, 1, 1),
         )
-        status, _ = EnrollmentStatus.objects.get_or_create(
-            code="ACT", defaults={"name": "Activa"},
-        )
         self.enrollment = Enrollment.objects.create(
-            student=self.student, section=self.section, enrollment_status=status,
+            student=self.student, section=self.section, enrollment_status="ACT",
         )
-        self.alert_type_low = AlertType.objects.create(code="low_attendance", name="Baja Asistencia")
-        self.alert_type_fail = AlertType.objects.create(code="failing_grades", name="Calificaciones Bajas")
-        self.alert_type_bhv = AlertType.objects.create(code="behavioral", name="Problemas de Conducta")
-        self.alert_type_drop = AlertType.objects.create(code="dropout_risk", name="Riesgo de Deserción")
-        self.alert_type_socio = AlertType.objects.create(code="socioemotional", name="Problemas Socioemocionales")
-        self.urgency_high = UrgencyLevel.objects.create(code="high", name="Alta")
-        self.urgency_medium = UrgencyLevel.objects.create(code="medium", name="Media")
-        self.urgency_low = UrgencyLevel.objects.create(code="low", name="Baja")
-        self.urgency_critical = UrgencyLevel.objects.create(code="critical", name="Crítica")
+        self.alert_type_low = AlertTypeChoices.LOW_ATTENDANCE
+        self.alert_type_fail = AlertTypeChoices.FAILING_GRADES
+        self.alert_type_bhv = AlertTypeChoices.BEHAVIORAL
+        self.alert_type_drop = AlertTypeChoices.DROPOUT_RISK
+        self.alert_type_socio = AlertTypeChoices.SOCIOEMOTIONAL
+        self.urgency_high = UrgencyLevelChoices.HIGH
+        self.urgency_medium = UrgencyLevelChoices.MEDIUM
+        self.urgency_low = UrgencyLevelChoices.LOW
+        self.urgency_critical = UrgencyLevelChoices.CRITICAL
 
     # --- StudentRiskScoreRepository ---
 
@@ -277,7 +273,6 @@ class AnalyticsRepositoryTest(TestCase):
             "severe_incidents_count": 0,
             "justified_absences": 1,
             "unjustified_absences": 0,
-            "active_alerts": 0,
             "is_repeat": False,
             "has_special_needs": False,
         }

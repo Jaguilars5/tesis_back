@@ -13,12 +13,12 @@ from apps.academic.models import (PeriodType,
 from apps.iam.models import Role
 from apps.core.tests.helpers import create_test_user, create_test_student
 from apps.grading.models import QualitativeScale
-from apps.behavior.models import BehaviorEvaluation, ConductIncident, Severity
+from apps.behavior.models import BehaviorEvaluation, ConductIncident, IncidentType, Severity
 from apps.behavior.services.behavior_service import (
     BehaviorEvaluationService,
 )
 from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSublevel, SchoolYear, Section
-from apps.students.models import Enrollment, EnrollmentStatus
+from apps.students.models import Enrollment
 
 
 class BehaviorEvaluationModelTest(TestCase):
@@ -26,7 +26,6 @@ class BehaviorEvaluationModelTest(TestCase):
 
     def setUp(self):
         school_year = SchoolYear.objects.create(
-            name="2025",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 12, 31),
         )
@@ -43,7 +42,7 @@ class BehaviorEvaluationModelTest(TestCase):
         academic_grade = AcademicGrade.objects.create(
             academic_sublevel=academic_sublevel,
             name="7",
-            sequence_order=1,
+
         )
         section = Section.objects.create(
             school_year=school_year,
@@ -57,13 +56,10 @@ class BehaviorEvaluationModelTest(TestCase):
             last_names="Lopez",
             birth_date=date(2010, 1, 1),
         )
-        status, _ = EnrollmentStatus.objects.get_or_create(
-            code="ACT", defaults={"name": "Activa"}
-        )
         self.enrollment = Enrollment.objects.create(
             student=self.student,
             section=section,
-            enrollment_status=status,
+            enrollment_status="ACT",
         )
         self.scale_se, _ = QualitativeScale.objects.get_or_create(
             code="SE",
@@ -94,11 +90,9 @@ class BehaviorEvaluationModelTest(TestCase):
             },
         )
         self.severity_leve = Severity.objects.create(
-            code="LEVE", name="Falta leve", numeric_level=1,
-        )
+            code="LEVE", name="Falta leve", )
         self.severity_muy_grave = Severity.objects.create(
-            code="MUY_GRAVE", name="Falta muy grave", numeric_level=4,
-        )
+            code="MUY_GRAVE", name="Falta muy grave", )
 
     def test_create_behavior_evaluation(self):
         evaluation = BehaviorEvaluation.objects.create(
@@ -109,7 +103,7 @@ class BehaviorEvaluationModelTest(TestCase):
 
         self.assertEqual(evaluation.calculated_scale.code, "SE")
         self.assertIsNone(evaluation.final_scale)
-        self.assertIsNone(evaluation.override_reason)
+        self.assertEqual(evaluation.override_reason, "")
 
     def test_behavior_evaluation_unique_together(self):
         BehaviorEvaluation.objects.create(
@@ -132,7 +126,7 @@ class BehaviorEvaluationModelTest(TestCase):
             calculated_scale=self.scale_se,
         )
 
-        self.assertIn("Superior", str(evaluation))
+        self.assertIn("SE", str(evaluation))
 
 
 class BehaviorEvaluationServiceTest(TestCase):
@@ -140,7 +134,6 @@ class BehaviorEvaluationServiceTest(TestCase):
 
     def setUp(self):
         school_year = SchoolYear.objects.create(
-            name="2025",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 12, 31),
         )
@@ -164,7 +157,7 @@ class BehaviorEvaluationServiceTest(TestCase):
         academic_grade = AcademicGrade.objects.create(
             academic_sublevel=academic_sublevel,
             name="7",
-            sequence_order=1,
+
         )
         section = Section.objects.create(
             school_year=school_year,
@@ -177,10 +170,8 @@ class BehaviorEvaluationServiceTest(TestCase):
             subject=self.subject,
             academic_grade=academic_grade,
             weekly_hours=5,
-            pedagogical_order=1,
         )
         offering = SubjectOffering.objects.create(
-            school_year=school_year,
             section=section,
             subject_academic_config=subj_config,
         )
@@ -194,13 +185,10 @@ class BehaviorEvaluationServiceTest(TestCase):
             last_names="Lopez",
             birth_date=date(2010, 1, 1),
         )
-        status, _ = EnrollmentStatus.objects.get_or_create(
-            code="ACT", defaults={"name": "Activa"}
-        )
         self.enrollment = Enrollment.objects.create(
             student=self.student,
             section=section,
-            enrollment_status=status,
+            enrollment_status="ACT",
         )
         self.scale_se, _ = QualitativeScale.objects.get_or_create(
             code="SE",
@@ -231,11 +219,12 @@ class BehaviorEvaluationServiceTest(TestCase):
             },
         )
         self.severity_leve = Severity.objects.create(
-            code="LEVE", name="Falta leve", numeric_level=1,
+            code="LEVE", name="Falta leve", )
+        self.incident_type_disciplina, _ = IncidentType.objects.get_or_create(
+            code="disciplina", defaults={"name": "Disciplina"},
         )
         self.severity_muy_grave = Severity.objects.create(
-            code="MUY_GRAVE", name="Falta muy grave", numeric_level=4,
-        )
+            code="MUY_GRAVE", name="Falta muy grave", )
 
     def test_calculate_no_incidents_returns_se(self):
         evaluation = BehaviorEvaluationService.calculate_behavior_evaluation(
@@ -248,10 +237,9 @@ class BehaviorEvaluationServiceTest(TestCase):
     def test_calculate_with_minor_incidents_returns_sa(self):
         ConductIncident.objects.create(
             enrollment=self.enrollment,
-            reported_by_user=self.user,
             academic_period=self.period,
             incident_date=date(2025, 2, 1),
-            category="disciplina",
+            incident_type=self.incident_type_disciplina,
             severity=self.severity_leve,
         )
 
@@ -265,10 +253,9 @@ class BehaviorEvaluationServiceTest(TestCase):
     def test_calculate_with_one_serious_incident_returns_ac(self):
         ConductIncident.objects.create(
             enrollment=self.enrollment,
-            reported_by_user=self.user,
             academic_period=self.period,
             incident_date=date(2025, 2, 1),
-            category="disciplina",
+            incident_type=self.incident_type_disciplina,
             severity=self.severity_muy_grave,
         )
 
@@ -282,18 +269,16 @@ class BehaviorEvaluationServiceTest(TestCase):
     def test_calculate_with_multiple_incidents_returns_na(self):
         ConductIncident.objects.create(
             enrollment=self.enrollment,
-            reported_by_user=self.user,
             academic_period=self.period,
             incident_date=date(2025, 2, 1),
-            category="disciplina",
+            incident_type=self.incident_type_disciplina,
             severity=self.severity_leve,
         )
         ConductIncident.objects.create(
             enrollment=self.enrollment,
-            reported_by_user=self.user,
             academic_period=self.period,
             incident_date=date(2025, 2, 5),
-            category="disciplina",
+            incident_type=self.incident_type_disciplina,
             severity=self.severity_muy_grave,
         )
 

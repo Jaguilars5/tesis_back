@@ -3,11 +3,8 @@ from .academic_period import AcademicPeriod
 from .teacher_subject_section import TeacherSubjectSection
 from .subject_academic_config import SubjectAcademicConfig
 from .subject_offering import SubjectOffering
-from .interdisciplinary_project import InterdisciplinaryProject
-from .subject_project import SubjectProject
 from .period_type import PeriodType
-from .day_of_week import DayOfWeek
-from .class_schedule import ClassSchedule
+from .class_schedule import ClassSchedule, DayOfWeekChoices
 
 __all__ = [
     "Subject",
@@ -15,9 +12,7 @@ __all__ = [
     "TeacherSubjectSection",
     "SubjectAcademicConfig",
     "SubjectOffering",
-    "InterdisciplinaryProject",
-    "SubjectProject",
     "PeriodType",
-    "DayOfWeek",
     "ClassSchedule",
+    "DayOfWeekChoices",
 ]

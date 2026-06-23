@@ -16,7 +16,6 @@ class StudentRiskAPITest(APITestCase):
 
     def setUp(self):
         self.school_year = SchoolYear.objects.create(
-            name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
@@ -31,7 +30,7 @@ class StudentRiskAPITest(APITestCase):
             academic_level=self.academic_level, name="Básica"
         )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_sublevel=self.academic_sublevel, name="6to", sequence_order=6
+            academic_sublevel=self.academic_sublevel, name="6to"
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
@@ -45,12 +44,11 @@ class StudentRiskAPITest(APITestCase):
             last_names="Perez",
             birth_date=date(2012, 5, 15),
         )
-        from apps.students.models import EnrollmentStatus, Enrollment
-        act_status, _ = EnrollmentStatus.objects.get_or_create(code="ACT", defaults={"name": "Activa"})
+        from apps.students.models import Enrollment
         self.enrollment = Enrollment.objects.create(
             student=self.student,
             section=self.section,
-            enrollment_status=act_status,
+            enrollment_status="ACT",
         )
         self.risk = StudentRiskScore.objects.create(
             enrollment=self.enrollment,
@@ -95,7 +93,6 @@ class FeatureSnapshotAPITest(APITestCase):
 
     def setUp(self):
         self.school_year = SchoolYear.objects.create(
-            name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
@@ -110,7 +107,7 @@ class FeatureSnapshotAPITest(APITestCase):
             academic_level=self.academic_level, name="Básica"
         )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_sublevel=self.academic_sublevel, name="6to", sequence_order=6
+            academic_sublevel=self.academic_sublevel, name="6to"
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
@@ -124,12 +121,11 @@ class FeatureSnapshotAPITest(APITestCase):
             last_names="Lopez",
             birth_date=date(2012, 3, 10),
         )
-        from apps.students.models import EnrollmentStatus, Enrollment
-        act_status, _ = EnrollmentStatus.objects.get_or_create(code="ACT", defaults={"name": "Activa"})
+        from apps.students.models import Enrollment
         self.enrollment = Enrollment.objects.create(
             student=self.student,
             section=self.section,
-            enrollment_status=act_status,
+            enrollment_status="ACT",
         )
         self.snapshot = StudentFeatureSnapshot.objects.create(
             enrollment=self.enrollment,

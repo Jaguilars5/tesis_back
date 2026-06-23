@@ -1,0 +1,68 @@
+------------------------------------------------------------
+  CREDENCIALES DE ACCESO (Método de acceso: username)
+------------------------------------------------------------
+  Administradores:
+  [ADMIN       ] usuario: sadministrador  | pw: Admin@uetest2025!    | correo: admin@uetest.edu.ec
+  [DIRECTOR    ] usuario: rmontoya        | pw: Director@uetest2025! | correo: director@uetest.edu.ec
+  [CONSEJERO   ] usuario: lzamora         | pw: Dece@uetest2025!     | correo: consejero.dece@uetest.edu.ec
+
+  Docentes:
+  [MAT     ] usuario: cvillacis       | pw: Doc.Villacís2025!    | correo: doc.villacis@uetest.edu.ec
+  [FIS     ] usuario: jpalacio        | pw: Doc.Palacio2025!     | correo: doc.palacio@uetest.edu.ec
+  [QUI     ] usuario: pastudillo      | pw: Doc.Astudillo2025!   | correo: doc.astudillo@uetest.edu.ec
+  [BIO     ] usuario: mrosero         | pw: Doc.Rosero2025!      | correo: doc.rosero@uetest.edu.ec
+  [LEN     ] usuario: rcevallos       | pw: Doc.Cevallos2025!    | correo: doc.cevallos@uetest.edu.ec
+  [ING     ] usuario: smontenegro     | pw: Doc.Montenegro2025!  | correo: doc.montenegro@uetest.edu.ec
+  [SOC     ] usuario: faguilar        | pw: Doc.Aguilar2025!     | correo: doc.aguilar@uetest.edu.ec
+  [FIL     ] usuario: abravo          | pw: Doc.Bravo2025!       | correo: doc.bravo@uetest.edu.ec
+  [EDU_FIS ] usuario: mfreire         | pw: Doc.Freire2025!      | correo: doc.freire@uetest.edu.ec
+  [EDU_ART ] usuario: dloor           | pw: Doc.Loor2025!        | correo: doc.loor@uetest.edu.ec
+
+  Representantes:
+  usuario: ralmeida        | pw: Rep.Almeida2025!     | correo: rep.almeida@uetest.edu.ec      | estudiantes: est_a01
+  usuario: lburbano        | pw: Rep.Burbano2025!     | correo: rep.burbano@uetest.edu.ec      | estudiantes: est_a02
+  usuario: hcordova        | pw: Rep.Córdova2025!     | correo: rep.cordova@uetest.edu.ec      | estudiantes: est_a03
+  usuario: rdelgado        | pw: Rep.Delgado2025!     | correo: rep.delgado@uetest.edu.ec      | estudiantes: est_a04
+  usuario: nespinoza       | pw: Rep.Espinoza2025!    | correo: rep.espinoza@uetest.edu.ec     | estudiantes: est_a05
+  usuario: sflores         | pw: Rep.Flores2025!      | correo: rep.flores@uetest.edu.ec       | estudiantes: est_a06
+  usuario: mgarcia         | pw: Rep.García2025!      | correo: rep.garcia@uetest.edu.ec       | estudiantes: est_a07
+  usuario: iherrera        | pw: Rep.Herrera2025!     | correo: rep.herrera@uetest.edu.ec      | estudiantes: est_a08, est_b07
+  usuario: ointriago       | pw: Rep.Intriago2025!    | correo: rep.intriago@uetest.edu.ec     | estudiantes: est_a09
+  usuario: cjimenez        | pw: Rep.Jiménez2025!     | correo: rep.jimenez@uetest.edu.ec      | estudiantes: est_a10
+  usuario: flara           | pw: Rep.Lara2025!        | correo: rep.lara@uetest.edu.ec         | estudiantes: est_a11, est_b01
+  usuario: gmorales        | pw: Rep.Morales2025!     | correo: rep.morales@uetest.edu.ec      | estudiantes: est_a12
+  usuario: lortega         | pw: Rep.Ortega2025!      | correo: rep.ortega@uetest.edu.ec       | estudiantes: est_b02
+  usuario: vpena           | pw: Rep.Peña2025!        | correo: rep.pena@uetest.edu.ec         | estudiantes: est_b03
+  usuario: bquito          | pw: Rep.Quito2025!       | correo: rep.quito@uetest.edu.ec        | estudiantes: est_b04, est_b12
+  usuario: gromero         | pw: Rep.Romero2025!      | correo: rep.romero@uetest.edu.ec       | estudiantes: est_b05
+  usuario: asamaniego      | pw: Rep.Samaniego2025!   | correo: rep.samaniego@uetest.edu.ec    | estudiantes: est_b06
+  usuario: rurgiles        | pw: Rep.Urgiles2025!     | correo: rep.urgiles@uetest.edu.ec      | estudiantes: est_b08
+  usuario: mvargas         | pw: Rep.Vargas2025!      | correo: rep.vargas@uetest.edu.ec       | estudiantes: est_b09
+  usuario: jwashburn       | pw: Rep.Washburn2025!    | correo: rep.washburn@uetest.edu.ec     | estudiantes: est_b10
+  usuario: pyanez          | pw: Rep.Yánez2025!       | correo: rep.yanez@uetest.edu.ec        | estudiantes: est_b11
+
+  Estudiantes:
+  [A] usuario: salmeida        | pw: Est.Almeida2025!     | correo: est.almeida.a@uetest.edu.ec         | estudiante: Sebastián Andrés Almeida Ríos
+  [A] usuario: cburbano        | pw: Est.Burbano2025!     | correo: est.burbano.a@uetest.edu.ec         | estudiante: Camila Valentina Burbano Chávez
+  [A] usuario: dcordova        | pw: Est.Córdova2025!     | correo: est.cordova.a@uetest.edu.ec         | estudiante: Diego Alejandro Córdova Salinas
+  [A] usuario: gdelgado        | pw: Est.Delgado2025!     | correo: est.delgado.a@uetest.edu.ec         | estudiante: Gabriela Mishell Delgado Vera
+  [A] usuario: mespinoza       | pw: Est.Espinoza2025!    | correo: est.espinoza.a@uetest.edu.ec        | estudiante: Mateo Nicolás Espinoza Toro
+  [A] usuario: aflores         | pw: Est.Flores2025!      | correo: est.flores.a@uetest.edu.ec          | estudiante: Andrea Sofía Flores Guamán
+  [A] usuario: agarcia         | pw: Est.García2025!      | correo: est.garcia.a@uetest.edu.ec          | estudiante: Andrés Mauricio García Molina
+  [A] usuario: vherrera        | pw: Est.Herrera2025!     | correo: est.herrera.a@uetest.edu.ec         | estudiante: Valeria Nicole Herrera Pacheco
+  [A] usuario: jintriago       | pw: Est.Intriago2025!    | correo: est.intriago.a@uetest.edu.ec        | estudiante: Juan Pablo Intriago Barros
+  [A] usuario: pjimenez        | pw: Est.Jiménez2025!     | correo: est.jimenez.a@uetest.edu.ec         | estudiante: Paola Estefanía Jiménez Olmedo
+  [A] usuario: klara           | pw: Est.Lara2025!        | correo: est.lara.a@uetest.edu.ec            | estudiante: Kevin Steeven Lara Morocho
+  [A] usuario: mmorales        | pw: Est.Morales2025!     | correo: est.morales.a@uetest.edu.ec         | estudiante: María Fernanda Morales Quiñónez
+  [B] usuario: lnaranjo        | pw: Est.Naranjo2025!     | correo: est.naranjo.b@uetest.edu.ec         | estudiante: Luis Fernando Naranjo Ponce
+  [B] usuario: portega         | pw: Est.Ortega2025!      | correo: est.ortega.b@uetest.edu.ec          | estudiante: Priscila Marisol Ortega Sánchez
+  [B] usuario: epena           | pw: Est.Peña2025!        | correo: est.pena.b@uetest.edu.ec            | estudiante: Emilio Javier Peña Villamar
+  [B] usuario: nquito          | pw: Est.Quito2025!       | correo: est.quito.b@uetest.edu.ec           | estudiante: Natalia Daniela Quito Benítez
+  [B] usuario: promero         | pw: Est.Romero2025!      | correo: est.romero.b@uetest.edu.ec          | estudiante: Pablo Rodrigo Romero Cárdenas
+  [B] usuario: ksamaniego      | pw: Est.Samaniego2025!   | correo: est.samaniego.b@uetest.edu.ec       | estudiante: Karla Alejandra Samaniego Torres
+  [B] usuario: btapia          | pw: Est.Tapia2025!       | correo: est.tapia.b@uetest.edu.ec           | estudiante: Bryan Stalyn Tapia Guevara
+  [B] usuario: aurgiles        | pw: Est.Urgiles2025!     | correo: est.urgiles.b@uetest.edu.ec         | estudiante: Alejandra Pamela Urgiles Montoya
+  [B] usuario: cvargas         | pw: Est.Vargas2025!      | correo: est.vargas.b@uetest.edu.ec          | estudiante: Cristian José Vargas Coello
+  [B] usuario: mwashburn       | pw: Est.Washburn2025!    | correo: est.washburn.b@uetest.edu.ec        | estudiante: Melanie Yoselin Washburn Cajas
+  [B] usuario: ryanez          | pw: Est.Yánez2025!       | correo: est.yanez.b@uetest.edu.ec           | estudiante: Ronaldo Jesús Yánez Bustamante
+  [B] usuario: czambrano       | pw: Est.Zambrano2025!    | correo: est.zambrano.b@uetest.edu.ec        | estudiante: Carolina Liseth Zambrano Aguilar

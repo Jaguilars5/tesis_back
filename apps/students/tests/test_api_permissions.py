@@ -28,8 +28,7 @@ class StudentsPermissionsTest(TestCase):
 
         perm_codes = [
             perms.VIEW_STUDENT, perms.CREATE_STUDENT, perms.UPDATE_STUDENT, perms.DELETE_STUDENT,
-            perms.VIEW_RELATIONSHIP, perms.CREATE_RELATIONSHIP, perms.UPDATE_RELATIONSHIP, perms.DELETE_RELATIONSHIP,
-            perms.VIEW_ENROLLMENT_STATUS,
+            perms.VIEW_REPRESENTATIVE_RELATIONSHIP, perms.CREATE_REPRESENTATIVE_RELATIONSHIP, perms.UPDATE_REPRESENTATIVE_RELATIONSHIP, perms.DELETE_REPRESENTATIVE_RELATIONSHIP,
             perms.VIEW_ENROLLMENT, perms.CREATE_ENROLLMENT, perms.UPDATE_ENROLLMENT, perms.DELETE_ENROLLMENT,
             perms.WITHDRAW_STUDENT, perms.TRANSFER_STUDENT,
         ]
@@ -69,12 +68,6 @@ class StudentsPermissionsTest(TestCase):
     def test_rep_detail(self):  self._test_401_403("/api/students/student-representative/999/")
     def test_rep_list_auth(self):    self._test_auth("/api/students/student-representative/")
     def test_rep_superuser(self):    self._test_superuser("/api/students/student-representative/")
-
-    # --- EnrollmentStatusViewSet ---
-    def test_enr_status_list(self):    self._test_401_403("/api/students/enrollment-statuses/")
-    def test_enr_status_detail(self):  self._test_401_403("/api/students/enrollment-statuses/999/")
-    def test_enr_status_list_auth(self):    self._test_auth("/api/students/enrollment-statuses/")
-    def test_enr_status_superuser(self):    self._test_superuser("/api/students/enrollment-statuses/")
 
     # --- EnrollmentViewSet ---
     def test_enrollment_list(self):    self._test_401_403("/api/students/enrollments/")

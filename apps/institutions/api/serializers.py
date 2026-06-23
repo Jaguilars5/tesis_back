@@ -10,13 +10,16 @@ from ..models import (
 
 
 class SchoolYearSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(read_only=True)
+
     class Meta:
         model = SchoolYear
-        fields = "__all__"
+        fields = ["id", "name", "start_date", "end_date", "is_active", "created_at", "updated_at"]
+        read_only_fields = ["id", "name", "created_at", "updated_at"]
 
 
 class SectionSerializer(serializers.ModelSerializer):
-    school_year_name = serializers.CharField(source="school_year.name", read_only=True)
+    school_year_name = serializers.CharField(source="school_year.__str__", read_only=True)
     academic_grade_name = serializers.CharField(
         source="academic_grade.name", read_only=True
     )
@@ -43,8 +46,8 @@ class AcademicSublevelSerializer(serializers.ModelSerializer):
 
 
 class AcademicGradeSerializer(serializers.ModelSerializer):
-    academic_level_name = serializers.CharField(
-        source="academic_level.name", read_only=True
+    academic_sublevel_name = serializers.CharField(
+        source="academic_sublevel.name", read_only=True
     )
 
     class Meta:

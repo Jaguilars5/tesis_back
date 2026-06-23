@@ -27,10 +27,6 @@ class IntegrationPermissionsTest(TestCase):
         perm_codes = [
             perms.VIEW_SYNC_QUEUE, perms.CREATE_SYNC_QUEUE,
             perms.UPDATE_SYNC_QUEUE, perms.DELETE_SYNC_QUEUE,
-            perms.VIEW_SYNC_OPERATION, perms.CREATE_SYNC_OPERATION,
-            perms.UPDATE_SYNC_OPERATION, perms.DELETE_SYNC_OPERATION,
-            perms.VIEW_SYNC_STATUS, perms.CREATE_SYNC_STATUS,
-            perms.UPDATE_SYNC_STATUS, perms.DELETE_SYNC_STATUS,
         ]
         role = Role.objects.create(name="Integration Test Role")
         for code in perm_codes:
@@ -56,27 +52,9 @@ class IntegrationPermissionsTest(TestCase):
         resp = self.client.get(url)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
-    # --- SyncOperationViewSet ---
-    def test_op_list(self):    self._test_401_403("/api/integration/sync-operations/")
-    def test_op_create(self):  self._test_401_403("/api/integration/sync-operations/", "post", {"code": "X", "name": "Y"})
-    def test_op_detail(self):  self._test_401_403("/api/integration/sync-operations/999/")
-    def test_op_update(self):  self._test_401_403("/api/integration/sync-operations/999/", "patch", {"name": "X"})
-    def test_op_delete(self):  self._test_401_403("/api/integration/sync-operations/999/", "delete")
-    def test_op_list_auth(self):    self._test_auth("/api/integration/sync-operations/")
-    def test_op_superuser(self):    self._test_superuser("/api/integration/sync-operations/")
-
-    # --- SyncStatusViewSet ---
-    def test_st_list(self):    self._test_401_403("/api/integration/sync-statuses/")
-    def test_st_create(self):  self._test_401_403("/api/integration/sync-statuses/", "post", {"code": "X", "name": "Y"})
-    def test_st_detail(self):  self._test_401_403("/api/integration/sync-statuses/999/")
-    def test_st_update(self):  self._test_401_403("/api/integration/sync-statuses/999/", "patch", {"name": "X"})
-    def test_st_delete(self):  self._test_401_403("/api/integration/sync-statuses/999/", "delete")
-    def test_st_list_auth(self):    self._test_auth("/api/integration/sync-statuses/")
-    def test_st_superuser(self):    self._test_superuser("/api/integration/sync-statuses/")
-
     # --- SyncQueueViewSet ---
     def test_sq_list(self):    self._test_401_403("/api/integration/sync-queue/")
-    def test_sq_create(self):  self._test_401_403("/api/integration/sync-queue/", "post", {"source_table": "X", "record_uuid": "00000000-0000-0000-0000-000000000000"})
+    def test_sq_create(self):  self._test_401_403("/api/integration/sync-queue/", "post", {"source_table": "student_note", "record_uuid": "00000000-0000-0000-0000-000000000000"})
     def test_sq_detail(self):  self._test_401_403("/api/integration/sync-queue/999/")
     def test_sq_update(self):  self._test_401_403("/api/integration/sync-queue/999/", "patch", {"source_table": "X"})
     def test_sq_delete(self):  self._test_401_403("/api/integration/sync-queue/999/", "delete")

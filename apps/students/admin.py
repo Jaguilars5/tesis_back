@@ -1,13 +1,13 @@
 from django.contrib import admin
-from .models import Student, StudentRepresentative, Enrollment, EnrollmentStatus
+from .models import Student, StudentRepresentative, Enrollment
 
 
 class StudentAdmin(admin.ModelAdmin):
     list_display = ("student_code", "get_full_name", "is_active")
     list_filter = ("is_active",)
-    search_fields = ("person__names", "person__last_names", "person__document_number", "student_code")
+    search_fields = ("user__person__names", "user__person__last_names", "user__person__document_number", "student_code")
     fieldsets = (
-        ("Persona", {"fields": ("person", "student_code")}),
+        ("Usuario", {"fields": ("user", "student_code")}),
         ("Estado", {"fields": ("is_active",)}),
     )
 
@@ -17,13 +17,13 @@ class StudentAdmin(admin.ModelAdmin):
 
 
 class StudentRepresentativeAdmin(admin.ModelAdmin):
-    list_display = ("get_student", "get_person", "kinship", "is_primary")
+    list_display = ("get_student", "get_user", "kinship", "is_primary")
     list_filter = ("kinship", "is_primary")
-    search_fields = ("student__person__names", "person__names", "person__last_names")
+    search_fields = ("student__user__person__names", "user__person__names", "user__person__last_names")
     readonly_fields = ("created_at",)
     fieldsets = (
-        ("Relación", {"fields": ("student", "person", "kinship", "is_primary")}),
-        ("Autorizaciones", {"fields": ("can_pickup", "emergency_contact", "receives_notifications")}),
+        ("Relación", {"fields": ("student", "user", "kinship", "is_primary")}),
+        ("Autorizaciones", {"fields": ("emergency_contact", "receives_notifications")}),
         ("Registro", {"fields": ("created_at",), "classes": ("collapse",)}),
     )
 
@@ -31,9 +31,9 @@ class StudentRepresentativeAdmin(admin.ModelAdmin):
         return obj.student.get_full_name()
     get_student.short_description = "Estudiante"
 
-    def get_person(self, obj):
-        return obj.person.get_full_name() if obj.person else "-"
-    get_person.short_description = "Persona"
+    def get_user(self, obj):
+        return obj.user.get_full_name() if obj.user else "-"
+    get_user.short_description = "Representante"
 
 
 admin.site.register(Student, StudentAdmin)
@@ -44,10 +44,5 @@ admin.site.register(StudentRepresentative, StudentRepresentativeAdmin)
 class EnrollmentAdmin(admin.ModelAdmin):
     list_display = ("student", "section", "enrollment_status", "school_year")
     list_filter = ("enrollment_status", "section__school_year")
-    search_fields = ("student__person__names", "student__person__last_names")
+    search_fields = ("student__user__person__names", "student__user__person__last_names")
 
-
-@admin.register(EnrollmentStatus)
-class EnrollmentStatusAdmin(admin.ModelAdmin):
-    list_display = ("code", "name", "is_active")
-    search_fields = ("code", "name")

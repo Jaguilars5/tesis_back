@@ -12,23 +12,21 @@ from apps.academic.models import (PeriodType,
 )
 from apps.iam.models import Role, User
 from apps.core.tests.helpers import create_test_user, create_test_student
-from apps.grading.models import GradeType, EvaluationType, ActivityType
+from apps.grading.models import ActivityType
 from apps.grading.models import (
     EvaluativeActivity,
     BlockComponent,
     EvaluationBlock,
-    ComponentIndicator,
 )
 from apps.attendance.models import AttendanceStatus
 from apps.grading.services import GradingService
 from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSublevel, SchoolYear, Section
-from apps.students.models import Enrollment, EnrollmentStatus, Student
+from apps.students.models import Enrollment, Student
 
 
 class GradingServiceTest(TestCase):
     def setUp(self):
         school_year = SchoolYear.objects.create(
-            name="2025",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 12, 31),
         )
@@ -44,9 +42,7 @@ class GradingServiceTest(TestCase):
         )
         self.academic_grade = AcademicGrade.objects.create(
             academic_sublevel=self.academic_sublevel,
-            name="7",
-            sequence_order=1,
-        )
+            name="7"        )
         self.section = Section.objects.create(
             school_year=school_year,
             academic_grade=self.academic_grade,
@@ -66,10 +62,10 @@ class GradingServiceTest(TestCase):
         )
         subj_config = SubjectAcademicConfig.objects.create(
             subject=self.subject, academic_grade=self.academic_grade,
-            weekly_hours=5, pedagogical_order=1,
+            weekly_hours=5,
         )
         offering = SubjectOffering.objects.create(
-            school_year=school_year, section=self.section,
+            section=self.section,
             subject_academic_config=subj_config,
         )
         self.teacher_subject_section = TeacherSubjectSection.objects.create(
@@ -83,21 +79,15 @@ class GradingServiceTest(TestCase):
             birth_date=date(2010, 1, 1),
         )
 
-        self.eval_type_for = EvaluationType.objects.create(
-            code="FORMATIVA", name="Formativa"
-        )
         self.activity_type_examen = ActivityType.objects.create(
             code="EXAMEN", name="Examen"
         )
 
     def _create_enrollment(self):
-        status, _ = EnrollmentStatus.objects.get_or_create(
-            code="ACT", defaults={"name": "Activa"}
-        )
         return Enrollment.objects.create(
             student=self.student,
             section=self.section,
-            enrollment_status=status,
+            enrollment_status="ACT",
         )
 
     def _create_class_assignment(self):
@@ -105,7 +95,7 @@ class GradingServiceTest(TestCase):
             academic_period=self.period,
             subject_offering=self.offering,
             name="Macro 1",
-            evaluation_type=self.eval_type_for,
+            block_type="FORMATIVA",
             weight_percentage=Decimal("100.00"),
         )
         criteria = BlockComponent.objects.create(
@@ -113,29 +103,23 @@ class GradingServiceTest(TestCase):
             name="Criterio 1",
             internal_weight=Decimal("100.00"),
         )
-        subcriteria = ComponentIndicator.objects.create(
-            block_component=criteria,
-            name="Subcriterio 1",
-            internal_weight=Decimal("100.00"),
-        )
         return EvaluativeActivity.objects.create(
-            component_indicator=subcriteria,
+            block_component=criteria,
             teacher_subject_section=self.teacher_subject_section,
             title="Examen",
             activity_type=self.activity_type_examen,
             max_score=Decimal("20"),
+            internal_weight=Decimal("100.00"),
             due_date=date(2025, 2, 1),
         )
 
     def test_create_student_note(self):
         enrollment = self._create_enrollment()
         evaluative_activity = self._create_class_assignment()
-        grade_type = GradeType.objects.create(code="NUM", name="Numérica")
         note = GradingService.create_student_note(
             enrollment_id=enrollment.id,
             evaluative_activity_id=evaluative_activity.id,
             numeric_score=Decimal("10"),
-            grade_type_id=grade_type.id,
         )
         self.assertEqual(note.calculate_normalized_value(), Decimal("5.00"))
 
@@ -155,10 +139,9 @@ class GradingServiceTest(TestCase):
         enrollment = self._create_enrollment()
         incident = GradingService.create_conduct_incident(
             enrollment_id=enrollment.id,
-            reported_by_user_id=self.user.id,
             academic_period_id=self.period.id,
             incident_date=date(2025, 2, 1),
             category="disciplina",
-            severity=3,
+            severity="GRAVE",
         )
-        self.assertEqual(incident.severity.numeric_level, 3)
+        self.assertEqual(incident.severity.code, "GRAVE")

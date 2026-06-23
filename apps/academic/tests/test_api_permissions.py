@@ -35,8 +35,7 @@ class AcademicPermissionsTest(TestCase):
             perms.VIEW_TEACHER_SUBJECT, perms.CREATE_TEACHER_SUBJECT, perms.UPDATE_TEACHER_SUBJECT, perms.DELETE_TEACHER_SUBJECT,
             perms.VIEW_SUBJECT_CONFIG, perms.CREATE_SUBJECT_CONFIG, perms.UPDATE_SUBJECT_CONFIG, perms.DELETE_SUBJECT_CONFIG,
             perms.VIEW_SUBJECT_OFFERING, perms.CREATE_SUBJECT_OFFERING, perms.UPDATE_SUBJECT_OFFERING, perms.DELETE_SUBJECT_OFFERING,
-            perms.VIEW_INTERDISCIPLINARY_PROJECT, perms.CREATE_INTERDISCIPLINARY_PROJECT, perms.UPDATE_INTERDISCIPLINARY_PROJECT, perms.DELETE_INTERDISCIPLINARY_PROJECT,
-            perms.VIEW_SUBJECT_PROJECT, perms.CREATE_SUBJECT_PROJECT, perms.UPDATE_SUBJECT_PROJECT, perms.DELETE_SUBJECT_PROJECT,
+
         ]
         role = Role.objects.create(name="Academic Test Role")
         for code in perm_codes:
@@ -84,7 +83,7 @@ class AcademicPermissionsTest(TestCase):
 
     # --- SubjectAcademicConfigViewSet ---
     def test_config_list(self):    self._test_401_403("/api/academic/subject-academic-configs/")
-    def test_config_create(self):  self._test_401_403("/api/academic/subject-academic-configs/", "post", {"weekly_hours": 5, "pedagogical_order": 1})
+    def test_config_create(self):  self._test_401_403("/api/academic/subject-academic-configs/", "post", {"weekly_hours": 5})
     def test_config_detail(self):  self._test_401_403("/api/academic/subject-academic-configs/999/")
     def test_config_list_auth(self):    self._test_auth("/api/academic/subject-academic-configs/")
     def test_config_superuser(self):    self._test_superuser("/api/academic/subject-academic-configs/")
@@ -94,20 +93,6 @@ class AcademicPermissionsTest(TestCase):
     def test_offering_detail(self):  self._test_401_403("/api/academic/subject-offerings/999/")
     def test_offering_list_auth(self):    self._test_auth("/api/academic/subject-offerings/")
     def test_offering_superuser(self):    self._test_superuser("/api/academic/subject-offerings/")
-
-    # --- InterdisciplinaryProjectViewSet ---
-    def test_project_list(self):    self._test_401_403("/api/academic/interdisciplinary-projects/")
-    def test_project_create(self):  self._test_401_403("/api/academic/interdisciplinary-projects/", "post", {"title": "Proj", "start_date": "2025-01-01", "delivery_date": "2025-03-31"})
-    def test_project_detail(self):  self._test_401_403("/api/academic/interdisciplinary-projects/999/")
-    def test_project_list_auth(self):    self._test_auth("/api/academic/interdisciplinary-projects/")
-    def test_project_superuser(self):    self._test_superuser("/api/academic/interdisciplinary-projects/")
-
-    # --- SubjectProjectViewSet ---
-    def test_subj_project_list(self):    self._test_401_403("/api/academic/subject-projects/")
-    def test_subj_project_create(self):  self._test_401_403("/api/academic/subject-projects/", "post", {"interdisciplinary_project": 1, "subject_offering": 1})
-    def test_subj_project_detail(self):  self._test_401_403("/api/academic/subject-projects/999/")
-    def test_subj_project_list_auth(self):    self._test_auth("/api/academic/subject-projects/")
-    def test_subj_project_superuser(self):    self._test_superuser("/api/academic/subject-projects/")
 
     # --- PeriodTypeViewSet ---
     def test_period_type_list(self):    self._test_401_403("/api/academic/period-types/")

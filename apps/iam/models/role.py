@@ -4,12 +4,6 @@ from .permission import Permission
 
 
 class Role(TimeStampedModel):
-    name = models.CharField(
-        max_length=100,
-        unique=True,
-        verbose_name="Nombre del Rol",
-        help_text="Nombre único del rol",
-    )
     code = models.CharField(
         max_length=50,
         unique=True,
@@ -17,6 +11,13 @@ class Role(TimeStampedModel):
         help_text="Código único del rol (DOCENTE, ADMIN, etc)",
         null=True,
     )
+    name = models.CharField(
+        max_length=100,
+        unique=True,
+        verbose_name="Nombre del Rol",
+        help_text="Nombre único del rol",
+    )
+
     description = models.CharField(
         max_length=255,
         blank=True,
@@ -28,6 +29,7 @@ class Role(TimeStampedModel):
         verbose_name="Activo",
         help_text="Indica si el rol puede ser asignado a nuevos usuarios",
     )
+
     class Meta:
         app_label = "iam"
         verbose_name = "Rol"

@@ -1,3 +1,3 @@
-from .views import DocumentTypeViewSet, PersonViewSet
+from .views import CityViewSet, DocumentTypeViewSet, PersonViewSet
 
-__all__ = ["DocumentTypeViewSet", "PersonViewSet"]
+__all__ = ["CityViewSet", "DocumentTypeViewSet", "PersonViewSet"]

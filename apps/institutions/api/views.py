@@ -33,6 +33,9 @@ from .serializers import (
         summary="Actualizar año escolar parcialmente", tags=["institutions"]
     ),
     destroy=extend_schema(summary="Eliminar año escolar", tags=["institutions"]),
+    soft_delete=extend_schema(
+        summary="Desactivar año escolar (borrado lógico)", tags=["institutions"]
+    ),
 )
 class BaseInstitutionsViewSet(viewsets.ModelViewSet):
     """ViewSet base para modelos de instituciones con soporte de StandardResponse"""
@@ -80,24 +83,35 @@ class SchoolYearViewSet(BaseInstitutionsViewSet):
         "update": institutions.UPDATE_SCHOOL_YEAR,
         "partial_update": institutions.UPDATE_SCHOOL_YEAR,
         "destroy": institutions.DELETE_SCHOOL_YEAR,
+        "soft_delete": institutions.DELETE_SCHOOL_YEAR,
     }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.repository = SchoolYearRepository()
 
-    ordering_fields = ["name", "start_date", "end_date"]
+    ordering_fields = ["start_date", "end_date"]
+    ordering = ["-start_date"]
+    _ORDERING_ALIASES = {
+        "name": "start_date",
+        "-name": "-start_date",
+    }
 
     def get_queryset(self):
         search = self.request.query_params.get("search")
         return self.repository.get_all(search=search)
+
+    def get_ordering(self):
+        ordering = self.request.query_params.get(self.ordering_param)
+        if ordering in self._ORDERING_ALIASES:
+            return [self._ORDERING_ALIASES[ordering]]
+        return super().get_ordering()
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
             school_year = InstitutionService.create_school_year(
-                name=serializer.validated_data["name"],
                 start_date=serializer.validated_data["start_date"],
                 end_date=serializer.validated_data["end_date"],
             )
@@ -142,6 +156,9 @@ class SchoolYearViewSet(BaseInstitutionsViewSet):
         summary="Actualizar nivel parcialmente", tags=["institutions"]
     ),
     destroy=extend_schema(summary="Eliminar nivel académico", tags=["institutions"]),
+    soft_delete=extend_schema(
+        summary="Desactivar nivel académico (borrado lógico)", tags=["institutions"]
+    ),
 )
 class AcademicLevelViewSet(BaseInstitutionsViewSet):
     serializer_class = AcademicLevelSerializer
@@ -152,9 +169,11 @@ class AcademicLevelViewSet(BaseInstitutionsViewSet):
         "update": institutions.UPDATE_ACADEMIC_LEVEL,
         "partial_update": institutions.UPDATE_ACADEMIC_LEVEL,
         "destroy": institutions.DELETE_ACADEMIC_LEVEL,
+        "soft_delete": institutions.DELETE_ACADEMIC_LEVEL,
     }
 
     ordering_fields = ["name"]
+    ordering = ["name"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -180,6 +199,9 @@ class AcademicLevelViewSet(BaseInstitutionsViewSet):
         summary="Actualizar sublevel parcialmente", tags=["institutions"]
     ),
     destroy=extend_schema(summary="Eliminar sublevel académico", tags=["institutions"]),
+    soft_delete=extend_schema(
+        summary="Desactivar sublevel académico (borrado lógico)", tags=["institutions"]
+    ),
 )
 class AcademicSublevelViewSet(BaseInstitutionsViewSet):
     serializer_class = AcademicSublevelSerializer
@@ -190,9 +212,11 @@ class AcademicSublevelViewSet(BaseInstitutionsViewSet):
         "update": institutions.UPDATE_ACADEMIC_SUBLEVEL,
         "partial_update": institutions.UPDATE_ACADEMIC_SUBLEVEL,
         "destroy": institutions.DELETE_ACADEMIC_SUBLEVEL,
+        "soft_delete": institutions.DELETE_ACADEMIC_SUBLEVEL,
     }
 
     ordering_fields = ["name", "code"]
+    ordering = ["name"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -218,6 +242,9 @@ class AcademicSublevelViewSet(BaseInstitutionsViewSet):
         summary="Actualizar grado parcialmente", tags=["institutions"]
     ),
     destroy=extend_schema(summary="Eliminar grado académico", tags=["institutions"]),
+    soft_delete=extend_schema(
+        summary="Desactivar grado académico (borrado lógico)", tags=["institutions"]
+    ),
 )
 class AcademicGradeViewSet(BaseInstitutionsViewSet):
     serializer_class = AcademicGradeSerializer
@@ -228,9 +255,11 @@ class AcademicGradeViewSet(BaseInstitutionsViewSet):
         "update": institutions.UPDATE_ACADEMIC_GRADE,
         "partial_update": institutions.UPDATE_ACADEMIC_GRADE,
         "destroy": institutions.DELETE_ACADEMIC_GRADE,
+        "soft_delete": institutions.DELETE_ACADEMIC_GRADE,
     }
 
-    ordering_fields = ["name", "sequence_order"]
+    ordering_fields = ["name"]
+    ordering = ["name"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -275,6 +304,7 @@ class SectionViewSet(BaseInstitutionsViewSet):
     }
 
     ordering_fields = ["parallel", "capacity"]
+    ordering = ["academic_grade__name", "parallel"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

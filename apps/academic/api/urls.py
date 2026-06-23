@@ -3,12 +3,9 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     AcademicPeriodViewSet,
     ClassScheduleViewSet,
-    DayOfWeekViewSet,
-    InterdisciplinaryProjectViewSet,
     PeriodTypeViewSet,
     SubjectAcademicConfigViewSet,
     SubjectOfferingViewSet,
-    SubjectProjectViewSet,
     SubjectViewSet,
     TeacherSubjectSectionViewSet,
 )
@@ -29,14 +26,7 @@ router.register(
 router.register(
     r"subject-offerings", SubjectOfferingViewSet, basename="subject-offering"
 )
-router.register(
-    r"interdisciplinary-projects",
-    InterdisciplinaryProjectViewSet,
-    basename="interdisciplinary-project",
-)
-router.register(r"subject-projects", SubjectProjectViewSet, basename="subject-project")
 router.register(r"period-types", PeriodTypeViewSet, basename="period-type")
-router.register(r"day-of-week", DayOfWeekViewSet, basename="day-of-week")
 router.register(r"class-schedule", ClassScheduleViewSet, basename="class-schedule")
 
 urlpatterns = [

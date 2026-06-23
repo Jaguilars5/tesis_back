@@ -1,7 +1,7 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from .views import AlertTypeViewSet, DashboardViewSet, EarlyAlertViewSet, RiskFactorViewSet, StudentFeatureSnapshotViewSet, StudentRiskFactorViewSet, StudentRiskScoreViewSet, UrgencyLevelViewSet
+from .views import DashboardViewSet, EarlyAlertViewSet, RiskFactorViewSet, RiskScoringConfigViewSet, StudentFeatureSnapshotViewSet, StudentRiskFactorViewSet, StudentRiskScoreViewSet
 
 router = DefaultRouter()
 router.register(
@@ -18,10 +18,9 @@ router.register(
 router.register(r"risk-factors", RiskFactorViewSet, basename="risk-factor")
 router.register(r"student-risk-factors", StudentRiskFactorViewSet, basename="student-risk-factor")
 router.register(r"early-alerts", EarlyAlertViewSet, basename="early-alert")
-router.register(r"alert-types", AlertTypeViewSet, basename="alert-type")
-router.register(r"urgency-levels", UrgencyLevelViewSet, basename="urgency-level")
 
 router.register(r"dashboard", DashboardViewSet, basename="dashboard")
+router.register(r"scoring-config", RiskScoringConfigViewSet, basename="scoring-config")
 
 urlpatterns = [
     path("", include(router.urls)),

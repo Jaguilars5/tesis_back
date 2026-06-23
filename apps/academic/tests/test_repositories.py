@@ -4,15 +4,12 @@ from decimal import Decimal
 from django.test import TestCase
 
 from apps.academic.models import (PeriodType,
-    AcademicPeriod, InterdisciplinaryProject, Subject, SubjectAcademicConfig,
-    SubjectOffering, SubjectProject, TeacherSubjectSection,
+    AcademicPeriod, Subject, SubjectAcademicConfig,
+    SubjectOffering, TeacherSubjectSection,
 )
 from apps.academic.repositories.academic_repo import (
     AcademicPeriodRepository, SubjectAcademicConfigRepository, SubjectOfferingRepository,
     SubjectRepository, TeacherSubjectSectionRepository,
-)
-from apps.academic.repositories.interdisciplinary_project_repository import (
-    InterdisciplinaryProjectRepository, SubjectProjectRepository,
 )
 from apps.core.tests.helpers import create_test_user
 from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSublevel, SchoolYear, Section
@@ -22,8 +19,7 @@ class AcademicRepositoryTest(TestCase):
     """Tests para los repositorios del módulo academic."""
 
     def setUp(self):
-        self.school_year = SchoolYear.objects.create(
-            name="2025", start_date=date(2025, 1, 1), end_date=date(2025, 12, 31),
+        self.school_year = SchoolYear.objects.create( start_date=date(2025, 1, 1), end_date=date(2025, 12, 31),
         )
         self.period = AcademicPeriod.objects.create(
             school_year=self.school_year, name="P1",
@@ -38,7 +34,7 @@ class AcademicRepositoryTest(TestCase):
             academic_level=self.academic_level, name="Básica"
         )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_sublevel=self.academic_sublevel, name="7", sequence_order=1,
+            academic_sublevel=self.academic_sublevel, name="7",
         )
         self.section = Section.objects.create(
             school_year=self.school_year, academic_grade=self.academic_grade,
@@ -48,14 +44,14 @@ class AcademicRepositoryTest(TestCase):
         self.subject2 = Subject.objects.create(name="Lengua", code="LEN-7A")
         self.config = SubjectAcademicConfig.objects.create(
             subject=self.subject1, academic_grade=self.academic_grade,
-            weekly_hours=5, pedagogical_order=1,
+            weekly_hours=5,
         )
         self.config2 = SubjectAcademicConfig.objects.create(
             subject=self.subject2, academic_grade=self.academic_grade,
-            weekly_hours=4, pedagogical_order=2,
+            weekly_hours=4,
         )
         self.offering = SubjectOffering.objects.create(
-            school_year=self.school_year, section=self.section,
+            section=self.section,
             subject_academic_config=self.config,
         )
         self.user = create_test_user(
@@ -149,14 +145,14 @@ class AcademicRepositoryTest(TestCase):
             user=self.user, subject_offering=self.offering,
         )
         result = TeacherSubjectSectionRepository.get_by_id(tss.pk)
-        self.assertEqual(result.user.email, "teacher@test.com")
+        self.assertEqual(result.user.username, "aperez")
 
     def test_tss_get_all_ordering(self):
         tss1 = TeacherSubjectSection.objects.create(
             user=self.user, subject_offering=self.offering,
         )
         offering2 = SubjectOffering.objects.create(
-            school_year=self.school_year, section=self.section,
+            section=self.section,
             subject_academic_config=self.config2,
         )
         tss2 = TeacherSubjectSection.objects.create(
@@ -200,11 +196,11 @@ class AcademicRepositoryTest(TestCase):
 
     def test_config_create(self):
         academic_grade2 = AcademicGrade.objects.create(
-            academic_sublevel=self.academic_sublevel, name="8", sequence_order=2,
+            academic_sublevel=self.academic_sublevel, name="8",
         )
         obj = SubjectAcademicConfigRepository.create(
             subject=self.subject1, academic_grade=academic_grade2,
-            weekly_hours=3, pedagogical_order=3,
+            weekly_hours=3,
         )
         self.assertEqual(obj.weekly_hours, 3)
 
@@ -222,11 +218,11 @@ class AcademicRepositoryTest(TestCase):
 
     def test_config_delete(self):
         academic_grade3 = AcademicGrade.objects.create(
-            academic_sublevel=self.academic_sublevel, name="9", sequence_order=3,
+            academic_sublevel=self.academic_sublevel, name="9",
         )
         c = SubjectAcademicConfig.objects.create(
             subject=self.subject1, academic_grade=academic_grade3,
-            weekly_hours=1, pedagogical_order=99,
+            weekly_hours=1,
         )
         pk = c.pk
         SubjectAcademicConfigRepository.delete(pk)
@@ -236,7 +232,7 @@ class AcademicRepositoryTest(TestCase):
 
     def test_offering_create(self):
         obj = SubjectOfferingRepository.create(
-            school_year=self.school_year, section=self.section,
+            section=self.section,
             subject_academic_config=self.config2,
         )
         self.assertEqual(obj.subject_academic_config.subject.name, "Lengua")
@@ -255,73 +251,11 @@ class AcademicRepositoryTest(TestCase):
 
     def test_offering_delete(self):
         o = SubjectOffering.objects.create(
-            school_year=self.school_year, section=self.section,
+            section=self.section,
             subject_academic_config=self.config2,
         )
         pk = o.pk
         SubjectOfferingRepository.delete(pk)
         self.assertFalse(SubjectOffering.objects.filter(pk=pk).exists())
 
-    # --- InterdisciplinaryProjectRepository ---
 
-    def test_project_create(self):
-        obj = InterdisciplinaryProjectRepository.create(
-            academic_period=self.period, title="Proyecto de Ciencias",
-            start_date=date(2025, 2, 1), delivery_date=date(2025, 3, 15),
-        )
-        self.assertEqual(obj.title, "Proyecto de Ciencias")
-
-    def test_project_get_by_id(self):
-        proj = InterdisciplinaryProject.objects.create(
-            academic_period=self.period, title="Proyecto Test",
-            start_date=date(2025, 2, 1), delivery_date=date(2025, 3, 15),
-        )
-        result = InterdisciplinaryProjectRepository.get_by_id(proj.pk)
-        self.assertEqual(result.title, "Proyecto Test")
-
-    def test_project_get_active_by_period(self):
-        InterdisciplinaryProject.objects.create(
-            academic_period=self.period, title="Activo",
-            start_date=date(2025, 2, 1), delivery_date=date(2025, 3, 15),
-            is_active=True,
-        )
-        InterdisciplinaryProject.objects.create(
-            academic_period=self.period, title="Inactivo",
-            start_date=date(2025, 2, 1), delivery_date=date(2025, 3, 15),
-            is_active=False,
-        )
-        results = InterdisciplinaryProjectRepository.get_active_by_period(self.period.pk)
-        self.assertEqual(results.count(), 1)
-
-    def test_project_delete(self):
-        proj = InterdisciplinaryProject.objects.create(
-            academic_period=self.period, title="Temp",
-            start_date=date(2025, 2, 1), delivery_date=date(2025, 3, 15),
-        )
-        pk = proj.pk
-        InterdisciplinaryProjectRepository.delete(pk)
-        self.assertFalse(InterdisciplinaryProject.objects.filter(pk=pk).exists())
-
-    # --- SubjectProjectRepository ---
-
-    def test_subject_project_create(self):
-        proj = InterdisciplinaryProject.objects.create(
-            academic_period=self.period, title="Proyecto",
-            start_date=date(2025, 2, 1), delivery_date=date(2025, 3, 15),
-        )
-        obj = SubjectProjectRepository.create(
-            interdisciplinary_project=proj, subject_offering=self.offering,
-        )
-        self.assertEqual(obj.interdisciplinary_project.title, "Proyecto")
-
-    def test_subject_project_delete(self):
-        proj = InterdisciplinaryProject.objects.create(
-            academic_period=self.period, title="Proyecto",
-            start_date=date(2025, 2, 1), delivery_date=date(2025, 3, 15),
-        )
-        sp = SubjectProject.objects.create(
-            interdisciplinary_project=proj, subject_offering=self.offering,
-        )
-        pk = sp.pk
-        SubjectProjectRepository.delete(pk)
-        self.assertFalse(SubjectProject.objects.filter(pk=pk).exists())

@@ -30,7 +30,6 @@ class InstitutionsModelGapsTest(TestCase):
         self.grade = AcademicGrade.objects.create(
             academic_sublevel=self.sublevel,
             name="1ero Bachillerato",
-            sequence_order=10,
             code="1BACH",
         )
 
@@ -44,7 +43,6 @@ class InstitutionsModelGapsTest(TestCase):
         """Verifica la creación del grado académico."""
         self.assertEqual(self.grade.name, "1ero Bachillerato")
         self.assertEqual(self.grade.academic_sublevel.code, "BACHILLERATO")
-        self.assertEqual(self.grade.sequence_order, 10)
         self.assertTrue(self.grade.is_active)
         self.assertEqual(str(self.grade), "1ero Bachillerato")
 
@@ -62,11 +60,9 @@ class InstitutionsSecurityAndAPITest(TestCase):
         self.grade = AcademicGrade.objects.create(
             academic_sublevel=self.sublevel,
             name="5to EGB",
-            sequence_order=5,
             code="5EGB",
         )
         self.school_year = SchoolYear.objects.create(
-            name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
@@ -158,7 +154,6 @@ class InstitutionsSecurityAndAPITest(TestCase):
         grade_data = {
             "academic_sublevel": self.sublevel.id,
             "name": "6to EGB",
-            "sequence_order": 6,
             "code": "6EGB",
         }
         response_post_fail = self.client.post("/api/institutions/academic-grades/", grade_data, format="json")

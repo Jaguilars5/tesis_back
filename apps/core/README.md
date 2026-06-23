@@ -5,7 +5,7 @@
 ## Componentes
 
 ### `StandardResponseRenderer` (`apps.core.api.renderers`)
-Renderer global que envuelve todas las respuestas JSON en el formato `{"ok": bool, "data": ..., "msg": "..."}`.
+Renderer global que envuelve todas las respuestas JSON en `{"ok": bool, "data": ..., "msg": "..."}`.
 - Respuestas exitosas (<400): `{"ok": true, "data": ..., "msg": ""}`
 - Respuestas de error (≥400): `{"ok": false, "data": ..., "msg": "..."}`
 - Si la respuesta ya tiene el formato, no lo modifica.
@@ -17,54 +17,45 @@ Manejador global de excepciones DRF. Garantiza que errores no controlados tambi�
 
 ### `StandardResultsSetPagination` (`apps.core.api.pagination`)
 Paginación por defecto: 20 items/página, configurable vía `?page_size=` (máx 100).
-Respuesta paginada: `{ count, next, previous, results }`
 
-### `HasPermission` (`apps.core.api.permissions`), `require_permission` (`apps.core.api.permissions`)
-Control de acceso basado en permisos (RBAC).
-- `HasPermission`: clase de permiso DRF para ViewSets. Lee `action_permissions` del ViewSet y verifica `user.has_perm(codename)`.
-- `require_permission(codename)`: decorador para vistas basadas en función (`@api_view`).
+### `HasPermission` / `require_permission` (`apps.core.api.permissions`)
+RBAC para ViewSets y vistas basadas en función.
+- `HasPermission`: clase DRF que lee `action_permissions` del ViewSet y verifica `user.has_perm(codename)`.
+- `require_permission(codename)`: decorador para `@api_view`.
 - Superusuarios bypassan todas las verificaciones.
+
+### `RoleBasedFilterBackend` (`apps.core.api.filters`)
+Filtro global de seguridad a nivel de fila (RLS). Despacha según `user.user_category` a handlers específicos.
+
+### `RoleHandlers` (`apps.core.api.role_handlers`)
+Manejadores de RLS para cada categoría: `ESTUDIANTE`, `REPRESENTANTE`, `DOCENTE`, `CONSEJERO`.
+
+### `StandardResponseAutoSchema` (`apps.core.api.schema`)
+Extiende `drf-spectacular AutoSchema` para documentar el formato `{ok, data, msg}` en OpenAPI 3.0.
 
 ### `BaseRepository` (`apps.core.repositories.base`)
 CRUD genérico: `get_all()`, `get_by_id()`, `get_by_uuid()`, `exists()`, `count()`, `create()`, `update()`, `delete()`.
 
 ### `TimeStampedModel` (`apps.core.models.base`)
-Modelo abstracto: `created_at` (default=timezone.now), `updated_at` (default=timezone.now).
+Modelo abstracto: `created_at` (auto_now_add), `updated_at` (auto_now).
 
 ### `AuditLog` (`apps.core.models.audit_log`)
 Bitácora centralizada: `user` (FK), `action` (CREATE/UPDATE/DELETE/RECOVER), `model_name`, `record_id`, `changes` (JSON), `ip_address`, `user_agent`.
 
 ### `SecurityHeadersMiddleware` (`apps.core.middleware.security`)
-Agrega headers de seguridad a todas las respuestas:
-`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `X-XSS-Protection: 1; mode=block`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(), geolocation=()`.
-
-### `RoleBasedFilterBackend` (`apps.core.api.filters`)
-Filtro global de seguridad a nivel de fila (RLS). Despacha según `user.user_category` a handlers específicos.
-
-### `StandardResponseAutoSchema` (`apps.core.api.schema`)
-Extiende `drf-spectacular AutoSchema` para documentar automáticamente el formato `{ok, data, msg}` en OpenAPI 3.0.
-
-### `RoleHandlers` (`apps.core.api.role_handlers`)
-Manejadores de RLS para cada categoría de usuario (ESTUDIANTE, DOCENTE, REPRESENTANTE, ADMIN).
+Headers: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `X-XSS-Protection: 1; mode=block`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(), geolocation=()`.
 
 ### `SeedCatalogsCommand` (`apps.core.management.commands.seed_catalogs`)
 Pobla 26+ catálogos del sistema. Idempotente: `python manage.py seed_catalogs`.
 
+### `SeedTestDataCommand` (`apps.core.management.commands.seed_test_data`)
+Datos de prueba para desarrollo. Ejecuta seed_catalogs + seed_permissions internamente.
+
 ## Constantes de Permisos (`apps.core.constants.permissions`)
 
-| Instancia | Módulo |
-|-----------|--------|
-| `iam` | Usuarios, roles, permisos |
-| `people` | Personas, tipos de documento |
-| `institutions` | Años escolares, niveles, subniveles, grados, secciones |
-| `academic` | Materias, períodos, configuraciones, ofertas, asignación docente, proyectos |
-| `students` | Estudiantes, representantes, matrículas |
-| `grading` | Notas, bloques, componentes, actividades, promedios, recuperación |
-| `attendance` | Asistencia, estados, tipos de ausencia |
-| `behavior` | Incidentes, evaluaciones conductuales, habilidades socioemocionales |
-| `analytics` | Scores de riesgo, snapshots, alertas, factores |
-| `configuration` | Configuración del sistema |
-| `integration` | Cola de sincronización, operaciones, estados |
+9 módulos con clases tipadas: `iam`, `people`, `institutions`, `academic`, `students`, `grading`, `attendance`, `behavior`, `analytics`, `integration`.
+
+> **Nota:** No existe `ConfigurationPermissions`. La exportación `"configuration"` en `__all__` de `constants/__init__.py` no tiene una variable correspondiente.
 
 ## Tests
 
@@ -88,6 +79,7 @@ python manage.py test apps.core.tests --settings=config.settings.test
 | `test_row_level_security.py` | RLS multi-rol |
 | `test_seed_catalogs.py` | Seed de catálogos |
 | `test_phase8_functional.py` | Flujos funcionales completos |
+| `test_timestamps.py` | TimeStampedModel |
 
 ## OpenAPI
 

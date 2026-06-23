@@ -9,8 +9,6 @@ class SchoolYearRepository(BaseRepository):
     @classmethod
     def get_all(cls, active_only=True, search=None):
         queryset = super().get_all(active_only=active_only)
-        if search:
-            queryset = queryset.filter(name__icontains=search)
         return queryset.order_by("-start_date")
 
     @classmethod
@@ -51,12 +49,12 @@ class AcademicGradeRepository(BaseRepository):
         queryset = super().get_all(active_only=active_only)
         if search:
             queryset = queryset.filter(name__icontains=search)
-        return queryset.order_by("sequence_order")
+        return queryset.order_by("name")
 
     @classmethod
     def get_by_sublevel(cls, sublevel_id):
         return cls.model.objects.filter(academic_sublevel_id=sublevel_id).order_by(
-            "sequence_order"
+            "name"
         )
 
 

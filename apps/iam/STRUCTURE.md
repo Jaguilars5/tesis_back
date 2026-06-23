@@ -7,36 +7,41 @@ iam/
 ├── __init__.py
 ├── admin.py
 ├── apps.py
-├── urls.py                     # login/, refresh/, users/, roles/, permissions/
+├── urls.py                     # → api/urls.py (login/, refresh/, users/, roles/, permissions/)
 ├── README.md
 │
 ├── models/
-│   ├── __init__.py
-│   ├── user.py                 # User(AbstractBaseUser) — AUTH_USER_MODEL
-│   ├── role.py                 # Role (name, code, is_active)
-│   ├── permission.py           # Permission (code, module)
-│   ├── user_role.py            # UserRole (user N:M role)
-│   └── role_permission.py      # RolePermission (role N:M permission)
+│   ├── __init__.py             # 5 modelos exportados
+│   ├── user.py                 # User (AbstractBaseUser, TimeStampedModel) — AUTH_USER_MODEL
+│   ├── role.py                 # Role (TimeStampedModel)
+│   ├── permission.py           # Permission (TimeStampedModel)
+│   ├── user_role.py            # UserRole (TimeStampedModel)
+│   └── role_permission.py      # RolePermission (TimeStampedModel)
 │
 ├── repositories/
-│   ├── __init__.py
-│   ├── user_repo.py            # UserRepository
-│   ├── role_repo.py            # RoleRepository
-│   └── permission_repo.py      # PermissionRepository
+│   ├── __init__.py             # 3 repositorios exportados
+│   ├── user_repo.py            # UserRepository (NO hereda BaseRepository)
+│   ├── role_repo.py            # RoleRepository (NO hereda BaseRepository)
+│   └── permission_repo.py      # PermissionRepository (NO hereda BaseRepository)
 │
 ├── services/
-│   ├── __init__.py
-│   ├── user_service.py         # UserService (create, search, change_password, assign_role)
-│   ├── role_service.py         # RoleService (CRUD + assign/remove permission)
-│   └── permission_service.py   # PermissionService (CRUD + bulk_create + by_module)
+│   ├── __init__.py             # 3 servicios exportados
+│   ├── user_service.py         # UserService
+│   ├── role_service.py         # RoleService
+│   └── permission_service.py   # PermissionService
 │
 ├── api/
 │   ├── __init__.py
 │   ├── README.md
-│   ├── serializers.py          # UserSerializer, RoleSerializer, PermissionSerializer + login/refresh
+│   ├── serializers.py          # 12 serializers
 │   ├── views.py                # UserViewSet, RoleViewSet, PermissionViewSet + auth views
-│   ├── filters.py              # Filtros: is_active, role_id, dni
-│   └── urls.py
+│   ├── filters.py              # UserFilter, RoleFilter, PermissionFilter
+│   └── urls.py                 # Router: users/, roles/, permissions/ + login/, refresh/
+│
+├── management/
+│   └── commands/
+│       ├── __init__.py
+│       └── seed_permissions.py # Pobla permisos + roles del sistema
 │
 └── tests/
     ├── __init__.py
@@ -47,23 +52,6 @@ iam/
     ├── test_repositories.py
     └── test_services.py
 ```
-
-## Serializers (12)
-
-| Serializer | Tipo | Campos readonly |
-|------------|------|-----------------|
-| `UserListSerializer` | ModelSerializer | `dni`, `names`, `last_names`, `role` |
-| `UserDetailSerializer` | ModelSerializer | `dni`, `names`, `last_names`, `role`, `created_at`, `updated_at` |
-| `UserCreateSerializer` | Serializer | `username` (autogenerado post-create) |
-| `UserLoginDataSerializer` | Serializer | `permissions`, `role`, `role_id`, `dni` |
-| `LoginResponseSerializer` | Serializer | — |
-| `TokenRefreshResponseSerializer` | Serializer | — |
-| `PermissionSerializer` | ModelSerializer | — |
-| `RolePermissionSerializer` | ModelSerializer | — |
-| `RoleListSerializer` | ModelSerializer | — |
-| `RoleDetailSerializer` | ModelSerializer | — |
-| `LoginSerializer` | TokenObtainPairSerializer | — |
-| `CustomTokenRefreshSerializer` | TokenRefreshSerializer | — |
 
 ## Workflow
 
@@ -81,8 +69,12 @@ UserService.create_user() → crea Person + User + UserRole
 
 ```python
 from apps.iam.models import User, Role, Permission, UserRole, RolePermission
+
+from apps.iam.repositories import UserRepository, RoleRepository, PermissionRepository
+
 from apps.iam.services.user_service import UserService
 from apps.iam.services.role_service import RoleService
 from apps.iam.services.permission_service import PermissionService
+
 from apps.iam.api.views import UserViewSet, RoleViewSet, PermissionViewSet
 ```

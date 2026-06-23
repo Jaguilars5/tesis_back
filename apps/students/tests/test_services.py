@@ -11,10 +11,10 @@ from apps.institutions.models import (
 from apps.institutions.models import Section
 from ..models import Student, StudentRepresentative
 from ..services.students_service import StudentService
-from apps.core.tests.helpers import create_test_student
+from apps.core.tests.helpers import create_test_student, create_test_user
 
 
-def _create_person(document_number, names, last_names, phone="", email=""):
+def _create_person(document_number, names, last_names, phone="", email="", birth_date=None):
     doc_type = DocumentType.objects.get_or_create(
         code="CC", defaults={"name": "Cédula de Ciudadanía"}
     )[0]
@@ -23,6 +23,7 @@ def _create_person(document_number, names, last_names, phone="", email=""):
         document_number=document_number,
         names=names,
         last_names=last_names,
+        birth_date=birth_date or date(1985, 6, 15),
         phone=phone,
         email=email,
     )
@@ -34,7 +35,6 @@ class StudentServiceTest(TestCase):
     def setUp(self):
         """Crear datos de prueba"""
         self.school_year = SchoolYear.objects.create(
-            name="2024-2025",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 7, 31),
         )
@@ -43,7 +43,7 @@ class StudentServiceTest(TestCase):
             academic_level=self.academic_level, code="ELEMENTAL", name="Elemental"
         )
         self.academic_grade = AcademicGrade.objects.create(
-            academic_sublevel=self.academic_sublevel, name="6to", sequence_order=6
+            academic_sublevel=self.academic_sublevel, name="6to"
         )
         self.section = Section.objects.create(
             school_year=self.school_year,
@@ -147,18 +147,16 @@ class StudentRepresentativeServiceTest(TestCase):
             last_names="Pérez",
             birth_date=date(2012, 5, 15),
         )
-        self.rep_person = _create_person(
-            document_number="9876543210",
-            names="María",
-            last_names="Pérez",
-            phone="0987654321",
+        self.rep_user = create_test_user(
+            email="rep1@test.com", dni="9876543210",
+            names="María", last_names="Pérez",
         )
 
     def test_assign_representative(self):
         """Probar asignación de representante"""
         rel = StudentService.assign_representative(
             student_id=self.student.id,
-            person_id=self.rep_person.id,
+            user_id=self.rep_user.id,
             kinship="Madre",
             is_primary=True,
         )
@@ -170,30 +168,26 @@ class StudentRepresentativeServiceTest(TestCase):
         """Probar que rechaza asignación duplicada"""
         StudentService.assign_representative(
             student_id=self.student.id,
-            person_id=self.rep_person.id,
+            user_id=self.rep_user.id,
             kinship="MADRE",
         )
 
         with self.assertRaises(Exception):
             StudentService.assign_representative(
                 student_id=self.student.id,
-                person_id=self.rep_person.id,
+                user_id=self.rep_user.id,
                 kinship="MADRE",
             )
 
     def test_set_primary_representative(self):
         """Probar establecimiento de representante principal"""
-        rep1 = _create_person(
-            document_number="1111111111",
-            names="María",
-            last_names="Pérez",
-            phone="0987654321",
+        rep1 = create_test_user(
+            email="rep1@test.com", dni="1111111111",
+            names="María", last_names="Pérez",
         )
-        rep2 = _create_person(
-            document_number="2222222222",
-            names="Pedro",
-            last_names="Pérez",
-            phone="0987654322",
+        rep2 = create_test_user(
+            email="rep2@test.com", dni="2222222222",
+            names="Pedro", last_names="Pérez",
         )
 
         StudentService.assign_representative(
@@ -214,4 +208,4 @@ class StudentRepresentativeServiceTest(TestCase):
         primary = StudentRepresentative.objects.get(
             student=self.student, is_primary=True
         )
-        self.assertEqual(primary.person_id, rep2.id)
+        self.assertEqual(primary.user_id, rep2.id)

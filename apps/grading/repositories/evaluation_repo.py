@@ -1,10 +1,8 @@
 from decimal import Decimal
 from django.db import models
-from django.utils import timezone
 from ..models import (
     EvaluationBlock,
     BlockComponent,
-    ComponentIndicator,
     EvaluativeActivity,
     StudentNote,
     GradeChangeHistory,
@@ -18,12 +16,7 @@ class EvaluationRepository:
         return EvaluationBlock.objects.filter(id=block_id).prefetch_related(
             models.Prefetch(
                 "components",
-                queryset=BlockComponent.objects.prefetch_related(
-                    models.Prefetch(
-                        "indicators",
-                        queryset=ComponentIndicator.objects.prefetch_related("activities"),
-                    )
-                ),
+                queryset=BlockComponent.objects.prefetch_related("activities"),
             )
         ).first()
 
@@ -32,9 +25,9 @@ class EvaluationRepository:
         """Notas del estudiante para todas las actividades de un bloque de evaluación."""
         return StudentNote.objects.filter(
             enrollment_id=enrollment_id,
-            evaluative_activity__component_indicator__block_component__evaluation_block_id=block_id,
+            evaluative_activity__block_component__evaluation_block_id=block_id,
         ).select_related(
-            "evaluative_activity__component_indicator__block_component__evaluation_block"
+            "evaluative_activity__block_component__evaluation_block"
         )
 
     @staticmethod
@@ -42,7 +35,7 @@ class EvaluationRepository:
         """Notas del estudiante para todos los bloques de un período académico."""
         return StudentNote.objects.filter(
             enrollment_id=enrollment_id,
-            evaluative_activity__component_indicator__block_component__evaluation_block__academic_period_id=period_id,
+            evaluative_activity__block_component__evaluation_block__academic_period_id=period_id,
         ).select_related("evaluative_activity")
 
     @staticmethod
@@ -52,19 +45,15 @@ class EvaluationRepository:
     @staticmethod
     def record_grade_change(note, new_score, user_id=None, reason=""):
         previous = note.numeric_score
-        now = timezone.now()
         history = GradeChangeHistory.objects.create(
             student_note=note,
             modified_by_user_id=user_id,
             previous_score=previous,
             new_score=new_score,
             reason=reason,
-            created_at=now,
-            updated_at=now,
         )
         note.numeric_score = new_score
         note.manually_overridden = True
-        note.updated_at = now
         note.save()
         return history
 
@@ -80,10 +69,9 @@ class EvaluationRepository:
 
         for note in notes:
             activity = note.evaluative_activity
-            indicator = activity.component_indicator
-            component = indicator.block_component
+            component = activity.block_component
 
-            ind_weight = indicator.internal_weight
+            act_weight = activity.internal_weight
             comp_weight = component.internal_weight
 
             if activity.max_score > 0:
@@ -91,7 +79,7 @@ class EvaluationRepository:
             else:
                 normalized = Decimal("0.00")
 
-            combined = (ind_weight / Decimal("100")) * (comp_weight / Decimal("100"))
+            combined = (act_weight / Decimal("100")) * (comp_weight / Decimal("100"))
             total_score += normalized * combined
             total_weight += combined
 
@@ -108,7 +96,7 @@ class EvaluationRepository:
             evaluative_activity__teacher_subject_section__subject_offering_id=subject_offering_id,
             manually_overridden=False,
         ).select_related(
-            "evaluative_activity__component_indicator__block_component__evaluation_block"
+            "evaluative_activity__block_component__evaluation_block"
         )
 
         if not notes.exists():
@@ -122,15 +110,14 @@ class EvaluationRepository:
             max_score = activity.max_score or Decimal("1.00")
             normalized = (note.numeric_score / max_score) * Decimal("10")
 
-            indicator = activity.component_indicator
-            component = indicator.block_component
+            component = activity.block_component
             block = component.evaluation_block
 
-            ind_weight = indicator.internal_weight / Decimal("100")
+            act_weight = activity.internal_weight / Decimal("100")
             comp_weight = component.internal_weight / Decimal("100")
             block_weight = block.weight_percentage / Decimal("100")
 
-            combined = ind_weight * comp_weight * block_weight
+            combined = act_weight * comp_weight * block_weight
             total_score += normalized * combined
             total_weight += combined
 

@@ -96,7 +96,7 @@ class InstitutionsPermissionsTest(TestCase):
     def test_academic_grade_list(self):
         self._test_endpoint("/api/institutions/academic-grades/")
     def test_academic_grade_create(self):
-        self._test_endpoint("/api/institutions/academic-grades/", "post", {"name": "7", "sequence_order": 1})
+        self._test_endpoint("/api/institutions/academic-grades/", "post", {"name": "7", "code": "7"})
     def test_academic_grade_detail(self):
         self._test_endpoint("/api/institutions/academic-grades/999/")
     def test_academic_grade_update(self):
