@@ -17,9 +17,12 @@ class HasPermission(permissions.BasePermission):
         if action_permissions is None:
             return False
 
-        codename = action_permissions.get(action)
-        if codename is None:
+        if action not in action_permissions:
             return False
+
+        codename = action_permissions[action]
+        if codename is None:
+            return True
 
         return request.user.has_perm(codename)
 
