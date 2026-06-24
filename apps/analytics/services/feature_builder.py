@@ -148,7 +148,7 @@ class AcademicRiskFeatureBuilder:
         enrollment = self._get_active_enrollment(student)
         if not enrollment:
             return None
-        from apps.grading.models import PeriodGradeSummary
+        from apps.grading.student_note import PeriodGradeSummary
         summary = PeriodGradeSummary.objects.filter(
             enrollment=enrollment,
             academic_period=prev_period,

@@ -33,41 +33,31 @@ from decimal import Decimal
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
 
-from apps.academic.models import (
-    AcademicPeriod,
-    ClassSchedule,
-    PeriodType,
-    Subject,
-    SubjectAcademicConfig,
-    SubjectOffering,
-    TeacherSubjectSection,
-)
+from apps.academic.academic_period import AcademicPeriod
+from apps.academic.class_schedule import ClassSchedule
+from apps.academic.period_type import PeriodType
+from apps.academic.subject import Subject
+from apps.academic.subject_academic_config import SubjectAcademicConfig
+from apps.academic.subject_offering import SubjectOffering
+from apps.academic.teacher_subject_section import TeacherSubjectSection
 from apps.analytics.models import EarlyAlert, StudentFeatureSnapshot, StudentRiskScore
-from apps.attendance.models import AttendanceStatus, Attendance
-from apps.behavior.models import (
-    ConductIncident,
-    IncidentType,
-    Severity,
-)
-from apps.behavior.services.behavior_service import BehaviorEvaluationService
-from apps.grading.models import (
-    ActivityType,
-    BlockComponent,
-    EvaluationBlock,
-    EvaluativeActivity,
-    QualitativeScale,
-    StudentNote,
-)
-from apps.grading.signals import skip_period_summary_recalc
-from apps.grading.services.grade_calculation_service import GradeCalculationService
-from apps.iam.models import Role, User, UserRole
-from apps.institutions.models import (
-    AcademicGrade,
-    AcademicLevel,
-    AcademicSublevel,
-    SchoolYear,
-    Section,
-)
+from apps.attendance.attendance_status import AttendanceStatus
+from apps.attendance.attendance_core import Attendance
+from apps.behavior.conduct_incident import ConductIncident
+from apps.behavior.incident_type import IncidentType
+from apps.behavior.severity import Severity
+from apps.behavior.behavior_evaluation import BehaviorEvaluationService
+from apps.grading.activity_type import ActivityType
+from apps.grading.evaluation import EvaluationBlock, BlockComponent, EvaluativeActivity
+from apps.grading.qualitative_scale import QualitativeScale
+from apps.grading.student_note import StudentNote, GradeCalculationService
+from apps.grading.student_note.signals import skip_period_summary_recalc
+from apps.iam import Role, User, UserRole
+from apps.institutions.school_year import SchoolYear
+from apps.institutions.academic_level import AcademicLevel
+from apps.institutions.academic_sublevel import AcademicSublevel
+from apps.institutions.academic_grade import AcademicGrade
+from apps.institutions.section import Section
 from apps.people.models import DocumentType, Person
 from apps.students.models import (
     Enrollment,

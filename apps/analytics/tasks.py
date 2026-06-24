@@ -588,7 +588,7 @@ def auto_generate_early_alerts(self, period_id=None):
     from ..services.early_alert_service import EarlyAlertService
 
     if not period_id:
-        from apps.academic.models import AcademicPeriod
+        from apps.academic.academic_period import AcademicPeriod
 
         period = AcademicPeriod.objects.filter(is_active=True).first()
         if not period:
@@ -603,7 +603,7 @@ def auto_generate_early_alerts(self, period_id=None):
 
     alerts_created = 0
     for enrollment in enrollments:
-        from apps.academic.models import AcademicPeriod
+        from apps.academic.academic_period import AcademicPeriod
 
         period = AcademicPeriod.objects.get(pk=period_id)
         service = EarlyAlertService()
@@ -618,7 +618,7 @@ def run_student_clustering(self, period_id=None):
     from ..services.clustering_service import StudentClusteringService
 
     if not period_id:
-        from apps.academic.models import AcademicPeriod
+        from apps.academic.academic_period import AcademicPeriod
 
         period = AcademicPeriod.objects.filter(is_active=True).first()
         if not period:

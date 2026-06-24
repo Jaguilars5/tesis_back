@@ -1,20 +1,20 @@
 from django.db.models import QuerySet
-from apps.iam.models import User
+from apps.iam import User
 from apps.people.models import Person
 from apps.students.models import Student, StudentRepresentative, Enrollment
-from apps.academic.models import Subject, AcademicPeriod, SubjectAcademicConfig, SubjectOffering, TeacherSubjectSection
-from apps.grading.models import (
-    StudentNote, EvaluationBlock,
-    BlockComponent, EvaluativeActivity,
-    PeriodGradeSummary
-)
-from apps.attendance.models import (
-    Attendance, AttendanceStatus,
-)
-from apps.behavior.models import (
-    ConductIncident, BehaviorEvaluation, IncidentType,
-)
-from apps.grading.models import QualitativeScale
+from apps.academic.subject import Subject
+from apps.academic.academic_period import AcademicPeriod
+from apps.academic.subject_academic_config import SubjectAcademicConfig
+from apps.academic.subject_offering import SubjectOffering
+from apps.academic.teacher_subject_section import TeacherSubjectSection
+from apps.grading.student_note import StudentNote, PeriodGradeSummary
+from apps.grading.evaluation import EvaluationBlock, BlockComponent, EvaluativeActivity
+from apps.attendance.attendance_core import Attendance
+from apps.attendance.attendance_status import AttendanceStatus
+from apps.behavior.conduct_incident import ConductIncident
+from apps.behavior.behavior_evaluation import BehaviorEvaluation
+from apps.behavior.incident_type import IncidentType
+from apps.grading.qualitative_scale import QualitativeScale
 from apps.analytics.models import StudentRiskScore, StudentRiskFactor, StudentFeatureSnapshot, RiskFactor, EarlyAlert
 
 

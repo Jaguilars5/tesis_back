@@ -1,3 +1,9 @@
 """
-Aplicación de Asistencia, Conducta y Desarrollo Socioemocional.
+Aplicaci\u00f3n de Asistencia, Conducta y Desarrollo Socioemocional.
 """
+
+ATTENDANCE_APPS = [
+    "apps.attendance.absence_type",
+    "apps.attendance.attendance_status",
+    "apps.attendance.attendance_core",
+]

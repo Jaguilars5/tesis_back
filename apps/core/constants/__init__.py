@@ -40,7 +40,6 @@ __all__ = [
     "analytics",
     "attendance",
     "behavior",
-    "configuration",
     "integration",
     "people",
 ]

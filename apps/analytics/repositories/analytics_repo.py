@@ -42,7 +42,7 @@ class StudentRiskScoreRepository(BaseRepository):
     ):
         if not enrollment_id and student_id:
             from apps.students.models import Enrollment
-            from apps.academic.models import AcademicPeriod
+            from apps.academic.academic_period import AcademicPeriod
             period = AcademicPeriod.objects.get(pk=academic_period_id)
             enrollment = Enrollment.objects.filter(
                 student_id=student_id,
@@ -89,7 +89,7 @@ class StudentFeatureSnapshotRepository(BaseRepository):
         """Persiste una instantanea de features calculadas."""
         if not enrollment_id and student_id:
             from apps.students.models import Enrollment
-            from apps.academic.models import AcademicPeriod
+            from apps.academic.academic_period import AcademicPeriod
             period = AcademicPeriod.objects.get(pk=academic_period_id)
             enrollment = Enrollment.objects.filter(
                 student_id=student_id,

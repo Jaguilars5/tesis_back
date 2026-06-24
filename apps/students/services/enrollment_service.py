@@ -1,6 +1,6 @@
 from datetime import date
 from django.db import transaction
-from apps.institutions.repositories.section_repository import SectionRepository
+from apps.institutions.section import SectionRepository
 from ..models import Enrollment
 from ..models.enrollment import EnrollmentStatusChoices
 from ..repositories.enrollment_repo import EnrollmentRepository

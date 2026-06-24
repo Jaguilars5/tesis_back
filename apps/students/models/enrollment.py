@@ -28,7 +28,7 @@ class Enrollment(TimeStampedModel, SyncableModel):
         verbose_name="Motivo de Retiro",
     )
     section = models.ForeignKey(
-        "institutions.Section",
+        "institutions_section.Section",
         on_delete=models.CASCADE,
         related_name="enrollments",
         verbose_name="Sección",

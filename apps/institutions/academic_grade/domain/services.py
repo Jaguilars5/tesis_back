@@ -1,0 +1,31 @@
+from ..infrastructure.repositories import AcademicGradeRepository
+
+
+class AcademicGradeService:
+    repository = AcademicGradeRepository
+
+    @classmethod
+    def create_grade(cls, name, academic_sublevel_id=None, code=""):
+        return cls.repository.create(
+            name=name,
+            academic_sublevel_id=academic_sublevel_id,
+            code=code,
+        )
+
+    @classmethod
+    def get_grade(cls, grade_id):
+        grade = cls.repository.get_by_id(grade_id)
+        if not grade:
+            raise ValueError({"id": f"Grado {grade_id} no encontrado"})
+        return grade
+
+    @classmethod
+    def update_grade(cls, grade_id, **kwargs):
+        allowed = {"name", "code", "academic_sublevel_id", "is_active"}
+        cls.get_grade(grade_id)
+        clean = {k: v for k, v in kwargs.items() if k in allowed}
+        return cls.repository.update(grade_id, **clean)
+
+    @classmethod
+    def get_by_sublevel(cls, sublevel_id):
+        return cls.repository.get_by_sublevel(sublevel_id)

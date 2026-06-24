@@ -7,13 +7,18 @@ Idempotente: get_or_create garantiza que re-ejecuciones no duplican registros.
 from django.core.management.base import BaseCommand
 
 from apps.people.models import City, DocumentType
-from apps.academic.models import PeriodType, Subject
-from apps.grading.models import QualitativeScale, QualitativeScaleSublevel, ActivityType
-from apps.attendance.models import AttendanceStatus, AbsenceType
-from apps.behavior.models import IncidentType, Severity
+from apps.academic.period_type import PeriodType
+from apps.academic.subject import Subject
+from apps.grading.qualitative_scale import QualitativeScale, QualitativeScaleSublevel
+from apps.grading.activity_type import ActivityType
+from apps.attendance.attendance_status import AttendanceStatus
+from apps.attendance.absence_type import AbsenceType
+from apps.behavior.incident_type import IncidentType
+from apps.behavior.severity import Severity
 from apps.analytics.models import RiskFactor
 from apps.students.models import WithdrawalReason, SpecialNeedsType, Kinship
-from apps.institutions.models import AcademicLevel, AcademicSublevel
+from apps.institutions.academic_level import AcademicLevel
+from apps.institutions.academic_sublevel import AcademicSublevel
 
 # ---------------------------------------------------------------------------
 # Datos de catálogo

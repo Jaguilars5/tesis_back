@@ -12,6 +12,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # Hacer que el directorio 'apps' sea importable como raíz de paquete
 sys.path.insert(0, str(BASE_DIR / "apps"))
 
+from apps.institutions import INSTITUTIONS_APPS
+from apps.attendance import ATTENDANCE_APPS
+from apps.behavior import BEHAVIOR_APPS
+from apps.grading import GRADING_APPS
+from apps.academic import ACADEMIC_APPS
+
 # ─── Carga de .env ───────────────────────────────────────────────────────────
 load_dotenv(BASE_DIR / ".env")
 
@@ -41,14 +47,14 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     "apps.core",
     "apps.iam",
-    "apps.academic",
-    "apps.grading",
-    "apps.institutions",
+    *ACADEMIC_APPS,
+    *GRADING_APPS,
+    *INSTITUTIONS_APPS,
     "apps.students",
     "apps.analytics",
-    "apps.attendance",
+    *ATTENDANCE_APPS,
     "apps.people",
-    "apps.behavior",
+    *BEHAVIOR_APPS,
     "apps.configuration",
     "apps.integration",
 ]
