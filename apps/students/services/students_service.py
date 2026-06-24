@@ -1,7 +1,6 @@
 from datetime import date, datetime
 from django.db import models, transaction
-from apps.iam.models import User, UserRole
-from apps.iam.models.role import Role
+from apps.iam import User, UserRole, Role
 from apps.people.models import Person, DocumentType
 from ..models import Kinship, Student, StudentRepresentative
 from ..repositories.students_repo import (

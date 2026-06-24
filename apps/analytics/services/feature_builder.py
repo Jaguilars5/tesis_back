@@ -4,10 +4,10 @@ Construccion de snapshots de riesgo academico desde grading.
 
 from decimal import Decimal, ROUND_HALF_UP
 
-from apps.academic.repositories.academic_repo import AcademicPeriodRepository
-from apps.attendance.repositories import AttendanceRepository
-from apps.behavior.repositories import ConductIncidentRepository
-from apps.grading.repositories import StudentNoteRepository
+from apps.academic.academic_period.infrastructure.repositories import AcademicPeriodRepository
+from apps.attendance.attendance_core import AttendanceRepository
+from apps.behavior.conduct_incident import ConductIncidentRepository
+from apps.grading.student_note import StudentNoteRepository
 from apps.students.repositories.students_repo import StudentRepository
 
 

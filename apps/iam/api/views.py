@@ -10,11 +10,9 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from apps.core.api.permissions import HasPermission
 from apps.core.constants.permissions import iam
 
-from apps.iam.repositories import PermissionRepository, RoleRepository, UserRepository
-from apps.iam.services.user_service import UserService
-from apps.iam.services.role_service import RoleService
-from apps.iam.services.permission_service import PermissionService
-from apps.iam.api.serializers import (
+from apps.iam.infrastructure.repositories import PermissionRepository, RoleRepository, UserRepository
+from apps.iam.domain.services import UserService, RoleService, PermissionService
+from apps.iam.application.serializers import (
     UserListSerializer,
     UserDetailSerializer,
     UserCreateSerializer,

@@ -4,8 +4,8 @@ from ..infrastructure.models import (
     StudentNote,
     GradeChangeHistory,
     PeriodGradeSummary,
-    QualitativeScaleSublevel,
 )
+from apps.grading.qualitative_scale.infrastructure.models import QualitativeScaleSublevel
 
 
 class StudentNoteSerializer(serializers.ModelSerializer):
