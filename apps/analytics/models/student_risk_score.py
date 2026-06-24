@@ -10,7 +10,7 @@ class StudentRiskScore(TimeStampedModel):
         verbose_name="Matrícula",
     )
     academic_period = models.ForeignKey(
-        "academic.AcademicPeriod",
+        "academic_period.AcademicPeriod",
         on_delete=models.CASCADE,
         verbose_name="Período Académico",
     )

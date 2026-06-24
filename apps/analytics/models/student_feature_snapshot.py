@@ -10,7 +10,7 @@ class StudentFeatureSnapshot(TimeStampedModel):
         help_text="Matrícula del estudiante",
     )
     academic_period = models.ForeignKey(
-        "academic.AcademicPeriod",
+        "academic_period.AcademicPeriod",
         on_delete=models.CASCADE,
         verbose_name="Período Académico",
     )

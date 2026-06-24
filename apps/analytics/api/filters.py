@@ -10,7 +10,7 @@ class StudentRiskScoreFilter(django_filters.FilterSet):
     risk_label = django_filters.ChoiceFilter(
         choices=[("rojo", "Rojo"), ("amarillo", "Amarillo"), ("verde", "Verde")],
     )
-    academic_period = django_filters.NumberFilter(field_name="academic_period_id")
+    academic_period = django_filters.NumberFilter()
 
     class Meta:
         model = StudentRiskScore
@@ -18,8 +18,8 @@ class StudentRiskScoreFilter(django_filters.FilterSet):
 
 
 class StudentFeatureSnapshotFilter(django_filters.FilterSet):
-    enrollment = django_filters.NumberFilter(field_name="enrollment_id")
-    academic_period = django_filters.NumberFilter(field_name="academic_period_id")
+    enrollment = django_filters.NumberFilter()
+    academic_period = django_filters.NumberFilter()
 
     class Meta:
         model = StudentFeatureSnapshot

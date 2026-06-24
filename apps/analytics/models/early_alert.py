@@ -27,7 +27,7 @@ class EarlyAlert(TimeStampedModel, SyncableModel):
         verbose_name="Matrícula",
     )
     academic_period = models.ForeignKey(
-        "academic.AcademicPeriod",
+        "academic_period.AcademicPeriod",
         on_delete=models.CASCADE,
         related_name="early_alerts",
         verbose_name="Período Académico",
