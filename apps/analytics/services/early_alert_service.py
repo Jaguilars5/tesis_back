@@ -45,9 +45,7 @@ class EarlyAlertService:
         # Regla 2: Calificaciones bajas
         # Fuente única y MISMA definición que feature_builder: PeriodGradeSummary
         # .is_failing, acotada al (matrícula, periodo) evaluado (Fase 2, §6.4).
-        from apps.grading.repositories.period_grade_summary_repository import (
-            PeriodGradeSummaryRepository,
-        )
+        from apps.grading.student_note import PeriodGradeSummaryRepository
         failing_count = PeriodGradeSummaryRepository.count_failing(
             enrollment.id, academic_period.id
         )

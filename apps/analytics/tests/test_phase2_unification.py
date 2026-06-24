@@ -28,9 +28,7 @@ from apps.attendance.models import Attendance, AttendanceStatus
 from apps.attendance.repositories import AttendanceRepository
 from apps.core.tests.helpers import create_test_student, create_test_user
 from apps.grading.models import PeriodGradeSummary
-from apps.grading.repositories.period_grade_summary_repository import (
-    PeriodGradeSummaryRepository,
-)
+from apps.grading.student_note import PeriodGradeSummaryRepository
 from apps.institutions.models import (
     AcademicGrade,
     AcademicLevel,

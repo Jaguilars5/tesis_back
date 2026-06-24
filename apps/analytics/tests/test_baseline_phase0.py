@@ -224,7 +224,7 @@ class Phase0EarlyAlertServiceTest(TestCase):
             "apps.attendance.repositories.attendance_repository.AttendanceRepository.get_absences_summary",
             return_value=attendance_summary,
         ), patch(
-            "apps.grading.repositories.period_grade_summary_repository.PeriodGradeSummaryRepository.count_failing",
+            "apps.grading.student_note.infrastructure.repositories.PeriodGradeSummaryRepository.count_failing",
             return_value=failing_count,
         ), patch(
             "apps.behavior.repositories.conduct_incident_repository.ConductIncidentRepository.get_severe_by_enrollment",

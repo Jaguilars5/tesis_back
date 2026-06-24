@@ -248,9 +248,7 @@ class AcademicRiskFeatureBuilder:
         enrollment = self._get_active_enrollment(student)
         if not enrollment:
             return 0
-        from apps.grading.repositories.period_grade_summary_repository import (
-            PeriodGradeSummaryRepository,
-        )
+        from apps.grading.student_note import PeriodGradeSummaryRepository
         return PeriodGradeSummaryRepository.count_failing(
             enrollment.id, self.academic_period_id
         )
