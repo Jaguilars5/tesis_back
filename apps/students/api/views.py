@@ -1,3 +1,4 @@
+from django.db import models
 from drf_spectacular.utils import extend_schema, extend_schema_view
 
 from rest_framework import viewsets, status
@@ -15,7 +16,7 @@ from ..services.students_service import StudentService
 from ..services.enrollment_service import EnrollmentService
 from ..repositories import EnrollmentRepository
 
-from ..models import Kinship
+from ..models import Kinship, StudentRepresentative
 from ..repositories.students_repo import (
     StudentRepository,
     StudentRepresentativeRepository,
@@ -80,7 +81,19 @@ class StudentViewSet(viewsets.ModelViewSet):
     }
 
     def get_queryset(self):
-        return StudentRepository.get_all()
+        qs = StudentRepository.get_all().select_related("user__person")
+        if self.action == "list":
+            qs = qs.prefetch_related(
+                models.Prefetch(
+                    "representatives_set",
+                    queryset=(
+                        StudentRepresentative.objects.order_by("-is_primary", "-created_at")
+                        .select_related("kinship", "user__person")
+                    ),
+                    to_attr="_primary_rep_cache",
+                )
+            )
+        return qs
 
     def get_serializer_class(self):
         if self.action == "retrieve":

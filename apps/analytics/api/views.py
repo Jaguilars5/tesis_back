@@ -15,6 +15,7 @@ from rest_framework.response import Response
 from apps.core.constants.permissions import analytics
 from apps.core.api.pagination import StandardResultsSetPagination
 from apps.core.api.permissions import HasPermission
+from apps.core.utils import ok_response, error_response
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter, SearchFilter
 
@@ -30,13 +31,14 @@ from ..repositories import (
 from ..services.early_alert_service import EarlyAlertService
 from ..services.dashboard_service import DashboardService
 from ..services.csv_export_service import CSVExportService
-from ..services.risk_scoring_config_service import PRESETS
+from ..services.risk_scoring_config_service import PRESETS, RiskScoringConfigService
 from django.http import HttpResponse
 from .filters import StudentFeatureSnapshotFilter, StudentRiskScoreFilter
 from .serializers import (
     EarlyAlertSerializer,
     RiskFactorSerializer,
     RiskScoringConfigSerializer,
+    SimulateRiskInputSerializer,
     StudentFeatureSnapshotSerializer,
     StudentRiskFactorSerializer,
     StudentRiskScoreSerializer,
@@ -88,6 +90,7 @@ class StudentRiskScoreViewSet(BaseAnalyticsViewSet):
         "retrieve": analytics.VIEW_RISK_SCORE,
         "calculate": analytics.CREATE_STUDENT_RISK_FACTOR,
         "batch_calculate": analytics.CREATE_STUDENT_RISK_FACTOR,
+        "simulate": analytics.VIEW_RISK_SCORE,
     }
 
     def __init__(self, *args, **kwargs):
@@ -131,6 +134,65 @@ class StudentRiskScoreViewSet(BaseAnalyticsViewSet):
             )
         task = batch_calculate_academic_risk.delay(academic_period_id, student_ids)
         return Response({"task_id": task.id, "status": "PENDING"})
+
+    @action(detail=False, methods=["post"])
+    def simulate(self, request):
+        from apps.analytics.tasks import calculate_academic_risk, _predict_ml_score
+
+        serializer = SimulateRiskInputSerializer(data=request.data)
+        if not serializer.is_valid():
+            return error_response(msg="Parámetros inválidos", data=serializer.errors)
+
+        params = serializer.validated_data
+
+        variables = {
+            "conducta": {
+                "faltas_leves": params["mild_incidents_count"],
+                "faltas_graves": params["severe_incidents_count"],
+            },
+            "asistencia": {
+                "porcentaje_asistencia": params["attendance_rate"],
+                "total_registros": 1,
+            },
+            "calificaciones": {
+                "promedio_actual": params["average_grade"],
+                "total_calificaciones": 1,
+                "materias_reprobadas": params["failing_subjects_count"],
+            },
+        }
+
+        snapshot = {
+            "estudiante_id": "simulacion",
+            "periodo": "simulacion",
+            "variables": variables,
+        }
+
+        config = RiskScoringConfigService.get_effective()
+        config_serializer = RiskScoringConfigSerializer(config)
+
+        rules_result = calculate_academic_risk(snapshot)
+
+        ml_result = None
+        if params.get("try_ml"):
+            try:
+                ml_score = _predict_ml_score(snapshot)
+                if ml_score is not None:
+                    ml_result = {
+                        "puntaje_riesgo": round(float(ml_score), 2),
+                        "model_version": "sklearn-joblib-v2",
+                    }
+            except Exception:
+                ml_result = {"error": "Error al ejecutar modelo ML"}
+
+        return ok_response({
+            "reglas": {
+                "semaforo_riesgo": rules_result["semaforo_riesgo"],
+                "detalle_por_variable": rules_result["detalle_por_variable"],
+                "model_version": rules_result["model_version"],
+            },
+            "ml": ml_result,
+            "config_usada": config_serializer.data,
+        })
 
 
 class StudentFeatureSnapshotViewSet(BaseAnalyticsViewSet):

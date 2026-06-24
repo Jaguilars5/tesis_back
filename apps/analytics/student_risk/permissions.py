@@ -15,6 +15,7 @@ RISK_SCORE_ACTION_PERMISSIONS = {
     "destroy": analytics.DELETE_STUDENT_RISK_FACTOR,
     "calculate": analytics.CREATE_STUDENT_RISK_FACTOR,
     "batch_calculate": analytics.CREATE_STUDENT_RISK_FACTOR,
+    "simulate": analytics.VIEW_RISK_SCORE,
 }
 
 # RiskFactor ViewSet (readonly)

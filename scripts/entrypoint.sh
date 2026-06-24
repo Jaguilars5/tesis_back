@@ -23,6 +23,8 @@ fi
 if [ "$RUN_MIGRATIONS" = "true" ]; then
   echo "🔄 Ejecutando migraciones..."
   python manage.py migrate --noinput
+  echo "📦 Recolectando archivos estáticos..."
+  python manage.py collectstatic --noinput
 fi
 
 # Crear datos iniciales si lo necesitas (opcional)

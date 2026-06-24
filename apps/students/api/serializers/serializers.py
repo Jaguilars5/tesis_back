@@ -1,10 +1,14 @@
+import logging
 from rest_framework import serializers
 from ...models import Enrollment, Student, StudentRepresentative, Kinship, SpecialNeedsType
+
+logger = logging.getLogger(__name__)
 
 
 class StudentSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
     age = serializers.SerializerMethodField()
+    primary_representative = serializers.SerializerMethodField()
 
     class Meta:
         model = Student
@@ -18,6 +22,7 @@ class StudentSerializer(serializers.ModelSerializer):
             "age",
             "is_active",
             "created_at",
+            "primary_representative",
         ]
         read_only_fields = ["id", "created_at", "full_name", "age"]
 
@@ -26,6 +31,37 @@ class StudentSerializer(serializers.ModelSerializer):
 
     def get_age(self, obj):
         return obj.get_age()
+
+    def get_primary_representative(self, obj):
+        cache = getattr(obj, "_primary_rep_cache", None)
+        logger.warning(
+            "[primary_rep] student_id=%s full_name=%s has_cache=%s cache_len=%s",
+            obj.id, obj.get_full_name(), cache is not None,
+            len(cache) if cache else 0,
+        )
+        if cache:
+            rep = cache[0]
+        else:
+            rep = (
+                obj.representatives_set.order_by("-is_primary", "-created_at")
+                .select_related("kinship", "user__person")
+                .first()
+            )
+            logger.warning(
+                "[primary_rep] fallback rep=%s",
+                rep.user.get_full_name() if rep else None,
+            )
+        if rep is None:
+            logger.warning("[primary_rep] NO_REP student_id=%s", obj.id)
+            return None
+        result = {
+            "id": rep.id,
+            "user_names": rep.user.get_full_name(),
+            "kinship": rep.kinship_id,
+            "kinship_name": rep.kinship.name,
+        }
+        logger.warning("[primary_rep] RETURN result=%s", result)
+        return result
 
 
 class StudentRepresentativeSerializer(serializers.ModelSerializer):

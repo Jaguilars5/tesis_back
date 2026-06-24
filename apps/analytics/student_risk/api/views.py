@@ -23,12 +23,13 @@ from ..permissions import (
     SCORING_CONFIG_ACTION_PERMISSIONS,
 )
 from ..application.serializers import (
-    RiskFactorSerializer,
-    StudentRiskScoreSerializer,
-    StudentRiskFactorSerializer,
-    StudentFeatureSnapshotSerializer,
-    RiskScoringConfigSerializer,
     ApplyPresetSerializer,
+    RiskFactorSerializer,
+    RiskScoringConfigSerializer,
+    SimulateRiskInputSerializer,
+    StudentFeatureSnapshotSerializer,
+    StudentRiskFactorSerializer,
+    StudentRiskScoreSerializer,
 )
 from ..infrastructure.repositories import (
     RiskFactorRepository,
@@ -37,6 +38,7 @@ from ..infrastructure.repositories import (
     StudentFeatureSnapshotRepository,
     RiskScoringConfigRepository,
 )
+from ..domain import risk_engine
 from ..domain.services import StudentRiskCalculationService, RiskScoringConfigService
 
 
@@ -307,6 +309,70 @@ class StudentRiskScoreViewSet(BaseAnalyticsViewSet):
             )
         except Exception as e:
             return error_response(str(e), status_code=400)
+
+    @action(detail=False, methods=["post"])
+    def simulate(self, request):
+        """
+        Evalúa el modelo/reglas con parámetros simulados (sin estudiante real).
+
+        POST /api/analytics/student-risk-scores/simulate/
+        Body: { attendance_rate, average_grade, failing_subjects_count,
+                severe_incidents_count, mild_incidents_count, try_ml, ... }
+        """
+        serializer = SimulateRiskInputSerializer(data=request.data)
+        if not serializer.is_valid():
+            raise DRFValidationError(serializer.errors)
+
+        params = serializer.validated_data
+
+        variables = {
+            "conducta": {
+                "faltas_leves": params["mild_incidents_count"],
+                "faltas_graves": params["severe_incidents_count"],
+            },
+            "asistencia": {
+                "porcentaje_asistencia": params["attendance_rate"],
+                "total_registros": 1,
+            },
+            "calificaciones": {
+                "promedio_actual": params["average_grade"],
+                "total_calificaciones": 1,
+                "materias_reprobadas": params["failing_subjects_count"],
+            },
+        }
+
+        snapshot = {
+            "estudiante_id": "simulacion",
+            "periodo": "simulacion",
+            "variables": variables,
+        }
+
+        config = RiskScoringConfigService.get_effective_config()
+        config_serializer = RiskScoringConfigSerializer(config)
+
+        rules_result = risk_engine.calculate_risk(snapshot, config=config)
+
+        ml_result = None
+        if params.get("try_ml") and config.engine == "ML":
+            try:
+                ml_score = risk_engine._predict_ml_score(snapshot)
+                if ml_score is not None:
+                    ml_result = {
+                        "puntaje_riesgo": round(float(ml_score), 2),
+                        "model_version": "sklearn-joblib-v2",
+                    }
+            except Exception:
+                ml_result = {"error": "Error al ejecutar modelo ML"}
+
+        return ok_response({
+            "reglas": {
+                "semaforo_riesgo": rules_result["semaforo_riesgo"],
+                "detalle_por_variable": rules_result["detalle_por_variable"],
+                "model_version": rules_result["model_version"],
+            },
+            "ml": ml_result,
+            "config_usada": config_serializer.data,
+        })
 
 
 # ─────────────────────────────────────────────────────────────────────────────

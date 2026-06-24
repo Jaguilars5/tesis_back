@@ -2,6 +2,8 @@
 URL configuration for backend project.
 """
 
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework.permissions import AllowAny
@@ -60,6 +62,10 @@ urlpatterns = [
         name="redoc",
     ),
 ]
+
+# ── Archivos estáticos (solo desarrollo) ───────────────────────────────────
+if settings.DEBUG:
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
 # ── Schema, Swagger UI y ReDoc por módulo ──────────────────────────────────
 for mod in API_MODULES:

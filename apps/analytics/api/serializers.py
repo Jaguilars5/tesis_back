@@ -176,6 +176,25 @@ class RiskScoringConfigSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class SimulateRiskInputSerializer(serializers.Serializer):
+    attendance_rate = serializers.FloatField(min_value=0, max_value=100)
+    average_grade = serializers.FloatField(min_value=0, max_value=10)
+    failing_subjects_count = serializers.IntegerField(min_value=0)
+    severe_incidents_count = serializers.IntegerField(min_value=0)
+    mild_incidents_count = serializers.IntegerField(min_value=0)
+    consecutive_absences_max = serializers.IntegerField(min_value=0, default=0)
+    tardiness_count = serializers.IntegerField(min_value=0, default=0)
+    justified_absences = serializers.IntegerField(min_value=0, default=0)
+    unjustified_absences = serializers.IntegerField(min_value=0, default=0)
+    grade_trend_slope = serializers.FloatField(default=0)
+    family_notified_ratio = serializers.FloatField(min_value=0, max_value=1, default=0)
+    prev_period_avg_grade = serializers.FloatField(default=0)
+    age_grade_gap = serializers.IntegerField(min_value=0, default=0)
+    is_repeat = serializers.BooleanField(default=False)
+    has_special_needs = serializers.BooleanField(default=False)
+    try_ml = serializers.BooleanField(default=False)
+
+
 class EarlyAlertSerializer(serializers.ModelSerializer):
     enrollment_name = serializers.CharField(source="enrollment.__str__", read_only=True)
     academic_period_name = serializers.CharField(

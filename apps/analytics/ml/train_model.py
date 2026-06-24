@@ -5,8 +5,12 @@ Ejecutar con: python manage.py train_risk_model --period-id=X
 El contrato de features (nombres y orden de columnas) vive en `features.py` y es
 compartido con la inferencia (`apps/analytics/tasks`). NO duplicar la lista aquí.
 """
+import logging
+
 from ..models import StudentFeatureSnapshot, StudentRiskScore
 from .features import FEATURE_COLUMNS, MODEL_PATH, _to_number
+
+logger = logging.getLogger(__name__)
 
 
 class RiskModelTrainer:
@@ -27,8 +31,14 @@ class RiskModelTrainer:
         if period_id:
             snapshots = snapshots.filter(academic_period_id=period_id)
 
+        total_snapshots = snapshots.count()
+        logger.info("Total snapshots encontrados: %d", total_snapshots)
+        if total_snapshots == 0:
+            raise ValueError("No hay snapshots para entrenar")
+
         X = []
         y = []
+        skipped_no_score = 0
 
         for snapshot in snapshots:
             score = StudentRiskScore.objects.filter(
@@ -36,19 +46,52 @@ class RiskModelTrainer:
                 academic_period=snapshot.academic_period,
             ).first()
             if not score:
+                skipped_no_score += 1
                 continue
 
             features = [_to_number(getattr(snapshot, col, 0)) for col in self.FEATURE_COLUMNS]
             X.append(features)
             y.append(score.risk_label)
 
+        logger.info(
+            "Snapshots sin StudentRiskScore (skipped): %d", skipped_no_score
+        )
+        logger.info("Pares (X, y) generados: %d", len(X))
+
         if len(X) < 10:
             raise ValueError("Datos insuficientes para entrenar")
 
         df = pd.DataFrame(X, columns=self.FEATURE_COLUMNS)
         df = df.fillna(0)
+
+        from collections import Counter
+        label_dist = Counter(y)
+        logger.info("Distribución de risk_label: %s", dict(label_dist))
+
+        pd.set_option("display.max_columns", 20)
+        pd.set_option("display.width", 200)
+        pd.set_option("display.float_format", lambda v: "%.4f" % v)
+        logger.info("Estadísticas descriptivas de features:\n%s", df.describe())
+
+        num_zeros = (df == 0).sum().sum()
+        total_cells = df.shape[0] * df.shape[1]
+        logger.info(
+            "Celdas con valor 0: %d de %d (%.1f%%)",
+            num_zeros, total_cells, 100 * num_zeros / total_cells,
+        )
+
         X_train, X_test, y_train, y_test = train_test_split(
             df, y, test_size=0.2, stratify=y, random_state=42
+        )
+
+        logger.info("Train size: %d | Test size: %d", len(X_train), len(X_test))
+        logger.info(
+            "Distribución train: %s",
+            dict(Counter(y_train)),
+        )
+        logger.info(
+            "Distribución test: %s",
+            dict(Counter(y_test)),
         )
 
         model = GradientBoostingClassifier(
@@ -57,10 +100,11 @@ class RiskModelTrainer:
         model.fit(X_train, y_train)
 
         y_pred = model.predict(X_test)
-        print(classification_report(y_test, y_pred))
+        report = classification_report(y_test, y_pred)
+        logger.info("Classification report:\n%s", report)
 
         target_path = model_path or MODEL_PATH
         joblib.dump(model, target_path)
-        print(f"Modelo guardado en: {target_path}")
+        logger.info("Modelo guardado en: %s", target_path)
 
         return model
