@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('academic_period_type', '0001_initial'),
-        ('institutions', '0001_initial'),
+        ('institutions_school_year', '0001_initial'),
     ]
 
     operations = [
@@ -29,7 +29,7 @@ class Migration(migrations.Migration):
                 ('is_regular_period', models.BooleanField(default=True, verbose_name='Período Regular')),
                 ('is_active', models.BooleanField(default=True, verbose_name='Activo')),
                 ('period_type', models.ForeignKey(default=apps.academic.academic_period.infrastructure.models._get_default_period_type, on_delete=django.db.models.deletion.PROTECT, to='academic_period_type.periodtype', verbose_name='Tipo de período')),
-                ('school_year', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='academic_periods', to='institutions.schoolyear', verbose_name='Año Escolar')),
+                ('school_year', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='academic_periods', to='institutions_school_year.schoolyear', verbose_name='Año Escolar')),
             ],
             options={
                 'verbose_name': 'Período Académico',

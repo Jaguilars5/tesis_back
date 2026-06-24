@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('academic_subject_config', '0001_initial'),
-        ('institutions', '0001_initial'),
+        ('institutions_section', '0001_initial'),
     ]
 
     operations = [
@@ -21,7 +21,7 @@ class Migration(migrations.Migration):
                 ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='Fecha de Creación')),
                 ('updated_at', models.DateTimeField(auto_now=True, verbose_name='Fecha de Actualización')),
                 ('is_active', models.BooleanField(default=True, verbose_name='Activo')),
-                ('section', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='subject_offerings', to='institutions.section', verbose_name='Sección')),
+                ('section', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='subject_offerings', to='institutions_section.section', verbose_name='Sección')),
                 ('subject_academic_config', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='offerings', to='academic_subject_config.subjectacademicconfig', verbose_name='Configuración de Materia')),
             ],
             options={

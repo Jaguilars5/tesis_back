@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('institutions', '0001_initial'),
+        ('institutions_academic_sublevel', '0001_initial'),
     ]
 
     operations = [
@@ -37,7 +37,7 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('is_active', models.BooleanField(default=True, verbose_name='Activo')),
                 ('scale', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='sublevel_links', to='grading_qualitative_scale.qualitativescale', verbose_name='Escala Cualitativa')),
-                ('sublevel', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='scale_links', to='institutions.academicsublevel', verbose_name='Subnivel Académico')),
+                ('sublevel', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='scale_links', to='institutions_academic_sublevel.academicsublevel', verbose_name='Subnivel Académico')),
             ],
             options={
                 'verbose_name': 'Escala Cualitativa por Subnivel',

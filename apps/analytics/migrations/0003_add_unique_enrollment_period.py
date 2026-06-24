@@ -7,7 +7,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('students', '0002_add_unique_enrollment_period'),
-        ('academic', '0002_periodtype_divisions_per_year'),
+        ('academic_period', '0001_initial'),
         ('analytics', '0002_initial'),
     ]
 

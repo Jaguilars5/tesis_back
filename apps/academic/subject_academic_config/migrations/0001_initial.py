@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('academic_subject', '0001_initial'),
-        ('institutions', '0001_initial'),
+        ('institutions_academic_grade', '0001_initial'),
     ]
 
     operations = [
@@ -23,7 +23,7 @@ class Migration(migrations.Migration):
                 ('weekly_hours', models.IntegerField(verbose_name='Horas Semanales')),
                 ('is_required', models.BooleanField(default=True, verbose_name='Obligatoria')),
                 ('is_active', models.BooleanField(default=True, verbose_name='Activo')),
-                ('academic_grade', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='subject_academic_configs', to='institutions.academicgrade', verbose_name='Grado Académico')),
+                ('academic_grade', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='subject_academic_configs', to='institutions_academic_grade.academicgrade', verbose_name='Grado Académico')),
                 ('subject', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='academic_configs', to='academic_subject.subject', verbose_name='Materia')),
             ],
             options={

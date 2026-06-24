@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
         ('students', '0001_initial'),
         ('analytics', '0001_initial'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('academic', '0001_initial'),
+        ('academic_period', '0001_initial'),
     ]
 
     operations = [
@@ -35,7 +35,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='studentfeaturesnapshot',
             name='academic_period',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='academic.academicperiod', verbose_name='Período Académico'),
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='academic_period.academicperiod', verbose_name='Período Académico'),
         ),
         migrations.AddField(
             model_name='studentfeaturesnapshot',
@@ -45,7 +45,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='earlyalert',
             name='academic_period',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='early_alerts', to='academic.academicperiod', verbose_name='Período Académico'),
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='early_alerts', to='academic_period.academicperiod', verbose_name='Período Académico'),
         ),
         migrations.AddField(
             model_name='earlyalert',

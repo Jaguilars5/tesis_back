@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('institutions', '0001_initial'),
+        ('institutions_section', '0001_initial'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
@@ -116,7 +116,7 @@ class Migration(migrations.Migration):
                 ('enrollment_status', models.CharField(choices=[('ACT', 'Activa'), ('RET', 'Retirado'), ('TRS', 'Transferido'), ('SUS', 'Suspendido'), ('GRA', 'Graduado')], max_length=5, verbose_name='Estado de Matrícula')),
                 ('withdrawal_date', models.DateField(blank=True, null=True, verbose_name='Fecha de Retiro')),
                 ('is_repeat', models.BooleanField(default=False, verbose_name='Es repitente')),
-                ('section', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='enrollments', to='institutions.section', verbose_name='Sección')),
+                ('section', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='enrollments', to='institutions_section.section', verbose_name='Sección')),
                 ('student', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='enrollments', to='students.student', verbose_name='Estudiante')),
                 ('withdrawal_reason', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='students.withdrawalreason', verbose_name='Motivo de Retiro')),
             ],

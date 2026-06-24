@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('academic', '0001_initial'),
+        ('academic_period', '0001_initial'),
     ]
 
     operations = [
@@ -112,7 +112,7 @@ class Migration(migrations.Migration):
                 ('risk_label', models.CharField(default='', max_length=20, verbose_name='Etiqueta de Riesgo')),
                 ('model_version', models.CharField(default='', max_length=50, verbose_name='Versión del Modelo')),
                 ('calculated_at', models.DateTimeField(auto_now_add=True, verbose_name='Fecha de Cálculo')),
-                ('academic_period', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='academic.academicperiod', verbose_name='Período Académico')),
+                ('academic_period', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='academic_period.academicperiod', verbose_name='Período Académico')),
             ],
             options={
                 'verbose_name': 'Puntaje de Riesgo del Estudiante',
