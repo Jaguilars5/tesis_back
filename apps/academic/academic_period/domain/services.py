@@ -1,12 +1,13 @@
-from apps.institutions.school_year import SchoolYear
+from django.db import transaction
+
+from apps.academic.period_type.infrastructure.repositories import PeriodTypeRepository
+from apps.institutions.school_year.infrastructure.repositories import SchoolYearRepository
 
 from ..application import validators
 from ..infrastructure.repositories import AcademicPeriodRepository
 
 
 class AcademicPeriodService:
-    """Lógica de negocio para períodos académicos."""
-
     repository = AcademicPeriodRepository
 
     @classmethod
@@ -20,7 +21,7 @@ class AcademicPeriodService:
         is_regular_period,
         exclude_period_id=None,
     ):
-        school_year = SchoolYear.objects.filter(pk=school_year_id).first()
+        school_year = SchoolYearRepository.get_by_id(school_year_id)
         if not school_year:
             raise ValueError({"school_year": f"Año escolar {school_year_id} no encontrado"})
         errors = validators.run_all_validators(
@@ -36,6 +37,7 @@ class AcademicPeriodService:
             raise ValueError(errors)
 
     @classmethod
+    @transaction.atomic
     def create_academic_period(
         cls,
         name,
@@ -50,7 +52,6 @@ class AcademicPeriodService:
             raise ValueError({"start_date": "Las fechas de inicio y fin son requeridas"})
         if start_date >= end_date:
             raise ValueError({"start_date": "La fecha de inicio debe ser anterior a la fecha de fin"})
-        from apps.academic.period_type.infrastructure.repositories import PeriodTypeRepository
 
         period_type_obj = (
             PeriodTypeRepository.get_by_code(period_type)
@@ -83,7 +84,7 @@ class AcademicPeriodService:
     def get_academic_period(cls, period_id):
         period = cls.repository.get_by_id(period_id)
         if not period:
-            raise ValueError({"id": f"Período académico {period_id} no encontrado"})
+            raise ValueError(f"Período académico {period_id} no encontrado")
         return period
 
     @classmethod
@@ -91,6 +92,7 @@ class AcademicPeriodService:
         return cls.repository.get_by_school_year(school_year_id)
 
     @classmethod
+    @transaction.atomic
     def update_academic_period(cls, period_id, **kwargs):
         allowed_fields = {
             "name",
@@ -110,11 +112,9 @@ class AcademicPeriodService:
         year_weight = kwargs.get("year_weight", period.year_weight)
         is_regular_period = kwargs.get("is_regular_period", period.is_regular_period)
 
-        # Resolver period_type_obj: puede venir como objeto FK o como period_type_id
         new_period_type_id = kwargs.pop("period_type_id", None)
         if new_period_type_id is not None:
-            from apps.academic.period_type.infrastructure.models import PeriodType
-            period_type_obj = PeriodType.objects.filter(pk=new_period_type_id).first()
+            period_type_obj = PeriodTypeRepository.get_by_id(new_period_type_id)
             if not period_type_obj:
                 raise ValueError({"period_type": f"Tipo de período {new_period_type_id} no encontrado"})
         else:
@@ -134,3 +134,27 @@ class AcademicPeriodService:
         if new_period_type_id is not None:
             clean["period_type_id"] = new_period_type_id
         return cls.repository.update(period.id, **clean)
+
+    @classmethod
+    @transaction.atomic
+    def soft_delete(cls, pk, confirm=False):
+        obj = cls.get_academic_period(pk)
+        counts = cls.repository.get_cascade_counts(pk)
+        total = sum(counts.values())
+
+        if total > 0 and not confirm:
+            parts = [f"{v} {k}" for k, v in counts.items()]
+            return {
+                "requires_confirmation": True,
+                "affected_records": total,
+                "message": f"Esta acción desactivará {', '.join(parts)} relacionados",
+                "id": obj.id,
+                "is_active": True,
+            }
+
+        total = cls.repository.deactivate_cascade(pk)
+        return {
+            "id": obj.id,
+            "is_active": False,
+            "deactivated_records": total,
+        }

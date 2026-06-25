@@ -15,8 +15,13 @@ class ClassScheduleRepository(BaseRepository, ClassScheduleRepositoryInterface):
     model = ClassSchedule
 
     @classmethod
-    def get_all(cls, active_only=True):
+    def get_all(cls, active_only=True, search=None):
         queryset = super().get_all(active_only=active_only)
+        if search:
+            queryset = queryset.filter(
+                db_models.Q(teacher_subject_section__subject_offering__subject_academic_config__subject__name__icontains=search)
+                | db_models.Q(teacher_subject_section__subject_offering__section__parallel__icontains=search)
+            )
         return queryset.order_by("day_of_week", "start_time")
 
     @classmethod
@@ -88,3 +93,12 @@ class ClassScheduleRepository(BaseRepository, ClassScheduleRepositoryInterface):
         return qs.filter(
             db_models.Q(start_time__lt=end_time, end_time__gt=start_time)
         ).exists()
+
+    @classmethod
+    def get_cascade_counts(cls, instance_id: int) -> dict[str, int]:
+        return {}
+
+    @classmethod
+    def deactivate_cascade(cls, instance_id: int) -> int:
+        cls.model.objects.filter(pk=instance_id).update(is_active=False)
+        return 0

@@ -8,15 +8,15 @@ Las funciones son PURAS: no mutan estado, no escriben a la DB.
 El service las orquesta y acumula los errores.
 """
 
-from apps.academic.period_type.infrastructure.models import PeriodType
-from apps.institutions.school_year import SchoolYear
+from apps.academic.period_type.infrastructure.repositories import PeriodTypeRepository
+from apps.institutions.school_year.infrastructure.repositories import SchoolYearRepository
 
 from ..infrastructure.repositories import AcademicPeriodRepository
 
 
 def validate_dates_within_school_year(school_year_id, start_date, end_date):
     """Regla 2: Las fechas del periodo deben caer dentro del anio escolar."""
-    school_year = SchoolYear.objects.filter(pk=school_year_id).first()
+    school_year = SchoolYearRepository.get_by_id(school_year_id)
     if not school_year:
         return {"school_year": f"Anio escolar {school_year_id} no encontrado"}
     if start_date < school_year.start_date or end_date > school_year.end_date:
@@ -38,7 +38,7 @@ def validate_single_period_type_per_year(
         exclude_period_id=exclude_period_id,
     )
     if existing_type_ids and period_type_obj.pk not in existing_type_ids:
-        existing_type = PeriodType.objects.filter(pk__in=existing_type_ids).first()
+        existing_type = PeriodTypeRepository.first(pk__in=existing_type_ids)
         return {
             "period_type": (
                 f"Este anio escolar ya utiliza el tipo de periodo '{existing_type.name}'. "

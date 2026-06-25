@@ -6,6 +6,3 @@ class SubjectOfferingConfig(AppConfig):
     name = "apps.academic.subject_offering"
     label = "academic_subject_offering"
     verbose_name = "Ofertas de Materia"
-
-    def ready(self):
-        import apps.academic.subject_offering.signals  # noqa: F401

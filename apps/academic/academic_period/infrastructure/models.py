@@ -3,11 +3,11 @@ from apps.core.models import TimeStampedModel
 
 
 def _get_default_period_type():
-    from apps.academic.period_type.infrastructure.models import PeriodType
+    from apps.academic.period_type.infrastructure.repositories import PeriodTypeRepository
 
     from ..constants import DEFAULT_PERIOD_TYPE_CODE
 
-    obj, _ = PeriodType.objects.get_or_create(
+    obj, _ = PeriodTypeRepository.get_or_create(
         code=DEFAULT_PERIOD_TYPE_CODE,
         defaults={"name": "Trimestre", "divisions_per_year": 3},
     )
@@ -55,3 +55,11 @@ class AcademicPeriod(TimeStampedModel):
 
     def __str__(self):
         return self.name
+
+    @property
+    def school_year_name(self):
+        return self.school_year.name if self.school_year else None
+
+    @property
+    def period_type_name(self):
+        return self.period_type.name if self.period_type else None

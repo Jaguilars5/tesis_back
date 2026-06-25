@@ -1,14 +1,10 @@
 __all__ = [
-    "SubjectOfferingEntity",
     "SubjectOfferingRepositoryInterface",
     "SubjectOfferingService",
 ]
 
 
 def __getattr__(name):
-    if name == "SubjectOfferingEntity":
-        from .entities import SubjectOfferingEntity
-        return SubjectOfferingEntity
     if name == "SubjectOfferingRepositoryInterface":
         from .repositories import SubjectOfferingRepositoryInterface
         return SubjectOfferingRepositoryInterface

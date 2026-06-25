@@ -1,8 +1,9 @@
 from rest_framework.test import APITestCase
 from rest_framework import status
 from datetime import date
-REPLACED SchoolYear
+
 from apps.academic.period_type.infrastructure.models import PeriodType
+from apps.institutions.school_year.infrastructure.models import SchoolYear
 from apps.academic.academic_period.infrastructure.models import AcademicPeriod
 from apps.core.tests.helpers import create_test_user
 
@@ -210,4 +211,76 @@ class AcademicPeriodAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["results"][0]["id"], p1.id)
         self.assertEqual(response.data["results"][1]["id"], p2.id)
+
+    def test_soft_delete_without_confirm(self):
+        period = AcademicPeriod.objects.create(
+            school_year=self.school_year,
+            period_type=self.period_type_1,
+            name="Primer Trimestre",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 4, 30),
+            year_weight=30.0,
+        )
+        response = self.client.post(f"{self.url}{period.id}/soft-delete/", format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["ok"])
+        # Sin hijos en cascada: desactiva inmediatamente
+        self.assertFalse(response.data["data"]["is_active"])
+
+    def test_soft_delete_with_confirm(self):
+        period = AcademicPeriod.objects.create(
+            school_year=self.school_year,
+            period_type=self.period_type_1,
+            name="Primer Trimestre",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 4, 30),
+            year_weight=30.0,
+        )
+        response = self.client.post(
+            f"{self.url}{period.id}/soft-delete/",
+            {"confirm": True},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["ok"])
+        self.assertFalse(response.data["data"]["is_active"])
+
+    def test_destroy(self):
+        period = AcademicPeriod.objects.create(
+            school_year=self.school_year,
+            period_type=self.period_type_1,
+            name="Primer Trimestre",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 4, 30),
+            year_weight=30.0,
+        )
+        response = self.client.delete(f"{self.url}{period.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["ok"])
+
+    def test_permission_denied(self):
+        from apps.core.tests.helpers import create_test_user
+
+        user_no_perm = create_test_user(
+            email="noperm@test.com",
+            dni="8888888888",
+            names="No",
+            last_names="Perm",
+            is_superuser=False,
+        )
+        self.client.force_authenticate(user=user_no_perm)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_create_validation_error(self):
+        data = {
+            "school_year": self.school_year.id,
+            "period_type": self.period_type_1.id,
+            "name": "",
+            "start_date": "invalid-date",
+            "end_date": "2026-08-31",
+            "year_weight": 35.0,
+        }
+        response = self.client.post(self.url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_422_UNPROCESSABLE_ENTITY)
 

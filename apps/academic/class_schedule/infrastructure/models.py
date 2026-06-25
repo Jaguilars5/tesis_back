@@ -41,3 +41,19 @@ class ClassSchedule(TimeStampedModel):
 
     def __str__(self):
         return f"{self.teacher_subject_section} - {self.get_day_of_week_display()} ({self.start_time}-{self.end_time})"
+
+    @property
+    def day_of_week_name(self):
+        return self.get_day_of_week_display()
+
+    @property
+    def teacher_name(self):
+        return self.teacher_subject_section.user.get_full_name()
+
+    @property
+    def section_name(self):
+        return str(self.teacher_subject_section.subject_offering.section)
+
+    @property
+    def subject_name(self):
+        return self.teacher_subject_section.subject_offering.subject_academic_config.subject.name

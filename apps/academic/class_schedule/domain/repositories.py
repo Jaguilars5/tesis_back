@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 class ClassScheduleRepositoryInterface(ABC):
     @classmethod
     @abstractmethod
-    def get_all(cls, active_only=True):
+    def get_all(cls, active_only=True, search=None):
         pass
 
     @classmethod
@@ -55,4 +55,14 @@ class ClassScheduleRepositoryInterface(ABC):
     @classmethod
     @abstractmethod
     def check_overlap(cls, teacher_subject_section_id, day_of_week, start_time, end_time, exclude_id=None):
+        pass
+
+    @classmethod
+    @abstractmethod
+    def get_cascade_counts(cls, instance_id: int) -> dict[str, int]:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def deactivate_cascade(cls, instance_id: int) -> int:
         pass

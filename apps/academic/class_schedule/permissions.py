@@ -9,6 +9,6 @@ ACTION_PERMISSIONS = {
     "destroy": academic.DELETE_CLASS_SCHEDULE,
     "soft_delete": academic.DELETE_CLASS_SCHEDULE,
     "by_section": academic.VIEW_CLASS_SCHEDULE,
-    "my_schedule": None,
-    "my_today": None,
+    "my_schedule": academic.VIEW_CLASS_SCHEDULE,
+    "my_today": academic.VIEW_CLASS_SCHEDULE,
 }

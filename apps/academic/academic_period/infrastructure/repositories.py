@@ -1,3 +1,5 @@
+from django.db import transaction
+
 from apps.core.repositories.base import BaseRepository
 
 from ..domain.repositories import AcademicPeriodRepositoryInterface
@@ -8,8 +10,10 @@ class AcademicPeriodRepository(BaseRepository, AcademicPeriodRepositoryInterface
     model = AcademicPeriod
 
     @classmethod
-    def get_all(cls, active_only=True):
+    def get_all(cls, active_only=True, search=None):
         queryset = super().get_all(active_only=active_only)
+        if search:
+            queryset = queryset.filter(name__icontains=search)
         return queryset.order_by("-start_date")
 
     @classmethod
@@ -66,3 +70,13 @@ class AcademicPeriodRepository(BaseRepository, AcademicPeriodRepositoryInterface
         if exclude_period_id is not None:
             qs = qs.exclude(pk=exclude_period_id)
         return list(qs.values_list("period_type_id", flat=True).distinct())
+
+    @classmethod
+    def get_cascade_counts(cls, instance_id: int) -> dict[str, int]:
+        return {}
+
+    @classmethod
+    @transaction.atomic
+    def deactivate_cascade(cls, instance_id: int) -> int:
+        cls.model.objects.filter(pk=instance_id).update(is_active=False)
+        return 0
