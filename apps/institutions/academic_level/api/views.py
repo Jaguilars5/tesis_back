@@ -1,6 +1,8 @@
 from drf_spectacular.utils import extend_schema, extend_schema_view
+from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
 
+from apps.core.utils import ok_response
 from apps.institutions.api.base import BaseInstitutionsViewSet
 
 from ..application.serializers import AcademicLevelSerializer
@@ -10,12 +12,13 @@ from ..permissions import ACTION_PERMISSIONS
 
 
 @extend_schema_view(
-    list=extend_schema(summary="Listar niveles acad\u00e9micos", tags=["institutions"]),
-    get=extend_schema(summary="Obtener nivel acad\u00e9mico", tags=["institutions"]),
-    create=extend_schema(summary="Crear nivel acad\u00e9mico", tags=["institutions"]),
-    update=extend_schema(summary="Actualizar nivel acad\u00e9mico", tags=["institutions"]),
+    list=extend_schema(summary="Listar niveles academicos", tags=["institutions"]),
+    get=extend_schema(summary="Obtener nivel academico", tags=["institutions"]),
+    create=extend_schema(summary="Crear nivel academico", tags=["institutions"]),
+    update=extend_schema(summary="Actualizar nivel academico", tags=["institutions"]),
     partial_update=extend_schema(summary="Actualizar nivel parcialmente", tags=["institutions"]),
-    destroy=extend_schema(summary="Eliminar nivel acad\u00e9mico", tags=["institutions"]),
+    destroy=extend_schema(summary="Eliminar nivel academico", tags=["institutions"]),
+    soft_delete=extend_schema(summary="Desactivar nivel académico con cascada", tags=["institutions"]),
 )
 class AcademicLevelViewSet(BaseInstitutionsViewSet):
     serializer_class = AcademicLevelSerializer
@@ -27,6 +30,12 @@ class AcademicLevelViewSet(BaseInstitutionsViewSet):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.repository = AcademicLevelRepository()
+
+    @action(detail=True, methods=["post"], url_path="soft-delete")
+    def soft_delete(self, request, pk=None):
+        confirm = request.data.get("confirm", False)
+        result = AcademicLevelService.soft_delete(pk, confirm=confirm)
+        return ok_response(result)
 
     def get_queryset(self):
         search = self.request.query_params.get("search")

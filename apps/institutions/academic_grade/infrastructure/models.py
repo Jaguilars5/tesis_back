@@ -7,7 +7,7 @@ class AcademicGrade(TimeStampedModel):
     academic_sublevel = models.ForeignKey(
         "institutions_academic_sublevel.AcademicSublevel",
         on_delete=models.PROTECT,
-        verbose_name="Subnivel Acad\u00e9mico",
+        verbose_name="Subnivel Academico",
         null=True,
         blank=True,
     )
@@ -17,8 +17,8 @@ class AcademicGrade(TimeStampedModel):
 
     class Meta:
         app_label = "institutions_academic_grade"
-        verbose_name = "Grado Acad\u00e9mico"
-        verbose_name_plural = "Grados Acad\u00e9micos"
+        verbose_name = "Grado Academico"
+        verbose_name_plural = "Grados Academicos"
         ordering = ["name"]
 
     def __str__(self):

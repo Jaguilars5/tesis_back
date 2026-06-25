@@ -21,7 +21,7 @@ class ConductIncident(TimeStampedModel, SyncableModel):
         "academic_period.AcademicPeriod",
         on_delete=models.CASCADE,
         related_name="conduct_incidents",
-        verbose_name="Per\u00edodo Acad\u00e9mico",
+        verbose_name="Per\u00edodo Academico",
     )
     enrollment = models.ForeignKey(
         "students.Enrollment",

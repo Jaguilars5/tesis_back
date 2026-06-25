@@ -1,7 +1,9 @@
 from drf_spectacular.utils import extend_schema, extend_schema_view
+from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.filters import OrderingFilter
 
+from apps.core.utils import ok_response
 from apps.institutions.api.base import BaseInstitutionsViewSet
 
 from ..application.serializers import SchoolYearSerializer
@@ -26,6 +28,7 @@ def _raise_validation_error(exc: ValueError) -> None:
     update=extend_schema(summary="Actualizar año escolar", tags=["institutions"]),
     partial_update=extend_schema(summary="Actualizar año escolar parcialmente", tags=["institutions"]),
     destroy=extend_schema(summary="Eliminar año escolar", tags=["institutions"]),
+    soft_delete=extend_schema(summary="Desactivar año escolar con cascada", tags=["institutions"]),
 )
 class SchoolYearViewSet(BaseInstitutionsViewSet):
     serializer_class = SchoolYearSerializer
@@ -37,6 +40,12 @@ class SchoolYearViewSet(BaseInstitutionsViewSet):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.repository = SchoolYearRepository()
+
+    @action(detail=True, methods=["post"], url_path="soft-delete")
+    def soft_delete(self, request, pk=None):
+        confirm = request.data.get("confirm", False)
+        result = SchoolYearService.soft_delete(pk, confirm=confirm)
+        return ok_response(result)
 
     def get_queryset(self):
         search = self.request.query_params.get("search")
@@ -61,5 +70,3 @@ class SchoolYearViewSet(BaseInstitutionsViewSet):
             _raise_validation_error(exc)
         serializer.instance = obj
 
-    def perform_destroy(self, instance):
-        SchoolYearService.deactivate_school_year(instance.id)

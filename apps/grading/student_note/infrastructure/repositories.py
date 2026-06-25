@@ -91,7 +91,7 @@ class PeriodGradeSummaryRepository(BaseRepository):
 
 
 class EvaluationRepository:
-    """M\u00e9todos de acceso a datos para c\u00e1lculos de evaluaci\u00f3n."""
+    """Metodos de acceso a datos para c\u00e1lculos de evaluaci\u00f3n."""
 
     @staticmethod
     def calculate_period_average_for_subject(enrollment_id, subject_offering_id):

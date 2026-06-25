@@ -7,7 +7,7 @@ class AcademicSublevel(TimeStampedModel):
     academic_level = models.ForeignKey(
         "institutions_academic_level.AcademicLevel",
         on_delete=models.CASCADE,
-        verbose_name="Nivel Acad\u00e9mico",
+        verbose_name="Nivel Academico",
         related_name="sublevels",
     )
     code = models.CharField(max_length=20, unique=True, verbose_name="C\u00f3digo")
@@ -17,8 +17,8 @@ class AcademicSublevel(TimeStampedModel):
 
     class Meta:
         app_label = "institutions_academic_sublevel"
-        verbose_name = "Subnivel Acad\u00e9mico"
-        verbose_name_plural = "Subniveles Acad\u00e9micos"
+        verbose_name = "Subnivel Academico"
+        verbose_name_plural = "Subniveles Academicos"
         ordering = ["name"]
 
     def __str__(self):

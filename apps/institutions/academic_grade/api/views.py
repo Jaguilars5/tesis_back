@@ -1,8 +1,10 @@
 from drf_spectacular.utils import extend_schema, extend_schema_view
 
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
 
+from apps.core.utils import ok_response
 from apps.institutions.api.base import BaseInstitutionsViewSet
 
 from ..application.serializers import AcademicGradeSerializer
@@ -18,7 +20,7 @@ from .filters import AcademicGradeFilter
     create=extend_schema(summary="Crear grado académico", tags=["institutions"]),
     update=extend_schema(summary="Actualizar grado académico", tags=["institutions"]),
     destroy=extend_schema(summary="Eliminar grado académico", tags=["institutions"]),
-    soft_delete=extend_schema(summary="Desactivar grado académico", tags=["institutions"]),
+    soft_delete=extend_schema(summary="Desactivar grado académico con cascada", tags=["institutions"]),
 )
 class AcademicGradeViewSet(BaseInstitutionsViewSet):
     serializer_class = AcademicGradeSerializer
@@ -32,6 +34,12 @@ class AcademicGradeViewSet(BaseInstitutionsViewSet):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.repository = AcademicGradeRepository()
+
+    @action(detail=True, methods=["post"], url_path="soft-delete")
+    def soft_delete(self, request, pk=None):
+        confirm = request.data.get("confirm", False)
+        result = AcademicGradeService.soft_delete(pk, confirm=confirm)
+        return ok_response(result)
 
     def get_queryset(self):
         search = self.request.query_params.get("search")

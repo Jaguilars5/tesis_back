@@ -28,11 +28,11 @@ class StudentNoteSerializer(serializers.ModelSerializer):
             if has_qualitative and grading_mode == "NUMERIC":
                 raise serializers.ValidationError(
                     "El subnivel del estudiante usa calificaci\u00f3n cualitativa. "
-                    "No se permiten calificaciones num\u00e9ricas."
+                    "No se permiten calificaciones numericas."
                 )
             if not has_qualitative and grading_mode == "QUALITATIVE":
                 raise serializers.ValidationError(
-                    "El subnivel del estudiante usa calificaci\u00f3n num\u00e9rica. "
+                    "El subnivel del estudiante usa calificaci\u00f3n numerica. "
                     "No se permiten calificaciones cualitativas."
                 )
         return super().validate(attrs)

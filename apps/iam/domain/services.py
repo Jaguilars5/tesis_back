@@ -32,7 +32,7 @@ class UserService:
         from apps.people.models import DocumentType, Person
 
         doc_type = DocumentType.objects.get_or_create(
-            code="CC", defaults={"name": "C\u00e9dula de Ciudadan\u00eda"}
+            code="CC", defaults={"name": "Cedula de Ciudadan\u00eda"}
         )[0]
         person = Person.objects.create(
             document_type=doc_type,

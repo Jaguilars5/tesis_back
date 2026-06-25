@@ -18,7 +18,7 @@ class EvaluationBlock(TimeStampedModel):
         "academic_period.AcademicPeriod",
         on_delete=models.CASCADE,
         related_name="evaluation_blocks",
-        verbose_name="Per\u00edodo Acad\u00e9mico",
+        verbose_name="Per\u00edodo Academico",
     )
     subject_offering = models.ForeignKey(
         "academic_subject_offering.SubjectOffering",
@@ -152,7 +152,7 @@ class EvaluativeActivity(TimeStampedModel, SyncableModel):
             period = block.academic_period
             if self.due_date < period.start_date or self.due_date > period.end_date:
                 raise ValidationError(
-                    {"due_date": f"La fecha debe estar dentro del per\u00edodo acad\u00e9mico ({period.start_date} - {period.end_date})"}
+                    {"due_date": f"La fecha debe estar dentro del per\u00edodo academico ({period.start_date} - {period.end_date})"}
                 )
 
     def __str__(self):

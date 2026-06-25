@@ -34,7 +34,7 @@ class StudentNote(TimeStampedModel, SyncableModel):
     numeric_score = models.DecimalField(
         max_digits=5, decimal_places=2,
         null=True, blank=True,
-        verbose_name="Puntuaci\u00f3n Num\u00e9rica",
+        verbose_name="Puntuaci\u00f3n Numerica",
     )
     manually_overridden = models.BooleanField(default=False, verbose_name="Anulada Manualmente")
     teacher_observation = models.TextField(blank=True, default="", verbose_name="Observaci\u00f3n del Docente")
@@ -166,7 +166,7 @@ class PeriodGradeSummary(TimeStampedModel):
         "academic_period.AcademicPeriod",
         on_delete=models.CASCADE,
         related_name="grade_summaries",
-        verbose_name="Per\u00edodo Acad\u00e9mico",
+        verbose_name="Per\u00edodo Academico",
     )
     formative_avg = models.DecimalField(max_digits=5, decimal_places=2, verbose_name="Promedio Formativo")
     summative_avg = models.DecimalField(max_digits=5, decimal_places=2, verbose_name="Promedio Sumativo")

@@ -1,3 +1,6 @@
+from django.db import transaction
+
+from apps.academic.subject_offering.infrastructure.models import SubjectOffering
 from apps.core.repositories.base import BaseRepository
 
 from ..domain.repositories import SectionRepositoryInterface
@@ -27,3 +30,18 @@ class SectionRepository(BaseRepository, SectionRepositoryInterface):
         return cls.model.objects.filter(
             academic_grade_id=academic_grade_id
         ).select_related("school_year", "academic_grade")
+
+    @classmethod
+    def get_cascade_counts(cls, instance_id: int) -> dict[str, int]:
+        offering_count = SubjectOffering.objects.filter(section_id=instance_id, is_active=True).count()
+        counts = {}
+        if offering_count:
+            counts["ofertas de materias"] = offering_count
+        return counts
+
+    @classmethod
+    @transaction.atomic
+    def deactivate_cascade(cls, instance_id: int) -> int:
+        total = SubjectOffering.objects.filter(section_id=instance_id, is_active=True).update(is_active=False)
+        cls.model.objects.filter(pk=instance_id).update(is_active=False)
+        return total

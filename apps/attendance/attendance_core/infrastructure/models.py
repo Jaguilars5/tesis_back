@@ -22,7 +22,7 @@ class Attendance(TimeStampedModel, SyncableModel):
         "academic_period.AcademicPeriod",
         on_delete=models.CASCADE,
         related_name="attendance_records",
-        verbose_name="Per\u00edodo Acad\u00e9mico",
+        verbose_name="Per\u00edodo Academico",
     )
     enrollment = models.ForeignKey(
         "students.Enrollment",
@@ -91,7 +91,7 @@ class Attendance(TimeStampedModel, SyncableModel):
                 ):
                     raise ValidationError(
                         {
-                            "attendance_date": f"La fecha debe estar dentro del per\u00edodo acad\u00e9mico ({self.academic_period.start_date} - {self.academic_period.end_date})"
+                            "attendance_date": f"La fecha debe estar dentro del per\u00edodo academico ({self.academic_period.start_date} - {self.academic_period.end_date})"
                         }
                     )
         if self.class_schedule_id and self.teacher_subject_section_id:

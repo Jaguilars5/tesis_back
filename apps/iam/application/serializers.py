@@ -215,7 +215,7 @@ class UserCreateSerializer(serializers.Serializer):
         from ..infrastructure.models import Role as RoleModel, UserRole
 
         doc_type = DocumentType.objects.get_or_create(
-            code="CC", defaults={"name": "C\u00e9dula de Ciudadan\u00eda"}
+            code="CC", defaults={"name": "Cedula de Ciudadan\u00eda"}
         )[0]
         person = PersonModel.objects.create(
             document_type=doc_type,

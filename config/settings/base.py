@@ -154,9 +154,9 @@ REST_FRAMEWORK = {
 
 # ─── DRF Spectacular (OpenAPI) ───────────────────────────────────────────────
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Sistema de Gesti\u00f3n Acad\u00e9mica API",
+    "TITLE": "Sistema de Gesti\u00f3n Academica API",
     "DESCRIPTION": """
-API RESTful para la gesti\u00f3n acad\u00e9mica de instituciones educativas.
+API RESTful para la gesti\u00f3n academica de instituciones educativas.
 
 ## Autenticaci\u00f3n
 Todos los endpoints (excepto login y refresh) requieren:
@@ -195,7 +195,7 @@ Todas las respuestas siguen el formato:
         },
         {
             "name": "academic",
-            "description": "Materias, per\u00edodos acad\u00e9micos, oferta acad\u00e9mica y proyectos interdisciplinarios",
+            "description": "Materias, per\u00edodos academicos, oferta academica y proyectos interdisciplinarios",
         },
         {"name": "students", "description": "Estudiantes, representantes y matr\u00edculas"},
         {"name": "grading", "description": "Calificaciones, bloques, componentes, indicadores y actividades evaluativas"},

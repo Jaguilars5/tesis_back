@@ -19,7 +19,7 @@ class BehaviorEvaluation(TimeStampedModel, SyncableModel):
         "academic_period.AcademicPeriod",
         on_delete=models.CASCADE,
         related_name="behavior_evaluations",
-        verbose_name="Per\u00edodo Acad\u00e9mico",
+        verbose_name="Per\u00edodo Academico",
     )
     evaluated_by = models.ForeignKey(
         "iam.User",

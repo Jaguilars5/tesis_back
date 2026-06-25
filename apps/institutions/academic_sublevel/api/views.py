@@ -1,7 +1,9 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
+from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
 
+from apps.core.utils import ok_response
 from apps.institutions.api.base import BaseInstitutionsViewSet
 
 from ..application.serializers import AcademicSublevelSerializer
@@ -12,12 +14,13 @@ from .filters import AcademicSublevelFilter
 
 
 @extend_schema_view(
-    list=extend_schema(summary="Listar subniveles acad\u00e9micos", tags=["institutions"]),
-    get=extend_schema(summary="Obtener subnivel acad\u00e9mico", tags=["institutions"]),
-    create=extend_schema(summary="Crear subnivel acad\u00e9mico", tags=["institutions"]),
-    update=extend_schema(summary="Actualizar subnivel acad\u00e9mico", tags=["institutions"]),
+    list=extend_schema(summary="Listar subniveles academicos", tags=["institutions"]),
+    get=extend_schema(summary="Obtener subnivel academico", tags=["institutions"]),
+    create=extend_schema(summary="Crear subnivel academico", tags=["institutions"]),
+    update=extend_schema(summary="Actualizar subnivel academico", tags=["institutions"]),
     partial_update=extend_schema(summary="Actualizar subnivel parcialmente", tags=["institutions"]),
-    destroy=extend_schema(summary="Eliminar subnivel acad\u00e9mico", tags=["institutions"]),
+    destroy=extend_schema(summary="Eliminar subnivel academico", tags=["institutions"]),
+    soft_delete=extend_schema(summary="Desactivar subnivel académico con cascada", tags=["institutions"]),
 )
 class AcademicSublevelViewSet(BaseInstitutionsViewSet):
     serializer_class = AcademicSublevelSerializer
@@ -30,6 +33,12 @@ class AcademicSublevelViewSet(BaseInstitutionsViewSet):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.repository = AcademicSublevelRepository()
+
+    @action(detail=True, methods=["post"], url_path="soft-delete")
+    def soft_delete(self, request, pk=None):
+        confirm = request.data.get("confirm", False)
+        result = AcademicSublevelService.soft_delete(pk, confirm=confirm)
+        return ok_response(result)
 
     def get_queryset(self):
         search = self.request.query_params.get("search")

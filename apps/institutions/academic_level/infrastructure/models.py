@@ -10,8 +10,8 @@ class AcademicLevel(TimeStampedModel):
 
     class Meta:
         app_label = "institutions_academic_level"
-        verbose_name = "Nivel Acad\u00e9mico"
-        verbose_name_plural = "Niveles Acad\u00e9micos"
+        verbose_name = "Nivel Academico"
+        verbose_name_plural = "Niveles Academicos"
         ordering = ["name"]
 
     def __str__(self):
