@@ -7,4 +7,5 @@ ACTION_PERMISSIONS = {
     "update": institutions.UPDATE_ACADEMIC_LEVEL,
     "partial_update": institutions.UPDATE_ACADEMIC_LEVEL,
     "destroy": institutions.DELETE_ACADEMIC_LEVEL,
+    "soft_delete": institutions.DELETE_ACADEMIC_LEVEL,
 }

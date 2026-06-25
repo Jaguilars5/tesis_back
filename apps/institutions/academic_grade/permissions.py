@@ -5,6 +5,7 @@ ACTION_PERMISSIONS = {
     "get": institutions.VIEW_ACADEMIC_GRADE,
     "create": institutions.CREATE_ACADEMIC_GRADE,
     "update": institutions.UPDATE_ACADEMIC_GRADE,
+    "partial_update": institutions.UPDATE_ACADEMIC_GRADE,
     "destroy": institutions.DELETE_ACADEMIC_GRADE,
     "soft_delete": institutions.DELETE_ACADEMIC_GRADE,
 }

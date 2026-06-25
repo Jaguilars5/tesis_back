@@ -7,4 +7,5 @@ ACTION_PERMISSIONS = {
     "update": institutions.UPDATE_SECTION,
     "partial_update": institutions.UPDATE_SECTION,
     "destroy": institutions.DELETE_SECTION,
+    "soft_delete": institutions.DELETE_SECTION,
 }

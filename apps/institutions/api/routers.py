@@ -24,6 +24,7 @@ class InstitutionsRouter(DefaultRouter):
             mapping={
                 "get": "get",
                 "put": "update",
+                "patch": "partial_update",
                 "delete": "destroy",
             },
             name="{basename}-detail",
