@@ -1,27 +1,33 @@
 from django.db import transaction
 
+from ..application import validators
 from ..infrastructure.repositories import SchoolYearRepository
 
 
 class SchoolYearService:
-    """L\u00f3gica de negocio para a\u00f1os escolares."""
+    """L\u00f3gica de negocio para años escolares."""
 
     repository = SchoolYearRepository
 
     @classmethod
+    def _validate_or_raise(cls, start_date, end_date):
+        errors = validators.run_all_validators(start_date, end_date)
+        if errors:
+            raise ValueError(errors)
+
+    @classmethod
     @transaction.atomic
     def create_school_year(cls, start_date, end_date):
-        if start_date >= end_date:
-            raise ValueError("Fecha de inicio debe ser anterior a fecha de cierre")
+        cls._validate_or_raise(start_date, end_date)
         if cls.repository.has_overlap(start_date, end_date):
-            raise ValueError("Conflicto de fechas con otro a\u00f1o escolar")
+            raise ValueError({"school_year": "Conflicto de fechas con otro año escolar"})
         return cls.repository.create(start_date=start_date, end_date=end_date)
 
     @classmethod
     def get_school_year(cls, pk):
         obj = cls.repository.get_by_id(pk)
         if not obj:
-            raise ValueError(f"A\u00f1o escolar {pk} no encontrado")
+            raise ValueError(f"Año escolar {pk} no encontrado")
         return obj
 
     @classmethod
@@ -32,7 +38,7 @@ class SchoolYearService:
     def get_current_school_year(cls):
         obj = cls.repository.get_current()
         if not obj:
-            raise ValueError("No hay a\u00f1o escolar activo")
+            raise ValueError("No hay año escolar activo")
         return obj
 
     @classmethod
@@ -41,8 +47,7 @@ class SchoolYearService:
         if "start_date" in kwargs or "end_date" in kwargs:
             start = kwargs.get("start_date", obj.start_date)
             end = kwargs.get("end_date", obj.end_date)
-            if start >= end:
-                raise ValueError("Fecha de inicio debe ser anterior a fecha de cierre")
+            cls._validate_or_raise(start, end)
         allowed = {"start_date", "end_date", "is_active"}
         clean = {k: v for k, v in kwargs.items() if k in allowed}
         return cls.repository.update(pk, **clean)

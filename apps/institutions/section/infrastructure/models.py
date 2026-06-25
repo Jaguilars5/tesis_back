@@ -7,7 +7,7 @@ class Section(TimeStampedModel):
     school_year = models.ForeignKey(
         "institutions_school_year.SchoolYear",
         on_delete=models.CASCADE,
-        verbose_name="A\u00f1o Escolar",
+        verbose_name="Año Escolar",
     )
     academic_grade = models.ForeignKey(
         "institutions_academic_grade.AcademicGrade",

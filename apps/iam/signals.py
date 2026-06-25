@@ -1,1 +1,1 @@
-"""Se\u00f1ales del m\u00f3dulo IAM."""
+"""Señales del m\u00f3dulo IAM."""

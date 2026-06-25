@@ -1,3 +1,4 @@
+from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.filters import OrderingFilter
 
@@ -7,6 +8,7 @@ from ..application.serializers import AcademicSublevelSerializer
 from ..domain.services import AcademicSublevelService
 from ..infrastructure.repositories import AcademicSublevelRepository
 from ..permissions import ACTION_PERMISSIONS
+from .filters import AcademicSublevelFilter
 
 
 @extend_schema_view(
@@ -20,7 +22,8 @@ from ..permissions import ACTION_PERMISSIONS
 class AcademicSublevelViewSet(BaseInstitutionsViewSet):
     serializer_class = AcademicSublevelSerializer
     action_permissions = ACTION_PERMISSIONS
-    filter_backends = [OrderingFilter]
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_class = AcademicSublevelFilter
     ordering_fields = ["name", "code"]
     ordering = ["name"]
 

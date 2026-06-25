@@ -1,3 +1,4 @@
+from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.filters import OrderingFilter
 
@@ -7,6 +8,7 @@ from ..application.serializers import SectionSerializer
 from ..domain.services import SectionService
 from ..infrastructure.repositories import SectionRepository
 from ..permissions import ACTION_PERMISSIONS
+from .filters import SectionFilter
 
 
 @extend_schema_view(
@@ -20,7 +22,8 @@ from ..permissions import ACTION_PERMISSIONS
 class SectionViewSet(BaseInstitutionsViewSet):
     serializer_class = SectionSerializer
     action_permissions = ACTION_PERMISSIONS
-    filter_backends = [OrderingFilter]
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_class = SectionFilter
     ordering_fields = ["parallel", "capacity"]
     ordering = ["academic_grade__name", "parallel"]
 

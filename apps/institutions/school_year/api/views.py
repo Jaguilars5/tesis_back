@@ -1,4 +1,5 @@
 from drf_spectacular.utils import extend_schema, extend_schema_view
+from rest_framework.exceptions import ValidationError
 from rest_framework.filters import OrderingFilter
 
 from apps.institutions.api.base import BaseInstitutionsViewSet
@@ -9,13 +10,22 @@ from ..infrastructure.repositories import SchoolYearRepository
 from ..permissions import ACTION_PERMISSIONS
 
 
+def _raise_validation_error(exc: ValueError) -> None:
+    errors = (
+        exc.args[0]
+        if exc.args and isinstance(exc.args[0], dict)
+        else {"non_field_errors": str(exc)}
+    )
+    raise ValidationError(errors) from exc
+
+
 @extend_schema_view(
-    list=extend_schema(summary="Listar a\u00f1os escolares", tags=["institutions"]),
-    get=extend_schema(summary="Obtener a\u00f1o escolar", tags=["institutions"]),
-    create=extend_schema(summary="Crear a\u00f1o escolar", tags=["institutions"]),
-    update=extend_schema(summary="Actualizar a\u00f1o escolar", tags=["institutions"]),
-    partial_update=extend_schema(summary="Actualizar a\u00f1o escolar parcialmente", tags=["institutions"]),
-    destroy=extend_schema(summary="Eliminar a\u00f1o escolar", tags=["institutions"]),
+    list=extend_schema(summary="Listar años escolares", tags=["institutions"]),
+    get=extend_schema(summary="Obtener año escolar", tags=["institutions"]),
+    create=extend_schema(summary="Crear año escolar", tags=["institutions"]),
+    update=extend_schema(summary="Actualizar año escolar", tags=["institutions"]),
+    partial_update=extend_schema(summary="Actualizar año escolar parcialmente", tags=["institutions"]),
+    destroy=extend_schema(summary="Eliminar año escolar", tags=["institutions"]),
 )
 class SchoolYearViewSet(BaseInstitutionsViewSet):
     serializer_class = SchoolYearSerializer
@@ -34,15 +44,21 @@ class SchoolYearViewSet(BaseInstitutionsViewSet):
 
     def perform_create(self, serializer):
         data = serializer.validated_data
-        obj = SchoolYearService.create_school_year(
-            start_date=data["start_date"],
-            end_date=data["end_date"],
-        )
+        try:
+            obj = SchoolYearService.create_school_year(
+                start_date=data["start_date"],
+                end_date=data["end_date"],
+            )
+        except ValueError as exc:
+            _raise_validation_error(exc)
         serializer.instance = obj
 
     def perform_update(self, serializer):
         data = dict(serializer.validated_data)
-        obj = SchoolYearService.update_school_year(serializer.instance.id, **data)
+        try:
+            obj = SchoolYearService.update_school_year(serializer.instance.id, **data)
+        except ValueError as exc:
+            _raise_validation_error(exc)
         serializer.instance = obj
 
     def perform_destroy(self, instance):

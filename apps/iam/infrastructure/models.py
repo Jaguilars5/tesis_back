@@ -61,7 +61,7 @@ class User(AbstractBaseUser, TimeStampedModel):
     is_active = models.BooleanField(default=True, verbose_name="Activo")
     is_staff = models.BooleanField(default=False, verbose_name="Es Personal del Admin")
     is_superuser = models.BooleanField(default=False, verbose_name="Es Superusuario")
-    must_change_password = models.BooleanField(default=True, verbose_name="Debe cambiar contrase\u00f1a")
+    must_change_password = models.BooleanField(default=True, verbose_name="Debe cambiar contraseña")
 
     objects = UserManager()
 

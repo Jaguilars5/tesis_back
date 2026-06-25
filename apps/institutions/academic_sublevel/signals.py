@@ -1,1 +1,1 @@
-"""Se\u00f1ales del bounded context academic_sublevel."""
+"""Señales del bounded context academic_sublevel."""

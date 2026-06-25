@@ -191,7 +191,7 @@ Todas las respuestas siguen el formato:
         },
         {
             "name": "institutions",
-            "description": "Instituciones, a\u00f1os escolares, niveles, grados y secciones",
+            "description": "Instituciones, años escolares, niveles, grados y secciones",
         },
         {
             "name": "academic",

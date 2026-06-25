@@ -3,7 +3,7 @@ from datetime import date
 
 
 class SchoolYearRepositoryInterface(ABC):
-    """Contrato del repositorio de a\u00f1os escolares."""
+    """Contrato del repositorio de años escolares."""
 
     @classmethod
     @abstractmethod

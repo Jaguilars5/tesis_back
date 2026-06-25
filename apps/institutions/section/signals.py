@@ -1,1 +1,1 @@
-"""Se\u00f1ales del bounded context section."""
+"""Señales del bounded context section."""

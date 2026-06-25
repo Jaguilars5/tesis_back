@@ -4,7 +4,7 @@ from datetime import date, datetime
 
 @dataclass(frozen=True, slots=True)
 class SchoolYearEntity:
-    """Entidad de dominio para un a\u00f1o escolar."""
+    """Entidad de dominio para un año escolar."""
 
     id: int | None
     start_date: date
