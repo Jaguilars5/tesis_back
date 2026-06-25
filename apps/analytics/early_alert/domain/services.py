@@ -1,35 +1,51 @@
-"""
-Servicios de dominio para alertas tempranas.
-
-Lógica de negocio pura que orquesta validaciones y persistencia.
-"""
+from typing import List, Optional
 
 from django.db import transaction
 from django.utils import timezone
-from typing import List, Optional
 
+from ..application import validators
 from ..infrastructure.repositories import EarlyAlertRepository
 from ..infrastructure.models import AlertTypeChoices, UrgencyLevelChoices
 
 
 class EarlyAlertService:
-    """
-    Servicio para generación y gestión de alertas tempranas.
+    repository = EarlyAlertRepository
 
-    Evalúa reglas de negocio y crea alertas cuando se cumplen condiciones.
-    """
+    @classmethod
+    def get_alert(cls, alert_id):
+        obj = cls.repository.get_by_id(alert_id)
+        if not obj:
+            raise ValueError({"id": f"Alerta {alert_id} no encontrada"})
+        return obj
 
-    @staticmethod
+    @classmethod
     @transaction.atomic
-    def evaluate_student(enrollment, academic_period) -> List:
-        """
-        Evalúa todas las reglas de alerta para un estudiante en un período.
+    def create_alert(cls, enrollment, academic_period, alert_type=None, description="", urgency_level=None):
+        cls._validate_or_raise(
+            enrollment_id=enrollment.id if hasattr(enrollment, "id") else enrollment,
+            academic_period_id=academic_period.id if hasattr(academic_period, "id") else academic_period,
+            alert_type=alert_type,
+            urgency_level=urgency_level,
+        )
+        return cls.repository.create(
+            enrollment=enrollment,
+            academic_period=academic_period,
+            alert_type=alert_type,
+            description=description,
+            urgency_level=urgency_level,
+        )
 
-        Retorna lista de alertas generadas.
-        """
+    @classmethod
+    def _validate_or_raise(cls, **kwargs):
+        errors = validators.run_all_validators(**kwargs)
+        if errors:
+            raise ValueError(errors)
+
+    @classmethod
+    @transaction.atomic
+    def evaluate_student(cls, enrollment, academic_period) -> List:
         alerts = []
 
-        # Regla 1: Baja asistencia
         from apps.attendance.attendance_core import AttendanceRepository
 
         attendance_summary = AttendanceRepository.get_absences_summary(
@@ -47,7 +63,7 @@ class EarlyAlertService:
                     if attendance_rate < 0.5
                     else UrgencyLevelChoices.MEDIUM
                 )
-                alert = EarlyAlertRepository.create(
+                alert = cls.repository.create(
                     enrollment=enrollment,
                     academic_period=academic_period,
                     alert_type=alert_type,
@@ -56,7 +72,6 @@ class EarlyAlertService:
                 )
                 alerts.append(alert)
 
-        # Regla 2: Calificaciones bajas
         from apps.grading.student_note import PeriodGradeSummaryRepository
 
         failing_count = PeriodGradeSummaryRepository.count_failing(
@@ -69,7 +84,7 @@ class EarlyAlertService:
                 if failing_count >= 4
                 else UrgencyLevelChoices.MEDIUM
             )
-            alert = EarlyAlertRepository.create(
+            alert = cls.repository.create(
                 enrollment=enrollment,
                 academic_period=academic_period,
                 alert_type=alert_type,
@@ -78,14 +93,13 @@ class EarlyAlertService:
             )
             alerts.append(alert)
 
-        # Regla 3: Incidentes de conducta graves
         from apps.behavior.conduct_incident import ConductIncidentRepository
 
         severe = ConductIncidentRepository.get_severe_by_enrollment(enrollment.id)
         if severe.count() >= 2:
             alert_type = AlertTypeChoices.BEHAVIORAL
             urgency_level = UrgencyLevelChoices.CRITICAL
-            alert = EarlyAlertRepository.create(
+            alert = cls.repository.create(
                 enrollment=enrollment,
                 academic_period=academic_period,
                 alert_type=alert_type,
@@ -96,15 +110,14 @@ class EarlyAlertService:
 
         return alerts
 
-    @staticmethod
+    @classmethod
     @transaction.atomic
     def mark_as_attended(
-        alert_id: int, user_id: int, response_actions: Optional[str] = None
-    ) -> Optional:
-        """Marca una alerta como atendida."""
-        alert = EarlyAlertRepository.get_by_id(alert_id)
-        if alert and not alert.attended:
-            alert = EarlyAlertRepository.update(
+        cls, alert_id: int, user_id: int, response_actions: Optional[str] = None
+    ):
+        alert = cls.get_alert(alert_id)
+        if not alert.attended:
+            alert = cls.repository.update(
                 alert.id,
                 attended=True,
                 attended_by_user_id=user_id,

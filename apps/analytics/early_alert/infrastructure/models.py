@@ -94,3 +94,15 @@ durante la migración de app_label de 'analytics' a 'early_alert'.
 
     def __str__(self):
         return f"{self.get_alert_type_display() if self.alert_type else ''} - {self.enrollment} ({self.get_urgency_level_display() if self.urgency_level else ''})"
+
+    @property
+    def enrollment_name(self):
+        return str(self.enrollment) if self.enrollment else None
+
+    @property
+    def academic_period_name(self):
+        return self.academic_period.name if self.academic_period else None
+
+    @property
+    def attended_by_user_name(self):
+        return self.attended_by_user.get_full_name() if self.attended_by_user else None

@@ -1,50 +1,64 @@
-"""
-Interfaces de repositorio (Abstract Base Classes) para alertas tempranas.
-
-Define el contrato que deben implementar los repositorios de infraestructura.
-"""
-
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from ..infrastructure.models import EarlyAlert
-
 
 class EarlyAlertRepositoryInterface(ABC):
-    """
-    Interface para el repositorio de alertas tempranas.
-
-    Todas las operaciones de persistencia deben pasar por esta interface.
-    """
-
     @classmethod
     @abstractmethod
-    def get_all(cls, active_only: bool = True) -> List[EarlyAlert]:
-        """Obtener todas las alertas."""
+    def get_all(cls, active_only: bool = True):
         pass
 
     @classmethod
     @abstractmethod
-    def get_by_id(cls, pk: int) -> Optional[EarlyAlert]:
-        """Obtener alerta por ID."""
+    def get_by_id(cls, pk: int):
         pass
 
     @classmethod
     @abstractmethod
-    def get_pending_alerts(
-        cls, urgency_level: Optional[str] = None
-    ) -> List[EarlyAlert]:
-        """Obtener alertas pendientes."""
+    def create(cls, **data):
         pass
 
     @classmethod
     @abstractmethod
-    def get_by_enrollment(cls, enrollment_id: int) -> List[EarlyAlert]:
-        """Obtener alertas por matrícula."""
+    def update(cls, pk, **data):
+        pass
+
+    @classmethod
+    @abstractmethod
+    def delete(cls, pk):
+        pass
+
+    @classmethod
+    @abstractmethod
+    def get_pending_alerts(cls, urgency_level: Optional[str] = None):
+        pass
+
+    @classmethod
+    @abstractmethod
+    def get_by_enrollment(cls, enrollment_id: int):
         pass
 
     @classmethod
     @abstractmethod
     def count_active_by_enrollment(cls, enrollment_id: int) -> int:
-        """Contar alertas activas por matrícula."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def get_pending_count(cls) -> int:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def get_by_urgency(cls, urgency_level: str):
+        pass
+
+    @classmethod
+    @abstractmethod
+    def get_cascade_counts(cls, instance_id: int) -> dict[str, int]:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def deactivate_cascade(cls, instance_id: int) -> int:
         pass
