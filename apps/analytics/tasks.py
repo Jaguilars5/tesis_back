@@ -585,29 +585,24 @@ from django.db import transaction as db_transaction
 
 @shared_task(bind=True)
 def auto_generate_early_alerts(self, period_id=None):
-    from ..services.early_alert_service import EarlyAlertService
+    from apps.analytics.early_alert.domain.services import EarlyAlertService
+    from apps.analytics.early_alert.infrastructure.models import EarlyAlert
+    from apps.academic.academic_period.infrastructure.repositories import AcademicPeriodRepository
+    from apps.students.repositories.enrollment_repo import EnrollmentRepository
 
     if not period_id:
-        from apps.academic.academic_period import AcademicPeriod
-
-        period = AcademicPeriod.objects.filter(is_active=True).first()
+        period = AcademicPeriodRepository.get_all(active_only=False).first()
         if not period:
             return {"error": "No active period found"}
         period_id = period.id
 
-    from apps.students.models import Enrollment
-
-    enrollments = Enrollment.objects.filter(
-        enrollment_status="ACT",
-    ).select_related("student")
+    enrollments = EnrollmentRepository.get_all()
+    enrollments = [e for e in enrollments if e.enrollment_status == "ACT"]
 
     alerts_created = 0
     for enrollment in enrollments:
-        from apps.academic.academic_period import AcademicPeriod
-
-        period = AcademicPeriod.objects.get(pk=period_id)
-        service = EarlyAlertService()
-        alerts = service.evaluate_student(enrollment, period)
+        period = AcademicPeriodRepository.get_by_id(period_id)
+        alerts = EarlyAlertService.evaluate_student(enrollment, period)
         alerts_created += len(alerts)
 
     return {"processed": len(enrollments), "alerts_created": alerts_created}

@@ -1,7 +1,8 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from .views import DashboardViewSet, EarlyAlertViewSet, RiskFactorViewSet, RiskScoringConfigViewSet, StudentFeatureSnapshotViewSet, StudentRiskFactorViewSet, StudentRiskScoreViewSet
+from apps.analytics.early_alert.api.views import EarlyAlertViewSet
+from .views import DashboardViewSet, RiskFactorViewSet, RiskScoringConfigViewSet, StudentFeatureSnapshotViewSet, StudentRiskFactorViewSet, StudentRiskScoreViewSet
 
 router = DefaultRouter()
 router.register(

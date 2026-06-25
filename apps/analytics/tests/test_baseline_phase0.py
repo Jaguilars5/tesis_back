@@ -215,7 +215,7 @@ class Phase0EarlyAlertServiceTest(TestCase):
         self.period = MagicMock(id=10)
 
     def _run(self, attendance_summary, failing_count, severe_count):
-        from apps.analytics.services.early_alert_service import EarlyAlertService
+        from apps.analytics.early_alert.domain.services import EarlyAlertService
 
         severe_qs = MagicMock()
         severe_qs.count.return_value = severe_count
@@ -230,7 +230,7 @@ class Phase0EarlyAlertServiceTest(TestCase):
             "apps.behavior.repositories.conduct_incident_repository.ConductIncidentRepository.get_severe_by_enrollment",
             return_value=severe_qs,
         ), patch(
-            "apps.analytics.services.early_alert_service.EarlyAlertRepository.create",
+            "apps.analytics.early_alert.infrastructure.repositories.EarlyAlertRepository.create",
             side_effect=lambda **kwargs: kwargs,
         ):
             return EarlyAlertService.evaluate_student(self.enrollment, self.period)

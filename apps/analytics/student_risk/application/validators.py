@@ -7,7 +7,7 @@ Funciones puras que retornan dict {field: message} si fallan.
 from typing import Dict, Optional
 from decimal import Decimal
 
-from apps.students.repositories.enrollment_repository import EnrollmentRepository
+from apps.students.repositories.enrollment_repo import EnrollmentRepository
 from apps.academic.academic_period.infrastructure.repositories import (
     AcademicPeriodRepository,
 )

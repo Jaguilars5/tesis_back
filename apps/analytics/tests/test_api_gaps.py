@@ -14,10 +14,10 @@ from apps.iam.models import Permission, Role, RolePermission, User, UserRole
 from apps.core.tests.helpers import create_test_user, create_test_student
 from apps.core.constants.permissions import analytics
 
+from apps.analytics.early_alert.infrastructure.models import EarlyAlert, AlertTypeChoices, UrgencyLevelChoices
 from apps.analytics.models import (
-    RiskFactor, StudentFeatureSnapshot, StudentRiskFactor, StudentRiskScore, EarlyAlert,
+    RiskFactor, StudentFeatureSnapshot, StudentRiskFactor, StudentRiskScore,
 )
-from apps.analytics.models.early_alert import AlertTypeChoices, UrgencyLevelChoices
 from apps.academic.models import AcademicPeriod, PeriodType
 from apps.institutions.models import SchoolYear, AcademicGrade, AcademicLevel, AcademicSublevel, Section
 from apps.students.models import Enrollment

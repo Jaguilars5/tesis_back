@@ -17,6 +17,7 @@ from apps.attendance import ATTENDANCE_APPS
 from apps.behavior import BEHAVIOR_APPS
 from apps.grading import GRADING_APPS
 from apps.academic import ACADEMIC_APPS
+from apps.analytics import ANALYTICS_APPS
 
 # ─── Carga de .env ───────────────────────────────────────────────────────────
 load_dotenv(BASE_DIR / ".env")
@@ -52,6 +53,7 @@ LOCAL_APPS = [
     *INSTITUTIONS_APPS,
     "apps.students",
     "apps.analytics",
+    *ANALYTICS_APPS,
     *ATTENDANCE_APPS,
     "apps.people",
     *BEHAVIOR_APPS,

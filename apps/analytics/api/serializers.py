@@ -6,7 +6,6 @@ from decimal import Decimal
 
 from rest_framework import serializers
 from ..models import (
-    EarlyAlert,
     RiskFactor,
     RiskScoringConfig,
     StudentFeatureSnapshot,
@@ -195,15 +194,4 @@ class SimulateRiskInputSerializer(serializers.Serializer):
     try_ml = serializers.BooleanField(default=False)
 
 
-class EarlyAlertSerializer(serializers.ModelSerializer):
-    enrollment_name = serializers.CharField(source="enrollment.__str__", read_only=True)
-    academic_period_name = serializers.CharField(
-        source="academic_period.name", read_only=True
-    )
-    attended_by_user_name = serializers.CharField(
-        source="attended_by_user.person.get_full_name", read_only=True
-    )
 
-    class Meta:
-        model = EarlyAlert
-        fields = "__all__"

@@ -11,7 +11,8 @@ from apps.academic.models import (
     SubjectOffering,
     TeacherSubjectSection,
 )
-from apps.analytics.models import EarlyAlert, StudentFeatureSnapshot, StudentRiskScore
+from apps.analytics.early_alert.infrastructure.models import EarlyAlert
+from apps.analytics.models import StudentFeatureSnapshot, StudentRiskScore
 from apps.attendance.models import Attendance
 from apps.behavior.models import BehaviorEvaluation, ConductIncident
 from apps.grading.models import (

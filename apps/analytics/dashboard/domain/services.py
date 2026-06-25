@@ -11,7 +11,7 @@ from typing import List, Optional, Dict, Any
 from django.db.models import Avg, Count
 from django.db.models.functions import TruncMonth
 
-from apps.students.repositories.enrollment_repository import EnrollmentRepository
+from apps.students.repositories.enrollment_repo import EnrollmentRepository
 from apps.analytics.student_risk.infrastructure.repositories import (
     StudentRiskScoreRepository,
     StudentFeatureSnapshotRepository,

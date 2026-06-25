@@ -19,23 +19,20 @@ from apps.core.utils import ok_response, error_response
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter, SearchFilter
 
-from ..models import EarlyAlert, RiskFactor, StudentRiskFactor
+from ..models import RiskFactor, StudentRiskFactor
 from ..repositories import (
-    EarlyAlertRepository,
     RiskFactorRepository,
     RiskScoringConfigRepository,
     StudentFeatureSnapshotRepository,
     StudentRiskFactorRepository,
     StudentRiskScoreRepository,
 )
-from ..services.early_alert_service import EarlyAlertService
 from ..services.dashboard_service import DashboardService
 from ..services.csv_export_service import CSVExportService
 from ..services.risk_scoring_config_service import PRESETS, RiskScoringConfigService
 from django.http import HttpResponse
 from .filters import StudentFeatureSnapshotFilter, StudentRiskScoreFilter
 from .serializers import (
-    EarlyAlertSerializer,
     RiskFactorSerializer,
     RiskScoringConfigSerializer,
     SimulateRiskInputSerializer,
@@ -254,48 +251,7 @@ class StudentRiskFactorViewSet(viewsets.ReadOnlyModelViewSet):
         return self.repository.get_all()
 
 
-@extend_schema_view(
-    list=extend_schema(summary="Listar alertas tempranas", tags=["analytics"]),
-    retrieve=extend_schema(summary="Obtener alerta temprana", tags=["analytics"]),
-    create=extend_schema(summary="Crear alerta temprana", tags=["analytics"]),
-    update=extend_schema(summary="Actualizar alerta temprana", tags=["analytics"]),
-    partial_update=extend_schema(
-        summary="Actualizar alerta parcialmente", tags=["analytics"]
-    ),
-    destroy=extend_schema(summary="Eliminar alerta temprana", tags=["analytics"]),
-    mark_attended=extend_schema(
-        summary="Marcar alerta como atendida", tags=["analytics"]
-    ),
-)
-class EarlyAlertViewSet(viewsets.ModelViewSet):
-    serializer_class = EarlyAlertSerializer
-    pagination_class = StandardResultsSetPagination
-    permission_classes = [IsAuthenticated, HasPermission]
-    action_permissions = {
-        "list": analytics.VIEW_EARLY_ALERT,
-        "retrieve": analytics.VIEW_EARLY_ALERT,
-        "create": analytics.CREATE_EARLY_ALERT,
-        "update": analytics.UPDATE_EARLY_ALERT,
-        "partial_update": analytics.UPDATE_EARLY_ALERT,
-        "destroy": analytics.DELETE_EARLY_ALERT,
-        "mark_attended": analytics.UPDATE_EARLY_ALERT,
-    }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.repository = EarlyAlertRepository()
-
-    def get_queryset(self):
-        return self.repository.get_all()
-
-    @action(detail=True, methods=["post"])
-    def mark_attended(self, request, pk=None):
-        alert = self.get_object()
-        actions = request.data.get("response_actions", "")
-        alert = EarlyAlertService.mark_as_attended(alert.id, request.user.id, actions)
-        if alert:
-            return Response(EarlyAlertSerializer(alert).data)
-        return Response("Alerta no encontrada", status=400)
 
 
 @extend_schema_view(

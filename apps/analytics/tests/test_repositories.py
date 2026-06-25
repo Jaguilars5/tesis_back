@@ -7,14 +7,14 @@ from apps.academic.models import (PeriodType,
     AcademicPeriod, Subject, SubjectAcademicConfig, SubjectOffering, TeacherSubjectSection,
 )
 from apps.iam.models import User
+from apps.analytics.early_alert.infrastructure.models import EarlyAlert, AlertTypeChoices, UrgencyLevelChoices
+from apps.analytics.early_alert.infrastructure.repositories import EarlyAlertRepository
 from apps.analytics.models import (
-    EarlyAlert, RiskFactor, StudentFeatureSnapshot, StudentRiskFactor, StudentRiskScore,
+    RiskFactor, StudentFeatureSnapshot, StudentRiskFactor, StudentRiskScore,
 )
-from apps.analytics.models.early_alert import AlertTypeChoices, UrgencyLevelChoices
 from apps.analytics.repositories.analytics_repo import (
     StudentRiskScoreRepository, StudentFeatureSnapshotRepository,
 )
-from apps.analytics.repositories.early_alert_repository import EarlyAlertRepository
 from apps.core.repositories.base import BaseRepository
 from apps.core.tests.helpers import create_test_user, create_test_student
 from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSublevel, SchoolYear, Section

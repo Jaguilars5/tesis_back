@@ -15,7 +15,8 @@ from apps.behavior.conduct_incident import ConductIncident
 from apps.behavior.behavior_evaluation import BehaviorEvaluation
 from apps.behavior.incident_type import IncidentType
 from apps.grading.qualitative_scale import QualitativeScale
-from apps.analytics.models import StudentRiskScore, StudentRiskFactor, StudentFeatureSnapshot, RiskFactor, EarlyAlert
+from apps.analytics.early_alert.infrastructure.models import EarlyAlert
+from apps.analytics.models import StudentRiskScore, StudentRiskFactor, StudentFeatureSnapshot, RiskFactor
 
 
 class BaseRoleHandler:

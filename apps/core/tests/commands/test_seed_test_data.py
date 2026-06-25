@@ -9,7 +9,8 @@ from apps.academic.subject.infrastructure.models import Subject
 from apps.academic.subject_academic_config.infrastructure.models import SubjectAcademicConfig
 from apps.academic.subject_offering.infrastructure.models import SubjectOffering
 from apps.academic.teacher_subject_section.infrastructure.models import TeacherSubjectSection
-from apps.analytics.models import EarlyAlert, StudentFeatureSnapshot, StudentRiskScore
+from apps.analytics.early_alert.infrastructure.models import EarlyAlert
+from apps.analytics.models import StudentFeatureSnapshot, StudentRiskScore
 from apps.attendance.attendance_core import Attendance
 from apps.behavior.behavior_evaluation import BehaviorEvaluation
 from apps.behavior.conduct_incident import ConductIncident

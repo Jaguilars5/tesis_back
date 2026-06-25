@@ -1,7 +1,8 @@
 from django.db.models import Avg, Count, Q
 from django.db.models.functions import TruncMonth
 from apps.students.models import Enrollment
-from ..models import StudentFeatureSnapshot, StudentRiskScore, EarlyAlert
+from apps.analytics.early_alert.infrastructure.models import EarlyAlert
+from ..models import StudentFeatureSnapshot, StudentRiskScore
 
 
 class DashboardService:

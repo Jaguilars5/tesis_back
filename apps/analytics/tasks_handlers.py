@@ -1,5 +1,5 @@
 from apps.integration.tasks.sync_tasks import BaseSyncHandler, register_sync_handler
-from apps.analytics.models import EarlyAlert
+from apps.analytics.early_alert.infrastructure.models import EarlyAlert
 
 
 @register_sync_handler("early_alert")

@@ -6,7 +6,8 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.academic.models import AcademicPeriod, Subject, SubjectAcademicConfig, SubjectOffering, PeriodType
-from apps.analytics.models import EarlyAlert, RiskFactor, StudentRiskFactor, StudentRiskScore
+from apps.analytics.early_alert.infrastructure.models import EarlyAlert
+from apps.analytics.models import RiskFactor, StudentRiskFactor, StudentRiskScore
 from apps.analytics.services.dashboard_service import DashboardService
 from apps.analytics.services.csv_export_service import CSVExportService
 from apps.attendance.models import Attendance, AttendanceStatus
