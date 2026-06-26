@@ -9,7 +9,7 @@ def validate_required_fields(data, required):
         if field not in data or data[field] is None:
             errors[field] = f"{field} es obligatorio"
         elif isinstance(data[field], str) and not data[field].strip():
-            errors[field] = f"{field} no puede estar vac\u00edo"
+            errors[field] = f"{field} no puede estar vacio"
     return errors
 
 

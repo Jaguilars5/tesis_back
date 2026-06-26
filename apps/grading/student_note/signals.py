@@ -38,7 +38,7 @@ def _enqueue_recompute(note):
         activity = note.evaluative_activity
         block = activity.block_component.evaluation_block
     except Exception:
-        logger.exception("No se pudo resolver la jerarqu\u00eda de bloques para la nota %s", note.pk)
+        logger.exception("No se pudo resolver la jerarquia de bloques para la nota %s", note.pk)
         return
 
     enrollment_id = note.enrollment_id

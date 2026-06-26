@@ -17,7 +17,7 @@ def validate_start_before_end(start_time, end_time):
 
 def validate_day_of_week(day_of_week):
     if day_of_week is None or not (1 <= day_of_week <= 7):
-        return {"day_of_week": "El d\u00eda de la semana debe estar entre 1 (Lunes) y 7 (Domingo)"}
+        return {"day_of_week": "El dia de la semana debe estar entre 1 (Lunes) y 7 (Domingo)"}
     return {}
 
 

@@ -3,6 +3,7 @@ from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 
+from apps.core.api.mixins import SoftDestroyMixin
 from apps.core.api.permissions import HasPermission
 from apps.core.api.pagination import StandardResultsSetPagination
 from apps.core.constants.permissions import people as perm
@@ -33,7 +34,7 @@ class CityViewSet(viewsets.ReadOnlyModelViewSet):
     partial_update=extend_schema(summary="Actualizar tipo de documento parcialmente", tags=["people"]),
     destroy=extend_schema(summary="Eliminar tipo de documento", tags=["people"]),
 )
-class DocumentTypeViewSet(viewsets.ModelViewSet):
+class DocumentTypeViewSet(SoftDestroyMixin, viewsets.ModelViewSet):
     serializer_class = DocumentTypeSerializer
     pagination_class = StandardResultsSetPagination
     permission_classes = [IsAuthenticated, HasPermission]
@@ -58,7 +59,7 @@ class DocumentTypeViewSet(viewsets.ModelViewSet):
     partial_update=extend_schema(summary="Actualizar persona parcialmente", tags=["people"]),
     destroy=extend_schema(summary="Eliminar persona", tags=["people"]),
 )
-class PersonViewSet(viewsets.ModelViewSet):
+class PersonViewSet(SoftDestroyMixin, viewsets.ModelViewSet):
     serializer_class = PersonSerializer
     pagination_class = StandardResultsSetPagination
     permission_classes = [IsAuthenticated, HasPermission]

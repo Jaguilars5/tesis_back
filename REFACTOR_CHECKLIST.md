@@ -2,9 +2,118 @@
 
 Basado en la arquitectura del proyecto: `models/` → `repositories/` → `services/` → `api/`.
 
+> ⚠️ **No todas las entidades son iguales.** Este checklist históricamente asumía un único
+> tipo de entidad (catálogo con CRUD + soft-delete en cascada). En la práctica el dominio
+> tiene **5 arquetipos** con semánticas distintas para `is_active`, soft-delete, operaciones
+> CRUD y separación en submódulos. **Antes de auditar/refactorizar un módulo, identifica su
+> arquetipo en la sección 0** y aplica solo el tratamiento que le corresponde. Cada sección
+> de este documento indica con etiquetas `[A1] [A2] [A3] [A4] [A5]` a qué arquetipos aplica.
+
 ---
 
-## 1. Estructura del Módulo (por entidad)
+## 0. Arquetipos de Entidad (determina qué tratamiento aplica)
+
+El primer paso de cualquier refactor es clasificar la entidad. El arquetipo decide si lleva
+`is_active`, si soporta soft-delete, qué operaciones CRUD expone y si va en submódulo propio.
+
+### A1 — Catálogo / Dato maestro
+
+Entidades de configuración que el usuario gestiona (alta/baja/edición). **Este es el caso para
+el que se escribió el resto del checklist.**
+
+- Ejemplos: `SchoolYear`, `AcademicLevel`, `AcademicSublevel`, `AcademicGrade`, `Section`,
+  `PeriodType`, `Subject`, `AttendanceStatus`, `AbsenceType`, `IncidentType`, `Severity`,
+  `ActivityType`, `QualitativeScale`.
+- Herencia: `TimeStampedModel` (sin `SyncableModel`).
+- `is_active`: ✅ **obligatorio**.
+- Soft-delete: ✅ con cascada (`get_cascade_counts` + `deactivate_cascade`).
+- CRUD: completo (list, get, create, update, destroy→soft, `soft-delete`).
+- Base ViewSet: `Base<App>ViewSet` (catálogo estándar).
+- Submódulo por entidad: ✅.
+
+### A2 — Registro transaccional / Evento (Syncable)
+
+Hechos registrados en el tiempo, normalmente sincronizables desde móvil offline-first. **No se
+borran: se anulan o se corrige su estado.**
+
+- Ejemplos: `Attendance`, `ConductIncident`, `StudentNote`.
+- Herencia: `TimeStampedModel` **+ `SyncableModel`** (tiene `uuid` + `sync_status`).
+- `is_active`: ❌ **no lleva** (se removió a propósito; usar anulación / cambio de estado).
+- Soft-delete: ❌. `DELETE` debe responder `405` (lo hace `SoftDestroyMixin` al no haber `is_active`).
+- CRUD: **C / R / U** (sin `destroy`). Corrección vía anulación (`manually_overridden`,
+  cambio de `attendance_status`, etc.) y registro en historial (A3) cuando aplique.
+- ViewSet: recortar `http_method_names` quitando `delete` y **NO** declarar `destroy`/`soft_delete`
+  en `@extend_schema_view`.
+- Submódulo por entidad: ✅.
+
+### A3 — Historial / Auditoría inmutable (append-only)
+
+Registros que solo se agregan y se leen; nunca se editan ni se borran.
+
+- Ejemplos: `GradeChangeHistory` (y logs de auditoría en general).
+- Herencia: `TimeStampedModel` (suele tener su propio `*_at = auto_now_add` + `ordering` desc).
+- `is_active`: ❌ no aplica.
+- Soft-delete: ❌. Sin `update`, sin `destroy`.
+- CRUD: **solo R** (Read). La escritura la hace el sistema (no el usuario) al ocurrir el evento.
+- ViewSet: `ReadOnlyModelViewSet` (o un `BaseReadOnlyViewSet` compartido). Esto **es correcto**,
+  no una desviación del patrón.
+- Submódulo: vive junto a la entidad que audita (no necesita app propia).
+
+### A4 — Agregado derivado / Calculado
+
+Resultados de un cálculo o agregación; se **recalculan/reemplazan**, no se borran a mano.
+
+- Ejemplos: `PeriodGradeSummary`, `BehaviorEvaluation`, snapshots/scores de `analytics`.
+- Herencia: `TimeStampedModel` (con `calculated_at`, `calculated_by`, unique constraint del
+  grano de cálculo).
+- `is_active`: ❌ no aplica.
+- Soft-delete: ❌. Se sustituye por **upsert idempotente** (`get_or_create` + acción `recalculate`).
+- CRUD: **R + recalculate**. Sin `destroy` ni `soft-delete`.
+- ViewSet: base estándar pero **sin** `destroy`/`soft_delete` en `http_method_names` ni en el schema;
+  añade `@action recalculate`.
+- Submódulo por entidad: ✅.
+
+### A5 — Raíz de agregado / Identidad
+
+Dominios ricos centrados en una o pocas raíces (no una colección de catálogos independientes).
+
+- Ejemplos: `User` (iam), `Person` (people), `Student`/`Enrollment` (students), `SyncQueue` (integration).
+- `is_active`: depende (p.ej. `User.is_active` sí; otros usan `status`).
+- Soft-delete: caso a caso (no asumir cascada de catálogo).
+- CRUD: completo, frecuentemente con acciones de dominio extra (activar, cambiar rol, matricular…).
+- Submódulo por entidad: ❌ **no obligatorio**. Una estructura de capas plana
+  (`domain/`, `application/`, `infrastructure/`, `api/` sin sub-apps por entidad) es aceptable;
+  forzar "submódulo por entidad" aquí es sobre-ingeniería.
+
+### Árbol de decisión
+
+```
+¿La entidad es resultado de un cálculo/agregación?           → A4 (recalcular, sin is_active)
+¿Es un log que solo se agrega y se lee (auditoría)?          → A3 (ReadOnly, sin is_active)
+¿Es un hecho/evento en el tiempo (hereda SyncableModel)?     → A2 (sin is_active, DELETE=405)
+¿Es una raíz de identidad/dominio rico (User, Person...)?    → A5 (capas planas, caso a caso)
+En cualquier otro caso (config que el usuario administra)    → A1 (catálogo: CRUD + soft-delete)
+```
+
+### Matriz resumen
+
+| Dimensión | A1 Catálogo | A2 Transaccional | A3 Historial | A4 Calculado | A5 Identidad |
+|---|:--:|:--:|:--:|:--:|:--:|
+| `is_active` | ✅ obligatorio | ❌ | ❌ | ❌ | depende |
+| Soft-delete cascada | ✅ | ❌ | ❌ | ❌ | caso a caso |
+| `DELETE` → 405 | n/a (hace soft) | ✅ | ✅ | ✅ | caso a caso |
+| Operaciones CRUD | C R U + soft-del | C R U | **R** | R + recalculate | C R U + acciones |
+| Hereda `SyncableModel` | ❌ | ✅ | ❌ | a veces | ❌ |
+| Submódulo por entidad | ✅ | ✅ | ✅ (junto a su raíz) | ✅ | ❌ (plano OK) |
+| Base ViewSet | `Base<App>ViewSet` | base con `http_method_names` recortado | `ReadOnly` | base + `recalculate` | propio |
+
+> **Regla de oro:** las secciones 1–15 de este documento describen el tratamiento **A1**.
+> Para A2–A5 aplica solo lo que la matriz y las etiquetas `[Ax]` permitan; lo demás NO es una
+> inconsistencia a "corregir hacia catálogo".
+
+---
+
+## 1. Estructura del Módulo (por entidad) `[A1] [A2] [A3] [A4]` · *plano permitido en* `[A5]`
 
 ```
 module_name/                           # ej: school_year, academic_level
@@ -53,15 +162,22 @@ class MyEntity(TimeStampedModel):
 
 - `TimeStampedModel` provee `created_at` y `updated_at` automáticos
 - ❌ NO definir `created_at`/`updated_at` manualmente
+- `[A2]` Los registros transaccionales/sincronizables heredan **además** de `SyncableModel`
+  (`apps.integration.models.syncable_mixin`), que aporta `uuid` + `sync_status`:
+  `class Attendance(TimeStampedModel, SyncableModel): ...`
 
-### is_active
+### is_active `[A1]` · *opcional en* `[A5]` · ❌ *NO en* `[A2] [A3] [A4]`
 
 ```python
 is_active = models.BooleanField(default=True, verbose_name="Activo")
 ```
 
-- Todas las entidades deben tener campo `is_active`
-- El soft-delete del mixin y el filtro `active_only` del repositorio base dependen de él
+- Solo las entidades **A1 (catálogo)** deben tener `is_active` obligatorio. El soft-delete del
+  mixin y el filtro `active_only` del repositorio base dependen de él.
+- **A2 (transaccional), A3 (historial) y A4 (calculado) NO llevan `is_active`** — usan anulación,
+  son inmutables o se recalculan. Si ves un modelo Syncable/transaccional sin `is_active`, **es
+  correcto**, no lo agregues.
+- **A5 (identidad)**: depende de la entidad (`User.is_active` sí; otros pueden usar `status`).
 
 ### app_label
 
@@ -194,7 +310,11 @@ class MyEntityService:
         return cls.repository.update(pk, **clean)
 ```
 
-### soft_delete
+### soft_delete `[A1]` · *en* `[A2] [A3] [A4]` *usar el equivalente del arquetipo*
+
+> Solo los catálogos (A1) implementan `soft_delete` con cascada. Para los demás arquetipos el
+> método de "baja" cambia: **A2** → `anular`/cambio de estado (registra historial), **A3** → no
+> existe (inmutable), **A4** → `recalculate` (reemplaza el cálculo, no desactiva).
 
 ```python
 @classmethod
@@ -359,7 +479,21 @@ def create_entity(cls, **kwargs):
 
 ## 7. ViewSet (`api/views.py`)
 
-### Estructura
+> **Selección de base/operaciones según arquetipo** (ver sección 0):
+>
+> | Arquetipo | Base ViewSet | `http_method_names` | `@extend_schema_view` incluye | Acción extra |
+> |---|---|---|---|---|
+> | A1 Catálogo | `Base<App>ViewSet` | todos | `destroy`, `soft_delete` | `soft_delete` |
+> | A2 Transaccional | `Base<App>ViewSet` | sin `delete` | **NO** `destroy`/`soft_delete` | `anular`/estado |
+> | A3 Historial | `ReadOnlyModelViewSet` | solo `get`/`head`/`options` | solo `list`, `get` | — |
+> | A4 Calculado | `Base<App>ViewSet` | sin `delete` | **NO** `destroy`/`soft_delete` | `recalculate` |
+> | A5 Identidad | propio | según dominio | según dominio | acciones de dominio |
+>
+> ❗ Error común detectado en auditoría: declarar `destroy`/`soft_delete` en `@extend_schema_view`
+> de una entidad A2/A4 (sin `is_active`). El schema anuncia un borrado que en runtime devuelve
+> `405`. Para A2/A4 **no** declares esas acciones y recorta `http_method_names`.
+
+### Estructura `[A1]` (catálogo; ver tabla anterior para A2–A5)
 
 ```python
 from drf_spectacular.utils import extend_schema, extend_schema_view
@@ -388,7 +522,7 @@ class MyEntityViewSet(BaseInstitutionsViewSet):
     ...
 ```
 
-### Soft delete endpoint
+### Soft delete endpoint `[A1]`
 
 ```python
 @action(detail=True, methods=["post"], url_path="soft-delete")
@@ -396,6 +530,29 @@ def soft_delete(self, request, pk=None):
     confirm = request.data.get("confirm", False)
     result = MyEntityService.soft_delete(pk, confirm=confirm)
     return ok_response(result)
+```
+
+### Endpoint de baja por arquetipo (alternativas a `soft-delete`)
+
+```python
+# [A2] Transaccional: anular sin borrar (registra historial / cambia estado)
+@action(detail=True, methods=["post"], url_path="anular")
+def anular(self, request, pk=None):
+    result = MyEntityService.anular(pk, user_id=request.user.id, reason=request.data.get("reason"))
+    return ok_response(result)
+
+# [A4] Calculado: recalcular (upsert idempotente, NO desactiva)
+@action(detail=True, methods=["post"], url_path="recalculate")
+def recalculate(self, request, pk=None):
+    result = MyEntityService.recalculate(pk)
+    return ok_response(result)
+
+# [A2][A4] Bloquear DELETE explícitamente
+http_method_names = ["get", "post", "put", "patch", "head", "options"]  # sin "delete"
+
+# [A3] Historial: solo lectura
+class MyHistoryViewSet(ReadOnlyModelViewSet):  # list + retrieve únicamente
+    ...
 ```
 
 ### Filtros por FK y is_active
@@ -548,11 +705,27 @@ class MyEntityAPITest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 ```
 
-### Qué testear
+### Qué testear (según arquetipo)
 
+`[A1]` Catálogo:
 - [ ] CRUD básico (list, create, get, update, destroy)
 - [ ] Soft-delete (sin confirm → requiere confirmación, con confirm → desactiva)
 - [ ] Soft-delete cascada (verificar que hijos se desactivan)
+
+`[A2]` Transaccional:
+- [ ] Create/Read/Update; `DELETE` responde `405`
+- [ ] Anulación / cambio de estado (no borra el registro)
+- [ ] Sincronización (`sync_status`) si aplica
+
+`[A3]` Historial:
+- [ ] Solo lectura (list/get); `POST`/`PUT`/`DELETE` no expuestos
+- [ ] El historial se genera al ocurrir el evento de origen
+
+`[A4]` Calculado:
+- [ ] `recalculate` es idempotente (no duplica por unique constraint)
+- [ ] `DELETE`/`soft-delete` no expuestos
+
+Transversal (todos los arquetipos):
 - [ ] Permisos (usuario sin permiso recibe 403)
 - [ ] Paginación
 - [ ] Búsqueda y filtros
@@ -619,7 +792,9 @@ from ..application.serializers import MyEntitySerializer
 
 - `drf-spectacular` genera schema automáticamente desde los ViewSets
 - `@extend_schema_view` documenta cada acción
-- `soft_delete=extend_schema(...)` debe incluirse en `@extend_schema_view`
+- `soft_delete=extend_schema(...)` se incluye en `@extend_schema_view` **solo para A1 (catálogo)**.
+  Para A2/A4 **no** declarar `destroy`/`soft_delete` (no existen → el schema no debe anunciarlos).
+  Para A3 declarar únicamente `list` y `get`.
 - Validar schema:
   ```bash
   python manage.py spectacular --settings=config.settings.local --validate
@@ -629,9 +804,20 @@ from ..application.serializers import MyEntitySerializer
 
 ## 15. Audit Final
 
+> **Paso 0 — Identifica el arquetipo (sección 0) antes de marcar nada.** Las casillas de
+> "Soft Delete" y `is_active` aplican **solo a A1**. Para A2–A5 usa el bloque "Por arquetipo".
+
+### Por arquetipo (marcar el que corresponda)
+
+- [ ] **A1 Catálogo** — tiene `is_active`, soft-delete con cascada, CRUD completo.
+- [ ] **A2 Transaccional** — hereda `SyncableModel`, sin `is_active`, `DELETE`=405, acción de anulación/estado, sin `destroy`/`soft_delete` en schema.
+- [ ] **A3 Historial** — `ReadOnlyModelViewSet`, append-only, sin `update`/`destroy`/`is_active`.
+- [ ] **A4 Calculado** — sin `is_active`, acción `recalculate` idempotente, sin `destroy`/`soft_delete`.
+- [ ] **A5 Identidad** — capas planas permitidas (sin submódulo por entidad), soft-delete caso a caso.
+
 ### Estructura y capas
 
-- [ ] `models.py` está en `infrastructure/` (no en la raíz del módulo)
+- [ ] `models.py` está en `infrastructure/` (no en la raíz del módulo) *(plano permitido en A5)*
 - [ ] Repositorio interface en `domain/repositories.py`
 - [ ] Repositorio impl en `infrastructure/repositories.py`
 - [ ] Servicio en `domain/services.py`
@@ -645,9 +831,9 @@ from ..application.serializers import MyEntitySerializer
 - [ ] Sin `Model.objects.filter()` en views
 - [ ] Sin `Model.objects.filter()` en services
 - [ ] Sin importaciones de modelos de otros apps en services/views
-- [ ] `get_cascade_counts` y `deactivate_cascade` en repositorio (no en service ni view)
+- [ ] `[A1]` `get_cascade_counts` y `deactivate_cascade` en repositorio (no en service ni view)
 
-### Soft Delete
+### Soft Delete `[A1]` — *omitir por completo en A2/A3/A4; caso a caso en A5*
 
 - [ ] Modelo tiene campo `is_active`
 - [ ] `SoftDeleteModelMixin` en `BaseInstitutionsViewSet`
@@ -656,6 +842,13 @@ from ..application.serializers import MyEntitySerializer
 - [ ] Repositorio implementa `get_cascade_counts` y `deactivate_cascade`
 - [ ] `perform_destroy` solo sobreescrito si hace soft-delete (SchoolYear) o hard-delete
 - [ ] La ruta `POST /soft-delete/` existe y funciona
+
+### Baja / Inmutabilidad `[A2] [A3] [A4]`
+
+- [ ] **A2**: modelo NO tiene `is_active`; `http_method_names` sin `delete`; `DELETE` responde `405`; existe acción de anulación/cambio de estado; el historial (A3) se registra si aplica.
+- [ ] **A3**: ViewSet es `ReadOnly`; no expone `create`/`update`/`destroy`; no tiene `is_active`.
+- [ ] **A4**: modelo NO tiene `is_active`; existe `recalculate` idempotente (respeta unique constraint); no expone `destroy`/`soft_delete`.
+- [ ] El `@extend_schema_view` NO anuncia acciones inexistentes para el arquetipo.
 
 ### Response
 

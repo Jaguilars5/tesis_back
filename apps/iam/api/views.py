@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
-from apps.core.api.mixins import SoftDeleteModelMixin
+from apps.core.api.mixins import SoftDeleteModelMixin, SoftDestroyMixin
 from apps.core.api.permissions import HasPermission
 from apps.core.constants.permissions import iam
 from apps.core.utils import ok_response, error_response
@@ -71,7 +71,7 @@ class CustomTokenRefreshView(TokenRefreshView):
     bulk_create=extend_schema(summary="Crear múltiples permisos", tags=["iam"]),
     by_module=extend_schema(summary="Permisos por módulo", tags=["iam"]),
 )
-class PermissionViewSet(SoftDeleteModelMixin, viewsets.ModelViewSet):
+class PermissionViewSet(SoftDeleteModelMixin, SoftDestroyMixin, viewsets.ModelViewSet):
     serializer_class = PermissionSerializer
     permission_classes = [permissions.IsAuthenticated, HasPermission]
     action_permissions = PERMISSION_ACTION_PERMISSIONS
@@ -157,7 +157,7 @@ class PermissionViewSet(SoftDeleteModelMixin, viewsets.ModelViewSet):
     ),
     soft_delete=extend_schema(summary="Desactivar rol con cascada", tags=["iam"]),
 )
-class RoleViewSet(SoftDeleteModelMixin, viewsets.ModelViewSet):
+class RoleViewSet(SoftDeleteModelMixin, SoftDestroyMixin, viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated, HasPermission]
     action_permissions = ROLE_ACTION_PERMISSIONS
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -261,6 +261,24 @@ class RoleViewSet(SoftDeleteModelMixin, viewsets.ModelViewSet):
     representatives=extend_schema(summary="Listar usuarios con rol representante", tags=["iam"]),
 )
 class UserViewSet(SoftDeleteModelMixin, viewsets.ModelViewSet):
+    """
+    ViewSet para gestión de usuarios.
+    DELETE realiza desactivación lógica (is_active=False).
+    """
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Desactiva un usuario en lugar de borrarlo físicamente.
+        Alineado con la documentación: 'Desactivar usuario'.
+        """
+        try:
+            user = self.service.deactivate_user(kwargs.get("pk"))
+            return ok_response(
+                {"id": user.id, "is_active": user.is_active},
+                msg="Usuario desactivado exitosamente",
+            )
+        except ValueError as e:
+            return error_response(str(e), status_code=status.HTTP_400_BAD_REQUEST)
     permission_classes = [permissions.IsAuthenticated, HasPermission]
     action_permissions = USER_ACTION_PERMISSIONS
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]

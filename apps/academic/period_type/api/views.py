@@ -23,13 +23,13 @@ def _raise_validation_error(exc: ValueError) -> None:
 
 
 @extend_schema_view(
-    list=extend_schema(summary="Listar tipos de per\u00edodo", tags=["academic"]),
-    get=extend_schema(summary="Obtener tipo de per\u00edodo", tags=["academic"]),
-    create=extend_schema(summary="Crear tipo de per\u00edodo", tags=["academic"]),
-    update=extend_schema(summary="Actualizar tipo de per\u00edodo", tags=["academic"]),
-    partial_update=extend_schema(summary="Actualizar parcialmente tipo de per\u00edodo", tags=["academic"]),
-    destroy=extend_schema(summary="Eliminar tipo de per\u00edodo", tags=["academic"]),
-    soft_delete=extend_schema(summary="Desactivar tipo de per\u00edodo con validaci\u00f3n de cascada", tags=["academic"]),
+    list=extend_schema(summary="Listar tipos de periodo", tags=["academic"]),
+    get=extend_schema(summary="Obtener tipo de periodo", tags=["academic"]),
+    create=extend_schema(summary="Crear tipo de periodo", tags=["academic"]),
+    update=extend_schema(summary="Actualizar tipo de periodo", tags=["academic"]),
+    partial_update=extend_schema(summary="Actualizar parcialmente tipo de periodo", tags=["academic"]),
+    destroy=extend_schema(summary="Eliminar tipo de periodo", tags=["academic"]),
+    soft_delete=extend_schema(summary="Desactivar tipo de periodo con validaci\u00f3n de cascada", tags=["academic"]),
 )
 class PeriodTypeViewSet(BaseAcademicViewSet):
     serializer_class = PeriodTypeSerializer

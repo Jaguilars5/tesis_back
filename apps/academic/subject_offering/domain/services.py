@@ -44,8 +44,23 @@ class SubjectOfferingService:
     @transaction.atomic
     def update_offering(cls, offering_id, **kwargs):
         allowed = {"section_id", "subject_academic_config_id", "is_active"}
-        cls.get_offering(offering_id)
+        offering = cls.get_offering(offering_id)
         cls._validate_or_raise(**kwargs)
+
+        new_section_id = kwargs.get("section_id", offering.section_id)
+        new_config_id = kwargs.get(
+            "subject_academic_config_id", offering.subject_academic_config_id
+        )
+        if new_section_id != offering.section_id or new_config_id != offering.subject_academic_config_id:
+            duplicate = cls.repository.first(
+                section_id=new_section_id,
+                subject_academic_config_id=new_config_id,
+            )
+            if duplicate and duplicate.id != offering_id:
+                raise ValueError({
+                    "non_field_errors": "Ya existe esta oferta de materia para la secci\u00f3n"
+                })
+
         clean = {k: v for k, v in kwargs.items() if k in allowed}
         return cls.repository.update(offering_id, **clean)
 

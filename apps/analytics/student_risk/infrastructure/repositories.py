@@ -2,10 +2,16 @@
 Implementación de repositorios para riesgo estudiantil.
 """
 
-from typing import List, Optional
+from typing import Optional
 
 from apps.core.repositories.base import BaseRepository
 
+from ..domain.repositories import (
+    RiskFactorRepositoryInterface,
+    StudentFeatureSnapshotRepositoryInterface,
+    StudentRiskFactorRepositoryInterface,
+    StudentRiskScoreRepositoryInterface,
+)
 from .models import (
     RiskFactor,
     StudentRiskScore,
@@ -15,7 +21,7 @@ from .models import (
 )
 
 
-class RiskFactorRepository(BaseRepository):
+class RiskFactorRepository(BaseRepository, RiskFactorRepositoryInterface):
     """Repositorio para catálogo de factores de riesgo."""
 
     model = RiskFactor
@@ -29,7 +35,7 @@ class RiskFactorRepository(BaseRepository):
             return None
 
 
-class StudentRiskScoreRepository(BaseRepository):
+class StudentRiskScoreRepository(BaseRepository, StudentRiskScoreRepositoryInterface):
     """Repositorio para puntajes de riesgo de estudiantes."""
 
     model = StudentRiskScore
@@ -51,6 +57,25 @@ class StudentRiskScoreRepository(BaseRepository):
             ).get(pk=pk)
         except cls.model.DoesNotExist:
             return None
+
+    @classmethod
+    def get_visible_for_user(cls, user):
+        """
+        Puntajes visibles para el usuario.
+
+        Los DOCENTE sólo ven los puntajes de las secciones donde tienen una
+        asignación activa; el resto de roles ve todo.
+        """
+        qs = cls.get_all()
+        if (
+            getattr(user, "is_authenticated", False)
+            and user.user_roles.filter(role__code="DOCENTE").exists()
+        ):
+            qs = qs.filter(
+                enrollment__section__subject_offerings__teacher_assignments__user=user,
+                enrollment__section__subject_offerings__teacher_assignments__is_active=True,
+            ).distinct()
+        return qs
 
     @classmethod
     def get_by_enrollment(cls, enrollment_id: int):
@@ -137,7 +162,7 @@ class StudentRiskScoreRepository(BaseRepository):
         )
 
 
-class StudentRiskFactorRepository(BaseRepository):
+class StudentRiskFactorRepository(BaseRepository, StudentRiskFactorRepositoryInterface):
     """Repositorio para factores de riesgo por estudiante."""
 
     model = StudentRiskFactor
@@ -150,7 +175,9 @@ class StudentRiskFactorRepository(BaseRepository):
         ).select_related("risk_factor")
 
 
-class StudentFeatureSnapshotRepository(BaseRepository):
+class StudentFeatureSnapshotRepository(
+    BaseRepository, StudentFeatureSnapshotRepositoryInterface
+):
     """Repositorio para snapshots de features."""
 
     model = StudentFeatureSnapshot

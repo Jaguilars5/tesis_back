@@ -15,14 +15,14 @@ class Section(TimeStampedModel):
         verbose_name="Grado Academico",
         null=True,
     )
-    code = models.CharField(max_length=50, blank=True, db_index=True, verbose_name="C\u00f3digo")
+    code = models.CharField(max_length=50, blank=True, db_index=True, verbose_name="Codigo")
     parallel = models.CharField(max_length=255, verbose_name="Paralelo")
     capacity = models.IntegerField(verbose_name="Capacidad")
     is_active = models.BooleanField(default=True, verbose_name="Activo")
 
     class Meta:
         app_label = "institutions_section"
-        verbose_name = "Secci\u00f3n"
+        verbose_name = "Seccion"
         verbose_name_plural = "Secciones"
         unique_together = [("school_year", "academic_grade", "parallel")]
 

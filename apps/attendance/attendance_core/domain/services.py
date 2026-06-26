@@ -42,9 +42,24 @@ class AttendanceService:
             )
 
         if existing:
-            return cls.repository.update(
-                existing.id,
+            update_data = {
+                "academic_period_id": academic_period_id,
+                "attendance_status_id": attendance_status_id,
+                "absence_type_id": absence_type_id,
+                "observation": observation,
+                "device_origin": device_origin,
+            }
+            # Solo tocar class_schedule si se envió explícitamente, para no
+            # borrar el horario de registros ya asociados a un bloque.
+            if class_schedule_id is not None:
+                update_data["class_schedule_id"] = class_schedule_id
+            attendance = cls.repository.update(existing.id, **update_data)
+        else:
+            attendance = cls.repository.create(
+                enrollment_id=enrollment_id,
+                teacher_subject_section_id=teacher_subject_section_id,
                 academic_period_id=academic_period_id,
+                attendance_date=attendance_date,
                 attendance_status_id=attendance_status_id,
                 absence_type_id=absence_type_id,
                 observation=observation,
@@ -52,22 +67,35 @@ class AttendanceService:
                 class_schedule_id=class_schedule_id,
             )
 
-        attendance = cls.repository.create(
-            enrollment_id=enrollment_id,
-            teacher_subject_section_id=teacher_subject_section_id,
-            academic_period_id=academic_period_id,
-            attendance_date=attendance_date,
-            attendance_status_id=attendance_status_id,
-            absence_type_id=absence_type_id,
-            observation=observation,
-            device_origin=device_origin,
-            class_schedule_id=class_schedule_id,
-        )
+            if class_schedule_id:
+                cls._check_schedule_day_warning(attendance, class_schedule_id, attendance_date)
 
-        if class_schedule_id:
-            cls._check_schedule_day_warning(attendance, class_schedule_id, attendance_date)
+        cls._maybe_notify_absence(attendance)
 
         return attendance
+
+    @classmethod
+    def _maybe_notify_absence(cls, attendance):
+        """Programa la notificación a representantes si la asistencia es una falta.
+
+        Se usa ``transaction.on_commit`` para que el aviso solo se dispare
+        cuando la transacción del registro se haya confirmado correctamente.
+        """
+        try:
+            status = attendance.attendance_status
+            if not status or status.code != "A":
+                return
+            from ..tasks import notify_representatives_of_absence
+
+            transaction.on_commit(
+                lambda: notify_representatives_of_absence.delay(attendance.id)
+            )
+        except Exception:
+            logger.warning(
+                "No se pudo programar la notificación de falta para attendance=%s",
+                getattr(attendance, "id", None),
+                exc_info=True,
+            )
 
     @classmethod
     def _check_schedule_day_warning(cls, attendance, class_schedule_id, attendance_date):
@@ -96,32 +124,3 @@ class AttendanceService:
         }
         clean = {k: v for k, v in kwargs.items() if k in allowed}
         return cls.repository.update(attendance_id, **clean)
-
-    @classmethod
-    def delete_attendance(cls, attendance_id):
-        cls.get_attendance(attendance_id)
-        cls.repository.delete(attendance_id)
-        return True
-
-    @classmethod
-    def soft_delete(cls, pk, confirm=False):
-        obj = cls.get_attendance(pk)
-        counts = cls.repository.get_cascade_counts(pk)
-        total = sum(counts.values())
-
-        if total > 0 and not confirm:
-            parts = [f"{v} {k}" for k, v in counts.items()]
-            return {
-                "requires_confirmation": True,
-                "affected_records": total,
-                "message": f"Esta acción desactivará {', '.join(parts)} relacionados",
-                "id": obj.id,
-                "is_active": True,
-            }
-
-        total = cls.repository.deactivate_cascade(pk)
-        return {
-            "id": obj.id,
-            "is_active": False,
-            "deactivated_records": total,
-        }

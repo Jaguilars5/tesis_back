@@ -16,7 +16,14 @@ def validate_required_fields(data, required):
 
 
 def validate_attendance_date(value):
-    if value and value > date.today():
+    if not value:
+        return {}
+    if isinstance(value, str):
+        try:
+            value = date.fromisoformat(value)
+        except ValueError:
+            return {"attendance_date": "Formato de fecha inválido. Use YYYY-MM-DD"}
+    if value > date.today():
         return {"attendance_date": "La fecha de asistencia no puede ser futura"}
     return {}
 
@@ -37,7 +44,9 @@ def validate_academic_period_date(attendance_date, academic_period):
 def validate_enrollment_section(enrollment_id, teacher_subject_section_id):
     if enrollment_id and teacher_subject_section_id:
         from apps.students.models import Enrollment
-        from apps.academic_teacher_subject.models import TeacherSubjectSection
+        from apps.academic.teacher_subject_section.infrastructure.models import (
+            TeacherSubjectSection,
+        )
         try:
             enr = Enrollment.objects.get(id=enrollment_id)
             tss = TeacherSubjectSection.objects.get(id=teacher_subject_section_id)

@@ -5,5 +5,5 @@ class PeriodTypeConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "apps.academic.period_type"
     label = "academic_period_type"
-    verbose_name = "Tipos de Per\u00edodo"
+    verbose_name = "Tipos de Periodo"
 

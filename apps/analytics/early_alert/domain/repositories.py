@@ -52,13 +52,3 @@ class EarlyAlertRepositoryInterface(ABC):
     @abstractmethod
     def get_by_urgency(cls, urgency_level: str):
         pass
-
-    @classmethod
-    @abstractmethod
-    def get_cascade_counts(cls, instance_id: int) -> dict[str, int]:
-        pass
-
-    @classmethod
-    @abstractmethod
-    def deactivate_cascade(cls, instance_id: int) -> int:
-        pass

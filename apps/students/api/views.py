@@ -8,9 +8,11 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 
+from apps.core.api.mixins import SoftDestroyMixin
 from apps.core.api.pagination import StandardResultsSetPagination
 from apps.core.constants.permissions import students
 from apps.core.api.permissions import HasPermission
+from apps.core.utils import ok_response, error_response
 
 from ..services.students_service import StudentService
 from ..services.enrollment_service import EnrollmentService
@@ -220,7 +222,7 @@ class StudentViewSet(viewsets.ModelViewSet):
     ),
     unlink=extend_schema(summary="Desasignar representante", tags=["students"]),
 )
-class StudentRepresentativeViewSet(viewsets.ModelViewSet):
+class StudentRepresentativeViewSet(SoftDestroyMixin, viewsets.ModelViewSet):
     """ViewSet para StudentRepresentative"""
 
     serializer_class = StudentRepresentativeSerializer
@@ -455,6 +457,18 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         if not enrollment:
             return Response("No tiene matricula activa", status=404)
         return Response(self.get_serializer(enrollment).data)
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Desactiva una matrícula (soft delete) usando el servicio.
+        Reemplaza el borrado físico por cambio de estado.
+        """
+        enrollment = self.get_object()
+        try:
+            result = EnrollmentService.soft_delete_enrollment(enrollment)
+            return ok_response(result, msg="Matrícula desactivada exitosamente")
+        except ValueError as e:
+            return error_response(str(e), status_code=400)
 
 
 @extend_schema_view(

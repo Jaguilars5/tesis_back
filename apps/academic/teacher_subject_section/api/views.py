@@ -1,12 +1,11 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.filters import OrderingFilter, SearchFilter
 
 from apps.academic.api.base import BaseAcademicViewSet
-from apps.core.utils import ok_response, error_response
+from apps.core.utils import ok_response
 
 from ..application.serializers import TeacherSubjectSectionSerializer
 from ..domain.services import TeacherSubjectSectionService

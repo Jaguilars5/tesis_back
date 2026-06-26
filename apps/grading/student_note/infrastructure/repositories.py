@@ -42,15 +42,6 @@ class StudentNoteRepository(BaseRepository, StudentNoteRepositoryInterface):
         return queryset.order_by("-created_at")
 
     @classmethod
-    def get_cascade_counts(cls, instance_id: int) -> dict[str, int]:
-        return {}
-
-    @classmethod
-    def deactivate_cascade(cls, instance_id: int) -> int:
-        cls.model.objects.filter(pk=instance_id).update(is_active=False)
-        return 1
-
-    @classmethod
     def list_for_risk_snapshot(cls, student_id, academic_period_id):
         return (
             cls.model.objects.filter(
@@ -93,15 +84,6 @@ class PeriodGradeSummaryRepository(BaseRepository, PeriodGradeSummaryRepositoryI
             academic_period_id=academic_period_id,
             is_failing=True,
         ).select_related("enrollment__student", "subject_offering")
-
-    @classmethod
-    def get_cascade_counts(cls, instance_id: int) -> dict[str, int]:
-        return {}
-
-    @classmethod
-    def deactivate_cascade(cls, instance_id: int) -> int:
-        cls.model.objects.filter(pk=instance_id).update(is_active=False)
-        return 1
 
     @classmethod
     def count_failing(cls, enrollment_id, academic_period_id):

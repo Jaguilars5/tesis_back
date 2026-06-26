@@ -72,11 +72,35 @@ class AcademicPeriodRepository(BaseRepository, AcademicPeriodRepositoryInterface
         return list(qs.values_list("period_type_id", flat=True).distinct())
 
     @classmethod
+    def _cascade_active_querysets(cls, instance_id: int):
+        """Hijos A1 (con is_active) que se desactivan en cascada al dar de baja el período.
+
+        Los registros A2 (Attendance, ConductIncident) y A4 (PeriodGradeSummary)
+        asociados NO se desactivan: no tienen `is_active` (son inmutables / se
+        recalculan), por lo que quedan fuera de la cascada de catálogo.
+        """
+        from apps.grading.evaluation.infrastructure.models import EvaluationBlock
+
+        return {
+            "bloques de evaluación": EvaluationBlock.objects.filter(
+                academic_period_id=instance_id, is_active=True
+            ),
+        }
+
+    @classmethod
     def get_cascade_counts(cls, instance_id: int) -> dict[str, int]:
-        return {}
+        counts = {}
+        for label, queryset in cls._cascade_active_querysets(instance_id).items():
+            count = queryset.count()
+            if count:
+                counts[label] = count
+        return counts
 
     @classmethod
     @transaction.atomic
     def deactivate_cascade(cls, instance_id: int) -> int:
+        total = 0
+        for queryset in cls._cascade_active_querysets(instance_id).values():
+            total += queryset.update(is_active=False)
         cls.model.objects.filter(pk=instance_id).update(is_active=False)
-        return 0
+        return total

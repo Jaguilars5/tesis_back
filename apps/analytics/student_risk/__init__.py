@@ -11,7 +11,6 @@ __all__ = [
     "StudentRiskFactorRepository",
     "StudentFeatureSnapshotRepository",
     "RiskScoringConfigRepository",
-    "AnalyticsService",
     "StudentRiskCalculationService",
     "RiskScoringConfigService",
 ]
@@ -31,7 +30,6 @@ _REPOSITORIES = {
     "RiskScoringConfigRepository",
 }
 _SERVICES = {
-    "AnalyticsService",
     "StudentRiskCalculationService",
     "RiskScoringConfigService",
 }

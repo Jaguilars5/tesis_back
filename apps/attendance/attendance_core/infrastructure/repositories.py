@@ -92,15 +92,6 @@ class AttendanceRepository(BaseRepository, AttendanceRepositoryInterface):
         )
 
     @classmethod
-    def get_cascade_counts(cls, instance_id: int) -> dict[str, int]:
-        return {}
-
-    @classmethod
-    def deactivate_cascade(cls, instance_id: int) -> int:
-        cls.model.objects.filter(pk=instance_id).update(is_active=False)
-        return 1
-
-    @classmethod
     def get_schedule_day(cls, class_schedule_id):
         from apps.academic.class_schedule.infrastructure.models import ClassSchedule
         try:

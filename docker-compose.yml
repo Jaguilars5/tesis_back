@@ -64,6 +64,9 @@ services:
       - DJANGO_SETTINGS_MODULE=config.settings.local
       - WAIT_FOR_DB=true
       - RUN_MIGRATIONS=true
+      # Ejecuta los seeds idempotentes al arrancar. Ponlo en "false" si no quieres
+      # repoblar datos de prueba en cada 'up'.
+      - RUN_SEED=false
     depends_on:
       db:
         condition: service_healthy

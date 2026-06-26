@@ -12,7 +12,7 @@ class StudentNote(TimeStampedModel, SyncableModel):
     enrollment = models.ForeignKey(
         "students.Enrollment",
         on_delete=models.CASCADE,
-        verbose_name="Matr\u00edcula",
+        verbose_name="Matricula",
     )
     evaluative_activity = models.ForeignKey(
         "grading_evaluation.EvaluativeActivity",
@@ -23,7 +23,7 @@ class StudentNote(TimeStampedModel, SyncableModel):
         max_length=20,
         choices=[("NUMERIC", "Cuantitativa"), ("QUALITATIVE", "Cualitativa")],
         default="NUMERIC",
-        verbose_name="Modo de Calificaci\u00f3n",
+        verbose_name="Modo de Calificacion",
     )
     qualitative_scale = models.ForeignKey(
         "grading_qualitative_scale.QualitativeScale",
@@ -34,10 +34,10 @@ class StudentNote(TimeStampedModel, SyncableModel):
     numeric_score = models.DecimalField(
         max_digits=5, decimal_places=2,
         null=True, blank=True,
-        verbose_name="Puntuaci\u00f3n Numerica",
+        verbose_name="Puntuacion Numerica",
     )
     manually_overridden = models.BooleanField(default=False, verbose_name="Anulada Manualmente")
-    teacher_observation = models.TextField(blank=True, default="", verbose_name="Observaci\u00f3n del Docente")
+    teacher_observation = models.TextField(blank=True, default="", verbose_name="Observacion del Docente")
     created_by = models.ForeignKey(
         "iam.User", on_delete=models.SET_NULL, null=True, blank=True,
         related_name="student_notes_created", verbose_name="Creado por",
@@ -68,9 +68,9 @@ class StudentNote(TimeStampedModel, SyncableModel):
     def clean(self):
         super().clean()
         if self.grading_mode == "NUMERIC" and not self.numeric_score:
-            raise ValidationError({"numeric_score": "numeric_score es requerido para calificaci\u00f3n cuantitativa"})
+            raise ValidationError({"numeric_score": "numeric_score es requerido para calificacion cuantitativa"})
         if self.grading_mode == "QUALITATIVE" and not self.qualitative_scale:
-            raise ValidationError({"qualitative_scale": "qualitative_scale es requerido para calificaci\u00f3n cualitativa"})
+            raise ValidationError({"qualitative_scale": "qualitative_scale es requerido para calificacion cualitativa"})
         if self.evaluative_activity_id and self.numeric_score is not None:
             max_value = self.evaluative_activity.max_score
             if self.numeric_score < 0 or self.numeric_score > max_value:
@@ -78,7 +78,7 @@ class StudentNote(TimeStampedModel, SyncableModel):
         if self.enrollment_id and self.evaluative_activity_id:
             activity_section_id = self.evaluative_activity.teacher_subject_section.subject_offering.section_id
             if self.enrollment.section_id != activity_section_id:
-                raise ValidationError({"enrollment": "La matr\u00edcula no pertenece a la secci\u00f3n de la actividad evaluativa"})
+                raise ValidationError({"enrollment": "La matricula no pertenece a la seccion de la actividad evaluativa"})
 
     def calculate_normalized_value(self):
         if not self.evaluative_activity_id:
@@ -106,7 +106,6 @@ class StudentNote(TimeStampedModel, SyncableModel):
 
 
 class GradeChangeHistory(TimeStampedModel):
-    is_active = models.BooleanField(default=True, verbose_name="Activo")
     student_note = models.ForeignKey(
         "grading_student_note.StudentNote",
         on_delete=models.CASCADE,
@@ -133,11 +132,11 @@ class GradeChangeHistory(TimeStampedModel):
         on_delete=models.SET_NULL, null=True, blank=True,
         related_name="new_grade_changes", verbose_name="Nueva Escala Cualitativa",
     )
-    reason = models.TextField(verbose_name="Raz\u00f3n del Cambio")
-    reason_code = models.CharField(max_length=30, blank=True, verbose_name="C\u00f3digo de Raz\u00f3n")
+    reason = models.TextField(verbose_name="Razon del Cambio")
+    reason_code = models.CharField(max_length=30, blank=True, verbose_name="Codigo de Razon")
     origin = models.CharField(
         max_length=20,
-        choices=[("MANUAL", "Manual"), ("IMPORT", "Importaci\u00f3n"), ("SYNC", "Sincronizaci\u00f3n")],
+        choices=[("MANUAL", "Manual"), ("IMPORT", "Importacion"), ("SYNC", "Sincronizacion")],
         default="MANUAL", verbose_name="Origen",
     )
     device_origin = models.CharField(max_length=40, null=True, blank=True, verbose_name="Dispositivo de Origen")
@@ -145,8 +144,8 @@ class GradeChangeHistory(TimeStampedModel):
 
     class Meta:
         app_label = "grading_student_note"
-        verbose_name = "Historial de Cambio de Calificaci\u00f3n"
-        verbose_name_plural = "Historiales de Cambio de Calificaci\u00f3n"
+        verbose_name = "Historial de Cambio de Calificacion"
+        verbose_name_plural = "Historiales de Cambio de Calificacion"
         ordering = ["-modified_at"]
         indexes = [
             models.Index(fields=["student_note", "modified_at"]),
@@ -173,12 +172,11 @@ class PromotionStatusChoices(TextChoices):
 
 
 class PeriodGradeSummary(TimeStampedModel):
-    is_active = models.BooleanField(default=True, verbose_name="Activo")
     enrollment = models.ForeignKey(
         "students.Enrollment",
         on_delete=models.CASCADE,
         related_name="grade_summaries",
-        verbose_name="Matr\u00edcula",
+        verbose_name="Matricula",
     )
     subject_offering = models.ForeignKey(
         "academic_subject_offering.SubjectOffering",
@@ -190,7 +188,7 @@ class PeriodGradeSummary(TimeStampedModel):
         "academic_period.AcademicPeriod",
         on_delete=models.CASCADE,
         related_name="grade_summaries",
-        verbose_name="Per\u00edodo Academico",
+        verbose_name="Periodo Academico",
     )
     formative_avg = models.DecimalField(max_digits=5, decimal_places=2, verbose_name="Promedio Formativo")
     summative_avg = models.DecimalField(max_digits=5, decimal_places=2, verbose_name="Promedio Sumativo")
@@ -203,7 +201,7 @@ class PeriodGradeSummary(TimeStampedModel):
     is_failing = models.BooleanField(default=False, verbose_name="Est\u00e1 Reprobando")
     promotion_status = models.CharField(
         max_length=20, choices=PromotionStatusChoices.choices,
-        null=True, blank=True, verbose_name="Estado de Promoci\u00f3n",
+        null=True, blank=True, verbose_name="Estado de Promocion",
     )
     calculated_at = models.DateTimeField(auto_now_add=True, verbose_name="Calculado en")
     calculated_by = models.ForeignKey(
@@ -217,8 +215,8 @@ class PeriodGradeSummary(TimeStampedModel):
 
     class Meta:
         app_label = "grading_student_note"
-        verbose_name = "Resumen de Calificaciones del Per\u00edodo"
-        verbose_name_plural = "Res\u00famenes de Calificaciones del Per\u00edodo"
+        verbose_name = "Resumen de Calificaciones del Periodo"
+        verbose_name_plural = "Res\u00famenes de Calificaciones del Periodo"
         constraints = [
             models.UniqueConstraint(
                 fields=["enrollment", "subject_offering", "academic_period"],

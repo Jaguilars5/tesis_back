@@ -21,18 +21,17 @@ class ConductIncident(TimeStampedModel, SyncableModel):
         "academic_period.AcademicPeriod",
         on_delete=models.CASCADE,
         related_name="conduct_incidents",
-        verbose_name="Per\u00edodo Academico",
+        verbose_name="Periodo Academico",
     )
     enrollment = models.ForeignKey(
         "students.Enrollment",
         on_delete=models.CASCADE,
         related_name="conduct_incidents",
-        verbose_name="Matr\u00edcula",
+        verbose_name="Matricula",
     )
 
-    is_active = models.BooleanField(default=True, verbose_name="Activo")
     incident_date = models.DateField(verbose_name="Fecha del Incidente")
-    description = models.TextField(blank=True, default="", verbose_name="Descripci\u00f3n")
+    description = models.TextField(blank=True, default="", verbose_name="Descripcion")
     actions_taken = models.TextField(blank=True, default="", verbose_name="Acciones tomadas")
     family_notified = models.BooleanField(default=False, verbose_name="Familia Notificada")
 

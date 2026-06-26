@@ -1,29 +1,16 @@
 """
 Servicios de dominio para dashboard y reportes analíticos.
 
-Agrupa métricas y datos para visualizaciones.
+Agrupa métricas y datos para visualizaciones. Todo el acceso a datos se delega a
+``DashboardRepository`` (checklist §5: sin ``Model.objects`` ni imports de modelos
+de otras apps en la capa de servicio).
 """
 
 import csv
 import io
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
-from django.db.models import Avg, Count
-from django.db.models.functions import TruncMonth
-
-from apps.students.repositories.enrollment_repo import EnrollmentRepository
-from apps.analytics.student_risk.infrastructure.repositories import (
-    StudentRiskScoreRepository,
-    StudentFeatureSnapshotRepository,
-)
-from apps.analytics.student_risk.infrastructure.models import (
-    StudentRiskScore,
-    StudentFeatureSnapshot,
-)
-from apps.analytics.early_alert.infrastructure.repositories import (
-    EarlyAlertRepository,
-)
-from apps.analytics.early_alert.infrastructure.models import EarlyAlert
+from ..infrastructure.repositories import DashboardRepository
 
 
 class DashboardService:
@@ -33,80 +20,43 @@ class DashboardService:
     Proporciona agregaciones sobre datos de riesgo, asistencia y conducta.
     """
 
+    repository = DashboardRepository
+
     @classmethod
     def get_overview(cls, academic_period_id: int) -> Dict[str, Any]:
         """KPIs globales para un período académico."""
-        snapshots = StudentFeatureSnapshot.objects.filter(
-            academic_period_id=academic_period_id
-        )
-        scores = StudentRiskScore.objects.filter(
-            academic_period_id=academic_period_id
-        )
-
+        metrics = cls.repository.get_snapshot_aggregates(academic_period_id)
         return {
             "period_id": academic_period_id,
-            "total_students": snapshots.count(),
-            "attendance_rate_avg": (
-                snapshots.aggregate(Avg("attendance_rate"))["attendance_rate__avg"]
-                or 0
+            "total_students": metrics["total_students"],
+            "attendance_rate_avg": metrics["attendance_rate_avg"],
+            "formative_avg": metrics["formative_avg"],
+            "summative_avg": metrics["summative_avg"],
+            "failing_count": metrics["failing_count"],
+            "risk_distribution": cls.repository.get_risk_label_counts(
+                academic_period_id
             ),
-            "formative_avg": (
-                snapshots.aggregate(Avg("formative_avg_normalized"))[
-                    "formative_avg_normalized__avg"
-                ]
-                or 0
-            ),
-            "summative_avg": (
-                snapshots.aggregate(Avg("summative_avg_normalized"))[
-                    "summative_avg_normalized__avg"
-                ]
-                or 0
-            ),
-            "failing_count": snapshots.filter(failing_subjects_count__gte=1).count(),
-            "risk_distribution": {
-                "rojo": scores.filter(risk_label="rojo").count(),
-                "amarillo": scores.filter(risk_label="amarillo").count(),
-                "verde": scores.filter(risk_label="verde").count(),
-            },
-            "active_alerts": EarlyAlert.objects.filter(
-                academic_period_id=academic_period_id, attended=False
-            ).count(),
-            "avg_severe_incidents": (
-                snapshots.aggregate(Avg("severe_incidents_count"))[
-                    "severe_incidents_count__avg"
-                ]
-                or 0
-            ),
+            "active_alerts": cls.repository.get_active_alerts_count(academic_period_id),
+            "avg_severe_incidents": metrics["avg_severe_incidents"],
         }
 
     @classmethod
     def get_risk_distribution_by_grade(cls, academic_period_id: int) -> Dict[str, Dict]:
         """Distribución de riesgo por grado académico."""
-        scores = StudentRiskScore.objects.filter(
-            academic_period_id=academic_period_id
-        ).select_related("enrollment__section__academic_grade")
 
-        distribution = {}
-        for score in scores:
-            grade = score.enrollment.section.academic_grade.name
-            if grade not in distribution:
-                distribution[grade] = {
-                    "rojo": 0,
-                    "amarillo": 0,
-                    "verde": 0,
-                    "total": 0,
-                }
-            distribution[grade][score.risk_label] += 1
-            distribution[grade]["total"] += 1
+        def grade_name(score):
+            return score.enrollment.section.academic_grade.name
 
-        return distribution
+        return cls._risk_distribution_by_dimension(
+            cls.repository.scores_with_grade(academic_period_id), grade_name
+        )
 
     @classmethod
     def _risk_distribution_by_dimension(
         cls, scores, key_fn
     ) -> Dict[str, Dict[str, int]]:
         """Helper para distribución por dimensión arbitraria."""
-        distribution = {}
+        distribution: Dict[str, Dict[str, int]] = {}
         for score in scores:
             key = key_fn(score) or "Sin asignar"
             bucket = distribution.setdefault(
@@ -120,31 +70,29 @@ class DashboardService:
     @classmethod
     def get_risk_distribution_by_city(cls, academic_period_id: int) -> Dict[str, Dict]:
         """Distribución de riesgo por ciudad de origen (Fase 4)."""
-        scores = StudentRiskScore.objects.filter(
-            academic_period_id=academic_period_id
-        ).select_related("enrollment__student__user__person__city")
 
         def city_name(score):
             person = getattr(score.enrollment.student.user, "person", None)
             city = getattr(person, "city", None) if person else None
             return city.name if city else None
 
-        return cls._risk_distribution_by_dimension(scores, city_name)
+        return cls._risk_distribution_by_dimension(
+            cls.repository.scores_with_city(academic_period_id), city_name
+        )
 
     @classmethod
     def get_risk_distribution_by_special_needs_type(
         cls, academic_period_id: int
     ) -> Dict[str, Dict]:
         """Distribución de riesgo por tipo de NEE (Fase 4)."""
-        scores = StudentRiskScore.objects.filter(
-            academic_period_id=academic_period_id
-        ).select_related("enrollment__student__special_needs_type")
 
         def needs_type(score):
             snt = score.enrollment.student.special_needs_type
             return snt.name if snt else "Sin NEE"
 
-        return cls._risk_distribution_by_dimension(scores, needs_type)
+        return cls._risk_distribution_by_dimension(
+            cls.repository.scores_with_special_needs(academic_period_id), needs_type
+        )
 
     @classmethod
     def get_dropout_by_city(
@@ -155,14 +103,8 @@ class DashboardService:
 
         Retorna lista de dicts con ciudad, total, retirados y tasa.
         """
-        from apps.students.models import Enrollment
-
-        qs = Enrollment.objects.select_related("student__user__person__city")
-        if school_year_id:
-            qs = qs.filter(section__school_year_id=school_year_id)
-
-        rows = {}
-        for enrollment in qs:
+        rows: Dict[str, Dict[str, int]] = {}
+        for enrollment in cls.repository.enrollments_with_city(school_year_id):
             person = getattr(enrollment.student.user, "person", None)
             city = getattr(person, "city", None) if person else None
             name = city.name if city else "Sin asignar"
@@ -190,16 +132,10 @@ class DashboardService:
         cls, school_year_id: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """Conteo de motivos de retiro."""
-        from apps.students.models import Enrollment
-
-        qs = Enrollment.objects.filter(enrollment_status="RET").select_related(
-            "withdrawal_reason"
-        )
-        if school_year_id:
-            qs = qs.filter(section__school_year_id=school_year_id)
-
-        counts = {}
-        for enrollment in qs:
+        counts: Dict[str, int] = {}
+        for enrollment in cls.repository.withdrawn_enrollments_with_reason(
+            school_year_id
+        ):
             reason = enrollment.withdrawal_reason
             name = reason.name if reason else "Sin especificar"
             counts[name] = counts.get(name, 0) + 1
@@ -216,10 +152,6 @@ class DashboardService:
         cls, academic_period_id: int, risk_label: str = "rojo"
     ) -> List[Dict[str, Any]]:
         """Lista de estudiantes con nivel de riesgo específico."""
-        scores = StudentRiskScore.objects.filter(
-            academic_period_id=academic_period_id, risk_label=risk_label
-        ).select_related("enrollment__student__user__person")
-
         return [
             {
                 "student_id": s.enrollment.student_id,
@@ -227,35 +159,23 @@ class DashboardService:
                 "risk_score": float(s.risk_score),
                 "risk_label": s.risk_label,
             }
-            for s in scores
+            for s in cls.repository.scores_with_person_by_label(
+                academic_period_id, risk_label
+            )
         ]
 
     @classmethod
     def get_section_summary(cls, section_id: int) -> Dict[str, Any]:
         """Resumen de métricas para una sección específica."""
-        snapshots = StudentFeatureSnapshot.objects.filter(
-            enrollment__section_id=section_id
-        )
-        scores = StudentRiskScore.objects.filter(enrollment__section_id=section_id)
-
+        metrics = cls.repository.get_section_snapshot_aggregates(section_id)
         return {
             "section_id": section_id,
-            "total_students": snapshots.count(),
-            "attendance_rate_avg": (
-                snapshots.aggregate(Avg("attendance_rate"))["attendance_rate__avg"]
-                or 0
+            "total_students": metrics["total_students"],
+            "attendance_rate_avg": metrics["attendance_rate_avg"],
+            "formative_avg": metrics["formative_avg"],
+            "risk_distribution": cls.repository.get_section_risk_label_counts(
+                section_id
             ),
-            "formative_avg": (
-                snapshots.aggregate(Avg("formative_avg_normalized"))[
-                    "formative_avg_normalized__avg"
-                ]
-                or 0
-            ),
-            "risk_distribution": {
-                "rojo": scores.filter(risk_label="rojo").count(),
-                "amarillo": scores.filter(risk_label="amarillo").count(),
-                "verde": scores.filter(risk_label="verde").count(),
-            },
         }
 
     @classmethod
@@ -263,22 +183,9 @@ class DashboardService:
         cls, school_year_id: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """Tendencia de matrículas por mes."""
-        from apps.students.models import Enrollment
-
-        qs = Enrollment.objects.all()
-        if school_year_id:
-            qs = qs.filter(section__school_year_id=school_year_id)
-
-        rows = (
-            qs.annotate(month=TruncMonth("enrollment_date"))
-            .values("month")
-            .annotate(count=Count("id"))
-            .order_by("month")
-        )
-
         return [
             {"month": r["month"].strftime("%Y-%m"), "count": r["count"]}
-            for r in rows
+            for r in cls.repository.get_enrollment_trend_rows(school_year_id)
             if r["month"] is not None
         ]
 
@@ -290,24 +197,16 @@ class CSVExportService:
 
     EXPORT_TYPES = {
         "risk": {
-            "model_path": "apps.analytics.student_risk.infrastructure.models.StudentRiskScore",
-            "fields": [
-                "enrollment__student__student_code",
-                "risk_score",
-                "risk_label",
-            ],
+            "rows_method": "get_risk_export_rows",
             "headers": ["Código Estudiante", "Score Riesgo", "Nivel"],
         },
         "attendance": {
-            "model_path": "apps.analytics.student_risk.infrastructure.models.StudentFeatureSnapshot",
-            "fields": [
-                "enrollment__student__student_code",
-                "attendance_rate",
-                "tardiness_count",
-            ],
+            "rows_method": "get_attendance_export_rows",
             "headers": ["Código Estudiante", "% Asistencia", "Tardanzas"],
         },
     }
+
+    repository = DashboardRepository
 
     @classmethod
     def generate_csv(cls, export_type: str, academic_period_id: int) -> str:
@@ -325,20 +224,12 @@ class CSVExportService:
         if not config:
             raise ValueError(f"Tipo de exportación no válido: {export_type}")
 
-        # Import dinámico del modelo
-        module_path, model_name = config["model_path"].rsplit(".", 1)
-        module = __import__(module_path, fromlist=[model_name])
-        Model = getattr(module, model_name)
-
-        queryset = Model.objects.filter(
-            academic_period_id=academic_period_id
-        ).values_list(*config["fields"])
+        rows = getattr(cls.repository, config["rows_method"])(academic_period_id)
 
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow(config["headers"])
-
-        for row in queryset:
+        for row in rows:
             writer.writerow(row)
 
         return output.getvalue()
@@ -349,17 +240,12 @@ class RecalculationService:
     Servicio para recalcular riesgo de estudiantes.
     """
 
+    repository = DashboardRepository
+
     @classmethod
     def get_student_ids_for_period(cls, academic_period_id: int) -> List[int]:
         """Obtiene IDs de estudiantes activos para un período."""
-        from apps.students.models import Enrollment
-
-        return list(
-            Enrollment.objects.filter(
-                enrollment_status="ACT",
-                section__school_year__academic_periods__id=academic_period_id,
-            ).values_list("student_id", flat=True)
-        )
+        return cls.repository.get_active_student_ids_for_period(academic_period_id)
 
     @classmethod
     def recalculate_period(cls, academic_period_id: int, user_id: Optional[int] = None):
@@ -373,7 +259,6 @@ class RecalculationService:
         )
 
         student_ids = cls.get_student_ids_for_period(academic_period_id)
-
         if not student_ids:
             return None
 

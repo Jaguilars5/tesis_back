@@ -196,9 +196,9 @@ Todas las respuestas siguen el formato:
         },
         {
             "name": "academic",
-            "description": "Materias, per\u00edodos academicos, oferta academica y proyectos interdisciplinarios",
+            "description": "Materias, periodos academicos, oferta academica y proyectos interdisciplinarios",
         },
-        {"name": "students", "description": "Estudiantes, representantes y matr\u00edculas"},
+        {"name": "students", "description": "Estudiantes, representantes y matriculas"},
         {"name": "grading", "description": "Calificaciones, bloques, componentes, indicadores y actividades evaluativas"},
         {"name": "analytics", "description": "An\u00e1lisis de riesgo estudiantil y alertas tempranas"},
         {"name": "attendance", "description": "Asistencia, estados de asistencia y tipos de ausencia"},

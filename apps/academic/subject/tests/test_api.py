@@ -54,7 +54,7 @@ class SubjectAPITest(APITestCase):
         self.assertTrue(response.data["ok"])
 
     def test_soft_delete(self):
-        subject = Subject.objects.create(name="Geograf\u00eda", code="GEO-001")
+        subject = Subject.objects.create(name="Geografia", code="GEO-001")
         response = self.client.post(f"{self.url}{subject.id}/soft-delete/", format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data["ok"])

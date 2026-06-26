@@ -29,7 +29,7 @@ from ..permissions import ACTION_PERMISSIONS, GRADE_HISTORY_PERMISSIONS, GRADE_S
     update=extend_schema(summary="Actualizar nota de estudiante", tags=["grading"]),
     partial_update=extend_schema(summary="Actualizar nota parcialmente", tags=["grading"]),
     destroy=extend_schema(summary="Eliminar nota de estudiante", tags=["grading"]),
-    soft_delete=extend_schema(summary="Desactivar nota de estudiante", tags=["grading"]),
+    anular=extend_schema(summary="Anular nota de estudiante", tags=["grading"]),
 )
 class StudentNoteViewSet(BaseGradingViewSet):
     serializer_class = StudentNoteSerializer
@@ -60,23 +60,43 @@ class StudentNoteViewSet(BaseGradingViewSet):
 
     def perform_update(self, serializer):
         data = serializer.validated_data
+        kwargs = {}
+        for field in ("numeric_score", "teacher_observation", "grading_mode", "manually_overridden"):
+            if field in data:
+                kwargs[field] = data[field]
+        if "qualitative_scale" in data:
+            scale = data["qualitative_scale"]
+            kwargs["qualitative_scale_id"] = scale.id if scale else None
         try:
             obj = StudentNoteService.update_student_note(
                 note_id=serializer.instance.id,
-                numeric_score=data.get("numeric_score"),
-                teacher_observation=data.get("teacher_observation", ""),
-                grading_mode=data.get("grading_mode"),
-                manually_overridden=data.get("manually_overridden"),
+                **kwargs,
             )
             serializer.instance = obj
         except ValueError as e:
             raise ValidationError(e.args[0] if e.args else str(e))
 
-    @action(detail=True, methods=["post"])
-    def soft_delete(self, request, pk=None):
-        confirm = request.data.get("confirm", False)
-        result = StudentNoteService.soft_delete(pk, confirm=confirm)
-        return ok_response(result)
+    @action(detail=True, methods=["post"], url_path="anular")
+    def anular(self, request, pk=None):
+        """
+        Anula una nota marcándola como manualmente anulada.
+
+        POST /api/grading/student-notes/{id}/anular/
+        Body: {"reason": "Razón de la anulación"}
+        """
+        reason = request.data.get("reason", "")
+        try:
+            note = StudentNoteService.anular_nota(
+                note_id=pk,
+                user_id=request.user.id,
+                reason=reason,
+            )
+            return ok_response(
+                StudentNoteSerializer(note).data,
+                msg="Nota anulada exitosamente",
+            )
+        except ValueError as e:
+            raise ValidationError(e.args[0] if e.args else str(e))
 
 
 @extend_schema_view(
@@ -104,9 +124,9 @@ class GradeChangeHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     create=extend_schema(summary="Crear resumen de notas", tags=["grading"]),
     update=extend_schema(summary="Actualizar resumen de notas", tags=["grading"]),
     partial_update=extend_schema(summary="Actualizar resumen parcialmente", tags=["grading"]),
-    destroy=extend_schema(summary="Eliminar resumen de notas", tags=["grading"]),
 )
 class PeriodGradeSummaryViewSet(BaseGradingViewSet):
+    http_method_names = ["get", "post", "put", "patch", "head", "options"]
     serializer_class = PeriodGradeSummarySerializer
     action_permissions = GRADE_SUMMARY_PERMISSIONS
     filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
@@ -171,7 +191,7 @@ class PeriodGradeSummaryViewSet(BaseGradingViewSet):
         return ok_response({"task_id": task.id, "status": "PENDING"}, status_code=202)
 
     @extend_schema(
-        summary="Recalcular todos los res\u00famenes de un per\u00edodo",
+        summary="Recalcular todos los res\u00famenes de un periodo",
         tags=["grading"],
         request={
             "application/json": {

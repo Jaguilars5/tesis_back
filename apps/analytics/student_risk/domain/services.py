@@ -4,65 +4,18 @@ Servicios de dominio para riesgo estudiantil.
 Lógica de negocio pura que orquesta validaciones y persistencia.
 """
 
-from typing import Dict, Optional, Any
-from decimal import Decimal
+from typing import Any, Dict, Optional
 
-from ..infrastructure.repositories import (
-    RiskScoringConfigRepository,
-    StudentRiskScoreRepository,
-    StudentFeatureSnapshotRepository,
-)
-
-
-# Presets de configuración (Auditoría §9.4)
-PRESETS: Dict[str, Dict] = {
-    "conservador": {
-        "engine": "reglas",
-        "preset": "conservador",
-        "weight_conducta": Decimal("25.00"),
-        "weight_asistencia": Decimal("40.00"),
-        "weight_calificaciones": Decimal("35.00"),
-        "attendance_red_max": Decimal("75.00"),
-        "attendance_yellow_max": Decimal("88.00"),
-        "average_red_max": Decimal("6.50"),
-        "average_yellow_max": Decimal("7.50"),
-        "severe_red_min": 2,
-        "mild_yellow_min": 4,
-    },
-    "equilibrado": {
-        "engine": "reglas",
-        "preset": "equilibrado",
-        "weight_conducta": Decimal("30.00"),
-        "weight_asistencia": Decimal("35.00"),
-        "weight_calificaciones": Decimal("35.00"),
-        "attendance_red_max": Decimal("70.00"),
-        "attendance_yellow_max": Decimal("85.00"),
-        "average_red_max": Decimal("6.00"),
-        "average_yellow_max": Decimal("7.00"),
-        "severe_red_min": 3,
-        "mild_yellow_min": 5,
-    },
-    "estricto": {
-        "engine": "reglas",
-        "preset": "estricto",
-        "weight_conducta": Decimal("35.00"),
-        "weight_asistencia": Decimal("30.00"),
-        "weight_calificaciones": Decimal("35.00"),
-        "attendance_red_max": Decimal("65.00"),
-        "attendance_yellow_max": Decimal("80.00"),
-        "average_red_max": Decimal("5.50"),
-        "average_yellow_max": Decimal("6.50"),
-        "severe_red_min": 4,
-        "mild_yellow_min": 6,
-    },
-}
+from ..infrastructure.repositories import RiskScoringConfigRepository
 
 
 class RiskScoringConfigService:
     """
     Servicio para gestión de configuración de scoring.
 
-    Proporciona acceso al singleton y aplicación de presets.
+    Proporciona acceso al singleton y aplicación de presets. Los presets
+    canónicos viven en ``apps.analytics.services.risk_scoring_config_service``
+    (fuente única, consumida también por el motor de cálculo).
     """
 
     @classmethod
@@ -71,18 +24,25 @@ class RiskScoringConfigService:
         return RiskScoringConfigRepository.get_or_create_singleton()
 
     @classmethod
-    def apply_preset(cls, preset_name: str) -> Optional:
+    def apply_preset(cls, preset_name: str):
         """Aplica un preset predefinido a la configuración."""
-        if preset_name not in PRESETS:
-            raise ValueError(f"Preset '{preset_name}' no válido. Opciones: {', '.join(PRESETS.keys())}")
+        from apps.analytics.services.risk_scoring_config_service import PRESETS
 
-        config_data = PRESETS[preset_name].copy()
+        if preset_name not in PRESETS:
+            raise ValueError(
+                f"Preset '{preset_name}' no válido. "
+                f"Opciones: {', '.join(PRESETS.keys())}"
+            )
+
+        config_data = dict(PRESETS[preset_name])
+        config_data["preset"] = preset_name
+        config_data.setdefault("engine", "reglas")
         return RiskScoringConfigRepository.update_singleton(**config_data)
 
     @classmethod
     def update_config(cls, **kwargs):
         """Actualiza campos específicos de la configuración."""
-        # Si se actualiza algo distinto al preset, marcar como personalizado
+        # Si se actualiza algo distinto al preset, marcar como personalizado.
         if any(k != "preset" for k in kwargs.keys()):
             kwargs["preset"] = "personalizado"
         return RiskScoringConfigRepository.update_singleton(**kwargs)
@@ -147,22 +107,58 @@ class StudentRiskCalculationService:
             "analysis": analysis,
         }
 
+    @classmethod
+    def simulate(cls, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Evalúa el motor/reglas con parámetros simulados (sin estudiante real).
 
-class AnalyticsService:
-    """Lecturas agregadas del perfil de riesgo de un estudiante."""
+        Retorna ``{"reglas": ..., "ml": ..., "config": <modelo singleton>}``;
+        la serialización de ``config`` queda a cargo de la vista.
+        """
+        from .risk_engine import calculate_risk, _predict_ml_score
 
-    @staticmethod
-    def get_student_risk_profile(student_id: int) -> Dict[str, Any]:
-        """Retorna el score más reciente y su snapshot de métricas asociado."""
-        risk = StudentRiskScoreRepository.get_latest_by_student(student_id)
-        snapshot = None
-        if risk:
-            snapshot = StudentFeatureSnapshotRepository.get_by_student_period(
-                student_id, risk.academic_period_id
-            )
-        return {"risk_score": risk, "metrics_snapshot": snapshot}
+        variables = {
+            "conducta": {
+                "faltas_leves": params["mild_incidents_count"],
+                "faltas_graves": params["severe_incidents_count"],
+            },
+            "asistencia": {
+                "porcentaje_asistencia": params["attendance_rate"],
+                "total_registros": 1,
+            },
+            "calificaciones": {
+                "promedio_actual": params["average_grade"],
+                "total_calificaciones": 1,
+                "materias_reprobadas": params["failing_subjects_count"],
+            },
+        }
+        snapshot = {
+            "estudiante_id": "simulacion",
+            "periodo": "simulacion",
+            "variables": variables,
+        }
 
-    @staticmethod
-    def list_priority_students(academic_period_id: int):
-        """Lista estudiantes con mayor riesgo en un periodo."""
-        return StudentRiskScoreRepository.list_high_risk(academic_period_id)
+        config = RiskScoringConfigService.get_effective_config()
+        rules_result = calculate_risk(snapshot, config=config)
+
+        ml_result = None
+        if params.get("try_ml") and config.engine == "ML":
+            try:
+                ml_score = _predict_ml_score(snapshot)
+                if ml_score is not None:
+                    ml_result = {
+                        "puntaje_riesgo": round(float(ml_score), 2),
+                        "model_version": "sklearn-joblib-v2",
+                    }
+            except Exception:
+                ml_result = {"error": "Error al ejecutar modelo ML"}
+
+        return {
+            "reglas": {
+                "semaforo_riesgo": rules_result["semaforo_riesgo"],
+                "detalle_por_variable": rules_result["detalle_por_variable"],
+                "model_version": rules_result["model_version"],
+            },
+            "ml": ml_result,
+            "config": config,
+        }

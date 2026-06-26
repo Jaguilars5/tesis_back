@@ -13,12 +13,12 @@ class EvaluationBlockTypeChoices(TextChoices):
 
 
 class EvaluationBlock(TimeStampedModel):
-    code = models.CharField(max_length=50, blank=True, db_index=True, verbose_name="C\u00f3digo")
+    code = models.CharField(max_length=50, blank=True, db_index=True, verbose_name="Codigo")
     academic_period = models.ForeignKey(
         "academic_period.AcademicPeriod",
         on_delete=models.CASCADE,
         related_name="evaluation_blocks",
-        verbose_name="Per\u00edodo Academico",
+        verbose_name="Periodo Academico",
     )
     subject_offering = models.ForeignKey(
         "academic_subject_offering.SubjectOffering",
@@ -32,14 +32,14 @@ class EvaluationBlock(TimeStampedModel):
         null=True, blank=True, verbose_name="Tipo de bloque",
     )
     weight_percentage = models.DecimalField(
-        max_digits=5, decimal_places=2, verbose_name="Porcentaje de Ponderaci\u00f3n",
+        max_digits=5, decimal_places=2, verbose_name="Porcentaje de Ponderacion",
     )
     is_active = models.BooleanField(default=True, verbose_name="Activo")
 
     class Meta:
         app_label = "grading_evaluation"
-        verbose_name = "Bloque de Evaluaci\u00f3n"
-        verbose_name_plural = "Bloques de Evaluaci\u00f3n"
+        verbose_name = "Bloque de Evaluacion"
+        verbose_name_plural = "Bloques de Evaluacion"
         ordering = ["academic_period", "subject_offering", "block_type"]
         indexes = [
             models.Index(fields=["subject_offering", "academic_period"]),
@@ -71,16 +71,16 @@ class EvaluationBlock(TimeStampedModel):
 
 
 class BlockComponent(TimeStampedModel):
-    code = models.CharField(max_length=50, blank=True, db_index=True, verbose_name="C\u00f3digo")
+    code = models.CharField(max_length=50, blank=True, db_index=True, verbose_name="Codigo")
     evaluation_block = models.ForeignKey(
         "grading_evaluation.EvaluationBlock",
         on_delete=models.CASCADE,
         related_name="components",
-        verbose_name="Bloque de Evaluaci\u00f3n",
+        verbose_name="Bloque de Evaluacion",
     )
     name = models.CharField(max_length=100, verbose_name="Nombre")
     internal_weight = models.DecimalField(
-        max_digits=5, decimal_places=2, verbose_name="Ponderaci\u00f3n Interna (%)",
+        max_digits=5, decimal_places=2, verbose_name="Ponderacion Interna (%)",
     )
     is_active = models.BooleanField(default=True, verbose_name="Activo")
 
@@ -121,9 +121,9 @@ class EvaluativeActivity(TimeStampedModel, SyncableModel):
         "academic_teacher_subject.TeacherSubjectSection",
         on_delete=models.CASCADE,
         related_name="evaluative_activities",
-        verbose_name="Docente-Materia-Secci\u00f3n",
+        verbose_name="Docente-Materia-Seccion",
     )
-    title = models.CharField(max_length=200, verbose_name="T\u00edtulo")
+    title = models.CharField(max_length=200, verbose_name="Titulo")
     activity_type = models.ForeignKey(
         "grading_activity_type.ActivityType",
         on_delete=models.SET_NULL,
@@ -131,11 +131,11 @@ class EvaluativeActivity(TimeStampedModel, SyncableModel):
         verbose_name="Tipo de Actividad",
     )
     max_score = models.DecimalField(
-        max_digits=5, decimal_places=2, verbose_name="Puntuaci\u00f3n M\u00e1xima"
+        max_digits=5, decimal_places=2, verbose_name="Puntuacion M\u00e1xima"
     )
     due_date = models.DateField(verbose_name="Fecha de Vencimiento")
     internal_weight = models.DecimalField(
-        max_digits=5, decimal_places=2, verbose_name="Ponderaci\u00f3n Interna (%)",
+        max_digits=5, decimal_places=2, verbose_name="Ponderacion Interna (%)",
     )
     is_active = models.BooleanField(default=True, verbose_name="Activo")
 
@@ -164,7 +164,7 @@ class EvaluativeActivity(TimeStampedModel, SyncableModel):
             period = block.academic_period
             if self.due_date < period.start_date or self.due_date > period.end_date:
                 raise ValidationError(
-                    {"due_date": f"La fecha debe estar dentro del per\u00edodo academico ({period.start_date} - {period.end_date})"}
+                    {"due_date": f"La fecha debe estar dentro del periodo academico ({period.start_date} - {period.end_date})"}
                 )
 
     @property

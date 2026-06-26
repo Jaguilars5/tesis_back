@@ -15,12 +15,9 @@ logger = logging.getLogger(__name__)
 
 sio = socketio.AsyncServer(
     async_mode="asgi",
-    cors_allowed_origins=[
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:3000",
-    ],
+    # Reutiliza los mismos orígenes permitidos que Django (definidos en .env)
+    # para que el CORS de Socket.IO no se desincronice del de la API REST.
+    cors_allowed_origins=list(settings.CORS_ALLOWED_ORIGINS),
     client_manager=AsyncRedisManager(settings.SOCKETIO_REDIS_URL),
     # Mantiene la conexión WebSocket activa para evitar que daphne
     # cierre el socket por inactividad (timeout ~30s por defecto).

@@ -12,7 +12,7 @@ from rest_framework import mixins, status, viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 
-from apps.core.api.mixins import SoftDeleteModelMixin
+from apps.core.api.mixins import SoftDeleteModelMixin, SoftDestroyMixin
 from apps.core.api.pagination import StandardResultsSetPagination
 from apps.core.api.permissions import HasPermission
 from apps.core.utils import ok_response
@@ -24,6 +24,7 @@ class BaseAnalyticsViewSet(
     mixins.UpdateModelMixin,
     mixins.DestroyModelMixin,
     SoftDeleteModelMixin,
+    SoftDestroyMixin,
     viewsets.GenericViewSet,
 ):
     """
@@ -81,9 +82,3 @@ class BaseAnalyticsViewSet(
             raise ValidationError(serializer.errors)
         self.perform_update(serializer)
         return ok_response(serializer.data, msg="Actualizado exitosamente")
-
-    def destroy(self, request, *args, **kwargs):
-        """Eliminar un registro (soft delete si está habilitado)."""
-        instance = self.get_object()
-        self.perform_destroy(instance)
-        return ok_response(msg="Eliminado exitosamente")

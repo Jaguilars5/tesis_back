@@ -18,7 +18,6 @@ class StudentNoteEntity:
     uuid: str | None
     sync_status: str
     sync_version: int
-    is_active: bool
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

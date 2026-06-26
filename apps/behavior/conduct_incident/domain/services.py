@@ -30,32 +30,3 @@ class ConductIncidentService:
         }
         clean = {k: v for k, v in kwargs.items() if k in allowed}
         return cls.repository.update(pk, **clean)
-
-    @classmethod
-    def delete_conduct_incident(cls, pk):
-        cls.get_conduct_incident(pk)
-        cls.repository.delete(pk)
-        return True
-
-    @classmethod
-    def soft_delete(cls, pk, confirm=False):
-        obj = cls.get_conduct_incident(pk)
-        counts = cls.repository.get_cascade_counts(pk)
-        total = sum(counts.values())
-
-        if total > 0 and not confirm:
-            parts = [f"{v} {k}" for k, v in counts.items()]
-            return {
-                "requires_confirmation": True,
-                "affected_records": total,
-                "message": f"Esta acci\u00f3n desactivar\u00e1 {', '.join(parts)} relacionados",
-                "id": obj.id,
-                "is_active": True,
-            }
-
-        total = cls.repository.deactivate_cascade(pk)
-        return {
-            "id": obj.id,
-            "is_active": False,
-            "deactivated_records": total,
-        }

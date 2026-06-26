@@ -18,10 +18,9 @@ from ..permissions import ACTION_PERMISSIONS
     create=extend_schema(summary="Crear incidente", tags=["behavior"]),
     update=extend_schema(summary="Actualizar incidente", tags=["behavior"]),
     partial_update=extend_schema(summary="Actualizar incidente parcialmente", tags=["behavior"]),
-    destroy=extend_schema(summary="Eliminar incidente", tags=["behavior"]),
-    soft_delete=extend_schema(summary="Desactivar incidente", tags=["behavior"]),
 )
 class ConductIncidentViewSet(BaseBehaviorViewSet):
+    http_method_names = ["get", "post", "put", "patch", "head", "options"]
     serializer_class = ConductIncidentSerializer
     action_permissions = ACTION_PERMISSIONS
     filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]

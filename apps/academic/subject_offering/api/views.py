@@ -58,7 +58,11 @@ class SubjectOfferingViewSet(BaseAcademicViewSet):
         serializer.instance = instance
 
     def perform_update(self, serializer):
-        data = serializer.validated_data
+        data = dict(serializer.validated_data)
+        if "section" in data:
+            data["section_id"] = data.pop("section").id
+        if "subject_academic_config" in data:
+            data["subject_academic_config_id"] = data.pop("subject_academic_config").id
         try:
             instance = SubjectOfferingService.update_offering(
                 offering_id=serializer.instance.id,

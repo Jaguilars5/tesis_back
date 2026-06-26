@@ -42,16 +42,6 @@ class StudentNoteRepositoryInterface(ABC):
     def delete(cls, pk):
         pass
 
-    @classmethod
-    @abstractmethod
-    def get_cascade_counts(cls, instance_id: int) -> dict[str, int]:
-        pass
-
-    @classmethod
-    @abstractmethod
-    def deactivate_cascade(cls, instance_id: int) -> int:
-        pass
-
 
 class PeriodGradeSummaryRepositoryInterface(ABC):
     @classmethod
@@ -77,14 +67,4 @@ class PeriodGradeSummaryRepositoryInterface(ABC):
     @classmethod
     @abstractmethod
     def delete(cls, pk):
-        pass
-
-    @classmethod
-    @abstractmethod
-    def get_cascade_counts(cls, instance_id: int) -> dict[str, int]:
-        pass
-
-    @classmethod
-    @abstractmethod
-    def deactivate_cascade(cls, instance_id: int) -> int:
         pass

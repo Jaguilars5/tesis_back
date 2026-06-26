@@ -21,7 +21,6 @@ def student_note_to_entity(model: StudentNote) -> StudentNoteEntity:
         uuid=str(model.uuid) if model.uuid else None,
         sync_status=model.sync_status,
         sync_version=model.sync_version,
-        is_active=model.is_active,
         created_at=model.created_at,
         updated_at=model.updated_at,
     )

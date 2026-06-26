@@ -10,9 +10,9 @@ class AcademicSublevel(TimeStampedModel):
         verbose_name="Nivel Academico",
         related_name="sublevels",
     )
-    code = models.CharField(max_length=20, unique=True, verbose_name="C\u00f3digo")
+    code = models.CharField(max_length=20, unique=True, verbose_name="Codigo")
     name = models.CharField(max_length=100, verbose_name="Nombre")
-    description = models.TextField(blank=True, verbose_name="Descripci\u00f3n")
+    description = models.TextField(blank=True, verbose_name="Descripcion")
     is_active = models.BooleanField(default=True, verbose_name="Activo")
 
     class Meta:

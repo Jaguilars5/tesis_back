@@ -2,7 +2,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
-from rest_framework.filters import OrderingFilter
+from rest_framework.filters import OrderingFilter, SearchFilter
 
 from apps.academic.api.base import BaseAcademicViewSet
 from apps.core.utils import ok_response
@@ -34,8 +34,9 @@ def _raise_validation_error(exc: ValueError) -> None:
 class SubjectAcademicConfigViewSet(BaseAcademicViewSet):
     serializer_class = SubjectAcademicConfigSerializer
     action_permissions = ACTION_PERMISSIONS
-    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
     filterset_class = SubjectAcademicConfigFilter
+    search_fields = ["subject__name", "academic_grade__name"]
     ordering_fields = ["weekly_hours"]
     ordering = ["subject"]
 

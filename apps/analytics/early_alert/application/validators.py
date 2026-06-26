@@ -11,14 +11,14 @@ from ..infrastructure.repositories import EarlyAlertRepository
 def validate_enrollment_exists(enrollment_id: int) -> Dict[str, str]:
     enrollment = EnrollmentRepository.get_by_id(enrollment_id)
     if not enrollment:
-        return {"enrollment": f"Matr\u00edcula {enrollment_id} no encontrada"}
+        return {"enrollment": f"Matricula {enrollment_id} no encontrada"}
     return {}
 
 
 def validate_academic_period_exists(academic_period_id: int) -> Dict[str, str]:
     period = AcademicPeriodRepository.get_by_id(academic_period_id)
     if not period:
-        return {"academic_period": f"Per\u00edodo acad\u00e9mico {academic_period_id} no encontrado"}
+        return {"academic_period": f"Periodo acad\u00e9mico {academic_period_id} no encontrado"}
     return {}
 
 
@@ -35,7 +35,7 @@ def validate_not_duplicate(
     if exclude_id:
         qs = qs.exclude(id=exclude_id)
     if qs.exists():
-        return {"alert_type": f"Ya existe una alerta activa de tipo '{alert_type}' para este estudiante en este per\u00edodo"}
+        return {"alert_type": f"Ya existe una alerta activa de tipo '{alert_type}' para este estudiante en este periodo"}
     return {}
 
 

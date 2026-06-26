@@ -19,6 +19,5 @@ class AttendanceEntity:
     sync_status: str
     sync_version: int
     device_origin: str | None
-    is_active: bool
     created_at: datetime | None = None
     updated_at: datetime | None = None

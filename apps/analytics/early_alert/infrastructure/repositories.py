@@ -61,11 +61,3 @@ class EarlyAlertRepository(BaseRepository, EarlyAlertRepositoryInterface):
             .select_related("enrollment", "academic_period")
             .order_by("-detected_at")
         )
-
-    @classmethod
-    def get_cascade_counts(cls, instance_id: int) -> dict[str, int]:
-        return {}
-
-    @classmethod
-    def deactivate_cascade(cls, instance_id: int) -> int:
-        return 0

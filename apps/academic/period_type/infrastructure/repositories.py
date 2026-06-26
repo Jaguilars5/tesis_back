@@ -34,7 +34,7 @@ class PeriodTypeRepository(BaseRepository, PeriodTypeRepositoryInterface):
         ).count()
         counts = {}
         if period_count:
-            counts["per\u00edodos acad\u00e9micos"] = period_count
+            counts["periodos acad\u00e9micos"] = period_count
         return counts
 
     @classmethod

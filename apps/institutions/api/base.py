@@ -1,6 +1,7 @@
 from rest_framework import mixins, status, viewsets
 from rest_framework.permissions import IsAuthenticated
 
+from apps.core.api.mixins import SoftDestroyMixin
 from apps.core.api.permissions import HasPermission
 from apps.core.utils import ok_response
 
@@ -10,6 +11,7 @@ class BaseInstitutionsViewSet(
     mixins.ListModelMixin,
     mixins.UpdateModelMixin,
     mixins.DestroyModelMixin,
+    SoftDestroyMixin,
     viewsets.GenericViewSet,
 ):
     permission_classes = [IsAuthenticated, HasPermission]
@@ -50,8 +52,3 @@ class BaseInstitutionsViewSet(
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         return ok_response(serializer.data, msg="Actualizado exitosamente")
-
-    def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        self.perform_destroy(instance)
-        return ok_response(msg="Eliminado exitosamente")

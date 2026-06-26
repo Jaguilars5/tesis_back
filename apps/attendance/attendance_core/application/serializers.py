@@ -23,7 +23,6 @@ class AttendanceSerializer(serializers.ModelSerializer):
             "class_schedule",
             "attendance_date",
             "observation",
-            "is_active",
             "uuid",
             "sync_status",
             "sync_version",

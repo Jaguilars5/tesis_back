@@ -22,13 +22,13 @@ class Attendance(TimeStampedModel, SyncableModel):
         "academic_period.AcademicPeriod",
         on_delete=models.CASCADE,
         related_name="attendance_records",
-        verbose_name="Per\u00edodo Academico",
+        verbose_name="Periodo Academico",
     )
     enrollment = models.ForeignKey(
         "students.Enrollment",
         on_delete=models.CASCADE,
         related_name="attendance_records",
-        verbose_name="Matr\u00edcula",
+        verbose_name="Matricula",
     )
     teacher_subject_section = models.ForeignKey(
         "academic_teacher_subject.TeacherSubjectSection",
@@ -44,7 +44,6 @@ class Attendance(TimeStampedModel, SyncableModel):
         verbose_name="Horario de clase",
     )
 
-    is_active = models.BooleanField(default=True, verbose_name="Activo")
     attendance_date = models.DateField(verbose_name="Fecha")
     observation = models.TextField(blank=True, default="", verbose_name="Observaciones")
 
@@ -82,7 +81,7 @@ class Attendance(TimeStampedModel, SyncableModel):
             if self.enrollment.section_id != tss_section:
                 raise ValidationError(
                     {
-                        "teacher_subject_section": "La clase no pertenece a la secci\u00f3n de la matr\u00edcula"
+                        "teacher_subject_section": "La clase no pertenece a la seccion de la matricula"
                     }
                 )
             if self.attendance_date:
@@ -92,7 +91,7 @@ class Attendance(TimeStampedModel, SyncableModel):
                 ):
                     raise ValidationError(
                         {
-                            "attendance_date": f"La fecha debe estar dentro del per\u00edodo academico ({self.academic_period.start_date} - {self.academic_period.end_date})"
+                            "attendance_date": f"La fecha debe estar dentro del periodo academico ({self.academic_period.start_date} - {self.academic_period.end_date})"
                         }
                     )
         if self.class_schedule_id and self.teacher_subject_section_id:
@@ -107,8 +106,8 @@ class Attendance(TimeStampedModel, SyncableModel):
             if cs_day != date_day:
                 import warnings
                 warnings.warn(
-                    f"La fecha ({self.attendance_date}, d\u00eda {date_day}) no coincide "
-                    f"con el d\u00eda del horario ({cs_day})"
+                    f"La fecha ({self.attendance_date}, dia {date_day}) no coincide "
+                    f"con el dia del horario ({cs_day})"
                 )
 
     @property

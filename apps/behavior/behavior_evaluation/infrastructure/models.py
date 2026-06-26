@@ -13,13 +13,13 @@ class BehaviorEvaluation(TimeStampedModel, SyncableModel):
         "students.Enrollment",
         on_delete=models.CASCADE,
         related_name="behavior_evaluations",
-        verbose_name="Matr\u00edcula",
+        verbose_name="Matricula",
     )
     academic_period = models.ForeignKey(
         "academic_period.AcademicPeriod",
         on_delete=models.CASCADE,
         related_name="behavior_evaluations",
-        verbose_name="Per\u00edodo Academico",
+        verbose_name="Periodo Academico",
     )
     evaluated_by = models.ForeignKey(
         "iam.User",
@@ -58,21 +58,21 @@ class BehaviorEvaluation(TimeStampedModel, SyncableModel):
         verbose_name="Escala Final",
     )
     general_observation = models.TextField(
-        blank=True, default="", verbose_name="Observaci\u00f3n general"
+        blank=True, default="", verbose_name="Observacion general"
     )
     override_reason = models.TextField(
-        blank=True, default="", verbose_name="Raz\u00f3n de anulaci\u00f3n"
+        blank=True, default="", verbose_name="Razon de anulacion"
     )
     evaluation_date = models.DateField(
-        default=datetime.date.today, verbose_name="Fecha de evaluaci\u00f3n"
+        default=datetime.date.today, verbose_name="Fecha de evaluacion"
     )
     approval_date = models.DateField(
-        null=True, blank=True, verbose_name="Fecha de aprobaci\u00f3n"
+        null=True, blank=True, verbose_name="Fecha de aprobacion"
     )
 
     class Meta:
         app_label = "behavior_evaluation"
-        verbose_name = "Evaluaci\u00f3n de Conducta"
+        verbose_name = "Evaluacion de Conducta"
         verbose_name_plural = "Evaluaciones de Conducta"
         unique_together = [("enrollment", "academic_period")]
         indexes = [

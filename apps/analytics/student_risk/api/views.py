@@ -38,7 +38,11 @@ from ..infrastructure.repositories import (
     StudentFeatureSnapshotRepository,
     RiskScoringConfigRepository,
 )
-from ..domain import risk_engine
+from .filters import (
+    StudentRiskScoreFilter,
+    StudentRiskFactorFilter,
+    StudentFeatureSnapshotFilter,
+)
 from ..domain.services import StudentRiskCalculationService, RiskScoringConfigService
 
 
@@ -69,6 +73,8 @@ class RiskFactorViewSet(BaseAnalyticsViewSet):
     search_fields = ["code", "name"]
     ordering_fields = ["name", "code"]
     ordering = ["name"]
+    # Catálogo de referencia gestionado por el sistema: solo lectura.
+    http_method_names = ["get", "head", "options"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -76,16 +82,6 @@ class RiskFactorViewSet(BaseAnalyticsViewSet):
 
     def get_queryset(self):
         return self.repository.get_all()
-
-    # Readonly: remove create/update/destroy methods
-    def create(self, request, *args, **kwargs):
-        return error_response("Operación no permitida", status_code=405)
-
-    def update(self, request, *args, **kwargs):
-        return error_response("Operación no permitida", status_code=405)
-
-    def destroy(self, request, *args, **kwargs):
-        return error_response("Operación no permitida", status_code=405)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -106,9 +102,11 @@ class StudentRiskFactorViewSet(BaseAnalyticsViewSet):
     serializer_class = StudentRiskFactorSerializer
     action_permissions = STUDENT_RISK_FACTOR_ACTION_PERMISSIONS
     filter_backends = [DjangoFilterBackend, OrderingFilter]
-    filterset_class = None  # StudentRiskFactorFilter si se necesita
+    filterset_class = StudentRiskFactorFilter
     ordering_fields = ["contribution_weight", "created_at"]
     ordering = ["-contribution_weight"]
+    # Derivado del cálculo de riesgo (A4): solo lectura.
+    http_method_names = ["get", "head", "options"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -116,15 +114,6 @@ class StudentRiskFactorViewSet(BaseAnalyticsViewSet):
 
     def get_queryset(self):
         return self.repository.get_all()
-
-    def create(self, request, *args, **kwargs):
-        return error_response("Operación no permitida", status_code=405)
-
-    def update(self, request, *args, **kwargs):
-        return error_response("Operación no permitida", status_code=405)
-
-    def destroy(self, request, *args, **kwargs):
-        return error_response("Operación no permitida", status_code=405)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -134,7 +123,6 @@ class StudentRiskFactorViewSet(BaseAnalyticsViewSet):
 @extend_schema_view(
     list=extend_schema(summary="Listar snapshots de features", tags=["analytics"]),
     get=extend_schema(summary="Obtener snapshot de features", tags=["analytics"]),
-    create=extend_schema(summary="Crear snapshot de features", tags=["analytics"]),
 )
 class StudentFeatureSnapshotViewSet(BaseAnalyticsViewSet):
     """ViewSet para snapshots de features de estudiantes."""
@@ -142,7 +130,7 @@ class StudentFeatureSnapshotViewSet(BaseAnalyticsViewSet):
     serializer_class = StudentFeatureSnapshotSerializer
     action_permissions = FEATURE_SNAPSHOT_ACTION_PERMISSIONS
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_class = None  # StudentFeatureSnapshotFilter
+    filterset_class = StudentFeatureSnapshotFilter
     search_fields = ["enrollment__student__user__person__names"]
     ordering_fields = [
         "calculated_at",
@@ -151,6 +139,8 @@ class StudentFeatureSnapshotViewSet(BaseAnalyticsViewSet):
         "failing_subjects_count",
     ]
     ordering = ["-calculated_at"]
+    # Snapshots calculados (A4): se generan automáticamente, solo lectura.
+    http_method_names = ["get", "head", "options"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -158,22 +148,6 @@ class StudentFeatureSnapshotViewSet(BaseAnalyticsViewSet):
 
     def get_queryset(self):
         return self.repository.get_all()
-
-    def perform_create(self, serializer):
-        """Crea el snapshot a través del repositorio."""
-        data = serializer.validated_data
-        try:
-            snapshot = StudentFeatureSnapshotRepository.create(**data)
-        except ValueError as exc:
-            _raise_validation_error(exc)
-        serializer.instance = snapshot
-
-    # No permitir update/destroy directos (se crean automáticamente)
-    def update(self, request, *args, **kwargs):
-        return error_response("Los snapshots no pueden modificarse", status_code=405)
-
-    def destroy(self, request, *args, **kwargs):
-        return error_response("Los snapshots no pueden eliminarse", status_code=405)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -183,7 +157,7 @@ class StudentFeatureSnapshotViewSet(BaseAnalyticsViewSet):
 @extend_schema_view(
     list=extend_schema(summary="Listar puntajes de riesgo", tags=["analytics"]),
     get=extend_schema(summary="Obtener puntaje de riesgo", tags=["analytics"]),
-    create=extend_schema(summary="Crear puntaje de riesgo", tags=["analytics"]),
+    create=extend_schema(exclude=True),
     calculate=extend_schema(
         summary="Calcular riesgo para un estudiante (async)", tags=["analytics"]
     ),
@@ -201,10 +175,12 @@ class StudentRiskScoreViewSet(BaseAnalyticsViewSet):
     serializer_class = StudentRiskScoreSerializer
     action_permissions = RISK_SCORE_ACTION_PERMISSIONS
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_class = None  # StudentRiskScoreFilter
+    filterset_class = StudentRiskScoreFilter
     search_fields = ["enrollment__student__user__person__names"]
     ordering_fields = ["risk_score", "calculated_at", "risk_label"]
     ordering = ["-calculated_at"]
+    # Calculado (A4): se genera vía calculate/batch_calculate. Sin PUT/PATCH/DELETE.
+    http_method_names = ["get", "post", "head", "options"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -212,49 +188,15 @@ class StudentRiskScoreViewSet(BaseAnalyticsViewSet):
 
     def get_queryset(self):
         """Obtiene el queryset, filtrando por DOCENTE si aplica."""
-        qs = self.repository.get_all()
-        user = self.request.user
-        if user.is_authenticated and user.user_roles.filter(
-            role__code="DOCENTE"
-        ).exists():
-            qs = qs.filter(
-                enrollment__section__subject_offerings__teacher_assignments__user=user,
-                enrollment__section__subject_offerings__teacher_assignments__is_active=True,
-            ).distinct()
-        return qs
+        return self.repository.get_visible_for_user(self.request.user)
 
-    def perform_create(self, serializer):
-        """Crea el puntaje a través del repositorio."""
-        data = serializer.validated_data
-        try:
-            from ..application import validators
-
-            errors = validators.run_all_validators(
-                enrollment_id=data["enrollment"].id
-                if hasattr(data["enrollment"], "id")
-                else data["enrollment"],
-                academic_period_id=data["academic_period"].id
-                if hasattr(data["academic_period"], "id")
-                else data["academic_period"],
-                risk_score=data.get("risk_score"),
-                risk_label=data.get("risk_label"),
-            )
-            if errors:
-                raise ValueError(errors)
-
-            score = StudentRiskScoreRepository.create(**data)
-        except ValueError as exc:
-            _raise_validation_error(exc)
-        serializer.instance = score
-
-    def perform_update(self, serializer):
-        """Actualiza el puntaje a través del repositorio."""
-        data = dict(serializer.validated_data)
-        try:
-            score = StudentRiskScoreRepository.update(serializer.instance.id, **data)
-        except ValueError as exc:
-            _raise_validation_error(exc)
-        serializer.instance = score
+    # El POST de colección no crea recursos: el riesgo se calcula de forma async.
+    def create(self, request, *args, **kwargs):
+        return error_response(
+            "Los puntajes de riesgo se generan automáticamente. "
+            "Use /calculate/ o /batch_calculate/",
+            status_code=405,
+        )
 
     @action(detail=False, methods=["post"])
     def calculate(self, request):
@@ -323,54 +265,12 @@ class StudentRiskScoreViewSet(BaseAnalyticsViewSet):
         if not serializer.is_valid():
             raise DRFValidationError(serializer.errors)
 
-        params = serializer.validated_data
-
-        variables = {
-            "conducta": {
-                "faltas_leves": params["mild_incidents_count"],
-                "faltas_graves": params["severe_incidents_count"],
-            },
-            "asistencia": {
-                "porcentaje_asistencia": params["attendance_rate"],
-                "total_registros": 1,
-            },
-            "calificaciones": {
-                "promedio_actual": params["average_grade"],
-                "total_calificaciones": 1,
-                "materias_reprobadas": params["failing_subjects_count"],
-            },
-        }
-
-        snapshot = {
-            "estudiante_id": "simulacion",
-            "periodo": "simulacion",
-            "variables": variables,
-        }
-
-        config = RiskScoringConfigService.get_effective_config()
-        config_serializer = RiskScoringConfigSerializer(config)
-
-        rules_result = risk_engine.calculate_risk(snapshot, config=config)
-
-        ml_result = None
-        if params.get("try_ml") and config.engine == "ML":
-            try:
-                ml_score = risk_engine._predict_ml_score(snapshot)
-                if ml_score is not None:
-                    ml_result = {
-                        "puntaje_riesgo": round(float(ml_score), 2),
-                        "model_version": "sklearn-joblib-v2",
-                    }
-            except Exception:
-                ml_result = {"error": "Error al ejecutar modelo ML"}
+        result = StudentRiskCalculationService.simulate(serializer.validated_data)
+        config_serializer = RiskScoringConfigSerializer(result["config"])
 
         return ok_response({
-            "reglas": {
-                "semaforo_riesgo": rules_result["semaforo_riesgo"],
-                "detalle_por_variable": rules_result["detalle_por_variable"],
-                "model_version": rules_result["model_version"],
-            },
-            "ml": ml_result,
+            "reglas": result["reglas"],
+            "ml": result["ml"],
             "config_usada": config_serializer.data,
         })
 
@@ -383,6 +283,7 @@ class StudentRiskScoreViewSet(BaseAnalyticsViewSet):
     list=extend_schema(
         summary="Obtener configuración del motor de riesgo", tags=["analytics"]
     ),
+    create=extend_schema(exclude=True),
     update_config=extend_schema(
         summary="Actualizar configuración del motor de riesgo", tags=["analytics"]
     ),
@@ -401,6 +302,8 @@ class RiskScoringConfigViewSet(BaseAnalyticsViewSet):
 
     serializer_class = RiskScoringConfigSerializer
     action_permissions = SCORING_CONFIG_ACTION_PERMISSIONS
+    # Singleton de configuración: lectura + acciones (update_config / apply_preset).
+    http_method_names = ["get", "post", "patch", "head", "options"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -423,15 +326,12 @@ class RiskScoringConfigViewSet(BaseAnalyticsViewSet):
         serializer = self.get_serializer(config)
         return ok_response(serializer.data)
 
-    # Deshabilitar operaciones CRUD estándar
+    # El POST de colección no crea recursos (singleton). Usar update_config/apply_preset.
     def create(self, request, *args, **kwargs):
-        return error_response("Use update_config para modificar la configuración", status_code=405)
-
-    def update(self, request, *args, **kwargs):
-        return error_response("Use PATCH /update_config/ para modificar", status_code=405)
-
-    def destroy(self, request, *args, **kwargs):
-        return error_response("La configuración no puede eliminarse", status_code=405)
+        return error_response(
+            "Use update_config o apply_preset para modificar la configuración",
+            status_code=405,
+        )
 
     @action(detail=False, methods=["patch"])
     def update_config(self, request):

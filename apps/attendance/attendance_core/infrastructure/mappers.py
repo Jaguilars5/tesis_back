@@ -17,7 +17,6 @@ def to_entity(model: Attendance) -> AttendanceEntity:
         sync_status=model.sync_status,
         sync_version=model.sync_version,
         device_origin=model.device_origin,
-        is_active=model.is_active,
         created_at=model.created_at,
         updated_at=model.updated_at,
     )

@@ -23,7 +23,7 @@ class PeriodTypeService:
         )
         existing = cls.repository.first(code=code)
         if existing:
-            raise ValueError({"code": "Ya existe un tipo de per\u00edodo con este c\u00f3digo"})
+            raise ValueError({"code": "Ya existe un tipo de periodo con este c\u00f3digo"})
         return cls.repository.create(
             code=code,
             name=name,
@@ -35,7 +35,7 @@ class PeriodTypeService:
     def get_period_type(cls, period_type_id):
         obj = cls.repository.get_by_id(period_type_id)
         if not obj:
-            raise ValueError({"id": f"Tipo de per\u00edodo {period_type_id} no encontrado"})
+            raise ValueError({"id": f"Tipo de periodo {period_type_id} no encontrado"})
         return obj
 
     @classmethod
@@ -51,7 +51,7 @@ class PeriodTypeService:
         if "code" in kwargs:
             existing = cls.repository.first(code=kwargs["code"])
             if existing and existing.id != period_type_id:
-                raise ValueError({"code": "Ya existe otro tipo de per\u00edodo con este c\u00f3digo"})
+                raise ValueError({"code": "Ya existe otro tipo de periodo con este c\u00f3digo"})
         clean = {k: v for k, v in kwargs.items() if k in allowed}
         return cls.repository.update(obj.id, **clean)
 

@@ -151,9 +151,9 @@ class User(AbstractBaseUser, TimeStampedModel):
 
 
 class Role(TimeStampedModel):
-    code = models.CharField(max_length=50, unique=True, null=True, verbose_name="C\u00f3digo del Rol")
+    code = models.CharField(max_length=50, unique=True, null=True, verbose_name="Codigo del Rol")
     name = models.CharField(max_length=100, unique=True, verbose_name="Nombre del Rol")
-    description = models.CharField(max_length=255, blank=True, verbose_name="Descripci\u00f3n")
+    description = models.CharField(max_length=255, blank=True, verbose_name="Descripcion")
     is_active = models.BooleanField(default=True, verbose_name="Activo")
 
     class Meta:
@@ -171,9 +171,9 @@ class Role(TimeStampedModel):
 
 
 class Permission(TimeStampedModel):
-    code = models.CharField(max_length=100, unique=True, verbose_name="C\u00f3digo del Permiso")
-    description = models.CharField(max_length=255, blank=True, verbose_name="Descripci\u00f3n")
-    module = models.CharField(max_length=50, blank=True, verbose_name="M\u00f3dulo")
+    code = models.CharField(max_length=100, unique=True, verbose_name="Codigo del Permiso")
+    description = models.CharField(max_length=255, blank=True, verbose_name="Descripcion")
+    module = models.CharField(max_length=50, blank=True, verbose_name="Modulo")
 
     class Meta:
         app_label = "iam"

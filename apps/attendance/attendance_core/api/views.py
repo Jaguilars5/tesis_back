@@ -18,16 +18,27 @@ from ..permissions import ACTION_PERMISSIONS
 from .filters import AttendanceFilter
 
 
+def _format_record_error(exc):
+    """Convierte la excepción de un registro en un mensaje legible.
+
+    `create_attendance` lanza `ValueError(dict_de_errores)`; aquí lo
+    aplanamos a un texto entendible para el usuario final.
+    """
+    detail = exc.args[0] if getattr(exc, "args", None) else str(exc)
+    if isinstance(detail, dict):
+        return "; ".join(f"{field}: {msg}" for field, msg in detail.items())
+    return str(detail)
+
+
 @extend_schema_view(
     list=extend_schema(summary="Listar asistencias", tags=["attendance"]),
     get=extend_schema(summary="Obtener asistencia", tags=["attendance"]),
     create=extend_schema(summary="Registrar asistencia", tags=["attendance"]),
     update=extend_schema(summary="Actualizar asistencia", tags=["attendance"]),
     partial_update=extend_schema(summary="Actualizar asistencia parcialmente", tags=["attendance"]),
-    destroy=extend_schema(summary="Eliminar asistencia", tags=["attendance"]),
-    soft_delete=extend_schema(summary="Desactivar asistencia", tags=["attendance"]),
 )
 class AttendanceViewSet(BaseAttendanceViewSet):
+    http_method_names = ["get", "post", "put", "patch", "head", "options"]
     serializer_class = AttendanceSerializer
     action_permissions = ACTION_PERMISSIONS
     filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
@@ -168,7 +179,7 @@ class AttendanceViewSet(BaseAttendanceViewSet):
                 )
                 results.append(AttendanceSerializer(attendance).data)
             except Exception as e:
-                errors.append({"index": i, "error": str(e), "record": rec})
+                errors.append({"index": i, "error": _format_record_error(e), "record": rec})
 
         if errors:
             return ok_response(
@@ -192,51 +203,26 @@ class AttendanceViewSet(BaseAttendanceViewSet):
         errors = []
         for i, rec in enumerate(records):
             try:
+                attendance_date = rec.get("attendance_date")
+                if isinstance(attendance_date, str):
+                    try:
+                        attendance_date = datetime.strptime(attendance_date, "%Y-%m-%d").date()
+                    except ValueError:
+                        raise ValueError("Formato de fecha inválido. Use YYYY-MM-DD")
+
                 attendance = AttendanceService.create_attendance(
                     enrollment_id=rec.get("enrollment"),
                     teacher_subject_section_id=rec.get("teacher_subject_section"),
                     academic_period_id=rec.get("academic_period"),
-                    attendance_date=rec.get("attendance_date"),
+                    attendance_date=attendance_date,
                     attendance_status_id=rec.get("attendance_status"),
                     absence_type_id=rec.get("absence_type"),
                     observation=rec.get("observation", ""),
+                    class_schedule_id=rec.get("class_schedule"),
                 )
                 results.append(AttendanceSerializer(attendance).data)
             except Exception as e:
-                errors.append({"index": i, "error": str(e), "record": rec})
-
-        if errors:
-            return ok_response({"created": results, "errors": errors}, msg="Algunos registros no pudieron procesarse")
-
-        return ok_response(results, msg=f"{len(results)} registros procesados")
-
-    @extend_schema(
-        summary="Crear/actualizar asistencias en lote",
-        description="Crea o actualiza m\u00faltiples registros de asistencia en una sola transacci\u00f3n.",
-        tags=["attendance"],
-    )
-    @action(detail=False, methods=["post"], url_path="batch")
-    def batch_create(self, request):
-        records = request.data.get("records", [])
-        if not records:
-            return error_response("No se enviaron registros", status_code=status.HTTP_400_BAD_REQUEST)
-
-        results = []
-        errors = []
-        for i, rec in enumerate(records):
-            try:
-                attendance = AttendanceService.create_attendance(
-                    enrollment_id=rec.get("enrollment"),
-                    teacher_subject_section_id=rec.get("teacher_subject_section"),
-                    academic_period_id=rec.get("academic_period"),
-                    attendance_date=rec.get("attendance_date"),
-                    attendance_status_id=rec.get("attendance_status"),
-                    absence_type_id=rec.get("absence_type"),
-                    observation=rec.get("observation", ""),
-                )
-                results.append(AttendanceSerializer(attendance).data)
-            except Exception as e:
-                errors.append({"index": i, "error": str(e), "record": rec})
+                errors.append({"index": i, "error": _format_record_error(e), "record": rec})
 
         if errors:
             return ok_response({"created": results, "errors": errors}, msg="Algunos registros no pudieron procesarse")

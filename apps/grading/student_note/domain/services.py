@@ -100,31 +100,53 @@ class StudentNoteService:
         return avg.quantize(Decimal("0.01"))
 
     @classmethod
-    def soft_delete(cls, pk, confirm=False):
-        obj = cls.get_student_note(pk)
-        counts = cls.repository.get_cascade_counts(pk)
-        total = sum(counts.values())
+    @transaction.atomic
+    def anular_nota(cls, note_id, user_id, reason=""):
+        """
+        Anula una nota marcándola como manualmente anulada y registrando el cambio.
 
-        if total > 0 and not confirm:
-            parts = [f"{v} {k}" for k, v in counts.items()]
-            return {
-                "requires_confirmation": True,
-                "affected_records": total,
-                "message": f"Esta acci\u00f3n desactivar\u00e1 {', '.join(parts)} relacionados",
-                "id": obj.id,
-                "is_active": True,
-            }
+        Args:
+            note_id: ID de la nota a anular
+            user_id: ID del usuario que realiza la anulación
+            reason: Razón de la anulación (opcional)
 
-        total = cls.repository.deactivate_cascade(pk)
-        return {
-            "id": obj.id,
-            "is_active": False,
-            "deactivated_records": total,
-        }
+        Returns:
+            La nota actualizada
+        """
+        from ..infrastructure.models import GradeChangeHistory
+
+        note = cls.get_student_note(note_id)
+
+        # Guardar valores anteriores para el historial
+        previous_score = note.numeric_score
+        previous_qualitative = note.qualitative_scale
+
+        # Marcar como anulada manualmente
+        updated = cls.repository.update(
+            note_id,
+            manually_overridden=True,
+            numeric_score=None,
+            qualitative_scale_id=None,
+        )
+
+        # Registrar en el historial de cambios
+        GradeChangeHistory.objects.create(
+            student_note=updated,
+            modified_by_user_id=user_id,
+            previous_score=previous_score or Decimal("0.00"),
+            new_score=Decimal("0.00"),
+            previous_qualitative=previous_qualitative,
+            new_qualitative=None,
+            reason=reason or "Nota anulada",
+            reason_code="ANULACION",
+            origin="MANUAL",
+        )
+
+        return updated
 
 
 class GradeCalculationService:
-    """Servicio para calcular res\u00famenes de calificaciones por per\u00edodo."""
+    """Servicio para calcular res\u00famenes de calificaciones por periodo."""
 
     @staticmethod
     @transaction.atomic
