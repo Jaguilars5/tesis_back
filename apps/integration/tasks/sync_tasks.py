@@ -4,9 +4,9 @@ from celery import shared_task
 from django.db import transaction
 from django.utils import timezone
 
-from ..repositories import SyncQueueRepository
-from ..services.conflict_resolver import ConflictResolutionStrategy
-from ..models.syncable_mixin import SyncStatusChoices
+from ..infrastructure.repositories import SyncQueueRepository
+from ..domain.services import ConflictResolutionStrategy
+from ..infrastructure.models import SyncStatusChoices
 
 logger = logging.getLogger(__name__)
 

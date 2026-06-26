@@ -4,17 +4,12 @@ from ..infrastructure.models import Attendance
 
 
 class AttendanceSerializer(serializers.ModelSerializer):
-    enrollment_name = serializers.CharField(source="enrollment.__str__", read_only=True)
-    teacher_subject_section_name = serializers.CharField(
-        source="teacher_subject_section.__str__", read_only=True
-    )
-    academic_period_name = serializers.CharField(
-        source="academic_period.name", read_only=True
-    )
-    attendance_status_name = serializers.CharField(
-        source="attendance_status.name", read_only=True
-    )
-    class_schedule_name = serializers.SerializerMethodField(read_only=True)
+    absence_type_name = serializers.CharField(read_only=True)
+    attendance_status_name = serializers.CharField(read_only=True)
+    academic_period_name = serializers.CharField(read_only=True)
+    enrollment_name = serializers.CharField(read_only=True)
+    teacher_subject_section_name = serializers.CharField(read_only=True)
+    class_schedule_name = serializers.CharField(read_only=True)
 
     class Meta:
         model = Attendance
@@ -28,6 +23,7 @@ class AttendanceSerializer(serializers.ModelSerializer):
             "class_schedule",
             "attendance_date",
             "observation",
+            "is_active",
             "uuid",
             "sync_status",
             "sync_version",
@@ -37,17 +33,15 @@ class AttendanceSerializer(serializers.ModelSerializer):
             "conflict_notes",
             "created_at",
             "updated_at",
+            "absence_type_name",
+            "attendance_status_name",
+            "academic_period_name",
             "enrollment_name",
             "teacher_subject_section_name",
-            "academic_period_name",
-            "attendance_status_name",
             "class_schedule_name",
         ]
         read_only_fields = [
             "uuid", "created_at", "updated_at", "sync_version",
+            "sync_status", "synced_at", "device_origin",
+            "conflict_resolved", "conflict_notes",
         ]
-
-    def get_class_schedule_name(self, obj):
-        if obj.class_schedule_id and obj.class_schedule:
-            return str(obj.class_schedule)
-        return None

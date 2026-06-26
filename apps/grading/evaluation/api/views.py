@@ -1,23 +1,26 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
+from rest_framework import status
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.filters import SearchFilter, OrderingFilter
 
+from apps.core.utils import ok_response, error_response
 from apps.grading.api.base import BaseGradingViewSet
-from apps.core.utils import ok_response
 
 from ..application.serializers import (
     EvaluationBlockSerializer,
     BlockComponentSerializer,
     EvaluativeActivitySerializer,
 )
+from ..domain.services import EvaluationService
 from ..infrastructure.repositories import (
     EvaluationBlockRepository,
     BlockComponentRepository,
     EvaluativeActivityRepository,
 )
 from ..permissions import ACTION_PERMISSIONS, BLOCK_COMPONENT_PERMISSIONS, EVALUATIVE_ACTIVITY_PERMISSIONS
-from .filters import BlockComponentFilter, EvaluativeActivityFilter
+from .filters import EvaluationBlockFilter, BlockComponentFilter, EvaluativeActivityFilter
 
 
 @extend_schema_view(
@@ -27,21 +30,41 @@ from .filters import BlockComponentFilter, EvaluativeActivityFilter
     update=extend_schema(summary="Actualizar bloque de evaluaci\u00f3n", tags=["grading"]),
     partial_update=extend_schema(summary="Actualizar bloque parcialmente", tags=["grading"]),
     destroy=extend_schema(summary="Eliminar bloque de evaluaci\u00f3n", tags=["grading"]),
+    soft_delete=extend_schema(summary="Desactivar bloque de evaluaci\u00f3n", tags=["grading"]),
 )
 class EvaluationBlockViewSet(BaseGradingViewSet):
     serializer_class = EvaluationBlockSerializer
     action_permissions = ACTION_PERMISSIONS
     filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
+    filterset_class = EvaluationBlockFilter
     search_fields = ["name", "code"]
     ordering_fields = ["name", "weight_percentage", "block_type"]
     ordering = ["academic_period", "subject_offering", "block_type"]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.repository = EvaluationBlockRepository()
-
     def get_queryset(self):
-        return self.repository.get_all()
+        return EvaluationBlockRepository.get_all()
+
+    def perform_create(self, serializer):
+        data = serializer.validated_data
+        try:
+            obj = EvaluationBlockRepository.create(**data)
+            serializer.instance = obj
+        except ValueError as e:
+            raise ValidationError(e.args[0] if e.args else str(e))
+
+    def perform_update(self, serializer):
+        data = serializer.validated_data
+        try:
+            obj = EvaluationBlockRepository.update(serializer.instance.id, **data)
+            serializer.instance = obj
+        except ValueError as e:
+            raise ValidationError(e.args[0] if e.args else str(e))
+
+    @action(detail=True, methods=["post"])
+    def soft_delete(self, request, pk=None):
+        confirm = request.data.get("confirm", False)
+        result = EvaluationService.soft_delete_block(pk, confirm=confirm)
+        return ok_response(result)
 
 
 @extend_schema_view(
@@ -62,12 +85,30 @@ class BlockComponentViewSet(BaseGradingViewSet):
     ordering_fields = ["name", "internal_weight"]
     ordering = ["evaluation_block", "name"]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.repository = BlockComponentRepository()
-
     def get_queryset(self):
-        return self.repository.get_all()
+        return BlockComponentRepository.get_all()
+
+    def perform_create(self, serializer):
+        data = serializer.validated_data
+        try:
+            obj = BlockComponentRepository.create(**data)
+            serializer.instance = obj
+        except ValueError as e:
+            raise ValidationError(e.args[0] if e.args else str(e))
+
+    def perform_update(self, serializer):
+        data = serializer.validated_data
+        try:
+            obj = BlockComponentRepository.update(serializer.instance.id, **data)
+            serializer.instance = obj
+        except ValueError as e:
+            raise ValidationError(e.args[0] if e.args else str(e))
+
+    @action(detail=True, methods=["post"])
+    def soft_delete(self, request, pk=None):
+        confirm = request.data.get("confirm", False)
+        result = EvaluationService.soft_delete_component(pk, confirm=confirm)
+        return ok_response(result)
 
 
 @extend_schema_view(
@@ -77,6 +118,7 @@ class BlockComponentViewSet(BaseGradingViewSet):
     update=extend_schema(summary="Actualizar actividad evaluativa", tags=["grading"]),
     partial_update=extend_schema(summary="Actualizar actividad parcialmente", tags=["grading"]),
     destroy=extend_schema(summary="Eliminar actividad evaluativa", tags=["grading"]),
+    soft_delete=extend_schema(summary="Desactivar actividad evaluativa", tags=["grading"]),
 )
 class EvaluativeActivityViewSet(BaseGradingViewSet):
     serializer_class = EvaluativeActivitySerializer
@@ -87,62 +129,42 @@ class EvaluativeActivityViewSet(BaseGradingViewSet):
     ordering_fields = ["title", "due_date", "max_score"]
     ordering = ["-due_date"]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.repository = EvaluativeActivityRepository()
-
     def get_queryset(self):
-        return self.repository.get_all()
+        return EvaluativeActivityRepository.get_all()
 
-    def create(self, request, *args, **kwargs):
-        data = request.data.copy()
-        tss_id = data.get("teacher_subject_section")
-        block_component_id = data.get("block_component")
-
-        if not block_component_id or int(block_component_id) == 0:
-            if not tss_id:
-                return ok_response(
-                    {"error": "teacher_subject_section es requerido"},
-                    msg="Error",
-                    status_code=400,
-                )
-            try:
-                from apps.academic.teacher_subject_section.infrastructure.models import (
-                    TeacherSubjectSection,
-                )
-                from ..infrastructure.models import BlockComponent
-
-                tss = TeacherSubjectSection.objects.select_related(
-                    "subject_offering"
-                ).get(pk=tss_id)
-                component = (
-                    BlockComponent.objects.filter(
-                        evaluation_block__subject_offering=tss.subject_offering,
-                        is_active=True,
-                    )
-                    .select_related("evaluation_block")
-                    .first()
-                )
-                if not component:
-                    return ok_response(
-                        {"error": "No existe un componente de bloque activo para esta clase. Configure los bloques de evaluaci\u00f3n primero."},
-                        msg="Error",
-                        status_code=400,
-                    )
-                data["block_component"] = component.id
-            except TeacherSubjectSection.DoesNotExist:
-                return ok_response(
-                    {"error": "teacher_subject_section no encontrado"},
-                    msg="Error",
-                    status_code=400,
-                )
-
-        serializer = self.get_serializer(data=data)
-        if serializer.is_valid():
-            instance = serializer.save()
-            return ok_response(
-                serializer.data,
-                msg="Creado exitosamente",
-                status_code=201,
+    def perform_create(self, serializer):
+        data = serializer.validated_data
+        try:
+            obj = EvaluationService.create_evaluative_activity(
+                block_component_id=data.get("block_component").id if data.get("block_component") else None,
+                teacher_subject_section_id=data.get("teacher_subject_section").id if data.get("teacher_subject_section") else None,
+                title=data.get("title"),
+                max_score=data.get("max_score"),
+                due_date=data.get("due_date"),
+                internal_weight=data.get("internal_weight", 100),
+                activity_type_id=data.get("activity_type").id if data.get("activity_type") else None,
             )
-        return ok_response(serializer.errors, msg="Error de validaci\u00f3n", status_code=400)
+            serializer.instance = obj
+        except ValueError as e:
+            raise ValidationError(e.args[0] if e.args else str(e))
+
+    def perform_update(self, serializer):
+        data = serializer.validated_data
+        try:
+            obj = EvaluativeActivityRepository.update(
+                serializer.instance.id,
+                title=data.get("title"),
+                max_score=data.get("max_score"),
+                due_date=data.get("due_date"),
+                internal_weight=data.get("internal_weight"),
+                activity_type_id=data.get("activity_type").id if data.get("activity_type") else None,
+            )
+            serializer.instance = obj
+        except ValueError as e:
+            raise ValidationError(e.args[0] if e.args else str(e))
+
+    @action(detail=True, methods=["post"])
+    def soft_delete(self, request, pk=None):
+        confirm = request.data.get("confirm", False)
+        result = EvaluationService.soft_delete_activity(pk, confirm=confirm)
+        return ok_response(result)

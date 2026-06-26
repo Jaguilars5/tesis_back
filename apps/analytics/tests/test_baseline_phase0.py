@@ -221,13 +221,13 @@ class Phase0EarlyAlertServiceTest(TestCase):
         severe_qs.count.return_value = severe_count
 
         with patch(
-            "apps.attendance.repositories.attendance_repository.AttendanceRepository.get_absences_summary",
+            "apps.attendance.attendance_core.infrastructure.repositories.AttendanceRepository.get_absences_summary",
             return_value=attendance_summary,
         ), patch(
             "apps.grading.student_note.infrastructure.repositories.PeriodGradeSummaryRepository.count_failing",
             return_value=failing_count,
         ), patch(
-            "apps.behavior.repositories.conduct_incident_repository.ConductIncidentRepository.get_severe_by_enrollment",
+            "apps.behavior.conduct_incident.infrastructure.repositories.ConductIncidentRepository.get_severe_by_enrollment",
             return_value=severe_qs,
         ), patch(
             "apps.analytics.early_alert.infrastructure.repositories.EarlyAlertRepository.create",

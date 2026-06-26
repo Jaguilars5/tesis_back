@@ -1,7 +1,10 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.filters import SearchFilter, OrderingFilter
 
+from apps.core.utils import ok_response
 from apps.grading.api.base import BaseGradingViewSet
 
 from ..application.serializers import (
@@ -14,6 +17,7 @@ from ..infrastructure.repositories import (
     QualitativeScaleSublevelRepository,
 )
 from ..permissions import ACTION_PERMISSIONS
+from .filters import QualitativeScaleFilter, QualitativeScaleSublevelFilter
 
 
 @extend_schema_view(
@@ -23,36 +27,53 @@ from ..permissions import ACTION_PERMISSIONS
     update=extend_schema(summary="Actualizar escala cualitativa", tags=["grading"]),
     partial_update=extend_schema(summary="Actualizar parcialmente escala cualitativa", tags=["grading"]),
     destroy=extend_schema(summary="Eliminar escala cualitativa", tags=["grading"]),
+    soft_delete=extend_schema(summary="Desactivar escala cualitativa", tags=["grading"]),
 )
 class QualitativeScaleViewSet(BaseGradingViewSet):
     serializer_class = QualitativeScaleSerializer
     action_permissions = ACTION_PERMISSIONS
     filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
+    filterset_class = QualitativeScaleFilter
     search_fields = ["name", "code"]
     ordering_fields = ["name", "code", "numeric_equivalence"]
     ordering = ["-numeric_equivalence"]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.repository = QualitativeScaleRepository()
-
     def get_queryset(self):
-        return self.repository.get_all()
+        return QualitativeScaleRepository.get_all()
 
     def perform_create(self, serializer):
         data = serializer.validated_data
-        obj = QualitativeScaleService.create_qualitative_scale(
-            code=data["code"],
-            name=data.get("name", ""),
-            description=data["description"],
-            numeric_equivalence=data["numeric_equivalence"],
-        )
-        serializer.instance = obj
+        try:
+            obj = QualitativeScaleService.create_qualitative_scale(
+                code=data["code"],
+                name=data.get("name", ""),
+                description=data["description"],
+                numeric_equivalence=data["numeric_equivalence"],
+            )
+            serializer.instance = obj
+        except ValueError as e:
+            raise ValidationError(e.args[0] if e.args else str(e))
 
     def perform_update(self, serializer):
-        data = dict(serializer.validated_data)
-        obj = QualitativeScaleService.update_qualitative_scale(serializer.instance.id, **data)
-        serializer.instance = obj
+        data = serializer.validated_data
+        try:
+            obj = QualitativeScaleService.update_qualitative_scale(
+                pk=serializer.instance.id,
+                code=data.get("code"),
+                name=data.get("name", ""),
+                description=data.get("description"),
+                numeric_equivalence=data.get("numeric_equivalence"),
+                is_active=data.get("is_active"),
+            )
+            serializer.instance = obj
+        except ValueError as e:
+            raise ValidationError(e.args[0] if e.args else str(e))
+
+    @action(detail=True, methods=["post"])
+    def soft_delete(self, request, pk=None):
+        confirm = request.data.get("confirm", False)
+        result = QualitativeScaleService.soft_delete(pk, confirm=confirm)
+        return ok_response(result)
 
 
 @extend_schema_view(
@@ -67,10 +88,7 @@ class QualitativeScaleSublevelViewSet(BaseGradingViewSet):
     serializer_class = QualitativeScaleSublevelSerializer
     action_permissions = ACTION_PERMISSIONS
     filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.repository = QualitativeScaleSublevelRepository()
+    filterset_class = QualitativeScaleSublevelFilter
 
     def get_queryset(self):
-        return self.repository.get_all()
+        return QualitativeScaleSublevelRepository.get_all()

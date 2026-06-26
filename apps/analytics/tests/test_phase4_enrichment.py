@@ -19,11 +19,11 @@ from decimal import Decimal
 
 from django.test import TestCase
 
-from apps.academic.models import AcademicPeriod
-from apps.analytics.repositories.analytics_repo import StudentFeatureSnapshotRepository
-from apps.analytics.services.dashboard_service import DashboardService
+from apps.academic.academic_period import AcademicPeriod
+from apps.analytics.student_risk.infrastructure.repositories import StudentFeatureSnapshotRepository
+from apps.analytics.dashboard.domain.services import DashboardService
 from apps.analytics.services.feature_builder import AcademicRiskFeatureBuilder
-from apps.analytics.models import StudentRiskScore
+from apps.analytics.student_risk.infrastructure.models import StudentRiskScore
 from apps.core.tests.helpers import create_test_student
 from apps.institutions.models import (
     AcademicGrade,

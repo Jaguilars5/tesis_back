@@ -7,6 +7,7 @@ ACTION_PERMISSIONS = {
     "update": attendance.UPDATE_ATTENDANCE,
     "partial_update": attendance.UPDATE_ATTENDANCE,
     "destroy": attendance.DELETE_ATTENDANCE,
+    "soft_delete": attendance.DELETE_ATTENDANCE,
     "batch_create": attendance.CREATE_ATTENDANCE,
     "take_by_schedule": attendance.CREATE_ATTENDANCE,
 }

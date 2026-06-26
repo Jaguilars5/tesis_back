@@ -1,5 +1,3 @@
-from .sync_repository import SyncQueueRepository
+from ..infrastructure.repositories import SyncQueueRepository
 
-__all__ = [
-    "SyncQueueRepository",
-]
+__all__ = ["SyncQueueRepository"]

@@ -12,3 +12,4 @@ class SectionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Section
         fields = "__all__"
+        read_only_fields = ["created_at", "updated_at"]

@@ -12,7 +12,7 @@ from apps.academic.models import (
     TeacherSubjectSection,
 )
 from apps.analytics.early_alert.infrastructure.models import EarlyAlert
-from apps.analytics.models import StudentFeatureSnapshot, StudentRiskScore
+from apps.analytics.student_risk import StudentFeatureSnapshot, StudentRiskScore
 from apps.attendance.models import Attendance
 from apps.behavior.models import BehaviorEvaluation, ConductIncident
 from apps.grading.models import (

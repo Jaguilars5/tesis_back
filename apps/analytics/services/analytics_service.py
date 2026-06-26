@@ -2,7 +2,7 @@
 AnalyticsService - Lógica de procesamiento de datos y generación de riesgo.
 """
 
-from ..repositories import (
+from apps.analytics.student_risk.infrastructure.repositories import (
     StudentRiskScoreRepository,
     StudentFeatureSnapshotRepository,
 )

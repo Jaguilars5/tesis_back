@@ -15,20 +15,17 @@ from decimal import Decimal
 
 from django.test import TestCase
 
-from apps.academic.models import (
-    AcademicPeriod,
-    Subject,
-    SubjectAcademicConfig,
-    SubjectOffering,
-    TeacherSubjectSection,
-)
-from apps.analytics.services.early_alert_service import EarlyAlertService
+from apps.academic.academic_period import AcademicPeriod
+from apps.academic.subject import Subject
+from apps.academic.subject_academic_config import SubjectAcademicConfig
+from apps.academic.subject_offering import SubjectOffering
+from apps.academic.teacher_subject_section import TeacherSubjectSection
+from apps.analytics.early_alert.domain.services import EarlyAlertService
 from apps.analytics.services.feature_builder import AcademicRiskFeatureBuilder
-from apps.attendance.models import Attendance, AttendanceStatus
-from apps.attendance.repositories import AttendanceRepository
+from apps.attendance.attendance_core import Attendance, AttendanceRepository
+from apps.attendance.attendance_status import AttendanceStatus
 from apps.core.tests.helpers import create_test_student, create_test_user
-from apps.grading.models import PeriodGradeSummary
-from apps.grading.student_note import PeriodGradeSummaryRepository
+from apps.grading.student_note import PeriodGradeSummary, PeriodGradeSummaryRepository
 from apps.institutions.models import (
     AcademicGrade,
     AcademicLevel,
@@ -140,7 +137,7 @@ class Phase2UnificationTest(TestCase):
 
     def test_absence_type_no_longer_drives_summary(self):
         # Aunque exista absence_type, el conteo se basa SOLO en attendance_status.
-        from apps.attendance.models import AbsenceType
+        from apps.attendance.absence_type import AbsenceType
 
         unjustified_type = AbsenceType.objects.create(code="unjustified", name="Injustificada")
         offering = self._make_offering("LEN")

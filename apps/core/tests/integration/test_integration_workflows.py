@@ -11,9 +11,8 @@ from apps.academic.subject_academic_config.infrastructure.models import SubjectA
 from apps.academic.subject_offering.infrastructure.models import SubjectOffering
 from apps.academic.period_type.infrastructure.models import PeriodType
 from apps.analytics.early_alert.infrastructure.models import EarlyAlert
-from apps.analytics.models import RiskFactor, StudentRiskFactor, StudentRiskScore
-from apps.analytics.services.dashboard_service import DashboardService
-from apps.analytics.services.csv_export_service import CSVExportService
+from apps.analytics.student_risk import RiskFactor, StudentRiskFactor, StudentRiskScore
+from apps.analytics.dashboard.domain.services import CSVExportService, DashboardService
 from apps.attendance.attendance_core import Attendance
 from apps.attendance.attendance_status import AttendanceStatus
 from apps.behavior.behavior_evaluation import BehaviorEvaluation

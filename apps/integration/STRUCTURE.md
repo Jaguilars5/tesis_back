@@ -1,52 +1,50 @@
 # Módulo `integration` — Sincronización Offline-First — Estructura
 
-## Árbol de archivos
+## Árbol de archivos (Layered Pattern)
 
 ```
 integration/
-├── __init__.py
+├── __init__.py                     # Lazy loader (SyncQueue, SyncableModel, SyncQueueRepository, SyncQueueService, ...)
 ├── admin.py
 ├── apps.py
-├── urls.py                     # → api/urls.py (sync-queue, sync/push, sync/pull)
+├── urls.py                         # → api/urls.py
+├── permissions.py                  # ACTION_PERMISSIONS con constantes tipadas
 ├── README.md
 │
-├── models/
-│   ├── __init__.py             # SyncQueue, SyncableModel (abstracto), SyncStatusChoices, SyncOperationChoices
-│   ├── sync_queue.py           # SyncQueue (TimeStampedModel)
-│   └── syncable_mixin.py       # SyncableModel (abstracto) + SyncStatusChoices + SyncOperationChoices
-│
-├── repositories/
-│   ├── __init__.py             # SyncQueueRepository
-│   └── sync_repository.py      # SyncQueueRepository (get_pending, get_failed)
-│
-├── services/
-│   ├── __init__.py             # SyncQueueService
-│   ├── sync_service.py         # SyncQueueService (queue_operation con idempotencia)
-│   └── conflict_resolver.py    # ConflictResolutionStrategy
-│
-├── tasks/
+├── domain/                         # Capa de dominio (interfaces + lógica de negocio)
 │   ├── __init__.py
-│   └── sync_tasks.py           # BaseSyncHandler, register_sync_handler, process_sync_queue_item, process_pending_sync_batch
+│   ├── repositories.py             # SyncQueueRepositoryInterface (ABC)
+│   └── services.py                 # SyncQueueService + ConflictResolutionStrategy + IncompatibleSchemaError
 │
-├── api/
+├── infrastructure/                 # Capa de infraestructura (Django ORM)
 │   ├── __init__.py
-│   ├── README.md
-│   ├── serializers/
-│   │   ├── __init__.py         # SyncQueueSerializer
-│   │   ├── sync_serializer.py
-│   │   └── catalog_serializers.py  # VACÍO
-│   ├── urls.py                 # Router: solo sync-queue + sync/push/ + sync/pull/
-│   └── views/
-│       ├── __init__.py
-│       ├── sync_viewset.py     # SyncQueueViewSet (CRUD + acciones push/pull)
-│       └── catalog_views.py    # VACÍO
+│   ├── models.py                   # SyncQueue (TimeStampedModel), SyncableModel (abstracto), SyncStatusChoices, SyncOperationChoices
+│   └── repositories.py             # SyncQueueRepository (BaseRepository + SyncQueueRepositoryInterface)
+│
+├── application/                    # Capa de aplicación (serializers + validators)
+│   ├── __init__.py
+│   ├── serializers.py              # SyncQueueSerializer
+│   └── validators.py               # Validaciones de negocio
+│
+├── api/                            # Capa de presentación (ViewSets, URLs, filtros)
+│   ├── __init__.py
+│   ├── views.py                    # SyncQueueViewSet (CRUD + push + pull)
+│   ├── urls.py                     # Router: sync-queue + sync/push/ + sync/pull/
+│   └── README.md
+│
+├── tasks/                          # Tareas Celery (cross-cutting)
+│   ├── __init__.py
+│   └── sync_tasks.py               # BaseSyncHandler, register_sync_handler, process_sync_queue_item, process_pending_sync_batch
+│
+├── models/                         # (shims backward-compat → infrastructure/)
+├── repositories/                   # (shims backward-compat → infrastructure/)
+├── services/                       # (shims backward-compat → domain/)
 │
 └── tests/
     ├── __init__.py
     ├── test_api.py
     ├── test_api_permissions.py
-    ├── test_models.py
-    └── test_repositories.py
+    └── test_models.py
 ```
 
 ## Workflow
@@ -68,10 +66,22 @@ SyncQueue.status = SYNCED
 ## Guía de imports
 
 ```python
-from apps.integration.models import SyncQueue, SyncableModel, SyncStatusChoices, SyncOperationChoices
+# Desde infraestructura (modelos directos)
+from apps.integration.infrastructure.models import SyncQueue, SyncableModel, SyncStatusChoices, SyncOperationChoices
 
-from apps.integration.services.sync_service import SyncQueueService, IncompatibleSchemaError
-from apps.integration.services.conflict_resolver import ConflictResolutionStrategy
+# Desde dominio (servicios)
+from apps.integration.domain.services import SyncQueueService, ConflictResolutionStrategy, IncompatibleSchemaError
 
+# Desde aplicación (serializers)
+from apps.integration.application.serializers import SyncQueueSerializer
+
+# Tareas Celery
 from apps.integration.tasks.sync_tasks import BaseSyncHandler, register_sync_handler, process_sync_queue_item
+
+# Lazy loader (carga bajo demanda)
+from apps.integration import SyncQueue, SyncQueueService, SyncQueueRepository
 ```
+
+## Backward Compatibility
+
+Los paths antiguos (`models/`, `repositories/`, `services/`) se mantienen como shims que re-exportan desde las nuevas ubicaciones canónicas. Cualquier import como `from apps.integration.models.syncable_mixin import SyncableModel` sigue funcionando.

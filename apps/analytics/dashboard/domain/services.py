@@ -132,7 +132,7 @@ class DashboardService:
         return cls._risk_distribution_by_dimension(scores, city_name)
 
     @classmethod
-    def get_risk_distribution_by_special_needs(
+    def get_risk_distribution_by_special_needs_type(
         cls, academic_period_id: int
     ) -> Dict[str, Dict]:
         """Distribución de riesgo por tipo de NEE (Fase 4)."""

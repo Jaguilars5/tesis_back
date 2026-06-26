@@ -58,6 +58,14 @@ class EvaluationBlock(TimeStampedModel):
                     {"weight_percentage": f"La suma de pesos excede 100%. Actualmente: {total}%"}
                 )
 
+    @property
+    def academic_period_name(self):
+        return self.academic_period.name if self.academic_period else None
+
+    @property
+    def subject_offering_name(self):
+        return str(self.subject_offering) if self.subject_offering else None
+
     def __str__(self):
         return f"{self.academic_period.name} \u2014 {self.name} ({self.get_block_type_display()})"
 
@@ -93,6 +101,10 @@ class BlockComponent(TimeStampedModel):
                 raise ValidationError(
                     {"internal_weight": f"La suma de pesos internos excede 100%. Actualmente: {total}%"}
                 )
+
+    @property
+    def evaluation_block_name(self):
+        return self.evaluation_block.name if self.evaluation_block else None
 
     def __str__(self):
         return f"{self.evaluation_block.name} \u2014 {self.name}"
@@ -154,6 +166,25 @@ class EvaluativeActivity(TimeStampedModel, SyncableModel):
                 raise ValidationError(
                     {"due_date": f"La fecha debe estar dentro del per\u00edodo academico ({period.start_date} - {period.end_date})"}
                 )
+
+    @property
+    def block_component_name(self):
+        return self.block_component.name if self.block_component else None
+
+    @property
+    def teacher_subject_section_name(self):
+        return str(self.teacher_subject_section) if self.teacher_subject_section else None
+
+    @property
+    def subject_offering_name(self):
+        tss = self.teacher_subject_section
+        if tss and tss.subject_offering:
+            return str(tss.subject_offering)
+        return None
+
+    @property
+    def activity_type_name(self):
+        return self.activity_type.name if self.activity_type else None
 
     def __str__(self):
         return f"{self.title} ({self.activity_type})"

@@ -24,7 +24,7 @@ class QualitativeScale(TimeStampedModel):
         return f"{self.code} — {self.description}"
 
 
-class QualitativeScaleSublevel(models.Model):
+class QualitativeScaleSublevel(TimeStampedModel):
     """Relación entre escala cualitativa y subnivel académico."""
 
     scale = models.ForeignKey(
@@ -46,6 +46,14 @@ class QualitativeScaleSublevel(models.Model):
         verbose_name = "Escala Cualitativa por Subnivel"
         verbose_name_plural = "Escalas Cualitativas por Subnivel"
         unique_together = [("scale", "sublevel")]
+
+    @property
+    def scale_name(self):
+        return self.scale.name if self.scale else None
+
+    @property
+    def sublevel_name(self):
+        return self.sublevel.name if self.sublevel else None
 
     def __str__(self):
         return f"{self.scale.code} - {self.sublevel.name}"

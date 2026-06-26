@@ -80,6 +80,22 @@ class BehaviorEvaluation(TimeStampedModel, SyncableModel):
             models.Index(fields=["evaluated_by", "evaluation_date"]),
         ]
 
+    @property
+    def enrollment_name(self):
+        return str(self.enrollment) if self.enrollment else None
+
+    @property
+    def academic_period_name(self):
+        return self.academic_period.name if self.academic_period else None
+
+    @property
+    def calculated_scale_name(self):
+        return self.calculated_scale.name if self.calculated_scale else None
+
+    @property
+    def final_scale_name(self):
+        return self.final_scale.name if self.final_scale else None
+
     def __str__(self):
         scale = self.final_scale or self.calculated_scale
         scale_code = scale.code if scale else "Sin escala"

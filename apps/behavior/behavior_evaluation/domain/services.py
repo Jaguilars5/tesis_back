@@ -2,14 +2,9 @@ from datetime import date
 
 from django.db import transaction
 
-from apps.grading.qualitative_scale import QualitativeScale
-from apps.grading.qualitative_scale import QualitativeScaleRepository
-from apps.behavior.conduct_incident.infrastructure.repositories import (
-    ConductIncidentRepository,
-)
-
 from ..constants import MODERATE_CODES, SEVERE_CODES
 from ..infrastructure.repositories import BehaviorEvaluationRepository
+from ..application import validators
 
 
 class BehaviorEvaluationService:
@@ -17,31 +12,51 @@ class BehaviorEvaluationService:
 
     repository = BehaviorEvaluationRepository
 
-    @staticmethod
+    @classmethod
+    def get_behavior_evaluation(cls, pk):
+        obj = cls.repository.get_by_id(pk)
+        if not obj:
+            raise ValueError(f"Evaluación de conducta {pk} no encontrada")
+        return obj
+
+    @classmethod
     @transaction.atomic
-    def calculate_behavior_evaluation(enrollment, academic_period):
+    def calculate_behavior_evaluation(cls, enrollment_id, academic_period_id):
+        errors = validators.run_all_validators(
+            enrollment_id=enrollment_id,
+            academic_period_id=academic_period_id,
+        )
+        if errors:
+            raise ValueError(errors)
+
+        from apps.behavior.conduct_incident.infrastructure.repositories import (
+            ConductIncidentRepository,
+        )
         incidents = list(
             ConductIncidentRepository.get_by_enrollment_and_period(
-                enrollment_id=enrollment.id,
-                academic_period_id=academic_period.id,
+                enrollment_id=enrollment_id,
+                academic_period_id=academic_period_id,
             )
         )
+
+        scale = cls._determine_scale(incidents)
+
+        eval_obj, _ = cls.repository.get_or_create(
+            enrollment_id=enrollment_id,
+            academic_period_id=academic_period_id,
+            defaults={"calculated_scale": scale, "evaluation_date": date.today()},
+        )
+        if incidents and not eval_obj.final_scale:
+            cls.repository.update(eval_obj.id, calculated_scale=scale)
+            eval_obj = cls.repository.get_by_id(eval_obj.id)
+        return eval_obj
+
+    @classmethod
+    def _determine_scale(cls, incidents):
         if not incidents:
-            scale = QualitativeScaleRepository.get_by_code("SE")
-            if not scale:
-                scale, _ = QualitativeScale.objects.get_or_create(
-                    code="NA",
-                    defaults={
-                        "description": "Sin incidentes",
-                        "numeric_equivalence": 10.0,
-                    },
-                )
-            eval_obj, _ = BehaviorEvaluationRepository.get_or_create(
-                enrollment=enrollment,
-                academic_period=academic_period,
-                defaults={"calculated_scale": scale, "evaluation_date": date.today()},
+            return cls.repository.get_or_create_qualitative_scale(
+                "SE", defaults={"description": "Sin incidentes", "numeric_equivalence": 10.0}
             )
-            return eval_obj
 
         severe_count = sum(1 for i in incidents if i.severity.code in SEVERE_CODES)
         moderate_count = sum(1 for i in incidents if i.severity.code in MODERATE_CODES)
@@ -56,30 +71,19 @@ class BehaviorEvaluationService:
         else:
             scale_code = "SE"
 
-        scale = QualitativeScaleRepository.get_by_code(scale_code)
-        if not scale:
-            scale, _ = QualitativeScale.objects.get_or_create(
-                code=scale_code,
-                defaults={
-                    "description": "Escala autom\u00e1tica",
-                    "numeric_equivalence": 5.0,
-                },
-            )
-
-        eval_obj, _ = BehaviorEvaluationRepository.get_or_create(
-            enrollment=enrollment,
-            academic_period=academic_period,
-            defaults={"calculated_scale": scale, "evaluation_date": date.today()},
+        return cls.repository.get_or_create_qualitative_scale(
+            scale_code,
+            defaults={"description": "Escala automática", "numeric_equivalence": 5.0},
         )
-        if not eval_obj.final_scale:
-            eval_obj.calculated_scale = scale
-            eval_obj.save()
-        return eval_obj
 
-    @staticmethod
+    @classmethod
     @transaction.atomic
-    def override_evaluation(evaluation, new_scale, reason=""):
-        evaluation.final_scale = new_scale
-        evaluation.override_reason = reason
-        evaluation.save()
-        return evaluation
+    def update_evaluation(cls, pk, **kwargs):
+        cls.get_behavior_evaluation(pk)
+        allowed = {
+            "calculated_scale_id", "final_scale_id", "general_observation",
+            "override_reason", "evaluation_date", "approval_date",
+            "evaluated_by_id", "approved_by_id",
+        }
+        clean = {k: v for k, v in kwargs.items() if k in allowed and v is not None}
+        return cls.repository.update(pk, **clean)

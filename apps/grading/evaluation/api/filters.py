@@ -1,6 +1,16 @@
 from django_filters import rest_framework as filters
 
-from ..infrastructure.models import BlockComponent, EvaluativeActivity
+from ..infrastructure.models import EvaluationBlock, BlockComponent, EvaluativeActivity
+
+
+class EvaluationBlockFilter(filters.FilterSet):
+    academic_period = filters.NumberFilter(field_name="academic_period_id")
+    subject_offering = filters.NumberFilter(field_name="subject_offering_id")
+    is_active = filters.BooleanFilter(field_name="is_active")
+
+    class Meta:
+        model = EvaluationBlock
+        fields = ["academic_period", "subject_offering", "block_type", "is_active"]
 
 
 class EvaluativeActivityFilter(filters.FilterSet):

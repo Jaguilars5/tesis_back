@@ -1,7 +1,8 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.decorators import action
-from rest_framework.filters import OrderingFilter
+from rest_framework.exceptions import ValidationError
+from rest_framework.filters import OrderingFilter, SearchFilter
 
 from apps.core.utils import ok_response
 from apps.institutions.api.base import BaseInstitutionsViewSet
@@ -25,8 +26,9 @@ from .filters import AcademicSublevelFilter
 class AcademicSublevelViewSet(BaseInstitutionsViewSet):
     serializer_class = AcademicSublevelSerializer
     action_permissions = ACTION_PERMISSIONS
-    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
     filterset_class = AcademicSublevelFilter
+    search_fields = ["name", "code"]
     ordering_fields = ["name", "code"]
     ordering = ["name"]
 
@@ -41,22 +43,27 @@ class AcademicSublevelViewSet(BaseInstitutionsViewSet):
         return ok_response(result)
 
     def get_queryset(self):
-        search = self.request.query_params.get("search")
-        return self.repository.get_all(search=search)
+        return self.repository.get_all()
 
     def perform_create(self, serializer):
         data = serializer.validated_data
-        obj = AcademicSublevelService.create_academic_sublevel(
-            academic_level_id=data["academic_level"].id,
-            code=data["code"],
-            name=data["name"],
-            description=data.get("description", ""),
-        )
+        try:
+            obj = AcademicSublevelService.create_academic_sublevel(
+                academic_level_id=data["academic_level"].id,
+                code=data["code"],
+                name=data["name"],
+                description=data.get("description", ""),
+            )
+        except ValueError as e:
+            raise ValidationError(e.args[0] if e.args else str(e))
         serializer.instance = obj
 
     def perform_update(self, serializer):
         data = dict(serializer.validated_data)
-        obj = AcademicSublevelService.update_academic_sublevel(
-            serializer.instance.id, **data
-        )
+        try:
+            obj = AcademicSublevelService.update_academic_sublevel(
+                serializer.instance.id, **data
+            )
+        except ValueError as e:
+            raise ValidationError(e.args[0] if e.args else str(e))
         serializer.instance = obj

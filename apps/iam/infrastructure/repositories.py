@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -79,6 +80,39 @@ class UserRepository(BaseRepository, UserRepositoryInterface):
         user.save()
 
     @classmethod
+    def change_password(cls, user, new_password):
+        user.set_password(new_password)
+        user.must_change_password = False
+        user.save(update_fields=["password", "must_change_password", "updated_at"])
+        return user
+
+    @classmethod
+    def add_user_role(cls, user, role):
+        return UserRole.objects.create(user=user, role=role)
+
+    @classmethod
+    @transaction.atomic
+    def create_user_with_person(cls, document_number, names, last_names, email, password, role_id):
+        from datetime import date
+        from apps.people.models import DocumentType, Person
+
+        doc_type = DocumentType.objects.get_or_create(
+            code="CC", defaults={"name": "Cédula de Ciudadanía"}
+        )[0]
+        person = Person.objects.create(
+            document_type=doc_type,
+            document_number=document_number,
+            names=names,
+            last_names=last_names,
+            email=email,
+            birth_date=date(2000, 1, 1),
+        )
+        user = cls.model.objects.create_user(person=person, password=password)
+        role = Role.objects.get(id=role_id)
+        UserRole.objects.create(user=user, role=role)
+        return user
+
+    @classmethod
     def bulk_create(cls, user_list):
         now = timezone.now()
         users = []
@@ -91,6 +125,19 @@ class UserRepository(BaseRepository, UserRepositoryInterface):
             user.set_password(user_data["password"])
             users.append(user)
         return User.objects.bulk_create(users)
+
+    @classmethod
+    def search_by_role_code(cls, role_code, search=None):
+        qs = cls.model.objects.filter(
+            user_roles__role__code=role_code, is_active=True
+        ).distinct().order_by("username")
+        if search:
+            qs = qs.filter(
+                Q(person__names__icontains=search) |
+                Q(person__last_names__icontains=search) |
+                Q(person__document_number__icontains=search)
+            )
+        return qs
 
     @classmethod
     def search(cls, query_string):
@@ -154,6 +201,28 @@ class RoleRepository(BaseRepository, RoleRepositoryInterface):
     @classmethod
     def remove_permission(cls, role, permission):
         return RolePermission.objects.filter(role=role, permission=permission).delete()
+
+    @classmethod
+    def get_cascade_counts(cls, instance_id: int) -> dict[str, int]:
+        count = cls.model.objects.filter(pk=instance_id).count()
+        users = User.objects.filter(user_roles__role_id=instance_id, is_active=True).count()
+        counts = {}
+        if users:
+            counts["usuarios"] = users
+        return counts
+
+    @classmethod
+    @transaction.atomic
+    def deactivate_cascade(cls, instance_id: int) -> int:
+        total = 0
+        affected = UserRole.objects.filter(role_id=instance_id).select_related("user")
+        for ur in affected:
+            if ur.user.is_active:
+                ur.user.is_active = False
+                ur.user.save(update_fields=["is_active"])
+                total += 1
+        cls.model.objects.filter(pk=instance_id).update(is_active=False)
+        return total
 
     @classmethod
     def set_permissions(cls, role, permission_objects):

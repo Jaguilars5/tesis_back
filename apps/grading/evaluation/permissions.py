@@ -7,6 +7,7 @@ ACTION_PERMISSIONS = {
     "update": grading.UPDATE_EVALUATION_BLOCK,
     "partial_update": grading.UPDATE_EVALUATION_BLOCK,
     "destroy": grading.DELETE_EVALUATION_BLOCK,
+    "soft_delete": grading.DELETE_EVALUATION_BLOCK,
 }
 
 BLOCK_COMPONENT_PERMISSIONS = {

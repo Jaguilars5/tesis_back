@@ -13,6 +13,8 @@ class AttendanceFilter(django_filters.FilterSet):
     attendance_status = django_filters.NumberFilter(field_name="attendance_status_id")
     absence_type = django_filters.NumberFilter(field_name="absence_type_id")
 
+    is_active = django_filters.BooleanFilter(field_name="is_active")
+
     class Meta:
         model = Attendance
         fields = [
@@ -24,4 +26,5 @@ class AttendanceFilter(django_filters.FilterSet):
             "academic_period",
             "attendance_status",
             "absence_type",
+            "is_active",
         ]

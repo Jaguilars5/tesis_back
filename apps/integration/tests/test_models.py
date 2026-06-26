@@ -1,7 +1,6 @@
 from django.test import TestCase
 from apps.core.tests.helpers import create_test_user
-from ..models import SyncQueue
-from ..models.syncable_mixin import SyncOperationChoices, SyncStatusChoices
+from ..infrastructure.models import SyncQueue, SyncOperationChoices, SyncStatusChoices
 
 
 class SyncQueueModelTest(TestCase):

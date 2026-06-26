@@ -5,7 +5,7 @@ from rest_framework import status
 from django.contrib.auth import get_user_model
 from apps.iam.models import Role
 from apps.core.tests.helpers import create_test_user
-from ..models.syncable_mixin import SyncOperationChoices, SyncStatusChoices
+from ..infrastructure.models import SyncOperationChoices, SyncStatusChoices
 
 User = get_user_model()
 
@@ -60,14 +60,14 @@ class IntegrationAPITest(APITestCase):
         mock_delay.assert_called_once()
 
     def test_sync_push_idempotent_operation_is_synced(self):
-        from ..repositories import SyncQueueRepository
+        from ..infrastructure.repositories import SyncQueueRepository
 
         operation = {
             "source_table": "student_note",
             "operation": SyncOperationChoices.CREATE,
             "record_uuid": "123e4567-e89b-12d3-a456-426614174222",
         }
-        from ..services.sync_service import SyncQueueService
+        from ..domain.services import SyncQueueService
 
         idempotency_key = SyncQueueService._build_idempotency_key(
             operation["source_table"], operation["record_uuid"], operation["operation"]
@@ -92,7 +92,7 @@ class IntegrationAPITest(APITestCase):
         self.assertEqual(body["data"]["results"][0]["status"], "SYNCED")
 
     def test_sync_pull_returns_items(self):
-        from ..repositories import SyncQueueRepository
+        from ..infrastructure.repositories import SyncQueueRepository
 
         SyncQueueRepository.create(
             user=self.user,
@@ -111,7 +111,7 @@ class IntegrationAPITest(APITestCase):
         self.assertGreaterEqual(body["data"]["count"], 1)
 
     def test_sync_pull_filters_by_source_table(self):
-        from ..repositories import SyncQueueRepository
+        from ..infrastructure.repositories import SyncQueueRepository
 
         SyncQueueRepository.create(
             user=self.user,

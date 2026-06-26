@@ -1,19 +1,16 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
+from rest_framework import status
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.filters import SearchFilter, OrderingFilter
 
-from apps.academic.academic_period.infrastructure.models import AcademicPeriod
 from apps.behavior.api.base import BaseBehaviorViewSet
-from apps.behavior.conduct_incident.application.serializers import (
-    ConductIncidentSerializer,
-)
 from apps.behavior.conduct_incident.infrastructure.repositories import (
     ConductIncidentRepository,
 )
 from apps.core.api.scoping import scope_student_to_enrollment
-from apps.core.utils import ok_response
-from apps.students.models import Enrollment
+from apps.core.utils import ok_response, error_response
 
 from ..application.serializers import BehaviorEvaluationSerializer
 from ..domain.services import BehaviorEvaluationService
@@ -28,6 +25,7 @@ from ..permissions import ACTION_PERMISSIONS
     update=extend_schema(summary="Actualizar evaluación conductual", tags=["behavior"]),
     partial_update=extend_schema(summary="Actualizar evaluación parcialmente", tags=["behavior"]),
     destroy=extend_schema(summary="Eliminar evaluación conductual", tags=["behavior"]),
+    calculate=extend_schema(summary="Calcular evaluación conductual", tags=["behavior"]),
     related_incidents=extend_schema(summary="Incidentes relacionados", tags=["behavior"]),
 )
 class BehaviorEvaluationViewSet(BaseBehaviorViewSet):
@@ -39,37 +37,34 @@ class BehaviorEvaluationViewSet(BaseBehaviorViewSet):
     ordering_fields = ["evaluation_date", "created_at"]
     ordering = ["-evaluation_date"]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.repository = BehaviorEvaluationRepository()
-
     def get_queryset(self):
-        qs = self.repository.get_all()
+        qs = BehaviorEvaluationRepository.get_all()
         return scope_student_to_enrollment(self.request, qs)
 
     def perform_create(self, serializer):
         data = serializer.validated_data
-        obj = BehaviorEvaluationService.calculate_behavior_evaluation(
-            enrollment=data["enrollment"],
-            academic_period=data["academic_period"],
-        )
-        serializer.instance = obj
+        try:
+            obj = BehaviorEvaluationService.calculate_behavior_evaluation(
+                enrollment_id=data["enrollment"].id,
+                academic_period_id=data["academic_period"].id,
+            )
+            serializer.instance = obj
+        except ValueError as e:
+            raise ValidationError(e.args[0] if e.args else str(e))
 
     def perform_update(self, serializer):
-        data = dict(serializer.validated_data)
-        if "final_scale" in data:
-            obj = BehaviorEvaluationService.override_evaluation(
-                serializer.instance,
-                new_scale=data.pop("final_scale"),
-                reason=data.pop("override_reason", ""),
+        data = serializer.validated_data
+        try:
+            obj = BehaviorEvaluationService.update_evaluation(
+                pk=serializer.instance.id,
+                final_scale_id=data.get("final_scale").id if data.get("final_scale") else None,
+                override_reason=data.get("override_reason", ""),
+                general_observation=data.get("general_observation", ""),
+                evaluation_date=data.get("evaluation_date"),
             )
-        else:
-            obj = serializer.instance
-            for key, value in data.items():
-                if hasattr(obj, key):
-                    setattr(obj, key, value)
-            obj.save()
-        serializer.instance = obj
+            serializer.instance = obj
+        except ValueError as e:
+            raise ValidationError(e.args[0] if e.args else str(e))
 
     @extend_schema(
         summary="Calcular evaluación conductual",
@@ -90,13 +85,20 @@ class BehaviorEvaluationViewSet(BaseBehaviorViewSet):
     def calculate(self, request):
         enrollment_id = request.data.get("enrollment_id")
         academic_period_id = request.data.get("academic_period_id")
-        enrollment = Enrollment.objects.get(pk=enrollment_id)
-        academic_period = AcademicPeriod.objects.get(pk=academic_period_id)
-        evaluation = BehaviorEvaluationService.calculate_behavior_evaluation(
-            enrollment, academic_period
-        )
-        serializer = self.get_serializer(evaluation)
-        return ok_response(serializer.data)
+        if not enrollment_id or not academic_period_id:
+            return error_response(
+                "enrollment_id y academic_period_id son requeridos",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            evaluation = BehaviorEvaluationService.calculate_behavior_evaluation(
+                enrollment_id=enrollment_id,
+                academic_period_id=academic_period_id,
+            )
+            serializer = self.get_serializer(evaluation)
+            return ok_response(serializer.data)
+        except ValueError as e:
+            return error_response(str(e), status_code=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=["get"])
     def related_incidents(self, request, pk=None):
@@ -105,5 +107,15 @@ class BehaviorEvaluationViewSet(BaseBehaviorViewSet):
             enrollment_id=evaluation.enrollment_id,
             academic_period_id=evaluation.academic_period_id,
         )
-        serializer = ConductIncidentSerializer(incidents, many=True)
-        return ok_response(serializer.data)
+        data = [
+            {
+                "id": inc.id,
+                "severity": inc.severity.name if inc.severity else None,
+                "incident_type": inc.incident_type.name if inc.incident_type else None,
+                "description": inc.description,
+                "incident_date": inc.incident_date,
+                "status": inc.status,
+            }
+            for inc in incidents
+        ]
+        return ok_response(data)

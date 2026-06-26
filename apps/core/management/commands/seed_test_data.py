@@ -41,7 +41,7 @@ from apps.academic.subject_academic_config import SubjectAcademicConfig
 from apps.academic.subject_offering import SubjectOffering
 from apps.academic.teacher_subject_section import TeacherSubjectSection
 from apps.analytics.early_alert.infrastructure.models import EarlyAlert
-from apps.analytics.models import StudentFeatureSnapshot, StudentRiskScore
+from apps.analytics.student_risk import StudentFeatureSnapshot, StudentRiskScore
 from apps.attendance.attendance_status import AttendanceStatus
 from apps.attendance.attendance_core import Attendance
 from apps.behavior.conduct_incident import ConductIncident

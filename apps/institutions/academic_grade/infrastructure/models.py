@@ -29,3 +29,7 @@ class AcademicGrade(TimeStampedModel):
         if self.academic_sublevel:
             return self.academic_sublevel.academic_level
         return None
+
+    @property
+    def academic_sublevel_name(self):
+        return self.academic_sublevel.name if self.academic_sublevel else None

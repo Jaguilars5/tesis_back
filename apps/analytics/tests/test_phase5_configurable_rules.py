@@ -13,9 +13,9 @@ Cubre los criterios de aceptación:
 from django.test import SimpleTestCase, TestCase
 from rest_framework.exceptions import ValidationError
 
-from apps.analytics.api.serializers import RiskScoringConfigSerializer
-from apps.analytics.models import RiskScoringConfig
-from apps.analytics.repositories.risk_scoring_config_repository import (
+from apps.analytics.student_risk.application.serializers import RiskScoringConfigSerializer
+from apps.analytics.student_risk.infrastructure.models import RiskScoringConfig
+from apps.analytics.student_risk.infrastructure.repositories import (
     RiskScoringConfigRepository,
 )
 from apps.analytics.services.risk_scoring_config_service import (

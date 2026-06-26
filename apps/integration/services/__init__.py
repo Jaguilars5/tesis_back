@@ -1,3 +1,3 @@
-from .sync_service import SyncQueueService
+from ..domain.services import SyncQueueService
 
 __all__ = ["SyncQueueService"]

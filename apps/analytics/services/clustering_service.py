@@ -1,7 +1,4 @@
-import numpy as np
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
-from ..models import StudentFeatureSnapshot
+from apps.analytics.student_risk.infrastructure.models import StudentFeatureSnapshot
 
 
 class StudentClusteringService:
@@ -15,6 +12,11 @@ class StudentClusteringService:
 
     @classmethod
     def cluster_students(cls, academic_period_id, n_clusters=4):
+        # Imports perezosos: numpy/scikit-learn sólo se requieren al clusterizar.
+        import numpy as np
+        from sklearn.cluster import KMeans
+        from sklearn.preprocessing import StandardScaler
+
         snapshots = StudentFeatureSnapshot.objects.filter(
             academic_period_id=academic_period_id
         )

@@ -7,4 +7,5 @@ ACTION_PERMISSIONS = {
     "update": grading.UPDATE_QUALITATIVE_SCALE,
     "partial_update": grading.UPDATE_QUALITATIVE_SCALE,
     "destroy": grading.DELETE_QUALITATIVE_SCALE,
+    "soft_delete": grading.DELETE_QUALITATIVE_SCALE,
 }

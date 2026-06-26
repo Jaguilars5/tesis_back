@@ -13,7 +13,10 @@ class IncidentTypeRepository(BaseRepository, IncidentTypeRepositoryInterface):
         return queryset.order_by("name")
 
     @classmethod
-    def soft_delete(cls, instance):
-        instance.is_active = False
-        instance.save(update_fields=["is_active"])
-        return {"id": instance.pk}
+    def get_cascade_counts(cls, instance_id: int) -> dict[str, int]:
+        return {}
+
+    @classmethod
+    def deactivate_cascade(cls, instance_id: int) -> int:
+        cls.model.objects.filter(pk=instance_id).update(is_active=False)
+        return 1

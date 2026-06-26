@@ -1,3 +1,4 @@
+from ..application import validators
 from ..infrastructure.repositories import AcademicGradeRepository
 
 
@@ -6,6 +7,11 @@ class AcademicGradeService:
 
     @classmethod
     def create_grade(cls, name, academic_sublevel_id=None, code=""):
+        errors = validators.run_all_validators(
+            name=name, academic_sublevel_id=academic_sublevel_id, code=code
+        )
+        if errors:
+            raise ValueError(errors)
         return cls.repository.create(
             name=name,
             academic_sublevel_id=academic_sublevel_id,
@@ -16,7 +22,7 @@ class AcademicGradeService:
     def get_grade(cls, grade_id):
         grade = cls.repository.get_by_id(grade_id)
         if not grade:
-            raise ValueError({"id": f"Grado {grade_id} no encontrado"})
+            raise ValueError(f"Grado {grade_id} no encontrado")
         return grade
 
     @classmethod
@@ -24,6 +30,9 @@ class AcademicGradeService:
         allowed = {"name", "code", "academic_sublevel_id", "is_active"}
         cls.get_grade(grade_id)
         clean = {k: v for k, v in kwargs.items() if k in allowed}
+        errors = validators.run_all_validators(**clean)
+        if errors:
+            raise ValueError(errors)
         return cls.repository.update(grade_id, **clean)
 
     @classmethod

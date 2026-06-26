@@ -1,12 +1,13 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from rest_framework.decorators import action
-from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from rest_framework.filters import SearchFilter, OrderingFilter
 
-from apps.grading.api.base import BaseGradingViewSet
 from apps.core.api.scoping import scope_student_to_enrollment
 from apps.core.utils import ok_response
+from apps.grading.api.base import BaseGradingViewSet
 
 from ..application.serializers import (
     StudentNoteSerializer,
@@ -28,6 +29,7 @@ from ..permissions import ACTION_PERMISSIONS, GRADE_HISTORY_PERMISSIONS, GRADE_S
     update=extend_schema(summary="Actualizar nota de estudiante", tags=["grading"]),
     partial_update=extend_schema(summary="Actualizar nota parcialmente", tags=["grading"]),
     destroy=extend_schema(summary="Eliminar nota de estudiante", tags=["grading"]),
+    soft_delete=extend_schema(summary="Desactivar nota de estudiante", tags=["grading"]),
 )
 class StudentNoteViewSet(BaseGradingViewSet):
     serializer_class = StudentNoteSerializer
@@ -38,29 +40,43 @@ class StudentNoteViewSet(BaseGradingViewSet):
     ordering_fields = ["numeric_score", "created_at"]
     ordering = ["-id"]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.repository = StudentNoteRepository()
-
     def get_queryset(self):
-        qs = self.repository.get_all()
+        qs = StudentNoteRepository.get_all()
         return scope_student_to_enrollment(self.request, qs)
 
     def perform_create(self, serializer):
         data = serializer.validated_data
-        obj = StudentNoteService.create_student_note(
-            enrollment_id=data["enrollment"].id,
-            evaluative_activity_id=data["evaluative_activity"].id,
-            numeric_score=data.get("numeric_score"),
-            qualitative_scale_id=data.get("qualitative_scale").id if data.get("qualitative_scale") else None,
-            teacher_observation=data.get("teacher_observation", ""),
-        )
-        serializer.instance = obj
+        try:
+            obj = StudentNoteService.create_student_note(
+                enrollment_id=data["enrollment"].id,
+                evaluative_activity_id=data["evaluative_activity"].id,
+                numeric_score=data.get("numeric_score"),
+                qualitative_scale_id=data.get("qualitative_scale").id if data.get("qualitative_scale") else None,
+                teacher_observation=data.get("teacher_observation", ""),
+            )
+            serializer.instance = obj
+        except ValueError as e:
+            raise ValidationError(e.args[0] if e.args else str(e))
 
     def perform_update(self, serializer):
-        data = dict(serializer.validated_data)
-        obj = StudentNoteService.update_student_note(serializer.instance.id, **data)
-        serializer.instance = obj
+        data = serializer.validated_data
+        try:
+            obj = StudentNoteService.update_student_note(
+                note_id=serializer.instance.id,
+                numeric_score=data.get("numeric_score"),
+                teacher_observation=data.get("teacher_observation", ""),
+                grading_mode=data.get("grading_mode"),
+                manually_overridden=data.get("manually_overridden"),
+            )
+            serializer.instance = obj
+        except ValueError as e:
+            raise ValidationError(e.args[0] if e.args else str(e))
+
+    @action(detail=True, methods=["post"])
+    def soft_delete(self, request, pk=None):
+        confirm = request.data.get("confirm", False)
+        result = StudentNoteService.soft_delete(pk, confirm=confirm)
+        return ok_response(result)
 
 
 @extend_schema_view(
@@ -75,14 +91,11 @@ class GradeChangeHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
     ordering = ["-modified_at"]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        from ..infrastructure.repositories import StudentNoteRepository
-        self.repository = StudentNoteRepository()
-
     def get_queryset(self):
         from ..infrastructure.models import GradeChangeHistory
-        return GradeChangeHistory.objects.all().order_by("-modified_at")
+        return GradeChangeHistory.objects.select_related(
+            "student_note", "modified_by_user__person"
+        ).all().order_by("-modified_at")
 
 
 @extend_schema_view(
@@ -102,12 +115,8 @@ class PeriodGradeSummaryViewSet(BaseGradingViewSet):
     ordering_fields = ["final_avg_truncated", "created_at"]
     ordering = ["-id"]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.repository = PeriodGradeSummaryRepository()
-
     def get_queryset(self):
-        qs = self.repository.get_all()
+        qs = PeriodGradeSummaryRepository.get_all()
         return scope_student_to_enrollment(self.request, qs)
 
     def perform_create(self, serializer):
@@ -120,7 +129,7 @@ class PeriodGradeSummaryViewSet(BaseGradingViewSet):
         serializer.instance = obj
 
     def perform_update(self, serializer):
-        data = dict(serializer.validated_data)
+        data = serializer.validated_data
         obj = GradeCalculationService.calculate_period_summary(
             enrollment=data.get("enrollment") or serializer.instance.enrollment,
             subject_offering=data.get("subject_offering") or serializer.instance.subject_offering,

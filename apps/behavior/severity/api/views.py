@@ -1,6 +1,7 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.filters import SearchFilter, OrderingFilter
 
 from apps.behavior.api.base import BaseBehaviorViewSet
@@ -31,29 +32,37 @@ class SeverityViewSet(BaseBehaviorViewSet):
     ordering_fields = ["name", "code"]
     ordering = ["name"]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.repository = SeverityRepository()
-
     def get_queryset(self):
-        return self.repository.get_all()
+        return SeverityRepository.get_all()
 
     def perform_create(self, serializer):
         data = serializer.validated_data
-        obj = SeverityService.create_severity(
-            code=data["code"],
-            name=data["name"],
-            description=data.get("description", ""),
-        )
-        serializer.instance = obj
+        try:
+            obj = SeverityService.create_severity(
+                code=data["code"],
+                name=data["name"],
+                description=data.get("description", ""),
+            )
+            serializer.instance = obj
+        except ValueError as e:
+            raise ValidationError(e.args[0] if e.args else str(e))
 
     def perform_update(self, serializer):
-        data = dict(serializer.validated_data)
-        obj = SeverityService.update_severity(serializer.instance.id, **data)
-        serializer.instance = obj
+        data = serializer.validated_data
+        try:
+            obj = SeverityService.update_severity(
+                pk=serializer.instance.id,
+                code=data.get("code"),
+                name=data.get("name"),
+                description=data.get("description", ""),
+                is_active=data.get("is_active"),
+            )
+            serializer.instance = obj
+        except ValueError as e:
+            raise ValidationError(e.args[0] if e.args else str(e))
 
     @action(detail=True, methods=["post"])
     def soft_delete(self, request, pk=None):
-        instance = self.get_object()
-        result = SeverityService.soft_delete_severity(instance.id)
+        confirm = request.data.get("confirm", False)
+        result = SeverityService.soft_delete_severity(pk, confirm=confirm)
         return ok_response(result)

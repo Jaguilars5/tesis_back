@@ -7,6 +7,7 @@ ACTION_PERMISSIONS = {
     "update": grading.UPDATE_NOTE,
     "partial_update": grading.UPDATE_NOTE,
     "destroy": grading.DELETE_NOTE,
+    "soft_delete": grading.DELETE_NOTE,
 }
 
 GRADE_HISTORY_PERMISSIONS = {

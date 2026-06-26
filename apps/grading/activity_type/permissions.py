@@ -7,4 +7,5 @@ ACTION_PERMISSIONS = {
     "update": grading.UPDATE_ACTIVITY_TYPE,
     "partial_update": grading.UPDATE_ACTIVITY_TYPE,
     "destroy": grading.DELETE_ACTIVITY_TYPE,
+    "soft_delete": grading.DELETE_ACTIVITY_TYPE,
 }

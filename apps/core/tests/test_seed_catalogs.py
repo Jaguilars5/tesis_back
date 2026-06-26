@@ -4,7 +4,7 @@ from django.core.management import call_command
 from django.test import TestCase
 
 from apps.academic.models import PeriodType, Subject
-from apps.analytics.models import RiskFactor
+from apps.analytics.student_risk import RiskFactor
 from apps.attendance.models import AbsenceType, AttendanceStatus
 from apps.behavior.models import (
     IncidentType, Severity,

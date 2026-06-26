@@ -39,6 +39,7 @@ class UserManager(BaseUserManager):
             "names": username,
             "last_names": "Superuser",
             "document_number": f"SUPER-{username}",
+            "birth_date": "2000-01-01",
         }
         person, _ = Person.objects.get_or_create(
             document_number=person_data["document_number"], defaults=person_data,

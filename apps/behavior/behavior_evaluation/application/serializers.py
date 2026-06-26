@@ -4,14 +4,10 @@ from ..infrastructure.models import BehaviorEvaluation
 
 
 class BehaviorEvaluationSerializer(serializers.ModelSerializer):
-    enrollment_name = serializers.CharField(source="enrollment.__str__", read_only=True)
-    academic_period_name = serializers.CharField(
-        source="academic_period.name", read_only=True
-    )
-    calculated_scale_name = serializers.CharField(
-        source="calculated_scale.name", read_only=True
-    )
-    final_scale_name = serializers.CharField(source="final_scale.name", read_only=True)
+    enrollment_name = serializers.CharField(read_only=True)
+    academic_period_name = serializers.CharField(read_only=True)
+    calculated_scale_name = serializers.CharField(read_only=True)
+    final_scale_name = serializers.CharField(read_only=True)
 
     class Meta:
         model = BehaviorEvaluation

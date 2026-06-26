@@ -1,5 +1,3 @@
-"""Capa de dominio del m\u00f3dulo IAM — Servicios."""
-
 from django.contrib.auth.password_validation import validate_password
 
 from ..infrastructure.repositories import (
@@ -7,145 +5,157 @@ from ..infrastructure.repositories import (
     RoleRepository,
     PermissionRepository,
 )
-from ..infrastructure.models import User, UserRole
 
 
 class UserService:
-    def __init__(self):
-        self.user_repo = UserRepository()
-        self.role_repo = RoleRepository()
-        self.permission_repo = PermissionRepository()
+    repository = UserRepository
 
-    def create_user(self, document_number, names, last_names, email, password, role_id):
-        existing_email = self.user_repo.get_by_email(email)
+    @classmethod
+    def create_user(cls, document_number, names, last_names, email, password, role_id):
+        existing_email = cls.repository.get_by_email(email)
         if existing_email:
-            raise ValueError(f"El email {email} ya est\u00e1 registrado")
+            raise ValueError(f"El email {email} ya está registrado")
 
-        existing_dni = self.user_repo.get_by_dni(document_number)
+        existing_dni = cls.repository.get_by_dni(document_number)
         if existing_dni:
-            raise ValueError(f"El DNI {document_number} ya est\u00e1 registrado")
+            raise ValueError(f"El DNI {document_number} ya está registrado")
 
-        role = self.role_repo.get_by_id(role_id)
+        role = RoleRepository.get_by_id(role_id)
         if not role:
             raise ValueError(f"El rol con ID {role_id} no existe")
 
-        from apps.people.models import DocumentType, Person
-
-        doc_type = DocumentType.objects.get_or_create(
-            code="CC", defaults={"name": "Cedula de Ciudadan\u00eda"}
-        )[0]
-        person = Person.objects.create(
-            document_type=doc_type,
+        return cls.repository.create_user_with_person(
             document_number=document_number,
             names=names,
             last_names=last_names,
             email=email,
+            password=password,
+            role_id=role_id,
         )
 
-        user = self.user_repo.create_user(person=person, password=password)
-        UserRole.objects.create(user=user, role=role)
+    @classmethod
+    def get_user(cls, user_id):
+        user = cls.repository.get_by_id(user_id)
+        if not user:
+            raise ValueError(f"Usuario con ID {user_id} no existe")
         return user
 
-    def get_user(self, user_id):
-        return self.user_repo.get_by_id(user_id)
+    @classmethod
+    def get_user_by_email(cls, email):
+        return cls.repository.get_by_email(email)
 
-    def get_user_by_email(self, email):
-        return self.user_repo.get_by_email(email)
+    @classmethod
+    def get_user_by_username(cls, username):
+        return cls.repository.get_by_username(username)
 
-    def get_user_by_username(self, username):
-        return self.user_repo.get_by_username(username)
+    @classmethod
+    def list_users(cls):
+        return cls.repository.get_all_active()
 
-    def list_users(self):
-        return self.user_repo.get_all_active()
+    @classmethod
+    def list_users_by_role(cls, role_id):
+        return cls.repository.get_by_role(role_id)
 
-    def list_users_by_role(self, role_id):
-        return self.user_repo.get_by_role(role_id)
+    @classmethod
+    def list_users_by_role_code(cls, code):
+        return cls.repository.get_by_role_code(code)
 
-    def list_users_by_role_code(self, code):
-        return self.user_repo.get_by_role_code(code)
-
-    def update_user(self, user_id, **kwargs):
-        user = self.user_repo.get_by_id(user_id)
+    @classmethod
+    def update_user(cls, user_id, **kwargs):
+        user = cls.repository.get_by_id(user_id)
         if not user:
             raise ValueError(f"Usuario con ID {user_id} no existe")
         current_email = user.person.email if user.person else None
         if "email" in kwargs and kwargs["email"] != current_email:
-            existing = self.user_repo.get_by_email(kwargs["email"])
+            existing = cls.repository.get_by_email(kwargs["email"])
             if existing and existing.id != user.id:
-                raise ValueError(f"El email {kwargs['email']} ya est\u00e1 registrado")
+                raise ValueError(f"El email {kwargs['email']} ya está registrado")
         if "role" in kwargs:
-            role = self.role_repo.get_by_id(kwargs["role"])
+            role = RoleRepository.get_by_id(kwargs["role"])
             if not role:
                 raise ValueError(f"El rol con ID {kwargs['role']} no existe")
-        return self.user_repo.update_user(user, **kwargs)
+        return cls.repository.update_user(user, **kwargs)
 
-    def change_password(self, user_id, new_password):
-        user = self.user_repo.get_by_id(user_id)
+    @classmethod
+    def change_password(cls, user_id, new_password):
+        user = cls.repository.get_by_id(user_id)
         if not user:
             raise ValueError(f"Usuario con ID {user_id} no existe")
         validate_password(new_password, user=user)
-        user.set_password(new_password)
-        user.must_change_password = False
-        user.save(update_fields=["password", "must_change_password", "updated_at"])
-        return user
+        return cls.repository.change_password(user, new_password)
 
-    def deactivate_user(self, user_id):
-        user = self.user_repo.get_by_id(user_id)
+    @classmethod
+    def deactivate_user(cls, user_id):
+        user = cls.repository.get_by_id(user_id)
         if not user:
             raise ValueError(f"Usuario con ID {user_id} no existe")
-        self.user_repo.delete_user(user)
+        cls.repository.delete_user(user)
         return user
 
-    def has_permission(self, user_id, permission_code):
-        user = self.user_repo.get_by_id(user_id)
+    @classmethod
+    def has_permission(cls, user_id, permission_code):
+        user = cls.repository.get_by_id(user_id)
         if not user:
             return False
         return user.has_perm(permission_code)
 
-    def get_user_permissions(self, user_id):
-        user = self.user_repo.get_by_id(user_id)
+    @classmethod
+    def get_user_permissions(cls, user_id):
+        user = cls.repository.get_by_id(user_id)
         if not user:
             return set()
         return user.get_all_permissions()
 
-    def search_users(self, query_string):
-        return self.user_repo.search(query_string)
+    @classmethod
+    def search_users(cls, query_string):
+        return cls.repository.search(query_string)
+
+    @classmethod
+    def search_users_by_role_code(cls, role_code, search=None):
+        return cls.repository.search_by_role_code(role_code, search=search)
 
 
 class RoleService:
-    def __init__(self):
-        self.role_repo = RoleRepository()
-        self.permission_repo = PermissionRepository()
+    repository = RoleRepository
 
-    def create_role(self, name, description="", active=True):
-        existing = self.role_repo.get_by_name(name)
+    @classmethod
+    def create_role(cls, name, description="", active=True):
+        existing = cls.repository.get_by_name(name)
         if existing:
             raise ValueError(f"El rol '{name}' ya existe")
-        return self.role_repo.create_role(name, description, active)
+        return cls.repository.create_role(name, description, active)
 
-    def get_role(self, role_id):
-        return self.role_repo.get_by_id(role_id)
+    @classmethod
+    def get_role(cls, role_id):
+        role = cls.repository.get_by_id(role_id)
+        if not role:
+            raise ValueError(f"Rol con ID {role_id} no existe")
+        return role
 
-    def get_role_by_name(self, name):
-        return self.role_repo.get_by_name(name)
+    @classmethod
+    def get_role_by_name(cls, name):
+        return cls.repository.get_by_name(name)
 
-    def list_roles(self, only_active=True):
+    @classmethod
+    def list_roles(cls, only_active=True):
         if only_active:
-            return self.role_repo.get_all_active()
-        return self.role_repo.get_all()
+            return cls.repository.get_all_active()
+        return cls.repository.get_all()
 
-    def update_role(self, role_id, **kwargs):
-        role = self.role_repo.get_by_id(role_id)
+    @classmethod
+    def update_role(cls, role_id, **kwargs):
+        role = cls.repository.get_by_id(role_id)
         if not role:
             raise ValueError(f"Rol con ID {role_id} no existe")
         if "name" in kwargs and kwargs["name"] != role.name:
-            existing = self.role_repo.get_by_name(kwargs["name"])
+            existing = cls.repository.get_by_name(kwargs["name"])
             if existing:
                 raise ValueError(f"El rol '{kwargs['name']}' ya existe")
-        return self.role_repo.update_role(role, **kwargs)
+        return cls.repository.update_role(role, **kwargs)
 
-    def deactivate_role(self, role_id):
-        role = self.role_repo.get_by_id(role_id)
+    @classmethod
+    def deactivate_role(cls, role_id):
+        role = cls.repository.get_by_id(role_id)
         if not role:
             raise ValueError(f"Rol con ID {role_id} no existe")
         active_users = len(UserRepository.get_by_role(role_id))
@@ -153,91 +163,132 @@ class RoleService:
             raise ValueError(
                 f"No se puede desactivar el rol '{role.name}' porque hay {active_users} usuarios activos asignados"
             )
-        self.role_repo.delete_role(role)
+        cls.repository.delete_role(role)
         return role
 
-    def get_role_permissions(self, role_id):
-        return self.role_repo.get_permissions(role_id)
+    @classmethod
+    def soft_delete(cls, pk, confirm=False):
+        role = cls.repository.get_by_id(pk)
+        if not role:
+            raise ValueError(f"Rol con ID {pk} no existe")
+        counts = cls.repository.get_cascade_counts(pk)
+        total = sum(counts.values())
 
-    def add_permission_to_role(self, role_id, permission_code):
-        role = self.role_repo.get_by_id(role_id)
+        if total > 0 and not confirm:
+            parts = [f"{v} {k}" for k, v in counts.items()]
+            return {
+                "requires_confirmation": True,
+                "affected_records": total,
+                "message": f"Esta acción desactivará {', '.join(parts)} relacionados",
+                "id": role.id,
+                "is_active": True,
+            }
+
+        total = cls.repository.deactivate_cascade(pk)
+        return {
+            "id": role.id,
+            "is_active": False,
+            "deactivated_records": total,
+        }
+
+    @classmethod
+    def get_role_permissions(cls, role_id):
+        return cls.repository.get_permissions(role_id)
+
+    @classmethod
+    def add_permission_to_role(cls, role_id, permission_code):
+        role = cls.repository.get_by_id(role_id)
         if not role:
             raise ValueError(f"Rol con ID {role_id} no existe")
-        permission = self.permission_repo.get_by_code(permission_code)
+        permission = PermissionRepository.get_by_code(permission_code)
         if not permission:
             raise ValueError(f"El permiso {permission_code} no existe")
-        rp, created = self.role_repo.add_permission(role, permission)
+        rp, created = cls.repository.add_permission(role, permission)
         return rp, created
 
-    def remove_permission_from_role(self, role_id, permission_code):
-        role = self.role_repo.get_by_id(role_id)
+    @classmethod
+    def remove_permission_from_role(cls, role_id, permission_code):
+        role = cls.repository.get_by_id(role_id)
         if not role:
             raise ValueError(f"Rol con ID {role_id} no existe")
-        permission = self.permission_repo.get_by_code(permission_code)
+        permission = PermissionRepository.get_by_code(permission_code)
         if not permission:
             raise ValueError(f"El permiso {permission_code} no existe")
-        deleted_count, _ = self.role_repo.remove_permission(role, permission)
+        deleted_count, _ = cls.repository.remove_permission(role, permission)
         return deleted_count > 0
 
-    def assign_permissions_to_role(self, role_id, permission_codes):
-        role = self.role_repo.get_by_id(role_id)
+    @classmethod
+    def assign_permissions_to_role(cls, role_id, permission_codes):
+        role = cls.repository.get_by_id(role_id)
         if not role:
             raise ValueError(f"Rol con ID {role_id} no existe")
-        permissions = self.permission_repo.get_all()
+        permissions = PermissionRepository.get_all()
         permission_dict = {p.code: p for p in permissions}
         for code in permission_codes:
             if code not in permission_dict:
                 raise ValueError(f"El permiso {code} no existe")
         permission_objs = [permission_dict[c] for c in permission_codes]
-        self.role_repo.set_permissions(role, permission_objs)
+        cls.repository.set_permissions(role, permission_objs)
         return len(permission_objs)
 
 
 class PermissionService:
-    def __init__(self):
-        self.permission_repo = PermissionRepository()
+    repository = PermissionRepository
 
-    def create_permission(self, code, description="", module=""):
-        existing = self.permission_repo.get_by_code(code)
+    @classmethod
+    def create_permission(cls, code, description="", module=""):
+        existing = cls.repository.get_by_code(code)
         if existing:
             raise ValueError(f"El permiso '{code}' ya existe")
-        return self.permission_repo.create_permission(code, description, module)
+        return cls.repository.create_permission(code, description, module)
 
-    def create_permissions_bulk(self, permission_list):
-        return self.permission_repo.create_many(permission_list)
+    @classmethod
+    def create_permissions_bulk(cls, permission_list):
+        return cls.repository.create_many(permission_list)
 
-    def get_permission(self, permission_id):
-        return self.permission_repo.get_by_id(permission_id)
-
-    def get_permission_by_code(self, code):
-        return self.permission_repo.get_by_code(code)
-
-    def list_permissions(self):
-        return self.permission_repo.get_all()
-
-    def list_permissions_by_module(self, module):
-        return self.permission_repo.get_by_module(module)
-
-    def update_permission(self, permission_id, **kwargs):
-        permission = self.permission_repo.get_by_id(permission_id)
+    @classmethod
+    def get_permission(cls, permission_id):
+        permission = cls.repository.get_by_id(permission_id)
         if not permission:
             raise ValueError(f"Permiso con ID {permission_id} no existe")
-        return self.permission_repo.update_permission(permission, **kwargs)
+        return permission
 
-    def delete_permission(self, permission_id):
-        permission = self.permission_repo.get_by_id(permission_id)
+    @classmethod
+    def get_permission_by_code(cls, code):
+        return cls.repository.get_by_code(code)
+
+    @classmethod
+    def list_permissions(cls):
+        return cls.repository.get_all()
+
+    @classmethod
+    def list_permissions_by_module(cls, module):
+        return cls.repository.get_by_module(module)
+
+    @classmethod
+    def update_permission(cls, permission_id, **kwargs):
+        permission = cls.repository.get_by_id(permission_id)
         if not permission:
             raise ValueError(f"Permiso con ID {permission_id} no existe")
-        role_count = self.permission_repo.count_role_permissions(permission_id)
+        return cls.repository.update_permission(permission, **kwargs)
+
+    @classmethod
+    def delete_permission(cls, permission_id):
+        permission = cls.repository.get_by_id(permission_id)
+        if not permission:
+            raise ValueError(f"Permiso con ID {permission_id} no existe")
+        role_count = cls.repository.count_role_permissions(permission_id)
         if role_count > 0:
             raise ValueError(
-                f"No se puede eliminar el permiso '{permission.code}' porque est\u00e1 asignado a {role_count} rol(es)"
+                f"No se puede eliminar el permiso '{permission.code}' porque está asignado a {role_count} rol(es)"
             )
-        self.permission_repo.delete_permission(permission)
+        cls.repository.delete_permission(permission)
         return True
 
-    def search_permissions(self, query_string):
-        return self.permission_repo.search(query_string)
+    @classmethod
+    def search_permissions(cls, query_string):
+        return cls.repository.search(query_string)
 
-    def get_permissions_for_module(self, module_name):
-        return self.permission_repo.get_by_module(module_name)
+    @classmethod
+    def get_permissions_for_module(cls, module_name):
+        return cls.repository.get_by_module(module_name)

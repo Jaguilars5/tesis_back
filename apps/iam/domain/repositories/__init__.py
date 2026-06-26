@@ -1,4 +1,5 @@
-"""Capa de dominio - interfaces de repositorio."""
+import importlib
+
 
 __all__ = [
     "UserRepositoryInterface",
@@ -8,13 +9,12 @@ __all__ = [
 
 
 def __getattr__(name):
-    if name == "UserRepositoryInterface":
-        from .repositories import UserRepositoryInterface
-        return UserRepositoryInterface
-    if name == "RoleRepositoryInterface":
-        from .repositories import RoleRepositoryInterface
-        return RoleRepositoryInterface
-    if name == "PermissionRepositoryInterface":
-        from .repositories import PermissionRepositoryInterface
-        return PermissionRepositoryInterface
+    _m = importlib.import_module(".interfaces", __package__)
+    _map = {
+        "UserRepositoryInterface": _m.UserRepositoryInterface,
+        "RoleRepositoryInterface": _m.RoleRepositoryInterface,
+        "PermissionRepositoryInterface": _m.PermissionRepositoryInterface,
+    }
+    if name in _map:
+        return _map[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

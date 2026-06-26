@@ -7,10 +7,11 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
+from apps.core.api.mixins import SoftDeleteModelMixin
 from apps.core.api.permissions import HasPermission
 from apps.core.constants.permissions import iam
+from apps.core.utils import ok_response, error_response
 
-from apps.iam.infrastructure.repositories import PermissionRepository, RoleRepository, UserRepository
 from apps.iam.domain.services import UserService, RoleService, PermissionService
 from apps.iam.application.serializers import (
     UserListSerializer,
@@ -25,6 +26,11 @@ from apps.iam.application.serializers import (
     CustomTokenRefreshSerializer,
 )
 from apps.iam.api.filters import UserFilter, RoleFilter, PermissionFilter
+from apps.iam.permissions import (
+    PERMISSION_ACTION_PERMISSIONS,
+    ROLE_ACTION_PERMISSIONS,
+    USER_ACTION_PERMISSIONS,
+)
 
 
 @extend_schema(
@@ -65,31 +71,24 @@ class CustomTokenRefreshView(TokenRefreshView):
     bulk_create=extend_schema(summary="Crear múltiples permisos", tags=["iam"]),
     by_module=extend_schema(summary="Permisos por módulo", tags=["iam"]),
 )
-class PermissionViewSet(viewsets.ModelViewSet):
+class PermissionViewSet(SoftDeleteModelMixin, viewsets.ModelViewSet):
     serializer_class = PermissionSerializer
     permission_classes = [permissions.IsAuthenticated, HasPermission]
-    action_permissions = {
-        "list": iam.VIEW_PERMISSION,
-        "retrieve": iam.VIEW_PERMISSION,
-        "create": iam.CREATE_PERMISSION,
-        "update": iam.UPDATE_PERMISSION,
-        "partial_update": iam.UPDATE_PERMISSION,
-        "destroy": iam.DELETE_PERMISSION,
-        "bulk_create": iam.CREATE_PERMISSION,
-        "by_module": iam.VIEW_PERMISSION,
-    }
+    action_permissions = PERMISSION_ACTION_PERMISSIONS
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = PermissionFilter
     search_fields = ["code", "description"]
     ordering_fields = ["code", "module", "created_at"]
     ordering = ["code"]
+    service = PermissionService
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.service = PermissionService()
+    def initial(self, request, *args, **kwargs):
+        if self.action == "get":
+            self.action = "retrieve"
+        super().initial(request, *args, **kwargs)
 
     def get_queryset(self):
-        return PermissionRepository.get_all()
+        return self.service.list_permissions()
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -101,34 +100,43 @@ class PermissionViewSet(viewsets.ModelViewSet):
                 description=serializer.validated_data.get("description", ""),
                 module=serializer.validated_data.get("module", ""),
             )
-            return Response(self.serializer_class(permission).data, status=201)
+            return ok_response(
+                self.serializer_class(permission).data,
+                msg="Permiso creado exitosamente",
+                status_code=status.HTTP_201_CREATED,
+            )
         except ValueError as e:
-            return Response(str(e), status=400)
+            return error_response(str(e), status_code=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=["post"], url_path="bulk-create")
     def bulk_create(self, request):
         permission_list = request.data.get("permissions", [])
         if not isinstance(permission_list, list):
-            return Response(
-                'Se espera una lista de permisos en "permissions"', status=400
+            return error_response(
+                'Se espera una lista de permisos en "permissions"',
+                status_code=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
             permissions = self.service.create_permissions_bulk(permission_list)
-            return Response(
-                self.serializer_class(permissions, many=True).data, status=201
+            return ok_response(
+                self.serializer_class(permissions, many=True).data,
+                msg="Permisos creados exitosamente",
+                status_code=status.HTTP_201_CREATED,
             )
         except Exception as e:
-            return Response(str(e), status=400)
+            return error_response(str(e), status_code=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=False, methods=["get"])
+    @action(detail=False, methods=["get"], url_path="by-module")
     def by_module(self, request):
         module = request.query_params.get("module")
         if not module:
-            return Response('Se requiere el parámetro "module"', status=400)
-
+            return error_response(
+                'Se requiere el parámetro "module"',
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
         permissions = self.service.get_permissions_for_module(module)
-        return Response(self.serializer_class(permissions, many=True).data)
+        return ok_response(self.serializer_class(permissions, many=True).data)
 
 
 @extend_schema_view(
@@ -147,32 +155,25 @@ class PermissionViewSet(viewsets.ModelViewSet):
     assign_permissions=extend_schema(
         summary="Asignar permisos a rol", tags=["iam"]
     ),
+    soft_delete=extend_schema(summary="Desactivar rol con cascada", tags=["iam"]),
 )
-class RoleViewSet(viewsets.ModelViewSet):
+class RoleViewSet(SoftDeleteModelMixin, viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated, HasPermission]
-    action_permissions = {
-        "list": iam.VIEW_ROLE,
-        "retrieve": iam.VIEW_ROLE,
-        "create": iam.CREATE_ROLE,
-        "update": iam.UPDATE_ROLE,
-        "partial_update": iam.UPDATE_ROLE,
-        "destroy": iam.DELETE_ROLE,
-        "add_permission": iam.UPDATE_ROLE,
-        "remove_permission": iam.UPDATE_ROLE,
-        "assign_permissions": iam.UPDATE_ROLE,
-    }
+    action_permissions = ROLE_ACTION_PERMISSIONS
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = RoleFilter
     search_fields = ["name", "description"]
     ordering_fields = ["name", "created_at"]
     ordering = ["name"]
+    service = RoleService
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.service = RoleService()
+    def initial(self, request, *args, **kwargs):
+        if self.action == "get":
+            self.action = "retrieve"
+        super().initial(request, *args, **kwargs)
 
     def get_queryset(self):
-        return RoleRepository.get_all()
+        return self.service.list_roles()
 
     def get_serializer_class(self):
         if self.action == "retrieve":
@@ -189,45 +190,58 @@ class RoleViewSet(viewsets.ModelViewSet):
                 description=serializer.validated_data.get("description", ""),
                 active=serializer.validated_data.get("is_active", True),
             )
-            return Response(RoleDetailSerializer(role).data, status=201)
+            return ok_response(
+                RoleDetailSerializer(role).data,
+                msg="Rol creado exitosamente",
+                status_code=status.HTTP_201_CREATED,
+            )
         except ValueError as e:
-            return Response(str(e), status=400)
+            return error_response(str(e), status_code=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=["post"], url_path="add-permission")
     def add_permission(self, request, pk=None):
         permission_code = request.data.get("permission_code")
         if not permission_code:
-            return Response('Se requiere "permission_code"', status=400)
+            return error_response(
+                'Se requiere "permission_code"',
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             rp, created = self.service.add_permission_to_role(pk, permission_code)
-            return Response({"message": "Permiso agregado", "created": created})
+            return ok_response({"message": "Permiso agregado", "created": created})
         except ValueError as e:
-            return Response(str(e), status=400)
+            return error_response(str(e), status_code=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=["post"], url_path="remove-permission")
     def remove_permission(self, request, pk=None):
         permission_code = request.data.get("permission_code")
         if not permission_code:
-            return Response('Se requiere "permission_code"', status=400)
+            return error_response(
+                'Se requiere "permission_code"',
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             removed = self.service.remove_permission_from_role(pk, permission_code)
-            return Response({"message": "Permiso removido", "success": removed})
+            return ok_response({"message": "Permiso removido", "success": removed})
         except ValueError as e:
-            return Response(str(e), status=400)
+            return error_response(str(e), status_code=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=["post"])
     def assign_permissions(self, request, pk=None):
         permission_codes = request.data.get("permission_codes", [])
         if not isinstance(permission_codes, list):
-            return Response('Se requiere una lista en "permission_codes"', status=400)
+            return error_response(
+                'Se requiere una lista en "permission_codes"',
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             count = self.service.assign_permissions_to_role(pk, permission_codes)
-            return Response({"message": f"{count} permisos asignados"})
+            return ok_response({"message": f"{count} permisos asignados"})
         except ValueError as e:
-            return Response(str(e), status=400)
+            return error_response(str(e), status_code=status.HTTP_400_BAD_REQUEST)
 
 
 @extend_schema_view(
@@ -246,22 +260,9 @@ class RoleViewSet(viewsets.ModelViewSet):
     students=extend_schema(summary="Listar usuarios con rol estudiante", tags=["iam"]),
     representatives=extend_schema(summary="Listar usuarios con rol representante", tags=["iam"]),
 )
-class UserViewSet(viewsets.ModelViewSet):
+class UserViewSet(SoftDeleteModelMixin, viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated, HasPermission]
-    action_permissions = {
-        "list": iam.VIEW_USER,
-        "retrieve": iam.VIEW_USER,
-        "create": iam.CREATE_USER,
-        "update": iam.UPDATE_USER,
-        "partial_update": iam.UPDATE_USER,
-        "destroy": iam.DELETE_USER,
-        "change_password": iam.UPDATE_USER,
-        "permissions": iam.VIEW_USER,
-        "search": iam.VIEW_USER,
-        "teachers": iam.VIEW_USER,
-        "students": iam.VIEW_USER,
-        "representatives": iam.VIEW_USER,
-    }
+    action_permissions = USER_ACTION_PERMISSIONS
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = UserFilter
     search_fields = [
@@ -273,13 +274,15 @@ class UserViewSet(viewsets.ModelViewSet):
     ]
     ordering_fields = ["username", "person__email", "created_at"]
     ordering = ["username"]
+    service = UserService
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.service = UserService()
+    def initial(self, request, *args, **kwargs):
+        if self.action == "get":
+            self.action = "retrieve"
+        super().initial(request, *args, **kwargs)
 
     def get_queryset(self):
-        return UserRepository.get_all_active()
+        return self.service.list_users()
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -301,72 +304,77 @@ class UserViewSet(viewsets.ModelViewSet):
                 password=serializer.validated_data["password"],
                 role_id=serializer.validated_data["role_id"],
             )
-            return Response(UserDetailSerializer(user).data, status=201)
+            return ok_response(
+                UserDetailSerializer(user).data,
+                msg="Usuario creado exitosamente",
+                status_code=status.HTTP_201_CREATED,
+            )
         except ValueError as e:
-            return Response(str(e), status=400)
+            return error_response(str(e), status_code=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=["post"], url_path="change-password")
     def change_password(self, request, pk=None):
         new_password = request.data.get("new_password")
         if not new_password:
-            return Response('Se requiere "new_password"', status=400)
+            return error_response(
+                'Se requiere "new_password"',
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             user = self.service.change_password(pk, new_password)
-            return Response({
+            return ok_response({
                 "message": "Contraseña actualizada",
                 "must_change_password": user.must_change_password,
             })
         except ValueError as e:
-            return Response(str(e), status=400)
+            return error_response(str(e), status_code=status.HTTP_400_BAD_REQUEST)
         except ValidationError as e:
-            return Response({"password_errors": list(e.messages)}, status=400)
+            return error_response(
+                {"password_errors": list(e.messages)},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
 
     @action(detail=True, methods=["get"])
     def permissions(self, request, pk=None):
         try:
             permissions = self.service.get_user_permissions(pk)
-            return Response({"permissions": list(permissions)})
+            return ok_response({"permissions": list(permissions)})
         except Exception as e:
-            return Response(str(e), status=400)
+            return error_response(str(e), status_code=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=["get"])
     def search(self, request):
         query = request.query_params.get("q")
-
         if not query:
-            return Response('Se requiere el parámetro "q"', status=400)
+            return error_response(
+                'Se requiere el parámetro "q"',
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
 
         users = self.service.search_users(query)
         serializer = UserListSerializer(users, many=True)
-        return Response(serializer.data)
+        return ok_response(serializer.data)
 
     @action(detail=False, methods=["get"])
     def teachers(self, request):
         users = self.service.list_users_by_role_code("DOCENTE")
         serializer = UserListSerializer(users, many=True)
-        return Response(serializer.data)
+        return ok_response(serializer.data)
 
     @action(detail=False, methods=["get"])
     def students(self, request):
         users = self.service.list_users_by_role_code("ESTUDIANTE")
         serializer = UserListSerializer(users, many=True)
-        return Response(serializer.data)
+        return ok_response(serializer.data)
 
     @action(detail=False, methods=["get"])
     def representatives(self, request):
-        from django.db.models import Q
-        users = self.service.list_users_by_role_code("REPRESENTANTE")
         search = request.query_params.get("search", "")
-        if search:
-            users = users.filter(
-                Q(person__names__icontains=search) |
-                Q(person__last_names__icontains=search) |
-                Q(person__document_number__icontains=search)
-            )
+        users = self.service.search_users_by_role_code("REPRESENTANTE", search=search)
         page = self.paginate_queryset(users)
         if page is not None:
             serializer = UserListSerializer(page, many=True)
             return self.get_paginated_response(serializer.data)
         serializer = UserListSerializer(users, many=True)
-        return Response(serializer.data)
+        return ok_response(serializer.data)

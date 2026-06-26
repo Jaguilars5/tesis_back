@@ -119,7 +119,7 @@ class RiskScoringConfigService:
           (mismos valores que el comportamiento histórico → baseline intacto).
         """
         try:
-            from apps.analytics.repositories.risk_scoring_config_repository import (
+            from apps.analytics.student_risk.infrastructure.repositories import (
                 RiskScoringConfigRepository,
             )
 

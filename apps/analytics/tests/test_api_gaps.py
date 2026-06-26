@@ -15,10 +15,11 @@ from apps.core.tests.helpers import create_test_user, create_test_student
 from apps.core.constants.permissions import analytics
 
 from apps.analytics.early_alert.infrastructure.models import EarlyAlert, AlertTypeChoices, UrgencyLevelChoices
-from apps.analytics.models import (
+from apps.analytics.student_risk.infrastructure.models import (
     RiskFactor, StudentFeatureSnapshot, StudentRiskFactor, StudentRiskScore,
 )
-from apps.academic.models import AcademicPeriod, PeriodType
+from apps.academic.academic_period import AcademicPeriod
+from apps.academic.period_type import PeriodType
 from apps.institutions.models import SchoolYear, AcademicGrade, AcademicLevel, AcademicSublevel, Section
 from apps.students.models import Enrollment
 
@@ -245,7 +246,7 @@ class AnalyticsAPIGapsTest(TestCase):
         results = response.json()["data"]["results"]
         self.assertEqual(len(results), 1)
 
-        # Crear alerta
+        # Crear alerta -> no permitido (las alertas se generan automáticamente)
         data = {
             "enrollment": self.enrollment.id,
             "academic_period": self.period.id,
@@ -254,7 +255,9 @@ class AnalyticsAPIGapsTest(TestCase):
             "urgency_level": UrgencyLevelChoices.MEDIUM,
         }
         response = self.client.post("/api/analytics/early-alerts/", data, format="json")
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED
+        )
 
         # Probar acción custom: mark_attended
         response_actions_data = {

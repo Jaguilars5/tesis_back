@@ -1,8 +1,8 @@
 import logging
-from datetime import date
 
 from django.db import transaction
 
+from ..application import validators
 from ..infrastructure.repositories import AttendanceRepository
 
 logger = logging.getLogger(__name__)
@@ -18,28 +18,7 @@ class AttendanceService:
     def create_attendance(cls, enrollment_id, teacher_subject_section_id, academic_period_id,
                           attendance_date, attendance_status_id, absence_type_id=None,
                           observation="", device_origin=None, class_schedule_id=None):
-        if class_schedule_id:
-            existing = cls.repository.get_by_unique_key_with_schedule(
-                enrollment_id, class_schedule_id, attendance_date
-            )
-        else:
-            existing = cls.repository.get_by_unique_key(
-                enrollment_id, teacher_subject_section_id, attendance_date
-            )
-
-        if existing:
-            existing.academic_period_id = academic_period_id
-            existing.attendance_status_id = attendance_status_id
-            existing.absence_type_id = absence_type_id
-            existing.observation = observation
-            existing.device_origin = device_origin
-            if class_schedule_id:
-                existing.class_schedule_id = class_schedule_id
-            existing.save()
-            return existing
-
-        from ..infrastructure.models import Attendance
-        attendance = Attendance(
+        errors = validators.run_all_validators(
             enrollment_id=enrollment_id,
             teacher_subject_section_id=teacher_subject_section_id,
             academic_period_id=academic_period_id,
@@ -50,22 +29,56 @@ class AttendanceService:
             device_origin=device_origin,
             class_schedule_id=class_schedule_id,
         )
-        attendance.save()
+        if errors:
+            raise ValueError(errors)
 
         if class_schedule_id:
-            try:
-                from apps.academic.class_schedule.infrastructure.models import ClassSchedule
-                cs = ClassSchedule.objects.get(id=class_schedule_id)
-                date_day = attendance_date.isoweekday()
-                if cs.day_of_week != date_day:
-                    logger.warning(
-                        f"Attendance #{attendance.id}: date {attendance_date} (day {date_day}) "
-                        f"doesn't match schedule day {cs.day_of_week} for ClassSchedule #{class_schedule_id}"
-                    )
-            except ClassSchedule.DoesNotExist:
-                pass
+            existing = cls.repository.get_by_unique_key_with_schedule(
+                enrollment_id, class_schedule_id, attendance_date
+            )
+        else:
+            existing = cls.repository.get_by_unique_key(
+                enrollment_id, teacher_subject_section_id, attendance_date
+            )
+
+        if existing:
+            return cls.repository.update(
+                existing.id,
+                academic_period_id=academic_period_id,
+                attendance_status_id=attendance_status_id,
+                absence_type_id=absence_type_id,
+                observation=observation,
+                device_origin=device_origin,
+                class_schedule_id=class_schedule_id,
+            )
+
+        attendance = cls.repository.create(
+            enrollment_id=enrollment_id,
+            teacher_subject_section_id=teacher_subject_section_id,
+            academic_period_id=academic_period_id,
+            attendance_date=attendance_date,
+            attendance_status_id=attendance_status_id,
+            absence_type_id=absence_type_id,
+            observation=observation,
+            device_origin=device_origin,
+            class_schedule_id=class_schedule_id,
+        )
+
+        if class_schedule_id:
+            cls._check_schedule_day_warning(attendance, class_schedule_id, attendance_date)
 
         return attendance
+
+    @classmethod
+    def _check_schedule_day_warning(cls, attendance, class_schedule_id, attendance_date):
+        schedule_day = cls.repository.get_schedule_day(class_schedule_id)
+        if schedule_day is not None:
+            date_day = attendance_date.isoweekday()
+            if schedule_day != date_day:
+                logger.warning(
+                    f"Attendance #{attendance.id}: date {attendance_date} (day {date_day}) "
+                    f"doesn't match schedule day {schedule_day} for ClassSchedule #{class_schedule_id}"
+                )
 
     @classmethod
     def get_attendance(cls, attendance_id):
@@ -76,15 +89,39 @@ class AttendanceService:
 
     @classmethod
     def update_attendance(cls, attendance_id, **kwargs):
-        attendance = cls.get_attendance(attendance_id)
-        for key, value in kwargs.items():
-            if hasattr(attendance, key):
-                setattr(attendance, key, value)
-        attendance.save()
-        return attendance
+        cls.get_attendance(attendance_id)
+        allowed = {
+            "academic_period_id", "attendance_status_id", "absence_type_id",
+            "observation", "device_origin", "class_schedule_id",
+        }
+        clean = {k: v for k, v in kwargs.items() if k in allowed}
+        return cls.repository.update(attendance_id, **clean)
 
     @classmethod
     def delete_attendance(cls, attendance_id):
-        attendance = cls.get_attendance(attendance_id)
-        attendance.delete()
+        cls.get_attendance(attendance_id)
+        cls.repository.delete(attendance_id)
         return True
+
+    @classmethod
+    def soft_delete(cls, pk, confirm=False):
+        obj = cls.get_attendance(pk)
+        counts = cls.repository.get_cascade_counts(pk)
+        total = sum(counts.values())
+
+        if total > 0 and not confirm:
+            parts = [f"{v} {k}" for k, v in counts.items()]
+            return {
+                "requires_confirmation": True,
+                "affected_records": total,
+                "message": f"Esta acción desactivará {', '.join(parts)} relacionados",
+                "id": obj.id,
+                "is_active": True,
+            }
+
+        total = cls.repository.deactivate_cascade(pk)
+        return {
+            "id": obj.id,
+            "is_active": False,
+            "deactivated_records": total,
+        }

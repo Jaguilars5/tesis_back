@@ -1,4 +1,5 @@
-"""Capa de aplicaci\u00f3n del m\u00f3dulo IAM."""
+import importlib
+
 
 __all__ = [
     "UserLoginDataSerializer",
@@ -17,8 +18,7 @@ __all__ = [
 
 
 def __getattr__(name):
-    from . import serializers as _s
-
+    _s = importlib.import_module(".serializers", __package__)
     _map = {
         "UserLoginDataSerializer": _s.UserLoginDataSerializer,
         "LoginResponseSerializer": _s.LoginResponseSerializer,

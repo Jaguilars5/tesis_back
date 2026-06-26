@@ -13,6 +13,8 @@ class AttendanceStatus(TimeStampedModel):
 
     class Meta:
         app_label = "attendance_attendance_status"
+        verbose_name = "Estado de Asistencia"
+        verbose_name_plural = "Estados de Asistencia"
         ordering = ["name"]
 
     def __str__(self):

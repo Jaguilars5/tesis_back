@@ -272,6 +272,42 @@ class AcademicPeriodAPITest(APITestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_soft_delete_cascade_no_children(self):
+        period = AcademicPeriod.objects.create(
+            school_year=self.school_year,
+            period_type=self.period_type_1,
+            name="Primer Trimestre",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 4, 30),
+            year_weight=30.0,
+        )
+        response = self.client.post(
+            f"{self.url}{period.id}/soft-delete/", {"confirm": False}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["data"].get("deactivated_records"), 0)
+
+    def test_create_date_overlap_returns_422(self):
+        AcademicPeriod.objects.create(
+            school_year=self.school_year,
+            period_type=self.period_type_1,
+            name="Primer Trimestre",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 4, 30),
+            year_weight=30.0,
+        )
+        data = {
+            "school_year": self.school_year.id,
+            "period_type": self.period_type_1.id,
+            "name": "Segundo Trimestre",
+            "start_date": "2026-03-01",
+            "end_date": "2026-06-30",
+            "year_weight": 35.0,
+            "is_regular_period": True,
+        }
+        response = self.client.post(self.url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_422_UNPROCESSABLE_ENTITY)
+
     def test_create_validation_error(self):
         data = {
             "school_year": self.school_year.id,

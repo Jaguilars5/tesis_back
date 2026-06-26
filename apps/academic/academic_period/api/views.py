@@ -81,36 +81,3 @@ class AcademicPeriodViewSet(BaseAcademicViewSet):
         confirm = request.data.get("confirm", False)
         result = AcademicPeriodService.soft_delete(pk, confirm=confirm)
         return ok_response(result)
-
-    def perform_create(self, serializer):
-        data = serializer.validated_data
-        try:
-            period = AcademicPeriodService.create_academic_period(
-                name=data["name"],
-                school_year_id=data["school_year"].id
-                if hasattr(data["school_year"], "id")
-                else data["school_year"],
-                period_type=data.get("period_type"),
-                start_date=data["start_date"],
-                end_date=data["end_date"],
-                is_regular_period=data.get("is_regular_period", True),
-                year_weight=data.get("year_weight"),
-            )
-        except ValueError as exc:
-            _raise_validation_error(exc)
-        serializer.instance = period
-
-    def perform_update(self, serializer):
-        data = dict(serializer.validated_data)
-        if "period_type" in data and data["period_type"] is not None:
-            data["period_type_id"] = data.pop("period_type").pk
-        elif "period_type" in data:
-            data.pop("period_type")
-        try:
-            period = AcademicPeriodService.update_academic_period(
-                serializer.instance.id,
-                **data,
-            )
-        except ValueError as exc:
-            _raise_validation_error(exc)
-        serializer.instance = period

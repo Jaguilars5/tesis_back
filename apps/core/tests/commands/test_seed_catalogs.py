@@ -5,7 +5,7 @@ from django.test import TestCase
 
 from apps.academic.period_type.infrastructure.models import PeriodType
 from apps.academic.subject.infrastructure.models import Subject
-from apps.analytics.models import RiskFactor
+from apps.analytics.student_risk import RiskFactor
 from apps.attendance.absence_type import AbsenceType
 from apps.attendance.attendance_status import AttendanceStatus
 from apps.behavior.incident_type import IncidentType

@@ -26,5 +26,15 @@ class SeverityRepositoryInterface(ABC):
 
     @classmethod
     @abstractmethod
-    def soft_delete(cls, instance):
+    def get_cascade_counts(cls, instance_id: int) -> dict[str, int]:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def deactivate_cascade(cls, instance_id: int) -> int:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def delete(cls, pk):
         pass

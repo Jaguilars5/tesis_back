@@ -23,6 +23,13 @@ MODEL_VERSION_FALLBACK = "rules-fallback-v1"
 MODEL_VERSION_SKLEARN = "sklearn-joblib-v2"
 
 _model_available = MODEL_PATH.exists()
+
+
+def _default_config():
+    """Config efectiva por defecto (baseline). Import perezoso para evitar ciclos."""
+    from apps.analytics.services.risk_scoring_config_service import DEFAULT_CONFIG
+
+    return DEFAULT_CONFIG
 if _model_available:
     logger.info(
         "[INIT] Modelo ML encontrado en %s. Las predicciones usarán GradientBoosting.",
@@ -62,11 +69,20 @@ def calculate_risk(
 
     Mantiene reglas críticas para la etiqueta y usa
     ML opcional para ajustar el puntaje si existe un artefacto entrenado.
-    """
-    from .services import RiskScoringConfigService
 
-    if config is None:
-        config = RiskScoringConfigService.get_effective_config()
+    `config` puede ser ``None`` (se lee la config efectiva normalizada), una
+    instancia de :class:`EffectiveScoringConfig`, o el modelo singleton
+    ``RiskScoringConfig`` (se normaliza). El motor siempre trabaja con la
+    config efectiva (pesos como fracciones + ``weights``/``version_tag``).
+    """
+    from apps.analytics.services.risk_scoring_config_service import (
+        EffectiveScoringConfig,
+        RiskScoringConfigService,
+    )
+
+    if not isinstance(config, EffectiveScoringConfig):
+        # None o el modelo singleton -> usar la config efectiva normalizada.
+        config = RiskScoringConfigService.get_effective()
 
     variables = snapshot["variables"]
     detail = _detail_by_variable(variables, config)
@@ -118,8 +134,9 @@ def _public_analysis(analysis: Dict) -> Dict:
     return public
 
 
-def _risk_level(variables: Dict, config) -> str:
+def _risk_level(variables: Dict, config=None) -> str:
     """Determina el nivel de riesgo basado en umbrales."""
+    config = config or _default_config()
     conducta = variables["conducta"]
     asistencia = variables["asistencia"]
     calificaciones = variables["calificaciones"]
@@ -144,8 +161,9 @@ def _risk_level(variables: Dict, config) -> str:
     return "verde"
 
 
-def _detail_by_variable(variables: Dict, config) -> Dict:
+def _detail_by_variable(variables: Dict, config=None) -> Dict:
     """Detalle por variable de riesgo."""
+    config = config or _default_config()
     weights = config.weights
     return {
         "conducta": {
@@ -163,8 +181,9 @@ def _detail_by_variable(variables: Dict, config) -> Dict:
     }
 
 
-def _conduct_level(conducta: Dict, config) -> str:
+def _conduct_level(conducta: Dict, config=None) -> str:
     """Nivel de riesgo para conducta."""
+    config = config or _default_config()
     if conducta["faltas_graves"] > config.severe_red_min:
         return "rojo"
     if (
@@ -175,8 +194,9 @@ def _conduct_level(conducta: Dict, config) -> str:
     return "verde"
 
 
-def _attendance_level(asistencia: Dict, config) -> str:
+def _attendance_level(asistencia: Dict, config=None) -> str:
     """Nivel de riesgo para asistencia."""
+    config = config or _default_config()
     attendance = asistencia["porcentaje_asistencia"]
     if attendance < config.attendance_red_max:
         return "rojo"
@@ -185,8 +205,9 @@ def _attendance_level(asistencia: Dict, config) -> str:
     return "verde"
 
 
-def _grades_level(calificaciones: Dict, config) -> str:
+def _grades_level(calificaciones: Dict, config=None) -> str:
     """Nivel de riesgo para calificaciones."""
+    config = config or _default_config()
     average = calificaciones["promedio_actual"]
     if average < config.average_red_max:
         return "rojo"
@@ -195,8 +216,9 @@ def _grades_level(calificaciones: Dict, config) -> str:
     return "verde"
 
 
-def _critical_factors(variables: Dict, config) -> List[str]:
+def _critical_factors(variables: Dict, config=None) -> List[str]:
     """Factores críticos identificados."""
+    config = config or _default_config()
     factors = []
     conducta = variables["conducta"]
     asistencia = variables["asistencia"]
@@ -225,8 +247,9 @@ def _critical_factors(variables: Dict, config) -> List[str]:
     return factors
 
 
-def _recommendations(factors: List[str], variables: Dict, config) -> List[str]:
+def _recommendations(factors: List[str], variables: Dict, config=None) -> List[str]:
     """Recomendaciones basadas en factores."""
+    config = config or _default_config()
     recommendations = []
     if "Sin registros de asistencia" in factors:
         recommendations.append(
@@ -256,8 +279,9 @@ def _recommendations(factors: List[str], variables: Dict, config) -> List[str]:
     return recommendations
 
 
-def _fallback_risk_score(variables: Dict, level: str, config) -> float:
+def _fallback_risk_score(variables: Dict, level: str, config=None) -> float:
     """Score de riesgo por reglas (fallback)."""
+    config = config or _default_config()
     weights = config.weights
     conducta = variables["conducta"]
     asistencia = variables["asistencia"]

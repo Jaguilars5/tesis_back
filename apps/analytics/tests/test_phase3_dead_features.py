@@ -12,7 +12,7 @@ Verifica que:
 from django.test import SimpleTestCase
 
 from apps.analytics.ml import features
-from apps.analytics.models import StudentFeatureSnapshot
+from apps.analytics.student_risk.infrastructure.models import StudentFeatureSnapshot
 from apps.analytics.services.feature_builder import AcademicRiskFeatureBuilder
 
 

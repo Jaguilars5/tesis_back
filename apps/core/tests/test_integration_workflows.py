@@ -7,9 +7,8 @@ from rest_framework.test import APIClient
 
 from apps.academic.models import AcademicPeriod, Subject, SubjectAcademicConfig, SubjectOffering, PeriodType
 from apps.analytics.early_alert.infrastructure.models import EarlyAlert
-from apps.analytics.models import RiskFactor, StudentRiskFactor, StudentRiskScore
-from apps.analytics.services.dashboard_service import DashboardService
-from apps.analytics.services.csv_export_service import CSVExportService
+from apps.analytics.student_risk import RiskFactor, StudentRiskFactor, StudentRiskScore
+from apps.analytics.dashboard.domain.services import CSVExportService, DashboardService
 from apps.attendance.models import Attendance, AttendanceStatus
 from apps.behavior.models import BehaviorEvaluation, ConductIncident, Severity
 from apps.core.tests.helpers import create_test_user, create_test_student

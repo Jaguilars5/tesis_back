@@ -1,3 +1,4 @@
+from ..application import validators
 from ..infrastructure.repositories import AcademicLevelRepository
 
 
@@ -6,6 +7,9 @@ class AcademicLevelService:
 
     @classmethod
     def create_academic_level(cls, name, code=""):
+        errors = validators.run_all_validators(name=name, code=code)
+        if errors:
+            raise ValueError(errors)
         return cls.repository.create(name=name, code=code)
 
     @classmethod
@@ -18,7 +22,11 @@ class AcademicLevelService:
     @classmethod
     def update_academic_level(cls, pk, **kwargs):
         allowed = {"name", "code", "is_active"}
+        cls.get_academic_level(pk)
         clean = {k: v for k, v in kwargs.items() if k in allowed}
+        errors = validators.run_all_validators(**clean)
+        if errors:
+            raise ValueError(errors)
         return cls.repository.update(pk, **clean)
 
     @classmethod

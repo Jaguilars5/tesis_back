@@ -1,7 +1,8 @@
+from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
-from rest_framework.filters import OrderingFilter
+from rest_framework.filters import OrderingFilter, SearchFilter
 
 from apps.core.utils import ok_response
 from apps.institutions.api.base import BaseInstitutionsViewSet
@@ -10,6 +11,7 @@ from ..application.serializers import SchoolYearSerializer
 from ..domain.services import SchoolYearService
 from ..infrastructure.repositories import SchoolYearRepository
 from ..permissions import ACTION_PERMISSIONS
+from .filters import SchoolYearFilter
 
 
 def _raise_validation_error(exc: ValueError) -> None:
@@ -33,7 +35,9 @@ def _raise_validation_error(exc: ValueError) -> None:
 class SchoolYearViewSet(BaseInstitutionsViewSet):
     serializer_class = SchoolYearSerializer
     action_permissions = ACTION_PERMISSIONS
-    filter_backends = [OrderingFilter]
+    filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
+    filterset_class = SchoolYearFilter
+    search_fields = ["start_date", "end_date"]
     ordering_fields = ["start_date", "end_date"]
     ordering = ["-start_date"]
 
@@ -48,8 +52,7 @@ class SchoolYearViewSet(BaseInstitutionsViewSet):
         return ok_response(result)
 
     def get_queryset(self):
-        search = self.request.query_params.get("search")
-        return self.repository.get_all(search=search)
+        return self.repository.get_all()
 
     def perform_create(self, serializer):
         data = serializer.validated_data

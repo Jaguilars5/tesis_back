@@ -30,6 +30,7 @@ class ConductIncident(TimeStampedModel, SyncableModel):
         verbose_name="Matr\u00edcula",
     )
 
+    is_active = models.BooleanField(default=True, verbose_name="Activo")
     incident_date = models.DateField(verbose_name="Fecha del Incidente")
     description = models.TextField(blank=True, default="", verbose_name="Descripci\u00f3n")
     actions_taken = models.TextField(blank=True, default="", verbose_name="Acciones tomadas")
@@ -45,6 +46,22 @@ class ConductIncident(TimeStampedModel, SyncableModel):
             models.Index(fields=["academic_period", "severity"]),
             models.Index(fields=["incident_date"]),
         ]
+
+    @property
+    def enrollment_name(self):
+        return str(self.enrollment) if self.enrollment else None
+
+    @property
+    def academic_period_name(self):
+        return self.academic_period.name if self.academic_period else None
+
+    @property
+    def incident_type_name(self):
+        return self.incident_type.name if self.incident_type else None
+
+    @property
+    def severity_name(self):
+        return self.severity.name if self.severity else None
 
     def __str__(self):
         return f"{self.enrollment} - {self.incident_type} ({self.incident_date})"

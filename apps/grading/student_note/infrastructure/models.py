@@ -89,11 +89,24 @@ class StudentNote(TimeStampedModel, SyncableModel):
         normalized = (Decimal(self.numeric_score) / max_value) * Decimal("10")
         return normalized.quantize(Decimal("0.01"))
 
+    @property
+    def enrollment_name(self):
+        return str(self.enrollment) if self.enrollment else None
+
+    @property
+    def evaluative_activity_title(self):
+        return self.evaluative_activity.title if self.evaluative_activity else None
+
+    @property
+    def qualitative_scale_name(self):
+        return self.qualitative_scale.name if self.qualitative_scale else None
+
     def __str__(self):
         return f"{self.enrollment} - {self.evaluative_activity} (score: {self.numeric_score})"
 
 
 class GradeChangeHistory(TimeStampedModel):
+    is_active = models.BooleanField(default=True, verbose_name="Activo")
     student_note = models.ForeignKey(
         "grading_student_note.StudentNote",
         on_delete=models.CASCADE,
@@ -140,6 +153,16 @@ class GradeChangeHistory(TimeStampedModel):
             models.Index(fields=["modified_by_user", "modified_at"]),
         ]
 
+    @property
+    def student_note_name(self):
+        return str(self.student_note) if self.student_note else None
+
+    @property
+    def modified_by_user_name(self):
+        if self.modified_by_user and hasattr(self.modified_by_user, "person"):
+            return self.modified_by_user.person.get_full_name()
+        return None
+
     def __str__(self):
         return f"{self.student_note} - {self.previous_score} \u2192 {self.new_score}"
 
@@ -150,6 +173,7 @@ class PromotionStatusChoices(TextChoices):
 
 
 class PeriodGradeSummary(TimeStampedModel):
+    is_active = models.BooleanField(default=True, verbose_name="Activo")
     enrollment = models.ForeignKey(
         "students.Enrollment",
         on_delete=models.CASCADE,
@@ -206,6 +230,22 @@ class PeriodGradeSummary(TimeStampedModel):
             models.Index(fields=["enrollment", "academic_period"]),
             models.Index(fields=["is_failing", "academic_period"]),
         ]
+
+    @property
+    def enrollment_name(self):
+        return str(self.enrollment) if self.enrollment else None
+
+    @property
+    def subject_offering_name(self):
+        return str(self.subject_offering) if self.subject_offering else None
+
+    @property
+    def academic_period_name(self):
+        return self.academic_period.name if self.academic_period else None
+
+    @property
+    def qualitative_scale_name(self):
+        return self.qualitative_scale.name if self.qualitative_scale else None
 
     def __str__(self):
         return f"{self.enrollment} - {self.subject_offering} ({self.academic_period})"

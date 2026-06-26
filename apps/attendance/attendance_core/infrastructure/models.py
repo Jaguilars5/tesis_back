@@ -44,6 +44,7 @@ class Attendance(TimeStampedModel, SyncableModel):
         verbose_name="Horario de clase",
     )
 
+    is_active = models.BooleanField(default=True, verbose_name="Activo")
     attendance_date = models.DateField(verbose_name="Fecha")
     observation = models.TextField(blank=True, default="", verbose_name="Observaciones")
 
@@ -109,6 +110,30 @@ class Attendance(TimeStampedModel, SyncableModel):
                     f"La fecha ({self.attendance_date}, d\u00eda {date_day}) no coincide "
                     f"con el d\u00eda del horario ({cs_day})"
                 )
+
+    @property
+    def absence_type_name(self):
+        return self.absence_type.name if self.absence_type else None
+
+    @property
+    def attendance_status_name(self):
+        return self.attendance_status.name if self.attendance_status else None
+
+    @property
+    def academic_period_name(self):
+        return self.academic_period.name if self.academic_period else None
+
+    @property
+    def enrollment_name(self):
+        return str(self.enrollment) if self.enrollment else None
+
+    @property
+    def teacher_subject_section_name(self):
+        return str(self.teacher_subject_section) if self.teacher_subject_section else None
+
+    @property
+    def class_schedule_name(self):
+        return str(self.class_schedule) if self.class_schedule else None
 
     def __str__(self):
         student = self.enrollment.student

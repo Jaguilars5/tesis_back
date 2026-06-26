@@ -7,7 +7,10 @@ compartido con la inferencia (`apps/analytics/tasks`). NO duplicar la lista aqu√
 """
 import logging
 
-from ..models import StudentFeatureSnapshot, StudentRiskScore
+from apps.analytics.student_risk.infrastructure.models import (
+    StudentFeatureSnapshot,
+    StudentRiskScore,
+)
 from .features import FEATURE_COLUMNS, MODEL_PATH, _to_number
 
 logger = logging.getLogger(__name__)

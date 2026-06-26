@@ -2,7 +2,6 @@ from rest_framework import mixins, status, viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 
-from apps.core.api.mixins import SoftDeleteModelMixin
 from apps.core.api.pagination import StandardResultsSetPagination
 from apps.core.api.permissions import HasPermission
 from apps.core.utils import ok_response
@@ -13,7 +12,6 @@ class BaseAcademicViewSet(
     mixins.ListModelMixin,
     mixins.UpdateModelMixin,
     mixins.DestroyModelMixin,
-    SoftDeleteModelMixin,
     viewsets.GenericViewSet,
 ):
     permission_classes = [IsAuthenticated, HasPermission]

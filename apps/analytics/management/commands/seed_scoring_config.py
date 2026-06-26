@@ -9,7 +9,7 @@ la institución). Usa `--reset` para forzar los valores del preset por defecto.
 
 from django.core.management.base import BaseCommand
 
-from apps.analytics.models import RiskScoringConfig
+from apps.analytics.student_risk.infrastructure.models import RiskScoringConfig
 from apps.analytics.services.risk_scoring_config_service import DEFAULT_PRESET, PRESETS
 
 

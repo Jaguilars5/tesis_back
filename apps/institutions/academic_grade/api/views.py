@@ -2,7 +2,8 @@ from drf_spectacular.utils import extend_schema, extend_schema_view
 
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.decorators import action
-from rest_framework.filters import SearchFilter
+from rest_framework.exceptions import ValidationError
+from rest_framework.filters import OrderingFilter, SearchFilter
 
 from apps.core.utils import ok_response
 from apps.institutions.api.base import BaseInstitutionsViewSet
@@ -25,7 +26,7 @@ from .filters import AcademicGradeFilter
 class AcademicGradeViewSet(BaseInstitutionsViewSet):
     serializer_class = AcademicGradeSerializer
     action_permissions = ACTION_PERMISSIONS
-    filter_backends = [SearchFilter, DjangoFilterBackend]
+    filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
     filterset_class = AcademicGradeFilter
     search_fields = ["name", "code"]
     ordering_fields = ["name"]
@@ -42,22 +43,32 @@ class AcademicGradeViewSet(BaseInstitutionsViewSet):
         return ok_response(result)
 
     def get_queryset(self):
-        search = self.request.query_params.get("search")
-        return self.repository.get_all(search=search)
+        return self.repository.get_all()
 
     def perform_create(self, serializer):
         data = serializer.validated_data
-        instance = AcademicGradeService.create_grade(
-            name=data["name"],
-            academic_sublevel_id=data.get("academic_sublevel", None),
-            code=data.get("code", ""),
-        )
+        try:
+            sublevel = data.get("academic_sublevel")
+            instance = AcademicGradeService.create_grade(
+                name=data["name"],
+                academic_sublevel_id=sublevel.id if sublevel else None,
+                code=data.get("code", ""),
+            )
+        except ValueError as e:
+            raise ValidationError(e.args[0] if e.args else str(e))
         serializer.instance = instance
 
     def perform_update(self, serializer):
         data = serializer.validated_data
-        instance = AcademicGradeService.update_grade(
-            grade_id=serializer.instance.id,
-            **data,
-        )
+        try:
+            clean = dict(data)
+            sublevel = clean.pop("academic_sublevel", None)
+            if sublevel is not None:
+                clean["academic_sublevel_id"] = sublevel.id
+            instance = AcademicGradeService.update_grade(
+                grade_id=serializer.instance.id,
+                **clean,
+            )
+        except ValueError as e:
+            raise ValidationError(e.args[0] if e.args else str(e))
         serializer.instance = instance

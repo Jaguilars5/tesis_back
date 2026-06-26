@@ -2,10 +2,14 @@ from decimal import Decimal
 
 from apps.core.repositories.base import BaseRepository
 
+from ..domain.repositories import (
+    StudentNoteRepositoryInterface,
+    PeriodGradeSummaryRepositoryInterface,
+)
 from .models import StudentNote, PeriodGradeSummary
 
 
-class StudentNoteRepository(BaseRepository):
+class StudentNoteRepository(BaseRepository, StudentNoteRepositoryInterface):
     model = StudentNote
 
     @classmethod
@@ -38,6 +42,15 @@ class StudentNoteRepository(BaseRepository):
         return queryset.order_by("-created_at")
 
     @classmethod
+    def get_cascade_counts(cls, instance_id: int) -> dict[str, int]:
+        return {}
+
+    @classmethod
+    def deactivate_cascade(cls, instance_id: int) -> int:
+        cls.model.objects.filter(pk=instance_id).update(is_active=False)
+        return 1
+
+    @classmethod
     def list_for_risk_snapshot(cls, student_id, academic_period_id):
         return (
             cls.model.objects.filter(
@@ -52,7 +65,7 @@ class StudentNoteRepository(BaseRepository):
         )
 
 
-class PeriodGradeSummaryRepository(BaseRepository):
+class PeriodGradeSummaryRepository(BaseRepository, PeriodGradeSummaryRepositoryInterface):
     model = PeriodGradeSummary
 
     @classmethod
@@ -82,6 +95,15 @@ class PeriodGradeSummaryRepository(BaseRepository):
         ).select_related("enrollment__student", "subject_offering")
 
     @classmethod
+    def get_cascade_counts(cls, instance_id: int) -> dict[str, int]:
+        return {}
+
+    @classmethod
+    def deactivate_cascade(cls, instance_id: int) -> int:
+        cls.model.objects.filter(pk=instance_id).update(is_active=False)
+        return 1
+
+    @classmethod
     def count_failing(cls, enrollment_id, academic_period_id):
         return cls.model.objects.filter(
             enrollment_id=enrollment_id,
@@ -96,7 +118,6 @@ class EvaluationRepository:
     @staticmethod
     def calculate_period_average_for_subject(enrollment_id, subject_offering_id):
         from django.db.models import Avg
-        from .models import StudentNote
 
         result = StudentNote.objects.filter(
             enrollment_id=enrollment_id,

@@ -57,7 +57,6 @@ LOCAL_APPS = [
     *ATTENDANCE_APPS,
     "apps.people",
     *BEHAVIOR_APPS,
-    "apps.configuration",
     "apps.integration",
 ]
 

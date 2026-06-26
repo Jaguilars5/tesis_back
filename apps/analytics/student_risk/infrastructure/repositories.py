@@ -38,7 +38,7 @@ class StudentRiskScoreRepository(BaseRepository):
     def get_all(cls, active_only: bool = True):
         """Obtener todos los puntajes con select_related para optimización."""
         qs = cls.model.objects.all()
-        if active_only:
+        if active_only and hasattr(cls.model, "is_active"):
             qs = qs.filter(is_active=True)
         return qs.select_related("enrollment", "academic_period")
 
@@ -60,6 +60,57 @@ class StudentRiskScoreRepository(BaseRepository):
             .select_related("academic_period")
             .order_by("-calculated_at")
         )
+
+    @classmethod
+    def get_latest_by_enrollment(cls, enrollment_id: int) -> Optional[StudentRiskScore]:
+        """Obtener el puntaje más reciente para una matrícula (por id)."""
+        return cls.model.objects.filter(enrollment_id=enrollment_id).first()
+
+    @classmethod
+    def get_latest_by_student(cls, student_id: int) -> Optional[StudentRiskScore]:
+        """Obtener el puntaje de riesgo más reciente de un estudiante."""
+        return cls.model.objects.filter(enrollment__student_id=student_id).first()
+
+    @classmethod
+    def list_high_risk(cls, academic_period_id: int, threshold: int = 70):
+        """Lista estudiantes con riesgo alto según un umbral."""
+        return cls.model.objects.filter(
+            academic_period_id=academic_period_id, risk_score__gte=threshold
+        ).select_related("enrollment")
+
+    @classmethod
+    def create_score(
+        cls,
+        student_id=None,
+        enrollment_id=None,
+        academic_period_id=None,
+        risk_score=None,
+        risk_label=None,
+        model_version=None,
+    ) -> StudentRiskScore:
+        """Crea o actualiza el puntaje de riesgo (idempotente por modelo/periodo)."""
+        if not enrollment_id and student_id:
+            from apps.students.models import Enrollment
+            from apps.academic.academic_period import AcademicPeriod
+
+            period = AcademicPeriod.objects.get(pk=academic_period_id)
+            enrollment = Enrollment.objects.filter(
+                student_id=student_id,
+                section__school_year=period.school_year,
+            ).first()
+            if enrollment:
+                enrollment_id = enrollment.id
+
+        obj, _ = cls.model.objects.update_or_create(
+            enrollment_id=enrollment_id,
+            academic_period_id=academic_period_id,
+            model_version=model_version,
+            defaults={
+                "risk_score": risk_score,
+                "risk_label": risk_label,
+            },
+        )
+        return obj
 
     @classmethod
     def get_by_period(cls, academic_period_id: int):
@@ -108,7 +159,7 @@ class StudentFeatureSnapshotRepository(BaseRepository):
     def get_all(cls, active_only: bool = True):
         """Obtener todos los snapshots con relaciones."""
         qs = cls.model.objects.all()
-        if active_only:
+        if active_only and hasattr(cls.model, "is_active"):
             qs = qs.filter(is_active=True)
         return qs.select_related("enrollment", "academic_period")
 
@@ -138,6 +189,59 @@ class StudentFeatureSnapshotRepository(BaseRepository):
             academic_period_id=academic_period_id
         ).select_related("enrollment")
 
+    @classmethod
+    def get_by_enrollment_period(cls, enrollment_id: int, academic_period_id: int):
+        """Obtener el snapshot de una matrícula en un período."""
+        return cls.model.objects.filter(
+            enrollment_id=enrollment_id, academic_period_id=academic_period_id
+        ).first()
+
+    @classmethod
+    def get_by_student_period(cls, student_id: int, academic_period_id: int):
+        """Obtener la foto de métricas para un estudiante y periodo."""
+        return cls.model.objects.filter(
+            enrollment__student_id=student_id, academic_period_id=academic_period_id
+        ).first()
+
+    @classmethod
+    def create_snapshot(
+        cls, student_id=None, enrollment_id=None, academic_period_id=None, metrics=None
+    ) -> StudentFeatureSnapshot:
+        """Persiste una instantánea de features calculadas (idempotente)."""
+        if not enrollment_id and student_id:
+            from apps.students.models import Enrollment
+            from apps.academic.academic_period import AcademicPeriod
+
+            period = AcademicPeriod.objects.get(pk=academic_period_id)
+            enrollment = Enrollment.objects.filter(
+                student_id=student_id,
+                section__school_year=period.school_year,
+            ).first()
+            if enrollment:
+                enrollment_id = enrollment.id
+
+        mapped_metrics = {}
+        if metrics:
+            mapped_metrics = metrics.copy()
+            if "avg_grade_normalized" in mapped_metrics:
+                val = mapped_metrics.pop("avg_grade_normalized")
+                mapped_metrics["formative_avg_normalized"] = val
+                mapped_metrics["summative_avg_normalized"] = val
+
+        # Valores por defecto para campos no nulos del modelo.
+        mapped_metrics.setdefault("justified_absences", 0)
+        mapped_metrics.setdefault("unjustified_absences", 0)
+        mapped_metrics.setdefault("severe_incidents_count", 0)
+        mapped_metrics.setdefault("is_repeat", False)
+        mapped_metrics.setdefault("has_special_needs", False)
+
+        obj, _ = cls.model.objects.update_or_create(
+            enrollment_id=enrollment_id,
+            academic_period_id=academic_period_id,
+            defaults=mapped_metrics,
+        )
+        return obj
+
 
 class RiskScoringConfigRepository:
     """
@@ -150,14 +254,8 @@ class RiskScoringConfigRepository:
 
     @classmethod
     def get_or_create_singleton(cls) -> RiskScoringConfig:
-        """Obtiene o crea la configuración singleton."""
-        config, _ = cls.model.objects.get_or_create(
-            pk=cls.model.SINGLETON_PK,
-            defaults={
-                "engine": cls.model.ScoringEngineChoices.RULES,
-                "preset": cls.model.ScoringPresetChoices.EQUILIBRADO,
-            },
-        )
+        """Obtiene o crea la configuración singleton (defaults del modelo)."""
+        config, _ = cls.model.objects.get_or_create(pk=cls.model.SINGLETON_PK)
         return config
 
     @classmethod

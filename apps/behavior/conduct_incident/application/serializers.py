@@ -4,14 +4,10 @@ from ..infrastructure.models import ConductIncident
 
 
 class ConductIncidentSerializer(serializers.ModelSerializer):
-    enrollment_name = serializers.CharField(source="enrollment.__str__", read_only=True)
-    academic_period_name = serializers.CharField(
-        source="academic_period.name", read_only=True
-    )
-    incident_type_name = serializers.CharField(
-        source="incident_type.name", read_only=True
-    )
-    severity_name = serializers.CharField(source="severity.name", read_only=True)
+    enrollment_name = serializers.CharField(read_only=True)
+    academic_period_name = serializers.CharField(read_only=True)
+    incident_type_name = serializers.CharField(read_only=True)
+    severity_name = serializers.CharField(read_only=True)
 
     class Meta:
         model = ConductIncident

@@ -4,10 +4,11 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 from apps.institutions.models import AcademicGrade, AcademicLevel, AcademicSublevel, SchoolYear
 from apps.institutions.models import Section
-from apps.academic.models import AcademicPeriod, PeriodType
+from apps.academic.academic_period import AcademicPeriod
+from apps.academic.period_type import PeriodType
 from apps.core.tests.helpers import create_test_student
 from apps.students.models import Student
-from apps.analytics.models import RiskFactor, StudentFeatureSnapshot, StudentRiskScore
+from apps.analytics.student_risk.infrastructure.models import RiskFactor, StudentFeatureSnapshot, StudentRiskScore
 
 
 class StudentRiskScoreModelTest(TestCase):

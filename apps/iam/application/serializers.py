@@ -204,33 +204,4 @@ class UserCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError("Este documento ya est\u00e1 registrado.")
         return value
 
-    def create(self, validated_data):
-        password = validated_data.pop("password")
-        role_id = validated_data.pop("role_id")
-        document_number = validated_data.pop("document_number")
-        names = validated_data.pop("names")
-        last_names = validated_data.pop("last_names")
 
-        from apps.people.models import Person as PersonModel, DocumentType
-        from ..infrastructure.models import Role as RoleModel, UserRole
-
-        doc_type = DocumentType.objects.get_or_create(
-            code="CC", defaults={"name": "Cedula de Ciudadan\u00eda"}
-        )[0]
-        person = PersonModel.objects.create(
-            document_type=doc_type,
-            document_number=document_number,
-            names=names,
-            last_names=last_names,
-            email=validated_data.get("email", ""),
-        )
-
-        user = User.objects.create_user(
-            person=person,
-            email=validated_data["email"],
-            password=password,
-        )
-        if role_id:
-            role = RoleModel.objects.get(id=role_id)
-            UserRole.objects.create(user=user, role=role)
-        return user

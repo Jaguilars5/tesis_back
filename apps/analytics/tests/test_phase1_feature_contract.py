@@ -27,6 +27,7 @@ from apps.analytics.ml import features
 from apps.analytics.ml.features import FEATURE_COLUMNS
 from apps.analytics.ml.train_model import RiskModelTrainer
 from apps.analytics import tasks
+from apps.analytics.student_risk.domain import risk_engine
 
 
 def _has(module_name):
@@ -208,7 +209,7 @@ class Phase1PredictionTest(SimpleTestCase):
     @unittest.skipUnless(HAS_JOBLIB, "joblib no instalado en este entorno")
     def test_returns_score_with_matching_model_no_fallback(self):
         model_path = self._dump_model(FakeProbaModel(FEATURE_COLUMNS))
-        with patch.object(tasks, "MODEL_PATH", model_path):
+        with patch.object(risk_engine, "MODEL_PATH", model_path):
             score = tasks._predict_ml_score(_sample_snapshot())
         self.assertIsNotNone(score, "Con columnas coincidentes NO debe caer a fallback")
         # classes ("verde","amarillo","rojo") y probs (...,0.7) -> rojo*100 = 70
@@ -217,8 +218,10 @@ class Phase1PredictionTest(SimpleTestCase):
     @unittest.skipUnless(HAS_JOBLIB, "joblib no instalado en este entorno")
     def test_column_mismatch_falls_back_intentionally(self):
         model_path = self._dump_model(FakeProbaModel(["wrong_a", "wrong_b"]))
-        with patch.object(tasks, "MODEL_PATH", model_path):
-            with self.assertLogs("apps.analytics.tasks", level="WARNING") as logs:
+        with patch.object(risk_engine, "MODEL_PATH", model_path):
+            with self.assertLogs(
+                "apps.analytics.student_risk.domain.risk_engine", level="WARNING"
+            ) as logs:
                 score = tasks._predict_ml_score(_sample_snapshot())
         self.assertIsNone(score)
         self.assertTrue(
@@ -263,7 +266,7 @@ class Phase1PredictionTest(SimpleTestCase):
         model = GradientBoostingClassifier(random_state=42).fit(df, labels)
         model_path = self._dump_model(model)
 
-        with patch.object(tasks, "MODEL_PATH", model_path):
+        with patch.object(risk_engine, "MODEL_PATH", model_path):
             score = tasks._predict_ml_score(_sample_snapshot())
 
         self.assertIsNotNone(score)
@@ -282,7 +285,7 @@ class Phase1PersistenceMetricsTest(TestCase):
             SchoolYear,
             Section,
         )
-        from apps.academic.models import AcademicPeriod
+        from apps.academic.academic_period import AcademicPeriod
         from apps.students.models import Enrollment
         from apps.core.tests.helpers import create_test_student
 

@@ -125,7 +125,7 @@ class DashboardViewSet(viewsets.ViewSet):
             return error_response("period_id es requerido", status_code=400)
 
         try:
-            data = DashboardService.get_risk_distribution_by_special_needs(
+            data = DashboardService.get_risk_distribution_by_special_needs_type(
                 int(period_id)
             )
             return ok_response(data)

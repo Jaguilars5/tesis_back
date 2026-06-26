@@ -13,7 +13,7 @@ from apps.academic.academic_period import AcademicPeriod
 from apps.academic.subject import Subject
 from apps.academic.subject_academic_config import SubjectAcademicConfig
 from apps.academic.subject_offering import SubjectOffering
-from apps.analytics.models import RiskFactor
+from apps.analytics.student_risk import RiskFactor
 
 from .role_handlers import ROLE_HANDLERS
 

@@ -1,3 +1,4 @@
+from ..application import validators
 from ..infrastructure.repositories import AcademicSublevelRepository
 
 
@@ -6,6 +7,11 @@ class AcademicSublevelService:
 
     @classmethod
     def create_academic_sublevel(cls, academic_level_id, code, name, description=""):
+        errors = validators.run_all_validators(
+            code=code, name=name, academic_level_id=academic_level_id
+        )
+        if errors:
+            raise ValueError(errors)
         return cls.repository.create(
             academic_level_id=academic_level_id,
             code=code,
@@ -23,7 +29,11 @@ class AcademicSublevelService:
     @classmethod
     def update_academic_sublevel(cls, pk, **kwargs):
         allowed = {"academic_level_id", "code", "name", "description", "is_active"}
+        cls.get_academic_sublevel(pk)
         clean = {k: v for k, v in kwargs.items() if k in allowed}
+        errors = validators.run_all_validators(**clean)
+        if errors:
+            raise ValueError(errors)
         return cls.repository.update(pk, **clean)
 
     @classmethod

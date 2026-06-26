@@ -5,33 +5,32 @@ from unittest.mock import patch
 from django.test import TestCase
 
 from apps.institutions.models import Section
-from apps.academic.models import (PeriodType,
-    AcademicPeriod,
-    Subject,
-    SubjectAcademicConfig,
-    SubjectOffering,
-    TeacherSubjectSection,
-)
+from apps.academic.period_type import PeriodType
+from apps.academic.academic_period import AcademicPeriod
+from apps.academic.subject import Subject
+from apps.academic.subject_academic_config import SubjectAcademicConfig
+from apps.academic.subject_offering import SubjectOffering
+from apps.academic.teacher_subject_section import TeacherSubjectSection
 from apps.iam.models import Role, User
 from apps.core.tests.helpers import create_test_user, create_test_student
-from apps.analytics.models import StudentFeatureSnapshot, StudentRiskScore
+from apps.analytics.student_risk.infrastructure.models import StudentFeatureSnapshot, StudentRiskScore
 from apps.analytics.services.feature_builder import AcademicRiskFeatureBuilder
 from apps.analytics.tasks import (
     calculate_academic_risk,
     calculate_student_academic_risk_task,
 )
-from apps.grading.models import (
+from apps.grading.evaluation import (
     BlockComponent,
     EvaluationBlock,
     EvaluativeActivity,
-    StudentNote,
-    ActivityType,
 )
-from apps.behavior.models import Severity
-from apps.attendance.models import Attendance
-from apps.behavior.models import ConductIncident
-from apps.attendance.models import AttendanceStatus
-from apps.behavior.models import IncidentType
+from apps.grading.student_note import StudentNote
+from apps.grading.activity_type import ActivityType
+from apps.behavior.severity import Severity
+from apps.attendance.attendance_core import Attendance
+from apps.behavior.conduct_incident import ConductIncident
+from apps.attendance.attendance_status import AttendanceStatus
+from apps.behavior.incident_type import IncidentType
 from apps.institutions.models import AcademicLevel, AcademicGrade, AcademicSublevel, SchoolYear
 from apps.students.models import Enrollment, Student
 

@@ -3,16 +3,19 @@ from decimal import Decimal
 
 from django.test import TestCase
 
-from apps.academic.models import (PeriodType,
-    AcademicPeriod, Subject, SubjectAcademicConfig, SubjectOffering, TeacherSubjectSection,
-)
+from apps.academic.period_type import PeriodType
+from apps.academic.academic_period import AcademicPeriod
+from apps.academic.subject import Subject
+from apps.academic.subject_academic_config import SubjectAcademicConfig
+from apps.academic.subject_offering import SubjectOffering
+from apps.academic.teacher_subject_section import TeacherSubjectSection
 from apps.iam.models import User
 from apps.analytics.early_alert.infrastructure.models import EarlyAlert, AlertTypeChoices, UrgencyLevelChoices
 from apps.analytics.early_alert.infrastructure.repositories import EarlyAlertRepository
-from apps.analytics.models import (
+from apps.analytics.student_risk.infrastructure.models import (
     RiskFactor, StudentFeatureSnapshot, StudentRiskFactor, StudentRiskScore,
 )
-from apps.analytics.repositories.analytics_repo import (
+from apps.analytics.student_risk.infrastructure.repositories import (
     StudentRiskScoreRepository, StudentFeatureSnapshotRepository,
 )
 from apps.core.repositories.base import BaseRepository

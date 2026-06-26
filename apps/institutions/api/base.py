@@ -1,7 +1,6 @@
 from rest_framework import mixins, status, viewsets
 from rest_framework.permissions import IsAuthenticated
 
-from apps.core.api.mixins import SoftDeleteModelMixin
 from apps.core.api.permissions import HasPermission
 from apps.core.utils import ok_response
 
@@ -11,7 +10,6 @@ class BaseInstitutionsViewSet(
     mixins.ListModelMixin,
     mixins.UpdateModelMixin,
     mixins.DestroyModelMixin,
-    SoftDeleteModelMixin,
     viewsets.GenericViewSet,
 ):
     permission_classes = [IsAuthenticated, HasPermission]

@@ -7,7 +7,11 @@ Lógica de negocio pura que orquesta validaciones y persistencia.
 from typing import Dict, Optional, Any
 from decimal import Decimal
 
-from ..infrastructure.repositories import RiskScoringConfigRepository
+from ..infrastructure.repositories import (
+    RiskScoringConfigRepository,
+    StudentRiskScoreRepository,
+    StudentFeatureSnapshotRepository,
+)
 
 
 # Presets de configuración (Auditoría §9.4)
@@ -134,12 +138,31 @@ class StudentRiskCalculationService:
         snapshot = builder.build()
         metrics = builder.build_persistence_metrics(snapshot)
 
-        # Obtener config efectiva y calcular
-        config = RiskScoringConfigService.get_effective_config()
-        analysis = calculate_risk(snapshot, metrics, config)
+        # El motor lee/normaliza la config efectiva internamente.
+        analysis = calculate_risk(snapshot, metrics)
 
         return {
             "snapshot": snapshot,
             "metrics": metrics,
             "analysis": analysis,
         }
+
+
+class AnalyticsService:
+    """Lecturas agregadas del perfil de riesgo de un estudiante."""
+
+    @staticmethod
+    def get_student_risk_profile(student_id: int) -> Dict[str, Any]:
+        """Retorna el score más reciente y su snapshot de métricas asociado."""
+        risk = StudentRiskScoreRepository.get_latest_by_student(student_id)
+        snapshot = None
+        if risk:
+            snapshot = StudentFeatureSnapshotRepository.get_by_student_period(
+                student_id, risk.academic_period_id
+            )
+        return {"risk_score": risk, "metrics_snapshot": snapshot}
+
+    @staticmethod
+    def list_priority_students(academic_period_id: int):
+        """Lista estudiantes con mayor riesgo en un periodo."""
+        return StudentRiskScoreRepository.list_high_risk(academic_period_id)
