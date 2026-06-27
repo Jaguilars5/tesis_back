@@ -8,4 +8,5 @@ ACTION_PERMISSIONS = {
     "partial_update": academic.UPDATE_PERIOD,
     "destroy": academic.DELETE_PERIOD,
     "soft_delete": academic.DELETE_PERIOD,
+    "bulk_create": academic.CREATE_PERIOD,
 }

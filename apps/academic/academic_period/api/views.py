@@ -7,7 +7,11 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from apps.academic.api.base import BaseAcademicViewSet
 from apps.core.utils import ok_response
 
-from ..application.serializers import AcademicPeriodSerializer
+from ..application.serializers import (
+    AcademicPeriodSerializer,
+    BulkCreatePeriodsInputSerializer,
+    BulkCreatePeriodsOutputSerializer,
+)
 from ..domain.services import AcademicPeriodService
 from ..permissions import ACTION_PERMISSIONS
 from .filters import AcademicPeriodFilter
@@ -81,3 +85,23 @@ class AcademicPeriodViewSet(BaseAcademicViewSet):
         confirm = request.data.get("confirm", False)
         result = AcademicPeriodService.soft_delete(pk, confirm=confirm)
         return ok_response(result)
+
+    @extend_schema(
+        summary="Crear múltiples períodos académicos en lote",
+        request=BulkCreatePeriodsInputSerializer,
+        responses={200: BulkCreatePeriodsOutputSerializer},
+        tags=["academic"],
+    )
+    @action(detail=False, methods=["post"], url_path="bulk")
+    def bulk_create(self, request):
+        serializer = BulkCreatePeriodsInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        periods_data = []
+        for item in serializer.validated_data["periods"]:
+            entry = dict(item)
+            if hasattr(entry.get("school_year"), "id"):
+                entry["school_year"] = entry["school_year"].id
+            periods_data.append(entry)
+        result = AcademicPeriodService.bulk_create_academic_periods(periods_data)
+        out = BulkCreatePeriodsOutputSerializer(result)
+        return ok_response(out.data)

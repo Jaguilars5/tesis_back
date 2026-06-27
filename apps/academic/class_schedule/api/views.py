@@ -4,7 +4,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
-from rest_framework.filters import SearchFilter
+from rest_framework.filters import OrderingFilter, SearchFilter
 
 from apps.academic.api.base import BaseAcademicViewSet
 from apps.core.utils import ok_response, error_response
@@ -39,7 +39,7 @@ def _raise_validation_error(exc: ValueError) -> None:
 class ClassScheduleViewSet(BaseAcademicViewSet):
     serializer_class = ClassScheduleSerializer
     action_permissions = ACTION_PERMISSIONS
-    filter_backends = [SearchFilter, DjangoFilterBackend]
+    filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
     filterset_class = ClassScheduleFilter
     search_fields = [
         "teacher_subject_section__subject_offering__section__parallel",

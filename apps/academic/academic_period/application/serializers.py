@@ -28,3 +28,17 @@ class AcademicPeriodSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class BulkCreatePeriodsInputSerializer(serializers.Serializer):
+    periods = AcademicPeriodSerializer(many=True, partial=False)
+
+
+class BulkCreatePeriodItemError(serializers.Serializer):
+    index = serializers.IntegerField()
+    errors = serializers.DictField(child=serializers.CharField())
+
+
+class BulkCreatePeriodsOutputSerializer(serializers.Serializer):
+    created = AcademicPeriodSerializer(many=True, required=False)
+    errors = BulkCreatePeriodItemError(many=True, required=False)

@@ -137,6 +137,78 @@ class AcademicPeriodService:
 
     @classmethod
     @transaction.atomic
+    def bulk_create_academic_periods(cls, periods_data: list[dict]) -> dict:
+        """
+        Crea múltiples períodos en una sola transacción.
+        Valida todos contra el estado actual de la DB antes de insertar.
+        Retorna dict con 'created' y 'errors'.
+        """
+        created = []
+        errors = []
+
+        for idx, data in enumerate(periods_data):
+            try:
+                start = data.get("start_date")
+                end = data.get("end_date")
+                if not start or not end:
+                    raise ValueError(
+                        {"start_date": "Las fechas de inicio y fin son requeridas"}
+                    )
+                if start >= end:
+                    raise ValueError(
+                        {
+                            "start_date": "La fecha de inicio debe ser anterior a la fecha de fin"
+                        }
+                    )
+
+                period_type = data.get("period_type")
+                period_type_obj = (
+                    PeriodTypeRepository.get_by_code(period_type)
+                    if isinstance(period_type, str)
+                    else period_type
+                )
+                if not period_type_obj:
+                    raise ValueError(
+                        {
+                            "period_type": f"Tipo de período '{period_type}' no encontrado"
+                        }
+                    )
+
+                cls._validate_or_raise(
+                    period_type_obj=period_type_obj,
+                    school_year_id=data["school_year"],
+                    start_date=start,
+                    end_date=end,
+                    year_weight=data.get("year_weight"),
+                    is_regular_period=data.get("is_regular_period", True),
+                )
+
+                created.append(
+                    cls.repository.create(
+                        school_year_id=data["school_year"],
+                        name=data["name"],
+                        code=data.get("code", ""),
+                        period_type=period_type_obj,
+                        start_date=start,
+                        end_date=end,
+                        is_regular_period=data.get("is_regular_period", True),
+                        year_weight=data.get("year_weight"),
+                    )
+                )
+            except ValueError as exc:
+                errors.append(
+                    {
+                        "index": idx,
+                        "errors": exc.args[0]
+                        if isinstance(exc.args[0], dict)
+                        else {"non_field_errors": str(exc)},
+                    }
+                )
+
+        return {"created": created, "errors": errors}
+
+    @classmethod
+    @transaction.atomic
     def soft_delete(cls, pk, confirm=False):
         obj = cls.get_academic_period(pk)
         counts = cls.repository.get_cascade_counts(pk)

@@ -2,7 +2,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
-from rest_framework.filters import SearchFilter
+from rest_framework.filters import OrderingFilter, SearchFilter
 
 from apps.academic.api.base import BaseAcademicViewSet
 from apps.core.utils import ok_response
@@ -34,7 +34,7 @@ def _raise_validation_error(exc: ValueError) -> None:
 class PeriodTypeViewSet(BaseAcademicViewSet):
     serializer_class = PeriodTypeSerializer
     action_permissions = ACTION_PERMISSIONS
-    filter_backends = [SearchFilter, DjangoFilterBackend]
+    filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
     filterset_class = PeriodTypeFilter
     search_fields = ["name", "code"]
     ordering_fields = ["name", "code"]
