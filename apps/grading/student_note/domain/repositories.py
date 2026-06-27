@@ -24,6 +24,11 @@ class StudentNoteRepositoryInterface(ABC):
 
     @classmethod
     @abstractmethod
+    def get_students_for_activity(cls, evaluative_activity_id, teacher_subject_section_id):
+        pass
+
+    @classmethod
+    @abstractmethod
     def list_for_risk_snapshot(cls, student_id, academic_period_id):
         pass
 

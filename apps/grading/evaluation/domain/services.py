@@ -11,7 +11,7 @@ from ..infrastructure.repositories import (
 
 
 class EvaluationService:
-    """L\u00f3gica de negocio para bloques, componentes y actividades evaluativas."""
+    """Logica de negocio para bloques, componentes y actividades evaluativas."""
 
     repository_block = EvaluationBlockRepository
     repository_component = BlockComponentRepository
@@ -39,7 +39,7 @@ class EvaluationService:
                 if not component:
                     raise ValueError(
                         "No existe un componente de bloque activo para esta clase. "
-                        "Configure los bloques de evaluaci\u00f3n primero."
+                        "Configure los bloques de evaluacion primero."
                     )
                 block_component_id = component.id
             except TeacherSubjectSection.DoesNotExist:
@@ -106,7 +106,7 @@ class EvaluationService:
     def soft_delete_block(cls, pk, confirm=False):
         obj = cls.repository_block.get_by_id(pk)
         if not obj:
-            raise ValueError(f"Bloque de evaluaci\u00f3n {pk} no encontrado")
+            raise ValueError(f"Bloque de evaluacion {pk} no encontrado")
         counts = cls.repository_block.get_cascade_counts(pk)
         total = sum(counts.values())
 
@@ -115,7 +115,7 @@ class EvaluationService:
             return {
                 "requires_confirmation": True,
                 "affected_records": total,
-                "message": f"Esta acci\u00f3n desactivar\u00e1 {', '.join(parts)} relacionados",
+                "message": f"Esta accion desactivar\u00e1 {', '.join(parts)} relacionados",
                 "id": obj.id,
                 "is_active": True,
             }
@@ -136,7 +136,7 @@ class EvaluationService:
             return {
                 "requires_confirmation": True,
                 "affected_records": total,
-                "message": f"Esta acci\u00f3n desactivar\u00e1 {', '.join(parts)} relacionados",
+                "message": f"Esta accion desactivar\u00e1 {', '.join(parts)} relacionados",
                 "id": obj.id,
                 "is_active": True,
             }
@@ -157,7 +157,7 @@ class EvaluationService:
             return {
                 "requires_confirmation": True,
                 "affected_records": total,
-                "message": f"Esta acci\u00f3n desactivar\u00e1 {', '.join(parts)} relacionados",
+                "message": f"Esta accion desactivar\u00e1 {', '.join(parts)} relacionados",
                 "id": obj.id,
                 "is_active": True,
             }

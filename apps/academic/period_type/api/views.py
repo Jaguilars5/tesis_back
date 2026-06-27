@@ -29,7 +29,7 @@ def _raise_validation_error(exc: ValueError) -> None:
     update=extend_schema(summary="Actualizar tipo de periodo", tags=["academic"]),
     partial_update=extend_schema(summary="Actualizar parcialmente tipo de periodo", tags=["academic"]),
     destroy=extend_schema(summary="Eliminar tipo de periodo", tags=["academic"]),
-    soft_delete=extend_schema(summary="Desactivar tipo de periodo con validaci\u00f3n de cascada", tags=["academic"]),
+    soft_delete=extend_schema(summary="Desactivar tipo de periodo con validacion de cascada", tags=["academic"]),
 )
 class PeriodTypeViewSet(BaseAcademicViewSet):
     serializer_class = PeriodTypeSerializer

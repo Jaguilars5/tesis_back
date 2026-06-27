@@ -21,7 +21,7 @@ def validate_weight_percentage(value):
 
 def validate_max_score(value):
     if value is not None and value <= 0:
-        return {"max_score": "La puntuaci\u00f3n m\u00e1xima debe ser positiva"}
+        return {"max_score": "La puntuacion m\u00e1xima debe ser positiva"}
     return {}
 
 

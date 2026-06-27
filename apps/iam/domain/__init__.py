@@ -1,4 +1,4 @@
-"""Capa de dominio del m\u00f3dulo IAM."""
+"""Capa de dominio del modulo IAM."""
 
 __all__ = [
     "UserEntity",

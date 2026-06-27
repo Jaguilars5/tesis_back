@@ -1,5 +1,5 @@
 """
-Aplicaci\u00f3n de Conducta y Desarrollo Socioemocional.
+Aplicacion de Conducta y Desarrollo Socioemocional.
 """
 
 BEHAVIOR_APPS = [

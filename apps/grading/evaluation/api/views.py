@@ -24,13 +24,13 @@ from .filters import EvaluationBlockFilter, BlockComponentFilter, EvaluativeActi
 
 
 @extend_schema_view(
-    list=extend_schema(summary="Listar bloques de evaluaci\u00f3n", tags=["grading"]),
-    get=extend_schema(summary="Obtener bloque de evaluaci\u00f3n", tags=["grading"]),
-    create=extend_schema(summary="Crear bloque de evaluaci\u00f3n", tags=["grading"]),
-    update=extend_schema(summary="Actualizar bloque de evaluaci\u00f3n", tags=["grading"]),
+    list=extend_schema(summary="Listar bloques de evaluacion", tags=["grading"]),
+    get=extend_schema(summary="Obtener bloque de evaluacion", tags=["grading"]),
+    create=extend_schema(summary="Crear bloque de evaluacion", tags=["grading"]),
+    update=extend_schema(summary="Actualizar bloque de evaluacion", tags=["grading"]),
     partial_update=extend_schema(summary="Actualizar bloque parcialmente", tags=["grading"]),
-    destroy=extend_schema(summary="Eliminar bloque de evaluaci\u00f3n", tags=["grading"]),
-    soft_delete=extend_schema(summary="Desactivar bloque de evaluaci\u00f3n", tags=["grading"]),
+    destroy=extend_schema(summary="Eliminar bloque de evaluacion", tags=["grading"]),
+    soft_delete=extend_schema(summary="Desactivar bloque de evaluacion", tags=["grading"]),
 )
 class EvaluationBlockViewSet(BaseGradingViewSet):
     serializer_class = EvaluationBlockSerializer
@@ -60,7 +60,7 @@ class EvaluationBlockViewSet(BaseGradingViewSet):
         except ValueError as e:
             raise ValidationError(e.args[0] if e.args else str(e))
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], url_path="soft-delete")
     def soft_delete(self, request, pk=None):
         confirm = request.data.get("confirm", False)
         result = EvaluationService.soft_delete_block(pk, confirm=confirm)
@@ -104,7 +104,7 @@ class BlockComponentViewSet(BaseGradingViewSet):
         except ValueError as e:
             raise ValidationError(e.args[0] if e.args else str(e))
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], url_path="soft-delete")
     def soft_delete(self, request, pk=None):
         confirm = request.data.get("confirm", False)
         result = EvaluationService.soft_delete_component(pk, confirm=confirm)
@@ -163,7 +163,7 @@ class EvaluativeActivityViewSet(BaseGradingViewSet):
         except ValueError as e:
             raise ValidationError(e.args[0] if e.args else str(e))
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], url_path="soft-delete"   )
     def soft_delete(self, request, pk=None):
         confirm = request.data.get("confirm", False)
         result = EvaluationService.soft_delete_activity(pk, confirm=confirm)

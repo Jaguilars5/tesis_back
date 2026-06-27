@@ -5,7 +5,7 @@ from ..infrastructure.repositories import SchoolYearRepository
 
 
 class SchoolYearService:
-    """L\u00f3gica de negocio para años escolares."""
+    """Logica de negocio para años escolares."""
 
     repository = SchoolYearRepository
 

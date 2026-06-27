@@ -27,7 +27,7 @@ class SubjectAcademicConfigService:
         )
         if existing:
             raise ValueError({
-                "non_field_errors": "Ya existe una configuraci\u00f3n para esta materia y grado"
+                "non_field_errors": "Ya existe una configuracion para esta materia y grado"
             })
         return cls.repository.create(
             subject_id=subject_id,
@@ -40,7 +40,7 @@ class SubjectAcademicConfigService:
     def get_config(cls, config_id):
         obj = cls.repository.get_by_id(config_id)
         if not obj:
-            raise ValueError({"id": f"Configuraci\u00f3n {config_id} no encontrada"})
+            raise ValueError({"id": f"Configuracion {config_id} no encontrada"})
         return obj
 
     @classmethod
@@ -64,7 +64,7 @@ class SubjectAcademicConfigService:
             return {
                 "requires_confirmation": True,
                 "affected_records": total,
-                "message": f"Esta acci\u00f3n desactivar\u00e1 {', '.join(parts)} relacionados",
+                "message": f"Esta accion desactivar\u00e1 {', '.join(parts)} relacionados",
                 "id": obj.id,
                 "is_active": True,
             }

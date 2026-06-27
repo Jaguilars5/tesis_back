@@ -26,7 +26,7 @@ class SubjectOfferingService:
         )
         if existing:
             raise ValueError({
-                "non_field_errors": "Ya existe esta oferta de materia para la secci\u00f3n"
+                "non_field_errors": "Ya existe esta oferta de materia para la seccion"
             })
         return cls.repository.create(
             section_id=section_id,
@@ -58,7 +58,7 @@ class SubjectOfferingService:
             )
             if duplicate and duplicate.id != offering_id:
                 raise ValueError({
-                    "non_field_errors": "Ya existe esta oferta de materia para la secci\u00f3n"
+                    "non_field_errors": "Ya existe esta oferta de materia para la seccion"
                 })
 
         clean = {k: v for k, v in kwargs.items() if k in allowed}
@@ -76,7 +76,7 @@ class SubjectOfferingService:
             return {
                 "requires_confirmation": True,
                 "affected_records": total,
-                "message": f"Esta acci\u00f3n desactivar\u00e1 {', '.join(parts)} relacionados",
+                "message": f"Esta accion desactivar\u00e1 {', '.join(parts)} relacionados",
                 "id": obj.id,
                 "is_active": True,
             }

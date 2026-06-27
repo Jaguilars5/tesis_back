@@ -1,5 +1,5 @@
 """
-Aplicaci\u00f3n de Calificaciones, Evaluaciones y Notas.
+Aplicacion de Calificaciones, Evaluaciones y Notas.
 """
 
 GRADING_APPS = [

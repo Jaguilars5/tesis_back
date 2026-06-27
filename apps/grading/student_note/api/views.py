@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import viewsets
@@ -5,8 +7,10 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.filters import SearchFilter, OrderingFilter
 
+from rest_framework import status
+
 from apps.core.api.scoping import scope_student_to_enrollment
-from apps.core.utils import ok_response
+from apps.core.utils import ok_response, error_response
 from apps.grading.api.base import BaseGradingViewSet
 
 from ..application.serializers import (
@@ -97,6 +101,107 @@ class StudentNoteViewSet(BaseGradingViewSet):
             )
         except ValueError as e:
             raise ValidationError(e.args[0] if e.args else str(e))
+
+    @extend_schema(
+        summary="Obtener/guardar notas por actividad",
+        description="GET: devuelve estudiantes + notas existentes para una actividad. POST: guarda notas en lote.",
+        tags=["grading"],
+    )
+    @action(detail=False, methods=["get", "post"], url_path="take-by-activity")
+    def take_by_activity(self, request):
+        if request.method == "GET":
+            return self._take_by_activity_get(request)
+        return self._take_by_activity_post(request)
+
+    def _take_by_activity_get(self, request):
+        evaluative_activity_id = request.query_params.get("evaluative_activity_id")
+        teacher_subject_section_id = request.query_params.get("teacher_subject_section_id")
+        if not evaluative_activity_id or not teacher_subject_section_id:
+            return error_response(
+                "evaluative_activity_id y teacher_subject_section_id son requeridos",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            evaluative_activity_id = int(evaluative_activity_id)
+            teacher_subject_section_id = int(teacher_subject_section_id)
+        except (TypeError, ValueError):
+            return error_response(
+                "evaluative_activity_id y teacher_subject_section_id deben ser numericos",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        activity, students_data = StudentNoteRepository.get_students_for_activity(
+            evaluative_activity_id, teacher_subject_section_id,
+        )
+        if activity is None:
+            return error_response(
+                "Actividad evaluativa no encontrada",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        students_result = []
+        for sd in students_data:
+            note_data = StudentNoteSerializer(sd["note_obj"]).data if sd["note_obj"] else None
+            students_result.append({
+                "enrollment_id": sd["enrollment_id"],
+                "student_id": sd["student_id"],
+                "student_name": sd["student_name"],
+                "note": note_data,
+            })
+
+        return ok_response({
+            "evaluative_activity": {
+                "id": activity.id,
+                "title": activity.title,
+                "max_score": str(activity.max_score),
+            },
+            "students": students_result,
+        })
+
+    def _take_by_activity_post(self, request):
+        try:
+            evaluative_activity_id = int(request.data.get("evaluative_activity_id"))
+            teacher_subject_section_id = int(request.data.get("teacher_subject_section_id"))
+        except (TypeError, ValueError):
+            return error_response(
+                "evaluative_activity_id y teacher_subject_section_id son requeridos",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        records = request.data.get("records", [])
+        if not records:
+            return error_response(
+                "records es requerido",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        results = []
+        errors = []
+        for i, rec in enumerate(records):
+            try:
+                raw_score = rec.get("numeric_score")
+                numeric_score = (
+                    Decimal(str(raw_score)) if raw_score is not None else None
+                )
+                note = StudentNoteService.create_student_note(
+                    enrollment_id=int(rec.get("enrollment")),
+                    evaluative_activity_id=evaluative_activity_id,
+                    numeric_score=numeric_score,
+                    teacher_observation=rec.get("teacher_observation", ""),
+                )
+                results.append(StudentNoteSerializer(note).data)
+            except ValueError as e:
+                detail = e.args[0] if e.args else str(e)
+                if isinstance(detail, dict):
+                    detail = "; ".join(f"{k}: {v}" for k, v in detail.items())
+                errors.append({"index": i, "error": str(detail), "record": rec})
+
+        if errors:
+            return ok_response(
+                {"created": results, "errors": errors},
+                msg="Algunos registros no pudieron procesarse",
+            )
+        return ok_response(results, msg=f"{len(results)} registros procesados")
 
 
 @extend_schema_view(

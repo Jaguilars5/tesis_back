@@ -29,7 +29,7 @@ def _raise_validation_error(exc: ValueError) -> None:
     update=extend_schema(summary="Actualizar materia", tags=["academic"]),
     partial_update=extend_schema(summary="Actualizar parcialmente materia", tags=["academic"]),
     destroy=extend_schema(summary="Eliminar materia", tags=["academic"]),
-    soft_delete=extend_schema(summary="Desactivar materia con validaci\u00f3n de cascada", tags=["academic"]),
+    soft_delete=extend_schema(summary="Desactivar materia con validacion de cascada", tags=["academic"]),
 )
 class SubjectViewSet(BaseAcademicViewSet):
     serializer_class = SubjectSerializer

@@ -19,7 +19,7 @@ class SubjectService:
         cls._validate_or_raise(name=name, code=code)
         existing = cls.repository.first(code=code)
         if existing:
-            raise ValueError({"code": "Ya existe una materia con este c\u00f3digo"})
+            raise ValueError({"code": "Ya existe una materia con este codigo"})
         return cls.repository.create(name=name, code=code)
 
     @classmethod
@@ -41,7 +41,7 @@ class SubjectService:
         if "code" in kwargs:
             existing = cls.repository.first(code=kwargs["code"])
             if existing and existing.id != subject_id:
-                raise ValueError({"code": "Ya existe otra materia con este c\u00f3digo"})
+                raise ValueError({"code": "Ya existe otra materia con este codigo"})
         clean = {k: v for k, v in kwargs.items() if k in allowed}
         return cls.repository.update(subject.id, **clean)
 
@@ -57,7 +57,7 @@ class SubjectService:
             return {
                 "requires_confirmation": True,
                 "affected_records": total,
-                "message": f"Esta acci\u00f3n desactivar\u00e1 {', '.join(parts)} relacionados",
+                "message": f"Esta accion desactivar\u00e1 {', '.join(parts)} relacionados",
                 "id": obj.id,
                 "is_active": True,
             }

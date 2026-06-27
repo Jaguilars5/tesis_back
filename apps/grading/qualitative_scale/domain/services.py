@@ -51,7 +51,7 @@ class QualitativeScaleService:
             return {
                 "requires_confirmation": True,
                 "affected_records": total,
-                "message": f"Esta acci\u00f3n desactivar\u00e1 {', '.join(parts)} relacionados",
+                "message": f"Esta accion desactivar\u00e1 {', '.join(parts)} relacionados",
                 "id": obj.id,
                 "is_active": True,
             }

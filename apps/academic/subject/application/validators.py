@@ -1,7 +1,7 @@
 """
 Validaciones de negocio para Subject.
 
-Cada funci\u00f3n validadora recibe los datos necesarios y retorna un dict
+Cada funcion validadora recibe los datos necesarios y retorna un dict
 {field: mensaje} si la regla se viola, o un dict vacio si pasa.
 
 Las funciones son PURAS: no mutan estado, no escriben a la DB.
@@ -20,7 +20,7 @@ def validate_required_fields(**kwargs):
 
 def validate_code_format(code):
     if code and not code.strip():
-        return {"code": "El c\u00f3digo no puede estar vacio"}
+        return {"code": "El codigo no puede estar vacio"}
     return {}
 
 

@@ -42,6 +42,44 @@ class StudentNoteRepository(BaseRepository, StudentNoteRepositoryInterface):
         return queryset.order_by("-created_at")
 
     @classmethod
+    def get_students_for_activity(cls, evaluative_activity_id, teacher_subject_section_id):
+        from apps.grading.evaluation.infrastructure.models import EvaluativeActivity
+        from apps.students.models import Enrollment
+
+        try:
+            activity = EvaluativeActivity.objects.get(id=evaluative_activity_id)
+        except EvaluativeActivity.DoesNotExist:
+            return None, []
+
+        section_id = activity.teacher_subject_section.subject_offering.section_id
+
+        enrollments = Enrollment.objects.filter(
+            section_id=section_id,
+            enrollment_status="ACT",
+        ).select_related(
+            "student__user__person",
+        ).order_by("student__user__person__last_names", "student__user__person__names")
+
+        existing_notes = cls.model.objects.filter(
+            evaluative_activity_id=evaluative_activity_id,
+            enrollment_id__in=enrollments.values_list("id", flat=True),
+        ).select_related("enrollment")
+
+        note_map = {n.enrollment_id: n for n in existing_notes}
+
+        students_data = []
+        for enr in enrollments:
+            note = note_map.get(enr.id)
+            students_data.append({
+                "enrollment_id": enr.id,
+                "student_id": enr.student_id,
+                "student_name": enr.student.get_full_name(),
+                "note_obj": note,
+            })
+
+        return activity, students_data
+
+    @classmethod
     def list_for_risk_snapshot(cls, student_id, academic_period_id):
         return (
             cls.model.objects.filter(
@@ -95,7 +133,7 @@ class PeriodGradeSummaryRepository(BaseRepository, PeriodGradeSummaryRepositoryI
 
 
 class EvaluationRepository:
-    """Metodos de acceso a datos para c\u00e1lculos de evaluaci\u00f3n."""
+    """Metodos de acceso a datos para c\u00e1lculos de evaluacion."""
 
     @staticmethod
     def calculate_period_average_for_subject(enrollment_id, subject_offering_id):

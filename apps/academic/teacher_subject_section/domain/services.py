@@ -33,7 +33,7 @@ class TeacherSubjectSectionService:
     def get_assignment(cls, assignment_id):
         assignment = cls.repository.get_by_id(assignment_id)
         if not assignment:
-            raise ValueError({"id": f"Asignaci\u00f3n {assignment_id} no encontrada"})
+            raise ValueError({"id": f"Asignacion {assignment_id} no encontrada"})
         return assignment
 
     @classmethod
@@ -63,7 +63,7 @@ class TeacherSubjectSectionService:
             return {
                 "requires_confirmation": True,
                 "affected_records": total,
-                "message": f"Esta acci\u00f3n desactivar\u00e1 {', '.join(parts)} relacionados",
+                "message": f"Esta accion desactivar\u00e1 {', '.join(parts)} relacionados",
                 "id": obj.id,
                 "is_active": True,
             }

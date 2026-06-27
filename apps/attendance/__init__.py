@@ -1,5 +1,5 @@
 """
-Aplicaci\u00f3n de Asistencia, Conducta y Desarrollo Socioemocional.
+Aplicacion de Asistencia, Conducta y Desarrollo Socioemocional.
 """
 
 ATTENDANCE_APPS = [

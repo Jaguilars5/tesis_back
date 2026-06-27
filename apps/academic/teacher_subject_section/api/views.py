@@ -24,12 +24,12 @@ def _raise_validation_error(exc: ValueError) -> None:
 
 @extend_schema_view(
     list=extend_schema(summary="Listar asignaciones docente-materia", tags=["academic"]),
-    get=extend_schema(summary="Obtener asignaci\u00f3n docente-materia", tags=["academic"]),
+    get=extend_schema(summary="Obtener asignacion docente-materia", tags=["academic"]),
     create=extend_schema(summary="Asignar docente a materia", tags=["academic"]),
-    update=extend_schema(summary="Actualizar asignaci\u00f3n docente-materia", tags=["academic"]),
-    partial_update=extend_schema(summary="Actualizar parcialmente asignaci\u00f3n docente-materia", tags=["academic"]),
-    destroy=extend_schema(summary="Eliminar asignaci\u00f3n docente-materia", tags=["academic"]),
-    soft_delete=extend_schema(summary="Desactivar asignaci\u00f3n docente-materia con validaci\u00f3n de cascada", tags=["academic"]),
+    update=extend_schema(summary="Actualizar asignacion docente-materia", tags=["academic"]),
+    partial_update=extend_schema(summary="Actualizar parcialmente asignacion docente-materia", tags=["academic"]),
+    destroy=extend_schema(summary="Eliminar asignacion docente-materia", tags=["academic"]),
+    soft_delete=extend_schema(summary="Desactivar asignacion docente-materia con validacion de cascada", tags=["academic"]),
 )
 class TeacherSubjectSectionViewSet(BaseAcademicViewSet):
     serializer_class = TeacherSubjectSectionSerializer

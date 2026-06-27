@@ -24,12 +24,12 @@ def _raise_validation_error(exc: ValueError) -> None:
 
 @extend_schema_view(
     list=extend_schema(summary="Listar configuraciones materia-grado", tags=["academic"]),
-    get=extend_schema(summary="Obtener configuraci\u00f3n materia-grado", tags=["academic"]),
-    create=extend_schema(summary="Crear configuraci\u00f3n materia-grado", tags=["academic"]),
-    update=extend_schema(summary="Actualizar configuraci\u00f3n materia-grado", tags=["academic"]),
-    partial_update=extend_schema(summary="Actualizar parcialmente configuraci\u00f3n materia-grado", tags=["academic"]),
-    destroy=extend_schema(summary="Eliminar configuraci\u00f3n materia-grado", tags=["academic"]),
-    soft_delete=extend_schema(summary="Desactivar configuraci\u00f3n materia-grado con validaci\u00f3n de cascada", tags=["academic"]),
+    get=extend_schema(summary="Obtener configuracion materia-grado", tags=["academic"]),
+    create=extend_schema(summary="Crear configuracion materia-grado", tags=["academic"]),
+    update=extend_schema(summary="Actualizar configuracion materia-grado", tags=["academic"]),
+    partial_update=extend_schema(summary="Actualizar parcialmente configuracion materia-grado", tags=["academic"]),
+    destroy=extend_schema(summary="Eliminar configuracion materia-grado", tags=["academic"]),
+    soft_delete=extend_schema(summary="Desactivar configuracion materia-grado con validacion de cascada", tags=["academic"]),
 )
 class SubjectAcademicConfigViewSet(BaseAcademicViewSet):
     serializer_class = SubjectAcademicConfigSerializer

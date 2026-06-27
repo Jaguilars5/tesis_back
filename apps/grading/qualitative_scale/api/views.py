@@ -70,7 +70,7 @@ class QualitativeScaleViewSet(BaseGradingViewSet):
             raise ValidationError(e.args[0] if e.args else str(e))
 
     @action(detail=True, methods=["post"])
-    def soft_delete(self, request, pk=None):
+    def soft_delete(self, request, pk=None, url_path="soft-delete"):
         confirm = request.data.get("confirm", False)
         result = QualitativeScaleService.soft_delete(pk, confirm=confirm)
         return ok_response(result)
@@ -80,9 +80,9 @@ class QualitativeScaleViewSet(BaseGradingViewSet):
     list=extend_schema(summary="Listar escalas por subnivel", tags=["grading"]),
     get=extend_schema(summary="Obtener escala por subnivel", tags=["grading"]),
     create=extend_schema(summary="Asignar escala a subnivel", tags=["grading"]),
-    update=extend_schema(summary="Actualizar asignaci\u00f3n escala-subnivel", tags=["grading"]),
-    partial_update=extend_schema(summary="Actualizar asignaci\u00f3n parcialmente", tags=["grading"]),
-    destroy=extend_schema(summary="Eliminar asignaci\u00f3n escala-subnivel", tags=["grading"]),
+    update=extend_schema(summary="Actualizar asignacion escala-subnivel", tags=["grading"]),
+    partial_update=extend_schema(summary="Actualizar asignacion parcialmente", tags=["grading"]),
+    destroy=extend_schema(summary="Eliminar asignacion escala-subnivel", tags=["grading"]),
 )
 class QualitativeScaleSublevelViewSet(BaseGradingViewSet):
     serializer_class = QualitativeScaleSublevelSerializer

@@ -1,1 +1,1 @@
-"""Señales del m\u00f3dulo IAM."""
+"""Señales del modulo IAM."""

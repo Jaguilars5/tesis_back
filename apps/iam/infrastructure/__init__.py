@@ -1,4 +1,4 @@
-"""Capa de infraestructura del m\u00f3dulo IAM."""
+"""Capa de infraestructura del modulo IAM."""
 
 __all__ = [
     "User",

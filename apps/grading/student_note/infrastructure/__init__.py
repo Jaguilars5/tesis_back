@@ -1,4 +1,4 @@
-"""Capa de infraestructura del subm\u00f3dulo student_note."""
+"""Capa de infraestructura del submodulo student_note."""
 
 __all__ = [
     "StudentNote",

@@ -23,7 +23,7 @@ class PeriodTypeService:
         )
         existing = cls.repository.first(code=code)
         if existing:
-            raise ValueError({"code": "Ya existe un tipo de periodo con este c\u00f3digo"})
+            raise ValueError({"code": "Ya existe un tipo de periodo con este codigo"})
         return cls.repository.create(
             code=code,
             name=name,
@@ -51,7 +51,7 @@ class PeriodTypeService:
         if "code" in kwargs:
             existing = cls.repository.first(code=kwargs["code"])
             if existing and existing.id != period_type_id:
-                raise ValueError({"code": "Ya existe otro tipo de periodo con este c\u00f3digo"})
+                raise ValueError({"code": "Ya existe otro tipo de periodo con este codigo"})
         clean = {k: v for k, v in kwargs.items() if k in allowed}
         return cls.repository.update(obj.id, **clean)
 
@@ -67,7 +67,7 @@ class PeriodTypeService:
             return {
                 "requires_confirmation": True,
                 "affected_records": total,
-                "message": f"Esta acci\u00f3n desactivar\u00e1 {', '.join(parts)} relacionados",
+                "message": f"Esta accion desactivar\u00e1 {', '.join(parts)} relacionados",
                 "id": obj.id,
                 "is_active": True,
             }

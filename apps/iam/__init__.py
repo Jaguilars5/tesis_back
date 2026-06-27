@@ -1,5 +1,5 @@
 """
-M\u00f3dulo de Identidad, Acceso y Gesti\u00f3n de Usuarios (IAM).
+Modulo de Identidad, Acceso y Gestion de Usuarios (IAM).
 """
 
 __all__ = [

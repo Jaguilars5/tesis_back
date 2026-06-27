@@ -11,7 +11,7 @@ from ..infrastructure.repositories import (
 
 
 class StudentNoteService:
-    """L\u00f3gica de negocio para notas de estudiantes."""
+    """Logica de negocio para notas de estudiantes."""
 
     repository = StudentNoteRepository
 
@@ -58,7 +58,7 @@ class StudentNoteService:
     def get_student_note(cls, note_id):
         note = cls.repository.get_by_id(note_id)
         if not note:
-            raise ValueError(f"Calificaci\u00f3n {note_id} no encontrada")
+            raise ValueError(f"Calificacion {note_id} no encontrada")
         return note
 
     @classmethod

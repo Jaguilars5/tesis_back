@@ -31,8 +31,8 @@ def _raise_validation_error(exc: ValueError) -> None:
     update=extend_schema(summary="Actualizar horario", tags=["academic"]),
     partial_update=extend_schema(summary="Actualizar parcialmente horario", tags=["academic"]),
     destroy=extend_schema(summary="Eliminar horario", tags=["academic"]),
-    soft_delete=extend_schema(summary="Desactivar horario con validaci\u00f3n de cascada", tags=["academic"]),
-    by_section=extend_schema(summary="Horarios por secci\u00f3n", tags=["academic"]),
+    soft_delete=extend_schema(summary="Desactivar horario con validacion de cascada", tags=["academic"]),
+    by_section=extend_schema(summary="Horarios por seccion", tags=["academic"]),
     my_schedule=extend_schema(summary="Mi horario", tags=["academic"]),
     my_today=extend_schema(summary="Mis clases hoy", tags=["academic"]),
 )

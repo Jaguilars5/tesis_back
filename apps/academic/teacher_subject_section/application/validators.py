@@ -1,7 +1,7 @@
 """
 Validaciones de negocio para TeacherSubjectSection.
 
-Cada funci\u00f3n validadora recibe los datos necesarios y retorna un dict
+Cada funcion validadora recibe los datos necesarios y retorna un dict
 {field: mensaje} si la regla se viola, o un dict vacio si pasa.
 """
 

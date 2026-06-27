@@ -47,19 +47,18 @@ class ActivityTypeViewSet(BaseGradingViewSet):
 
     def perform_update(self, serializer):
         data = serializer.validated_data
+        allowed = {"code", "name", "description", "is_active"}
+        clean = {k: v for k, v in data.items() if k in allowed}
         try:
             obj = ActivityTypeService.update_activity_type(
                 pk=serializer.instance.id,
-                code=data.get("code"),
-                name=data.get("name"),
-                description=data.get("description", ""),
-                is_active=data.get("is_active"),
+                **clean,
             )
             serializer.instance = obj
         except ValueError as e:
             raise ValidationError(e.args[0] if e.args else str(e))
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], url_path="soft-delete")
     def soft_delete(self, request, pk=None):
         confirm = request.data.get("confirm", False)
         result = ActivityTypeService.soft_delete(pk, confirm=confirm)

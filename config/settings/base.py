@@ -155,11 +155,11 @@ REST_FRAMEWORK = {
 
 # ─── DRF Spectacular (OpenAPI) ───────────────────────────────────────────────
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Sistema de Gesti\u00f3n Academica API",
+    "TITLE": "Sistema de Gestion Academica API",
     "DESCRIPTION": """
-API RESTful para la gesti\u00f3n academica de instituciones educativas.
+API RESTful para la gestion academica de instituciones educativas.
 
-## Autenticaci\u00f3n
+## Autenticacion
 Todos los endpoints (excepto login y refresh) requieren:
 ```
 Authorization: Bearer <access_token>
@@ -175,11 +175,11 @@ Todas las respuestas siguen el formato:
 }
 ```
 
-## C\u00f3digos de Error
+## Codigos de Error
 - 401: No autenticado
 - 403: Sin permiso
 - 404: No encontrado
-- 422: Error de validaci\u00f3n
+- 422: Error de validacion
 - 429: Rate limit excedido
 """,
     "VERSION": "1.0.0",
@@ -188,7 +188,7 @@ Todas las respuestas siguen el formato:
     "TAGS": [
         {
             "name": "iam",
-            "description": "Usuarios, autenticaci\u00f3n, roles y permisos",
+            "description": "Usuarios, autenticacion, roles y permisos",
         },
         {
             "name": "institutions",
@@ -203,8 +203,8 @@ Todas las respuestas siguen el formato:
         {"name": "analytics", "description": "An\u00e1lisis de riesgo estudiantil y alertas tempranas"},
         {"name": "attendance", "description": "Asistencia, estados de asistencia y tipos de ausencia"},
         {"name": "behavior", "description": "Incidentes de conducta, habilidades socioemocionales y evaluaciones de comportamiento"},
-        {"name": "configuration", "description": "Configuraci\u00f3n del sistema"},
-        {"name": "integration", "description": "Sincronizaci\u00f3n con sistemas externos"},
+        {"name": "configuration", "description": "Configuracion del sistema"},
+        {"name": "integration", "description": "Sincronizacion con sistemas externos"},
         {"name": "people", "description": "Personas y tipos de documento"},
     ],
 }

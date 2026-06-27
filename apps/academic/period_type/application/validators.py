@@ -20,7 +20,7 @@ def validate_required_fields(**kwargs):
 
 def validate_code_format(code):
     if code and not code.strip():
-        return {"code": "El c\u00f3digo no puede estar vacio"}
+        return {"code": "El codigo no puede estar vacio"}
     return {}
 
 

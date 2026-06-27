@@ -1,4 +1,4 @@
-"""Capa de infraestructura del subm\u00f3dulo evaluation."""
+"""Capa de infraestructura del submodulo evaluation."""
 
 __all__ = [
     "EvaluationBlock",

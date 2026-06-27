@@ -1,5 +1,5 @@
 """
-Aplicaci\u00f3n de Instituciones Academicas.
+Aplicacion de Instituciones Academicas.
 """
 
 INSTITUTIONS_APPS = [
