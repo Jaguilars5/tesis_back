@@ -7,6 +7,7 @@ class AcademicLevelEntity:
     id: int | None
     name: str
     code: str
+    description: str
     is_active: bool
     created_at: datetime | None = None
     updated_at: datetime | None = None

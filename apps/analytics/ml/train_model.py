@@ -34,6 +34,14 @@ class RiskModelTrainer:
         if period_id:
             snapshots = snapshots.filter(academic_period_id=period_id)
 
+        # Filtrar snapshots sin registros reales de asistencia (evita sesgo del 0% de asistencia)
+        snapshots = snapshots.exclude(
+            attendance_rate=0.0,
+            justified_absences=0,
+            unjustified_absences=0,
+            tardiness_count=0
+        )
+
         total_snapshots = snapshots.count()
         logger.info("Total snapshots encontrados: %d", total_snapshots)
         if total_snapshots == 0:

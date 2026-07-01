@@ -8,8 +8,6 @@ class AcademicGrade(TimeStampedModel):
         "institutions_academic_sublevel.AcademicSublevel",
         on_delete=models.PROTECT,
         verbose_name="Subnivel Academico",
-        null=True,
-        blank=True,
     )
     code = models.CharField(max_length=50, blank=True, db_index=True, verbose_name="Codigo")
     name = models.CharField(max_length=100, verbose_name="Nombre del Grado")

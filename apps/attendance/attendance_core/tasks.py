@@ -4,41 +4,10 @@ from celery import shared_task
 
 from .domain.services import AttendanceService
 from .infrastructure.models import Attendance
+from apps.core.realtime.emitter import emit_to_user
 from apps.integration.tasks.sync_tasks import BaseSyncHandler, register_sync_handler
 
 logger = logging.getLogger(__name__)
-
-
-def _emit_socketio_event(user_id, event, data):
-    """Publica un evento de Socket.IO a la sala ``user_{id}`` vía Redis.
-
-    Mismo protocolo nativo de python-socketio usado por analytics para
-    comunicarse con el servidor ASGI desde un worker de Celery.
-    """
-    try:
-        import json
-        import uuid
-
-        import redis as redis_lib
-        from django.conf import settings
-
-        r = redis_lib.Redis.from_url(settings.SOCKETIO_REDIS_URL)
-        message = json.dumps({
-            "method": "emit",
-            "event": event,
-            "data": [data],
-            "binary": False,
-            "namespace": "/",
-            "room": f"user_{user_id}",
-            "skip_sid": None,
-            "callback": None,
-            "host_id": str(uuid.uuid4()),
-        })
-        r.publish("socketio", message)
-        r.close()
-        logger.info("[SOCKET.IO] Evento %s publicado a Redis para user_%s", event, user_id)
-    except Exception:
-        logger.warning("[SOCKET.IO] No se pudo publicar evento a Redis", exc_info=True)
 
 
 @shared_task(bind=True)
@@ -81,7 +50,7 @@ def notify_representatives_of_absence(self, attendance_id):
 
     notified = 0
     for rep in reps:
-        _emit_socketio_event(
+        emit_to_user(
             rep.user_id,
             "absence_notification",
             {
@@ -124,6 +93,36 @@ def _pick(payload, *keys):
     return None
 
 
+def _writable_fields(payload):
+    """Campos editables de una asistencia presentes en el payload.
+
+    Solo incluye una clave si el cliente la envió, para no sobrescribir con
+    ``None`` campos que el cliente no pretendía tocar (p. ej. ``class_schedule``).
+    """
+    fields = {}
+
+    period = _pick(payload, "academic_period_id", "academic_period")
+    if period is not None:
+        fields["academic_period_id"] = period
+
+    status = _pick(payload, "attendance_status_id", "attendance_status")
+    if status is not None:
+        fields["attendance_status_id"] = status
+
+    if "absence_type_id" in payload or "absence_type" in payload:
+        fields["absence_type_id"] = _pick(payload, "absence_type_id", "absence_type")
+
+    if "observation" in payload:
+        fields["observation"] = payload.get("observation") or ""
+
+    schedule = _pick(payload, "class_schedule_id", "class_schedule")
+    if schedule is not None:
+        fields["class_schedule_id"] = schedule
+
+    fields["device_origin"] = payload.get("device_origin") or "mobile"
+    return fields
+
+
 @register_sync_handler("attendance")
 class AttendanceSyncHandler(BaseSyncHandler):
     model = Attendance
@@ -131,20 +130,65 @@ class AttendanceSyncHandler(BaseSyncHandler):
     @classmethod
     def _apply(cls, record_uuid, payload):
         payload = payload or {}
-        instance = AttendanceService.create_attendance(
-            enrollment_id=_pick(payload, "enrollment_id", "enrollment"),
-            teacher_subject_section_id=_pick(
+
+        existing = cls.model.objects.filter(uuid=record_uuid).first()
+
+        if existing is None:
+            enrollment_id = _pick(payload, "enrollment_id", "enrollment")
+            attendance_date = _pick(payload, "attendance_date")
+            schedule_id = _pick(payload, "class_schedule_id", "class_schedule")
+            tss_id = _pick(
                 payload, "teacher_subject_section_id", "teacher_subject_section"
-            ),
-            academic_period_id=_pick(payload, "academic_period_id", "academic_period"),
-            attendance_date=_pick(payload, "attendance_date"),
-            attendance_status_id=_pick(
-                payload, "attendance_status_id", "attendance_status"
-            ),
-            absence_type_id=_pick(payload, "absence_type_id", "absence_type"),
-            observation=payload.get("observation") or "",
-            device_origin=payload.get("device_origin") or "mobile",
-        )
+            )
+
+            if schedule_id and enrollment_id and attendance_date:
+                existing = cls.model.objects.filter(
+                    enrollment_id=enrollment_id,
+                    class_schedule_id=schedule_id,
+                    attendance_date=attendance_date,
+                ).first()
+            elif tss_id and enrollment_id and attendance_date:
+                existing = cls.model.objects.filter(
+                    enrollment_id=enrollment_id,
+                    teacher_subject_section_id=tss_id,
+                    attendance_date=attendance_date,
+                ).first()
+
+        if existing is not None:
+            instance = AttendanceService.update_attendance(
+                existing.id, **_writable_fields(payload)
+            )
+            if str(instance.uuid) != str(record_uuid) and not cls.model.objects.filter(
+                uuid=record_uuid
+            ).exists():
+                instance.uuid = record_uuid
+                instance.save(update_fields=["uuid"])
+        else:
+            instance = AttendanceService.create_attendance(
+                enrollment_id=_pick(payload, "enrollment_id", "enrollment"),
+                teacher_subject_section_id=_pick(
+                    payload, "teacher_subject_section_id", "teacher_subject_section"
+                ),
+                academic_period_id=_pick(
+                    payload, "academic_period_id", "academic_period"
+                ),
+                attendance_date=_pick(payload, "attendance_date"),
+                attendance_status_id=_pick(
+                    payload, "attendance_status_id", "attendance_status"
+                ),
+                absence_type_id=_pick(payload, "absence_type_id", "absence_type"),
+                observation=payload.get("observation") or "",
+                device_origin=payload.get("device_origin") or "mobile",
+                class_schedule_id=_pick(payload, "class_schedule_id", "class_schedule"),
+            )
+            # El uuid lo genera el cliente offline; si create_attendance creó una
+            # fila nueva, se alinea el uuid para que ambos lados compartan la
+            # misma identidad y el próximo pull no genere un duplicado.
+            if str(instance.uuid) != str(record_uuid) and not cls.model.objects.filter(
+                uuid=record_uuid
+            ).exists():
+                instance.uuid = record_uuid
+                instance.save(update_fields=["uuid"])
 
         incoming_version = payload.get("sync_version")
         if incoming_version:

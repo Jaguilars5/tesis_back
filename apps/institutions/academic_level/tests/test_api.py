@@ -32,11 +32,18 @@ class AcademicLevelAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(response.data["ok"])
         self.assertEqual(response.data["data"]["name"], "Educacion Inicial")
+        self.assertIn("description", response.data["data"])
 
-    def test_create_level_without_code(self):
+    def test_create_level_without_code_returns_422(self):
         payload = {"name": "Educacion Basica"}
         response = self.client.post(self.url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    def test_create_level_with_description(self):
+        payload = {"name": "Inicial", "code": "INI", "description": "Nivel inicial"}
+        response = self.client.post(self.url, payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["data"]["description"], "Nivel inicial")
 
     def test_create_level_empty_name_returns_422(self):
         payload = {"name": "", "code": "X"}

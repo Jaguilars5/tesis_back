@@ -31,6 +31,10 @@ class SyncQueueRepository(BaseRepository, SyncQueueRepositoryInterface):
         ).exists()
 
     @classmethod
+    def get_by_idempotency_key(cls, idempotency_key):
+        return cls.model.objects.filter(idempotency_key=idempotency_key).first()
+
+    @classmethod
     def get_for_pull(cls, since=None, source_table=None, limit=100):
         queryset = cls.model.objects.all()
         if since is not None:

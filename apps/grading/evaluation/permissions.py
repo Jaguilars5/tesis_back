@@ -13,6 +13,7 @@ ACTION_PERMISSIONS = {
 BLOCK_COMPONENT_PERMISSIONS = {
     "list": grading.VIEW_BLOCK_COMPONENT,
     "get": grading.VIEW_BLOCK_COMPONENT,
+    "by_teacher_subject_section": grading.VIEW_BLOCK_COMPONENT,
     "create": grading.CREATE_BLOCK_COMPONENT,
     "update": grading.UPDATE_BLOCK_COMPONENT,
     "partial_update": grading.UPDATE_BLOCK_COMPONENT,

@@ -2,11 +2,15 @@ from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.exceptions import ValidationError
 from rest_framework.filters import SearchFilter, OrderingFilter
+from rest_framework import status
+from rest_framework.decorators import action
 
 from apps.behavior.api.base import BaseBehaviorViewSet
 from apps.core.api.scoping import scope_student_to_enrollment
+from apps.core.utils.responses import ok_response, error_response
 
 from ..application.serializers import ConductIncidentSerializer
+from ..domain.replication import ConductIncidentReplicationService
 from ..domain.services import ConductIncidentService
 from ..infrastructure.repositories import ConductIncidentRepository
 from ..permissions import ACTION_PERMISSIONS
@@ -65,3 +69,38 @@ class ConductIncidentViewSet(BaseBehaviorViewSet):
             serializer.instance = obj
         except ValueError as e:
             raise ValidationError(e.args[0] if e.args else str(e))
+
+    @extend_schema(
+        summary="Replicar incidentes de conducta (push)",
+        tags=["behavior"],
+    )
+    @action(detail=False, methods=["post"], url_path="replicate/push")
+    def replicate_push(self, request):
+        documents = request.data.get("documents", [])
+        if not documents:
+            return error_response(
+                "documents es requerido",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        results = ConductIncidentReplicationService.apply_batch(documents)
+        applied = sum(1 for r in results if r.get("status") == "APPLIED")
+        conflicts = sum(1 for r in results if r.get("status") == "CONFLICT")
+        return ok_response(
+            {"results": results, "applied": applied, "conflicts": conflicts},
+            msg=f"{applied} aplicado(s), {conflicts} conflicto(s)",
+        )
+
+    @extend_schema(
+        summary="Cambios de incidentes desde timestamp (pull)",
+        tags=["behavior"],
+    )
+    @action(detail=False, methods=["get"], url_path="replicate/changes")
+    def replicate_changes(self, request):
+        since = request.query_params.get("since")
+        academic_period_id = request.query_params.get("academic_period_id")
+        period_id = int(academic_period_id) if academic_period_id else None
+        changes = ConductIncidentReplicationService.get_changes(
+            since=since,
+            academic_period_id=period_id,
+        )
+        return ok_response({"count": len(changes), "since": since, "results": changes})

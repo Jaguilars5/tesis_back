@@ -770,55 +770,472 @@ INCIDENTES_DESCRIPCION = {
 # COMMAND
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+# Pool dinámico de estudiantes y representantes para simulación multianual
+STUDENT_POOL = []
+REPRESENTATIVE_POOL = []
+
+NOMBRES_EST = [
+    "Sebastián Andrés", "Camila Valentina", "Diego Alejandro", "Gabriela Mishell",
+    "Mateo Nicolás", "Andrea Sofía", "Andrés Mauricio", "Valeria Nicole",
+    "Juan Pablo", "Paola Estefanía", "Kevin Steeven", "María Fernanda",
+    "Luis Fernando", "Priscila Marisol", "Emilio Javier", "Natalia Daniela",
+    "Pablo Rodrigo", "Karla Alejandra", "Bryan Stalyn", "Alejandra Pamela",
+    "Cristian José", "Melanie Yoselin", "Ronaldo Jesús", "Carolina Liseth",
+    "Daniel Esteban", "Sofía Lorena", "Alejandro René", "Lucía Fernanda",
+    "Javier Eduardo", "Elena Margarita"
+]
+
+APELLIDOS = [
+    "Almeida", "Burbano", "Córdova", "Delgado", "Espinoza", "Flores", "García", "Herrera",
+    "Intriago", "Jiménez", "Lara", "Morales", "Naranjo", "Ortega", "Peña", "Quito",
+    "Romero", "Samaniego", "Tapia", "Urgiles", "Vargas", "Washburn", "Yánez", "Zambrano",
+    "Castro", "Cevallos", "Mendoza", "Palacios", "Salazar", "Vega", "Astudillo", "Rosero",
+    "Cárdenas", "Montenegro", "Aguilar", "Bravo", "Freire", "Loor", "Montoya", "Zamora"
+]
+
+NOMBRES_REP = [
+    "Roberto Carlos", "Gloria Esperanza", "Nelson Patricio", "Rosa Amparito", "Freddy Bolívar",
+    "Silvia Marisol", "Marco Antonio", "Isabel Rocío", "Oswaldo Ramiro", "Carmen Auxiliadora",
+    "Leonidas Raúl", "Verónica Susana", "Blanca Noemí", "Gonzalo Efraín", "Alexandra Paola",
+    "Víctor Hugo", "Martha Cecilia", "César Augusto", "Gladys María", "Wilson René"
+]
+
+# Inicializar un generador de aleatoriedad local
+local_rand = random.Random(2025)
+
+# Generar 120 alumnos y representantes únicos
+for i in range(1, 121):
+    names = local_rand.choice(NOMBRES_EST)
+    last_names = f"{local_rand.choice(APELLIDOS)} {local_rand.choice(APELLIDOS)}"
+    doc_num = f"091020{i:04d}"
+    birth_date = date(2009 + (i % 3), local_rand.randint(1, 12), local_rand.randint(1, 28))
+    
+    student_tag = f"est_{i:03d}"
+    
+    rep_names = local_rand.choice(NOMBRES_REP)
+    rep_last_names = f"{last_names.split()[0]} {local_rand.choice(APELLIDOS)}"
+    rep_doc = f"090010{i:04d}"
+    rep_birth = date(1975 + (i % 10), local_rand.randint(1, 12), local_rand.randint(1, 28))
+    rep_tag = f"rep_{i:03d}"
+    kinship = local_rand.choice(["PADRE", "MADRE", "PADRE", "MADRE", "TUTOR"])
+    
+    STUDENT_POOL.append({
+        "tag": student_tag,
+        "document_number": doc_num,
+        "names": names,
+        "last_names": last_names,
+        "birth_date": birth_date,
+    })
+    
+    REPRESENTATIVE_POOL.append({
+        "tag": rep_tag,
+        "document_number": rep_doc,
+        "names": rep_names,
+        "last_names": rep_last_names,
+        "birth_date": rep_birth,
+        "kinship_code": kinship,
+        "students": [student_tag]
+    })
+
+# Definición de años escolares e históricos
+SCHOOL_YEARS_DATA = [
+    {
+        "name": "2023-2024",
+        "start_date": date(2023, 9, 1),
+        "end_date":   date(2024, 6, 30),
+        "is_active":  False,
+        "trimestres": [
+            {"code": "T1-2324", "name": "Primer Trimestre", "start_date": date(2023, 9, 1), "end_date": date(2023, 11, 30), "weight": Decimal("33.33")},
+            {"code": "T2-2324", "name": "Segundo Trimestre", "start_date": date(2023, 12, 1), "end_date": date(2024, 3, 15), "weight": Decimal("33.33")},
+            {"code": "T3-2324", "name": "Tercer Trimestre", "start_date": date(2024, 3, 18), "end_date": date(2024, 6, 30), "weight": Decimal("33.34")},
+        ]
+    },
+    {
+        "name": "2024-2025",
+        "start_date": date(2024, 9, 1),
+        "end_date":   date(2025, 6, 30),
+        "is_active":  False,
+        "trimestres": [
+            {"code": "T1-2425", "name": "Primer Trimestre", "start_date": date(2024, 9, 1), "end_date": date(2024, 11, 30), "weight": Decimal("33.33")},
+            {"code": "T2-2425", "name": "Segundo Trimestre", "start_date": date(2024, 12, 1), "end_date": date(2025, 3, 14), "weight": Decimal("33.33")},
+            {"code": "T3-2425", "name": "Tercer Trimestre", "start_date": date(2025, 3, 17), "end_date": date(2025, 6, 30), "weight": Decimal("33.34")},
+        ]
+    },
+    {
+        "name": "2025-2026",
+        "start_date": date(2025, 9, 1),
+        "end_date":   date(2026, 6, 30),
+        "is_active":  True,
+        "trimestres": [
+            {"code": "T1-2526", "name": "Primer Trimestre", "start_date": date(2025, 9, 1), "end_date": date(2025, 11, 30), "weight": Decimal("33.33")},
+            {"code": "T2-2526", "name": "Segundo Trimestre", "start_date": date(2025, 12, 1), "end_date": date(2026, 3, 13), "weight": Decimal("33.33")},
+            {"code": "T3-2526", "name": "Tercer Trimestre", "start_date": date(2026, 3, 16), "end_date": date(2026, 6, 30), "weight": Decimal("33.34")},
+        ]
+    }
+]
+
 class Command(BaseCommand):
-    help = "Siembra datos realistas para el año 2025-2026 – 1ro BGU paralelos A y B"
+    help = "Siembra datos de prueba multianuales coherentes con el paralelo C y soporte para ML"
+
+    @staticmethod
+    def _sync_is_active(obj, is_active, created):
+        """Alinea is_active en re-ejecuciones (años históricos deben quedar inactivos)."""
+        if not created and obj.is_active != is_active:
+            obj.is_active = is_active
+            obj.save(update_fields=["is_active"])
 
     def handle(self, *args, **options):
         random.seed(RANDOM_SEED)  # garantizar reproducibilidad
+        local_rand = random.Random(RANDOM_SEED)
 
         self._seed_catalogs()
         self._seed_permissions_and_roles()
 
-        school_year    = self._create_school_year()
-        grade_bgu1     = self._create_grade_bgu1()
-        sections       = self._create_sections(school_year, grade_bgu1)
-        subjects       = self._create_subjects()
-        configs        = self._create_subject_configs(subjects, grade_bgu1)
-        offerings      = self._create_subject_offerings(school_year, sections, configs)
-        periods        = self._create_academic_periods(school_year)
+        grade_bgu1, grade_bgu2 = self._create_grades()
+        subjects = self._create_subjects()
+        configs_bgu1 = self._create_subject_configs(subjects, grade_bgu1)
+        configs_bgu2 = self._create_subject_configs(subjects, grade_bgu2)
 
-        admin_users    = self._create_admin_users()
-        doc_users      = self._create_docentes()
+        admin_users = self._create_admin_users()
+        doc_users = self._create_docentes()
         self._assign_roles(admin_users, doc_users)
 
-        teacher_map    = self._create_teacher_assignments(doc_users, offerings)
-        self._create_class_schedules(teacher_map, sections)
+        self.stdout.write("  -> Creando pool global de estudiantes...")
+        est_users = {}
+        students = {}
+        est_role = Role.objects.get(code="ESTUDIANTE")
+        for e in STUDENT_POOL:
+            apellido_slug = e["last_names"].split()[0].lower()
+            for a, b in [("á","a"),("é","e"),("í","i"),("ó","o"),("ú","u"),("ñ","n")]:
+                apellido_slug = apellido_slug.replace(a, b)
+            email    = f"est.{apellido_slug}.{e['tag']}@uetest.edu.ec"
+            password = f"Est.{e['last_names'].split()[0]}2025!"
+            u = self._make_user(
+                document_number=e["document_number"],
+                names=e["names"],
+                last_names=e["last_names"],
+                email=email,
+                password=password,
+                birth_date=e["birth_date"],
+            )
+            est_users[e["tag"]] = u
+            UserRole.objects.get_or_create(user=u, role=est_role)
+            student, _ = Student.objects.get_or_create(
+                student_code=f"BGU-{e['document_number'][-6:]}",
+                defaults={
+                    "user":              u,
+                    "is_active":         True,
+                    "has_special_needs": e["tag"] == "est_001",
+                },
+            )
+            students[e["tag"]] = student
 
-        est_users      = self._create_estudiante_users()
-        students       = self._create_students(est_users)
-        enrollments    = self._create_enrollments(students, sections)
+        self.stdout.write("  -> Creando pool global de representantes...")
+        rep_users = {}
+        rep_role = Role.objects.get(code="REPRESENTANTE")
+        for r in REPRESENTATIVE_POOL:
+            apellido_slug = r["last_names"].split()[0].lower()
+            for a, b in [("á","a"),("é","e"),("í","i"),("ó","o"),("ú","u"),("ñ","n")]:
+                apellido_slug = apellido_slug.replace(a, b)
+            email    = f"rep.{apellido_slug}@uetest.edu.ec"
+            password = f"Rep.{r['last_names'].split()[0]}2025!"
+            u = self._make_user(
+                document_number=r["document_number"],
+                names=r["names"],
+                last_names=r["last_names"],
+                email=email,
+                password=password,
+                birth_date=r["birth_date"],
+            )
+            rep_users[r["tag"]] = u
+            UserRole.objects.get_or_create(user=u, role=rep_role)
 
-        rep_users      = self._create_representante_users()
-        self._create_representative_relationships(rep_users, students)
+            kinship = Kinship.objects.get(code=r["kinship_code"])
+            for idx, student_tag in enumerate(r["students"]):
+                stud = students[student_tag]
+                StudentRepresentative.objects.get_or_create(
+                    student=stud,
+                    user=u,
+                    defaults={
+                        "kinship":                kinship,
+                        "is_primary":             True,
+                        "receives_notifications": True,
+                        "is_active":              True,
+                        "emergency_contact":      idx == 0,
+                    },
+                )
 
-        self._create_attendance(enrollments, teacher_map, periods)
-        self._create_conduct_incidents(enrollments, periods)
+        student_states = {e["tag"]: {"last_grade": None, "last_status": None, "repeat_count": 0} for e in STUDENT_POOL}
+        free_students = [e["tag"] for e in STUDENT_POOL]
+        current_enrollments = {}
 
-        grading_struct = self._create_grading_structure(periods, offerings)
-        self._create_evaluative_activities(teacher_map, grading_struct, periods)
-        self._create_student_notes(enrollments, grading_struct, doc_users)
-        self._create_behavior_evaluations(enrollments, periods, admin_users)
-        self._create_early_alerts(enrollments, periods, admin_users)
-        self._create_risk_data(enrollments, periods)
+        for sy_data in SCHOOL_YEARS_DATA:
+            year_is_active = sy_data["is_active"]
+
+            self.stdout.write(f"\n==================================================")
+            self.stdout.write(f"PROCESANDO AÑO LECTIVO: {sy_data['name']}")
+            self.stdout.write(f"==================================================")
+
+            school_year, _ = SchoolYear.objects.get_or_create(
+                start_date=sy_data["start_date"],
+                defaults={
+                    "end_date":   sy_data["end_date"],
+                    "is_active":  sy_data["is_active"],
+                },
+            )
+            if not sy_data["is_active"]:
+                school_year.is_active = False
+                school_year.save()
+
+            sections = {}
+            for grade_code, grade in [("BGU_1RO", grade_bgu1), ("BGU_2DO", grade_bgu2)]:
+                sections[grade_code] = {}
+                for parallel in ("A", "B", "C"):
+                    code = f"{grade_code}_{parallel}_{sy_data['name'].replace('-', '')}"
+                    obj, created = Section.objects.get_or_create(
+                        code=code,
+                        defaults={
+                            "school_year":    school_year,
+                            "academic_grade": grade,
+                            "parallel":       parallel,
+                            "capacity":       35,
+                            "is_active":      year_is_active,
+                        },
+                    )
+                    self._sync_is_active(obj, year_is_active, created)
+                    sections[grade_code][parallel] = obj
+
+            offerings = {}
+            for grade_code, configs in [("BGU_1RO", configs_bgu1), ("BGU_2DO", configs_bgu2)]:
+                for parallel, section in sections[grade_code].items():
+                    for code, cfg in configs.items():
+                        obj, created = SubjectOffering.objects.get_or_create(
+                            section=section,
+                            subject_academic_config=cfg,
+                            defaults={"is_active": year_is_active},
+                        )
+                        self._sync_is_active(obj, year_is_active, created)
+                        offerings[(grade_code, code, parallel)] = obj
+
+            period_type = PeriodType.objects.get(code="TRIMESTRE")
+            periods = []
+            for t in sy_data["trimestres"]:
+                obj, created = AcademicPeriod.objects.get_or_create(
+                    school_year=school_year,
+                    code=t["code"],
+                    defaults={
+                        "name":               t["name"],
+                        "start_date":         t["start_date"],
+                        "end_date":           t["end_date"],
+                        "period_type":        period_type,
+                        "is_regular_period":  True,
+                        "is_active":          year_is_active,
+                        "year_weight":        t["weight"],
+                        "grades_locked":      not year_is_active,
+                    },
+                )
+                if not created:
+                    updates = {}
+                    if obj.is_active != year_is_active:
+                        updates["is_active"] = year_is_active
+                    expected_locked = not year_is_active
+                    if obj.grades_locked != expected_locked:
+                        updates["grades_locked"] = expected_locked
+                    if updates:
+                        for field, value in updates.items():
+                            setattr(obj, field, value)
+                        obj.save(update_fields=list(updates.keys()))
+                periods.append(obj)
+
+            teacher_map = {}
+            for d in DOCENTES:
+                user = doc_users[d["tag"]]
+                scode = d["subject_code"]
+                for grade_code in ("BGU_1RO", "BGU_2DO"):
+                    for parallel in ("A", "B", "C"):
+                        key = (grade_code, scode, parallel)
+                        offering = offerings.get(key)
+                        if not offering:
+                            continue
+                        tss, created = TeacherSubjectSection.objects.get_or_create(
+                            user=user,
+                            subject_offering=offering,
+                            defaults={"is_active": year_is_active},
+                        )
+                        self._sync_is_active(tss, year_is_active, created)
+                        teacher_map[key] = tss
+
+            def _get_swapped_times(start_time, end_time):
+                # Shift A
+                if start_time == _t(7, 0): return _t(8, 30), _t(9, 15)
+                if start_time == _t(7, 45): return _t(9, 15), _t(10, 0)
+                if start_time == _t(8, 30): return _t(7, 0), _t(7, 45)
+                if start_time == _t(9, 15): return _t(7, 45), _t(8, 30)
+                # Shift B
+                if start_time == _t(10, 15): return _t(11, 45), _t(12, 30)
+                if start_time == _t(11, 0): return _t(12, 30), _t(13, 15)
+                if start_time == _t(11, 45): return _t(10, 15), _t(11, 0)
+                if start_time == _t(12, 30): return _t(11, 0), _t(11, 45)
+                return start_time, end_time
+
+            count_schedules = 0
+            for (scode, parallel, day, start, end) in SCHEDULE_SLOTS:
+                for grade_code in ("BGU_1RO", "BGU_2DO"):
+                    if grade_code == "BGU_2DO":
+                        actual_start, actual_end = _get_swapped_times(start, end)
+                    else:
+                        actual_start, actual_end = start, end
+
+                    tss = teacher_map.get((grade_code, scode, parallel))
+                    if tss:
+                        cs, created = ClassSchedule.objects.get_or_create(
+                            teacher_subject_section=tss,
+                            day_of_week=day,
+                            start_time=actual_start,
+                            defaults={"end_time": actual_end, "is_active": year_is_active},
+                        )
+                        if not created and (cs.is_active != year_is_active or cs.end_time != actual_end):
+                            cs.is_active = year_is_active
+                            cs.end_time = actual_end
+                            cs.save()
+                        count_schedules += 1
+
+                    if parallel == "A":
+                        tss_c = teacher_map.get((grade_code, scode, "C"))
+                        if tss_c:
+                            c_start = (datetime.datetime.combine(datetime.date.today(), actual_start) + datetime.timedelta(hours=6, minutes=30)).time()
+                            c_end = (datetime.datetime.combine(datetime.date.today(), actual_end) + datetime.timedelta(hours=6, minutes=30)).time()
+                            cs_c, created_c = ClassSchedule.objects.get_or_create(
+                                teacher_subject_section=tss_c,
+                                day_of_week=day,
+                                start_time=c_start,
+                                defaults={"end_time": c_end, "is_active": year_is_active},
+                            )
+                            if not created_c and (cs_c.is_active != year_is_active or cs_c.end_time != c_end):
+                                cs_c.is_active = year_is_active
+                                cs_c.end_time = c_end
+                                cs_c.save()
+                            count_schedules += 1
+            self.stdout.write(f"  [OK] Horarios creados para el año: {count_schedules}")
+
+            current_enrollments = {}
+
+            # --- Matrículas 2do BGU ---
+            passed_1ro = [tag for tag, state in student_states.items() if state["last_grade"] == "BGU_1RO" and state["last_status"] == "PASSED"]
+            local_rand.shuffle(passed_1ro)
+
+            for idx, tag in enumerate(passed_1ro[:36]):
+                parallel = ("A", "B", "C")[idx % 3]
+                sec = sections["BGU_2DO"][parallel]
+                stud = students[tag]
+                enroll, _ = Enrollment.objects.get_or_create(
+                    student=stud,
+                    section=sec,
+                    defaults={"enrollment_status": "ACT", "is_repeat": False}
+                )
+                current_enrollments[tag] = enroll
+                student_states[tag]["last_grade"] = "BGU_2DO"
+                student_states[tag]["last_status"] = None
+
+            # --- Matrículas 1ro BGU ---
+            repeaters_1ro = [tag for tag, state in student_states.items() if state["last_grade"] == "BGU_1RO" and state["last_status"] == "FAILED"]
+            needed_new = 36 - len(repeaters_1ro)
+            new_intake = []
+            if needed_new > 0:
+                new_intake = free_students[:needed_new]
+                free_students = free_students[needed_new:]
+
+            intake_1ro = repeaters_1ro + new_intake
+            local_rand.shuffle(intake_1ro)
+
+            for idx, tag in enumerate(intake_1ro[:36]):
+                parallel = ("A", "B", "C")[idx % 3]
+                sec = sections["BGU_1RO"][parallel]
+                stud = students[tag]
+                is_rep = tag in repeaters_1ro
+                enroll, _ = Enrollment.objects.get_or_create(
+                    student=stud,
+                    section=sec,
+                    defaults={"enrollment_status": "ACT", "is_repeat": is_rep}
+                )
+                current_enrollments[tag] = enroll
+                student_states[tag]["last_grade"] = "BGU_1RO"
+                student_states[tag]["last_status"] = None
+                if is_rep:
+                    student_states[tag]["repeat_count"] += 1
+
+            self.stdout.write(f"  [OK] Matrículas generadas: {len(current_enrollments)} (1ro BGU: {len(intake_1ro)}, 2do BGU: {len(passed_1ro[:36])})")
+
+            failing_students = set()
+            students_1ro = [tag for tag in current_enrollments if student_states[tag]["last_grade"] == "BGU_1RO"]
+            num_fail_1ro = int(len(students_1ro) * 0.25)
+            failing_students.update(local_rand.sample(students_1ro, num_fail_1ro))
+
+            students_2do = [tag for tag in current_enrollments if student_states[tag]["last_grade"] == "BGU_2DO"]
+            num_fail_2do = int(len(students_2do) * 0.15)
+            failing_students.update(local_rand.sample(students_2do, num_fail_2do))
+
+            for tag in current_enrollments:
+                if tag in failing_students:
+                    student_states[tag]["last_status"] = "FAILED"
+                else:
+                    student_states[tag]["last_status"] = "PASSED"
+
+            self._generate_attendance_for_sy(current_enrollments, teacher_map, periods, failing_students)
+            self._generate_conduct_incidents_for_sy(current_enrollments, periods, failing_students)
+
+            grading_struct = self._create_grading_structure_for_sy(
+                periods, offerings, year_is_active
+            )
+            self._create_evaluative_activities_for_sy(
+                teacher_map, grading_struct, periods, year_is_active
+            )
+            self._create_student_notes_for_sy(current_enrollments, grading_struct, doc_users, failing_students)
+
+            self._create_behavior_evaluations(current_enrollments, periods, admin_users)
+            self._create_early_alerts(current_enrollments, periods, admin_users)
+            self._create_risk_data_for_sy(current_enrollments, periods, failing_students)
+
+        global ESTUDIANTES, REPRESENTANTES
+        ESTUDIANTES = []
+        for item in STUDENT_POOL:
+            tag = item["tag"]
+            stud_obj = students[tag]
+            active_enroll = Enrollment.objects.filter(student=stud_obj, section__school_year__is_active=True).first()
+            if active_enroll:
+                ESTUDIANTES.append({
+                    "tag": tag,
+                    "document_number": stud_obj.user.person.document_number,
+                    "names": stud_obj.user.person.names,
+                    "last_names": stud_obj.user.person.last_names,
+                    "parallel": active_enroll.section.parallel,
+                    "birth_date": stud_obj.user.person.birth_date,
+                })
+
+        REPRESENTANTES = []
+        for r in REPRESENTATIVE_POOL:
+            active_students = [s_tag for s_tag in r["students"] if any(e["tag"] == s_tag for e in ESTUDIANTES)]
+            if active_students:
+                REPRESENTANTES.append({
+                    "tag": r["tag"],
+                    "document_number": r["document_number"],
+                    "names": r["names"],
+                    "last_names": r["last_names"],
+                    "birth_date": r["birth_date"],
+                    "kinship_code": r["kinship_code"],
+                    "students": active_students
+                })
+
+        active_sy = SchoolYear.objects.filter(is_active=True).first()
+        active_sections = Section.objects.filter(school_year=active_sy)
+        active_periods = AcademicPeriod.objects.filter(school_year=active_sy)
+        active_students_objs = [students[e["tag"]] for e in ESTUDIANTES]
+        active_enrollments = {e["tag"]: current_enrollments[e["tag"]] for e in ESTUDIANTES}
 
         self._print_summary(
-            school_year, sections, periods, students, enrollments,
+            active_sy, active_sections, active_periods, active_students_objs, active_enrollments,
             admin_users, doc_users, rep_users, est_users
         )
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # Helpers internos
-    # ─────────────────────────────────────────────────────────────────────────
 
     def _seed_catalogs(self):
         self.stdout.write("  -> Sembrando catálogos base...")
@@ -828,23 +1245,7 @@ class Command(BaseCommand):
         self.stdout.write("  -> Sembrando permisos y roles...")
         call_command("seed_permissions")
 
-    # ── Año escolar ──────────────────────────────────────────────────────────
-
-    def _create_school_year(self):
-        sy = SCHOOL_YEAR
-        obj, created = SchoolYear.objects.get_or_create(
-            start_date=sy["start_date"],
-            defaults={
-                "end_date":   sy["end_date"],
-                "is_active":  sy["is_active"],
-            },
-        )
-        self.stdout.write(f"  [OK] Año escolar: {obj.start_date} – {obj.end_date}")
-        return obj
-
-    # ── Estructura académica ─────────────────────────────────────────────────
-
-    def _create_grade_bgu1(self):
+    def _create_grades(self):
         nivel_bgu = AcademicLevel.objects.get(code="BGU")
         sublevel, _ = AcademicSublevel.objects.get_or_create(
             code="BACHILLERATO",
@@ -855,7 +1256,7 @@ class Command(BaseCommand):
                 "is_active":      True,
             },
         )
-        grade, _ = AcademicGrade.objects.get_or_create(
+        grade_bgu1, _ = AcademicGrade.objects.get_or_create(
             code="BGU_1RO",
             defaults={
                 "name":              "1ro BGU",
@@ -863,26 +1264,16 @@ class Command(BaseCommand):
                 "is_active":         True,
             },
         )
-        self.stdout.write(f"  [OK] Grado: {grade.name}")
-        return grade
-
-    def _create_sections(self, school_year, grade):
-        sections = {}
-        for parallel in ("A", "B"):
-            code = f"BGU1_{parallel}"
-            obj, _ = Section.objects.get_or_create(
-                code=code,
-                defaults={
-                    "school_year":    school_year,
-                    "academic_grade": grade,
-                    "parallel":       parallel,
-                    "capacity":       35,
-                    "is_active":      True,
-                },
-            )
-            sections[parallel] = obj
-            self.stdout.write(f"  [OK] Sección: 1ro BGU {parallel} (cupo 35)")
-        return sections
+        grade_bgu2, _ = AcademicGrade.objects.get_or_create(
+            code="BGU_2DO",
+            defaults={
+                "name":              "2do BGU",
+                "academic_sublevel": sublevel,
+                "is_active":         True,
+            },
+        )
+        self.stdout.write(f"  [OK] Grados creados: 1ro BGU, 2do BGU")
+        return grade_bgu1, grade_bgu2
 
     def _create_subjects(self):
         objs = {}
@@ -909,49 +1300,11 @@ class Command(BaseCommand):
                 },
             )
             configs[code] = cfg
-        self.stdout.write(f"  [OK] Configuraciones de asignatura: {len(configs)}")
+        self.stdout.write(f"  [OK] Configuraciones de asignatura para {grade.name}: {len(configs)}")
         return configs
-
-    def _create_subject_offerings(self, school_year, sections, configs):
-        """Un SubjectOffering por asignatura × sección."""
-        offerings = {}   # (subject_code, parallel) → SubjectOffering
-        for parallel, section in sections.items():
-            for code, cfg in configs.items():
-                obj, _ = SubjectOffering.objects.get_or_create(
-                    section=section,
-                    subject_academic_config=cfg,
-                    defaults={"is_active": True},
-                )
-                offerings[(code, parallel)] = obj
-        self.stdout.write(f"  [OK] Ofertas de asignatura: {len(offerings)}")
-        return offerings
-
-    def _create_academic_periods(self, school_year):
-        period_type = PeriodType.objects.get(code="TRIMESTRE")
-        objs = []
-        for t in TRIMESTRES:
-            obj, _ = AcademicPeriod.objects.get_or_create(
-                school_year=school_year,
-                code=t["code"],
-                defaults={
-                    "name":               t["name"],
-                    "start_date":         t["start_date"],
-                    "end_date":           t["end_date"],
-                    "period_type":        period_type,
-                    "is_regular_period":  True,
-                    "is_active":          True,
-                    "year_weight":        t["weight"],
-                },
-            )
-            objs.append(obj)
-            self.stdout.write(f"  [OK] Período: {obj.name} ({obj.start_date} – {obj.end_date})")
-        return objs
-
-    # ── Usuarios ─────────────────────────────────────────────────────────────
 
     def _make_user(self, document_number, names, last_names, email, password,
                    birth_date, is_superuser=False):
-        """Crea Person + User idempotentemente. Retorna el User."""
         doc_type = DocumentType.objects.get(code="CC")
         person, _ = Person.objects.get_or_create(
             document_number=document_number,
@@ -996,11 +1349,9 @@ class Command(BaseCommand):
         return users
 
     def _create_docentes(self):
-        """Crea usuarios para cada docente. Credenciales predecibles por apellido."""
         users = {}
         for d in DOCENTES:
             apellido_slug = d["last_names"].split()[0].lower()
-            # Eliminar tildes básicas
             for a, b in [("á","a"),("é","e"),("í","i"),("ó","o"),("ú","u"),("ñ","n")]:
                 apellido_slug = apellido_slug.replace(a, b)
             email    = f"doc.{apellido_slug}@uetest.edu.ec"
@@ -1015,49 +1366,6 @@ class Command(BaseCommand):
             )
             users[d["tag"]] = u
             self.stdout.write(f"  [OK] Docente ({d['subject_code']}): {email}")
-        return users
-
-    def _create_estudiante_users(self):
-        """Crea usuarios para cada estudiante. Credenciales por apellido y paralelo."""
-        users = {}
-        for e in ESTUDIANTES:
-            apellido_slug = e["last_names"].split()[0].lower()
-            for a, b in [("á","a"),("é","e"),("í","i"),("ó","o"),("ú","u"),("ñ","n")]:
-                apellido_slug = apellido_slug.replace(a, b)
-            par = e["parallel"].lower()
-            email    = f"est.{apellido_slug}.{par}@uetest.edu.ec"
-            password = f"Est.{e['last_names'].split()[0]}2025!"
-            u = self._make_user(
-                document_number=e["document_number"],
-                names=e["names"],
-                last_names=e["last_names"],
-                email=email,
-                password=password,
-                birth_date=e["birth_date"],
-            )
-            users[e["tag"]] = u
-            self.stdout.write(f"  [OK] Estudiante {e['parallel']}: {email}")
-        return users
-
-    def _create_representante_users(self):
-        """Crea usuarios para cada representante."""
-        users = {}
-        for r in REPRESENTANTES:
-            apellido_slug = r["last_names"].split()[0].lower()
-            for a, b in [("á","a"),("é","e"),("í","i"),("ó","o"),("ú","u"),("ñ","n")]:
-                apellido_slug = apellido_slug.replace(a, b)
-            email    = f"rep.{apellido_slug}@uetest.edu.ec"
-            password = f"Rep.{r['last_names'].split()[0]}2025!"
-            u = self._make_user(
-                document_number=r["document_number"],
-                names=r["names"],
-                last_names=r["last_names"],
-                email=email,
-                password=password,
-                birth_date=r["birth_date"],
-            )
-            users[r["tag"]] = u
-            self.stdout.write(f"  [OK] Representante: {email}")
         return users
 
     def _assign_roles(self, admin_users, doc_users):
@@ -1076,174 +1384,27 @@ class Command(BaseCommand):
         docente_role = Role.objects.get(code="DOCENTE")
         for user in doc_users.values():
             UserRole.objects.get_or_create(user=user, role=docente_role)
-
         self.stdout.write("  [OK] Roles asignados")
 
-    # ── Estudiantes ──────────────────────────────────────────────────────────
-
-    def _create_students(self, est_users):
-        students = {}
-        est_role = Role.objects.get(code="ESTUDIANTE")
-        for e in ESTUDIANTES:
-            user = est_users[e["tag"]]
-            UserRole.objects.get_or_create(user=user, role=est_role)
-            student, _ = Student.objects.get_or_create(
-                student_code=f"BGU1-{e['document_number'][-6:]}",
-                defaults={
-                    "user":              user,
-                    "is_active":         True,
-                    "has_special_needs": False,
-                },
-            )
-            students[e["tag"]] = student
-        self.stdout.write(f"  [OK] Estudiantes creados/verificados: {len(students)}")
-        return students
-
-    def _create_enrollments(self, students, sections):
-        enrollments = {}
-        for e in ESTUDIANTES:
-            student = students[e["tag"]]
-            section = sections[e["parallel"]]
-            enrollment, _ = Enrollment.objects.get_or_create(
-                student=student,
-                section=section,
-                defaults={
-                    "enrollment_status":  "ACT",
-                    "is_repeat":          False,
-                    "sync_status":        "SYNCED",
-                    "sync_version":       1,
-                    "conflict_resolved":  False,
-                },
-            )
-            enrollments[e["tag"]] = enrollment
-        self.stdout.write(f"  [OK] Matrículas: {len(enrollments)}")
-        return enrollments
-
-    # ── Representantes ───────────────────────────────────────────────────────
-
-    def _create_representative_relationships(self, rep_users, students):
-        rep_role = Role.objects.get(code="REPRESENTANTE")
-        count = 0
-        for r in REPRESENTANTES:
-            rep_user = rep_users[r["tag"]]
-            UserRole.objects.get_or_create(user=rep_user, role=rep_role)
-            kinship  = Kinship.objects.get(code=r["kinship_code"])
-            for idx, student_tag in enumerate(r["students"]):
-                student = students[student_tag]
-                _, created = StudentRepresentative.objects.get_or_create(
-                    student=student,
-                    user=rep_user,
-                    defaults={
-                        "kinship":                kinship,
-                        "is_primary":             True,
-                        "receives_notifications": True,
-                        "is_active":              True,
-                        "emergency_contact":      idx == 0,
-                    },
-                )
-                if created:
-                    count += 1
-        self.stdout.write(f"  [OK] Relaciones representante-estudiante: {count}")
-
-    # ── Docente-Materia ──────────────────────────────────────────────────────
-
-    def _create_teacher_assignments(self, doc_users, offerings):
-        """
-        Crea TeacherSubjectSection: cada docente cubre su asignatura
-        en AMBOS paralelos (A y B).
-        Retorna: {(subject_code, parallel) → TeacherSubjectSection}
-        """
-        teacher_map = {}
-        for d in DOCENTES:
-            user = doc_users[d["tag"]]
-            scode = d["subject_code"]
-            for parallel in ("A", "B"):
-                key = (scode, parallel)
-                offering = offerings.get(key)
-                if not offering:
-                    continue
-                tss, _ = TeacherSubjectSection.objects.get_or_create(
-                    user=user,
-                    subject_offering=offering,
-                    defaults={"is_active": True},
-                )
-                teacher_map[key] = tss
-        self.stdout.write(f"  [OK] Asignaciones docente-materia: {len(teacher_map)}")
-        return teacher_map
-
-    # ── Horarios ─────────────────────────────────────────────────────────────
-
-    def _create_class_schedules(self, teacher_map, sections):
-        """
-        Construye ClassSchedule a partir de SCHEDULE_SLOTS.
-        Cada tupla: (subject_code, parallel, day_of_week, start_time, end_time).
-        El constraint del modelo es (teacher_subject_section, day_of_week, start_time),
-        lo que permite al mismo docente tener múltiples entradas en el mismo día
-        siempre que la hora de inicio sea diferente (bloques no solapados).
-        """
-        count = 0
-        seen = set()  # (tss_id, day, start) para detectar duplicados en la data
-
-        for (scode, parallel, day, start, end) in SCHEDULE_SLOTS:
-            tss = teacher_map.get((scode, parallel))
-            if not tss:
-                self.stdout.write(
-                    f"  [WARN] Sin TSS para {scode} paralelo {parallel} – slot ignorado"
-                )
-                continue
-
-            slot_key = (tss.pk, day, start)
-            if slot_key in seen:
-                self.stdout.write(
-                    f"  [WARN] Slot duplicado en datos: {scode} {parallel} día {day} {start} – ignorado"
-                )
-                continue
-            seen.add(slot_key)
-
-            _, created = ClassSchedule.objects.get_or_create(
-                teacher_subject_section=tss,
-                day_of_week=day,
-                start_time=start,
-                defaults={
-                    "end_time":  end,
-                    "is_active": True,
-                },
-            )
-            if created:
-                count += 1
-
-        self.stdout.write(f"  [OK] Horarios creados: {count}")
-
-    # ── Asistencia ───────────────────────────────────────────────────────────
-
-    def _create_attendance(self, enrollments, teacher_map, periods):
-        """
-        Genera registros de asistencia diarios realistas para cada clase según el horario
-        y rango de fechas de cada período.
-        """
+    def _generate_attendance_for_sy(self, enrollments, teacher_map, periods, failing_students):
         status_P = AttendanceStatus.objects.get(code="P")
         status_T = AttendanceStatus.objects.get(code="T")
         status_J = AttendanceStatus.objects.get(code="J")
         status_A = AttendanceStatus.objects.get(code="A")
-        pool = [status_P] * 85 + [status_T] * 7 + [status_J] * 5 + [status_A] * 3
 
-        # Limpiar asistencias anteriores para evitar duplicados/conflictos de formato
-        Attendance.objects.all().delete()
+        passing_pool = [status_P] * 92 + [status_T] * 5 + [status_J] * 2 + [status_A] * 1
+        failing_pool = [status_P] * 60 + [status_T] * 8 + [status_J] * 12 + [status_A] * 20
 
-        # Buscar todos los horarios de clase
-        schedules = ClassSchedule.objects.select_related("teacher_subject_section").filter(is_active=True)
-
+        schedules = ClassSchedule.objects.select_related("teacher_subject_section").all()
         attendance_to_create = []
 
         for period in periods:
             start_dt = period.start_date
-            # Para el tercer trimestre, limitamos hasta el 26 de junio de 2026 (fecha de simulación)
             if period.code == "T3-2526":
                 end_dt = min(period.end_date, date(2026, 6, 26))
             else:
                 end_dt = period.end_date
 
-            # Agrupar las fechas del período por día de la semana (1 = Lunes, ..., 7 = Domingo)
             current_date = start_dt
             dates_by_weekday = {i: [] for i in range(1, 8)}
             while current_date <= end_dt:
@@ -1252,22 +1413,20 @@ class Command(BaseCommand):
 
             for schedule in schedules:
                 tss = schedule.teacher_subject_section
-                scode = tss.subject_offering.subject_academic_config.subject.code
-                parallel = tss.subject_offering.section.parallel
+                if tss.subject_offering.section.school_year_id != period.school_year_id:
+                    continue
 
-                # Filtrar estudiantes matriculados en este paralelo
                 matching_enrollments = [
                     (est_tag, enrollment)
                     for est_tag, enrollment in enrollments.items()
-                    if next(e["parallel"] for e in ESTUDIANTES if e["tag"] == est_tag) == parallel
+                    if enrollment.section_id == tss.subject_offering.section_id
                 ]
 
-                # Fechas correspondientes al día de la semana de este horario
                 dates = dates_by_weekday.get(schedule.day_of_week, [])
-
                 for date_val in dates:
                     for est_tag, enrollment in matching_enrollments:
-                        status = random.choice(pool)
+                        pool = failing_pool if est_tag in failing_students else passing_pool
+                        status = local_rand.choice(pool)
                         attendance_to_create.append(
                             Attendance(
                                 enrollment=enrollment,
@@ -1279,42 +1438,32 @@ class Command(BaseCommand):
                                 observation="",
                                 sync_status="SYNCED",
                                 sync_version=1,
-                                conflict_resolved=False,
                             )
                         )
-
         if attendance_to_create:
             Attendance.objects.bulk_create(attendance_to_create, batch_size=2000)
+        self.stdout.write(f"  [OK] Asistencias generadas para el año: {len(attendance_to_create)}")
 
-        self.stdout.write(f"  [OK] Registros de asistencia diarios creados: {len(attendance_to_create)}")
-
-    # ── Incidentes conductuales ───────────────────────────────────────────────
-
-    def _create_conduct_incidents(self, enrollments, periods):
-        """
-        Genera 3-5 incidentes por período entre estudiantes seleccionados al azar.
-        Descripción y tipo son coherentes.
-        """
+    def _generate_conduct_incidents_for_sy(self, enrollments, periods, failing_students):
         count = 0
         severity_leve = Severity.objects.get(code="LEVE")
         severity_mod  = Severity.objects.get(code="MODERADA")
-        all_enrollments = list(enrollments.values())
+        severity_grave  = Severity.objects.get(code="GRAVE")
 
+        all_enrollments = list(enrollments.items())
         incident_data = list(INCIDENTES_DESCRIPCION.items())
 
         for period in periods:
-            n_incidents = random.randint(3, 5)
-            targets = random.sample(all_enrollments, min(n_incidents, len(all_enrollments)))
-            for enrollment in targets:
-                inc_type_code, descriptions = random.choice(incident_data)
+            n_incidents = local_rand.randint(2, 4)
+            targets = local_rand.sample(all_enrollments, min(n_incidents, len(all_enrollments)))
+            for est_tag, enrollment in targets:
+                inc_type_code, descriptions = local_rand.choice(incident_data)
                 try:
                     inc_type  = IncidentType.objects.get(code=inc_type_code)
                     severity  = severity_mod if inc_type_code == "IRRESPETO" else severity_leve
-                    desc      = random.choice(descriptions)
-                    incident_date = period.start_date + datetime.timedelta(
-                        days=random.randint(5, 20)
-                    )
-                    _, created = ConductIncident.objects.get_or_create(
+                    desc      = local_rand.choice(descriptions)
+                    incident_date = period.start_date + datetime.timedelta(days=local_rand.randint(5, 45))
+                    ConductIncident.objects.get_or_create(
                         enrollment=enrollment,
                         academic_period=period,
                         incident_date=incident_date,
@@ -1322,28 +1471,45 @@ class Command(BaseCommand):
                         defaults={
                             "severity":          severity,
                             "description":       desc,
-                            "family_notified":   random.choice([True, False]),
-                            "actions_taken":     "Diálogo con el estudiante y registro en ficha disciplinaria.",
+                            "family_notified":   local_rand.choice([True, False]),
+                            "actions_taken":     "Diálogo con el estudiante.",
                             "sync_status":       "SYNCED",
                             "sync_version":      1,
-                            "conflict_resolved": False,
                         },
                     )
-                    if created:
-                        count += 1
+                    count += 1
                 except IncidentType.DoesNotExist:
                     pass
 
-        self.stdout.write(f"  [OK] Incidentes conductuales: {count}")
+            failing_enrollments = [(tag, enroll) for tag, enroll in all_enrollments if tag in failing_students]
+            if failing_enrollments:
+                n_fails = local_rand.randint(1, min(3, len(failing_enrollments)))
+                targets = local_rand.sample(failing_enrollments, n_fails)
+                for est_tag, enrollment in targets:
+                    try:
+                        inc_type = IncidentType.objects.get(code="INASISTENCIA")
+                        desc = "Falta de respeto o inasistencia reiterativa a clases."
+                        incident_date = period.start_date + datetime.timedelta(days=local_rand.randint(5, 45))
+                        ConductIncident.objects.get_or_create(
+                            enrollment=enrollment,
+                            academic_period=period,
+                            incident_date=incident_date,
+                            incident_type=inc_type,
+                            defaults={
+                                "severity":          severity_grave,
+                                "description":       desc,
+                                "family_notified":   True,
+                                "actions_taken":     "Derivación al DECE y llamado a representante.",
+                                "sync_status":       "SYNCED",
+                                "sync_version":      1,
+                            },
+                        )
+                        count += 1
+                    except IncidentType.DoesNotExist:
+                        pass
+        self.stdout.write(f"  [OK] Incidentes de conducta creados: {count}")
 
-    # ── Estructura de evaluación ──────────────────────────────────────────────
-
-    def _create_grading_structure(self, periods, offerings):
-        """
-        Por cada (período, offering) crea:
-          - EvaluationBlock tipo FORMATIVA
-          - BlockComponent: Tareas (40%), Lecciones (30%), Talleres (30%)
-        """
+    def _create_grading_structure_for_sy(self, periods, offerings, year_is_active):
         result = {}
         components_meta = [
             ("Tareas",    Decimal("40.00")),
@@ -1351,10 +1517,10 @@ class Command(BaseCommand):
             ("Talleres",  Decimal("30.00")),
         ]
         for period in periods:
-            for (scode, parallel), offering in offerings.items():
+            for (grade_code, scode, parallel), offering in offerings.items():
                 subject_name = offering.subject_academic_config.subject.name
-                block_code = f"BLK_{period.code}_{scode}_{parallel}"
-                block, _ = EvaluationBlock.objects.get_or_create(
+                block_code = f"BLK_{period.code}_{grade_code}_{scode}_{parallel}"
+                block, created = EvaluationBlock.objects.get_or_create(
                     code=block_code,
                     defaults={
                         "academic_period":   period,
@@ -1362,23 +1528,25 @@ class Command(BaseCommand):
                         "block_type":        "FORMATIVA",
                         "name":              f"Formativa {period.name} – {subject_name} {parallel}",
                         "weight_percentage": Decimal("100.00"),
-                        "is_active":         True,
+                        "is_active":         year_is_active,
                     },
                 )
+                self._sync_is_active(block, year_is_active, created)
                 comps = []
                 for comp_name, weight in components_meta:
                     comp_code = f"{block_code}_{comp_name[:3].upper()}"
-                    comp, _ = BlockComponent.objects.get_or_create(
+                    comp, created = BlockComponent.objects.get_or_create(
                         code=comp_code,
                         defaults={
                             "evaluation_block": block,
                             "name":             comp_name,
                             "internal_weight":  weight,
-                            "is_active":        True,
+                            "is_active":        year_is_active,
                         },
                     )
+                    self._sync_is_active(comp, year_is_active, created)
                     comps.append({"component": comp, "name": comp_name})
-                result[(period.code, scode, parallel)] = {
+                result[(period.code, grade_code, scode, parallel)] = {
                     "block":    block,
                     "period":   period,
                     "offering": offering,
@@ -1388,34 +1556,28 @@ class Command(BaseCommand):
         self.stdout.write(f"  [OK] Bloques de evaluación: {len(result)}")
         return result
 
-    def _create_evaluative_activities(self, teacher_map, grading_struct, periods):
-        """
-        Crea EvaluativeActivity con títulos descriptivos por asignatura y trimestre,
-        usando el catálogo ACTIVIDADES_POR_TRIMESTRE.
-        """
+    def _create_evaluative_activities_for_sy(
+        self, teacher_map, grading_struct, periods, year_is_active
+    ):
         count = 0
-        period_order = [p.code for p in periods]
-
-        for (period_code, scode, parallel), structure in grading_struct.items():
-            tss = teacher_map.get((scode, parallel))
+        for (period_code, grade_code, scode, parallel), structure in grading_struct.items():
+            tss = teacher_map.get((grade_code, scode, parallel))
             if not tss:
                 continue
 
             period = structure["period"]
-            actividades = ACTIVIDADES_POR_TRIMESTRE.get(period_code, [])
-            # Filtrar sólo las de esta asignatura
+            mapped_tri_code = period_code.split("-")[0]
+            original_code_key = f"{mapped_tri_code}-2526"
+            actividades = ACTIVIDADES_POR_TRIMESTRE.get(original_code_key, [])
+
             sub_actividades = [
                 (sc, comp_name, title, atype_code)
                 for (sc, comp_name, title, atype_code) in actividades
                 if sc == scode
             ]
 
-            # Mapa de componentes por nombre
             comp_by_name = {c["name"]: c["component"] for c in structure["comps"]}
-
-            due_date = period.start_date + (
-                (period.end_date - period.start_date) // 2
-            )
+            due_date = period.start_date + ((period.end_date - period.start_date) // 2)
 
             for (_, comp_name, title, atype_code) in sub_actividades:
                 component = comp_by_name.get(comp_name)
@@ -1426,49 +1588,34 @@ class Command(BaseCommand):
                 except ActivityType.DoesNotExist:
                     activity_type = ActivityType.objects.get(code="TAREA")
 
-                # Ajustar weight según cuántas actividades hay en el componente
-                internal_weight = Decimal("100.00")
-
                 obj, created = EvaluativeActivity.objects.get_or_create(
                     block_component=component,
                     teacher_subject_section=tss,
-                    title=title,
+                    title=f"{title} ({period.name})",
                     defaults={
                         "activity_type":   activity_type,
                         "max_score":       Decimal("10.00"),
-                        "internal_weight": internal_weight,
+                        "internal_weight": Decimal("100.00"),
                         "due_date":        due_date,
-                        "is_active":       True,
+                        "is_active":       year_is_active,
                         "sync_status":     "SYNCED",
                         "sync_version":    1,
-                        "conflict_resolved": False,
                     },
                 )
+                self._sync_is_active(obj, year_is_active, created)
                 if created:
-                    try:
-                        obj.full_clean()
-                    except Exception:
-                        pass
                     count += 1
-
         self.stdout.write(f"  [OK] Actividades evaluativas: {count}")
 
-    # ── Notas de estudiantes ──────────────────────────────────────────────────
-
-    def _create_student_notes(self, enrollments, grading_struct, doc_users):
-        """
-        Asigna StudentNote por (enrollment, activity) con notas de distribución variada.
-        Cada docente califica sus propias actividades.
-        Docente creador determinado por asignatura.
-        """
+    def _create_student_notes_for_sy(self, enrollments, grading_struct, doc_users, failing_students):
         count = 0
         docente_by_scode = {d["subject_code"]: d["tag"] for d in DOCENTES}
 
-        # Índice: est_tag → parallel
-        est_parallel = {e["tag"]: e["parallel"] for e in ESTUDIANTES}
+        passing_grade_pool = [7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0]
+        failing_grade_pool = [2.0, 3.5, 4.0, 5.0, 5.5, 6.0, 6.5]
 
         with skip_period_summary_recalc():
-            for (period_code, scode, parallel), structure in grading_struct.items():
+            for (period_code, grade_code, scode, parallel), structure in grading_struct.items():
                 doc_tag = docente_by_scode.get(scode)
                 if not doc_tag:
                     continue
@@ -1483,11 +1630,12 @@ class Command(BaseCommand):
                         continue
 
                     for est_tag, enrollment in enrollments.items():
-                        if est_parallel.get(est_tag) != parallel:
+                        if enrollment.section_id != structure["offering"].section_id:
                             continue
 
+                        pool = failing_grade_pool if est_tag in failing_students else passing_grade_pool
                         for activity in activities:
-                            nota = random.choice(_NOTA_POOL)
+                            nota = local_rand.choice(pool)
                             _, created = StudentNote.objects.get_or_create(
                                 enrollment=enrollment,
                                 evaluative_activity=activity,
@@ -1499,23 +1647,19 @@ class Command(BaseCommand):
                                     "modified_by":        docente,
                                     "sync_status":        "SYNCED",
                                     "sync_version":       1,
-                                    "conflict_resolved":  False,
                                 },
                             )
                             if created:
                                 count += 1
 
-        self.stdout.write(f"  [OK] Notas registradas: {count}")
+        self.stdout.write(f"  [OK] Notas registradas para el año: {count}")
 
-        # Recalcular resúmenes de calificaciones
         for period in set(s["period"] for s in grading_struct.values()):
             ids = GradeCalculationService.calculate_all_for_period(period.id)
             if ids:
                 self.stdout.write(
                     f"  [OK] Resúmenes recalculados – {period.name}: {len(ids)}"
                 )
-
-    # ── Evaluaciones de conducta ──────────────────────────────────────────────
 
     def _create_behavior_evaluations(self, enrollments, periods, admin_users):
         count = 0
@@ -1540,15 +1684,10 @@ class Command(BaseCommand):
                     evaluation.save()
                     count += 1
                 except Exception as e:
-                    self.stdout.write(
-                        f"  [WARN] Conducta – {enrollment} / {period}: {e}"
-                    )
+                    pass
         self.stdout.write(f"  [OK] Evaluaciones de conducta: {count}")
 
-    # ── Alertas tempranas ────────────────────────────────────────────────────
-
     def _create_early_alerts(self, enrollments, periods, admin_users):
-        """Genera alertas para 3-4 estudiantes aleatorios en cada período."""
         count = 0
         consejero   = admin_users.get("consejero")
         all_enroll  = list(enrollments.values())
@@ -1559,9 +1698,9 @@ class Command(BaseCommand):
         ]
 
         for period in periods:
-            targets = random.sample(all_enroll, min(4, len(all_enroll)))
+            targets = local_rand.sample(all_enroll, min(4, len(all_enroll)))
             for enrollment in targets:
-                alert_type, description = random.choice(alert_types)
+                alert_type, description = local_rand.choice(alert_types)
                 attended_at = datetime.datetime.combine(
                     period.end_date,
                     datetime.time(16, 0, 0),
@@ -1573,162 +1712,129 @@ class Command(BaseCommand):
                     alert_type=alert_type,
                     defaults={
                         "description":      description,
-                        "urgency_level":    random.choice(["low", "medium", "high"]),
+                        "urgency_level":    local_rand.choice(["low", "medium", "high"]),
                         "attended":         True,
                         "attended_by_user": consejero,
                         "attended_at":      attended_at,
-                        "response_actions": "Entrevista con el estudiante y notificación al representante.",
+                        "response_actions": "Entrevista con el estudiante.",
                         "sync_status":      "SYNCED",
                         "sync_version":     1,
-                        "conflict_resolved": False,
                     },
                 )
                 if created:
                     count += 1
         self.stdout.write(f"  [OK] Alertas tempranas: {count}")
 
-    # ── Datos de riesgo (analytics) ───────────────────────────────────────────
-
-    def _create_risk_data(self, enrollments, periods):
+    def _create_risk_data_for_sy(self, enrollments, periods, failing_students):
+        from apps.analytics.student_risk.infrastructure.repositories import StudentFeatureSnapshotRepository, StudentRiskScoreRepository
+        from apps.analytics.services.feature_builder import AcademicRiskFeatureBuilder
         snap_count = 0
         score_count = 0
-        labels  = ["verde", "amarillo", "rojo"]
-        weights = [0.60, 0.28, 0.12]
 
-        for enrollment in enrollments.values():
+        for est_tag, enrollment in enrollments.items():
             for period in periods:
-                attendance   = round(random.uniform(60, 100), 2)
-                formative    = round(random.uniform(50, 100), 2)
-                summative    = round(random.uniform(50, 100), 2)
-                failing      = random.randint(0, 3)
-                tardiness    = random.randint(0, 6)
-                severe       = random.randint(0, 2)
+                if enrollment.section.school_year_id != period.school_year_id:
+                    continue
 
-                _, created = StudentFeatureSnapshot.objects.get_or_create(
-                    enrollment=enrollment,
-                    academic_period=period,
-                    is_current=True,
-                    defaults={
-                        "attendance_rate":            Decimal(str(attendance)),
-                        "consecutive_absences_max":   random.randint(0, 4),
-                        "tardiness_count":            tardiness,
-                        "justified_absences":         random.randint(0, 3),
-                        "unjustified_absences":       random.randint(0, 4),
-                        "formative_avg_normalized":   Decimal(str(formative)),
-                        "summative_avg_normalized":   Decimal(str(summative)),
-                        "grade_trend_slope":          Decimal(str(round(random.uniform(-4, 4), 2))),
-                        "failing_subjects_count":     failing,
-                        "conduct_score":              Decimal(str(round(random.uniform(65, 100), 2))),
-                        "severe_incidents_count":     severe,
-                        "family_notified_ratio":      Decimal(str(round(random.uniform(0.5, 1.0), 2))),
-                        "prev_period_avg_grade":      Decimal(str(round(random.uniform(60, 90), 2))),
-                        "age_grade_gap":              random.choice([0, 0, 0, 1]),
-                        "is_repeat":                  random.random() < 0.08,
-                        "has_special_needs":          random.random() < 0.05,
-                        # Dimensiones analíticas (Fase 4 §5 F)
-                        "city":                       getattr(
-                            getattr(getattr(enrollment.student, "user", None), "person", None),
-                            "city", None,
-                        ),
-                        "special_needs_type":         enrollment.student.special_needs_type,
-                        "withdrawal_reason":          enrollment.withdrawal_reason,
-                        "snapshot_trigger":           "BATCH",
-                    },
-                )
-                if created:
+                try:
+                    builder = AcademicRiskFeatureBuilder(enrollment.student_id, period.id)
+                    snapshot = builder.build()
+                    metrics = builder.build_persistence_metrics(snapshot)
+
+                    snap = StudentFeatureSnapshotRepository.create_snapshot(
+                        student_id=enrollment.student_id,
+                        academic_period_id=period.id,
+                        metrics=metrics
+                    )
                     snap_count += 1
 
-                risk_score = round(
-                    min(100, max(0,
-                        (100 - attendance) * 0.35
-                        + (100 - formative) * 0.35
-                        + failing * 6
-                        + severe * 8
-                    )),
-                    2,
-                )
-                label = random.choices(labels, weights=weights, k=1)[0]
-                _, created = StudentRiskScore.objects.get_or_create(
-                    enrollment=enrollment,
-                    academic_period=period,
-                    model_version="seed-v2",
-                    defaults={
-                        "risk_score": Decimal(str(risk_score)),
-                        "risk_label": label,
-                    },
-                )
-                if created:
+                    if est_tag in failing_students:
+                        risk_score = round(local_rand.uniform(75, 98), 2)
+                        risk_label = "rojo"
+                    else:
+                        attendance_rate = float(metrics["attendance_rate"])
+                        avg_grade = float(metrics["avg_grade_normalized"])
+
+                        risk_score = round(
+                            min(100, max(0,
+                                (100 - attendance_rate) * 0.35
+                                + (10 - avg_grade) * 10 * 0.35
+                                + int(metrics["failing_subjects_count"]) * 6
+                                + int(metrics["severe_incidents_count"]) * 8
+                            )),
+                            2,
+                        )
+
+                        if risk_score > 70:
+                            risk_label = "rojo"
+                        elif risk_score > 40:
+                            risk_label = "amarillo"
+                        else:
+                            risk_label = "verde"
+
+                    StudentRiskScoreRepository.create_score(
+                        student_id=enrollment.student_id,
+                        academic_period_id=period.id,
+                        risk_score=risk_score,
+                        risk_label=risk_label,
+                        model_version="seed-v2"
+                    )
                     score_count += 1
 
-        self.stdout.write(f"  [OK] Feature snapshots: {snap_count}")
-        self.stdout.write(f"  [OK] Risk scores: {score_count}")
+                except Exception as e:
+                    self.stdout.write(f"  [WARN] Error generando riesgo para {est_tag} / {period.code}: {e}")
 
-    # ── Resumen final ────────────────────────────────────────────────────────
+        self.stdout.write(f"  [OK] Feature snapshots creados: {snap_count}")
+        self.stdout.write(f"  [OK] Risk scores creados: {score_count}")
 
     def _print_summary(self, school_year, sections, periods, students, enrollments,
                        admin_users, doc_users, rep_users, est_users):
         line = "=" * 60
         self.stdout.write(self.style.SUCCESS(f"\n{line}"))
-        self.stdout.write(self.style.SUCCESS("  SEED COMPLETADO – AÑO 2025-2026"))
+        self.stdout.write(self.style.SUCCESS("  SEED COMPLETADO – AÑO LECTIVO"))
         self.stdout.write(self.style.SUCCESS(line))
         self.stdout.write(f"  Año escolar:       {school_year.start_date} – {school_year.end_date}")
-        self.stdout.write(f"  Grado sembrado:    1ro BGU (paralelos A y B)")
-        self.stdout.write(f"  Secciones:         {len(sections)}")
+        self.stdout.write(f"  Secciones activas: {sections.count()}")
         self.stdout.write(f"  Períodos (trim.):  {len(periods)}")
-        self.stdout.write(f"  Asignaturas:       {len(MATERIAS_BGU)}")
+        self.stdout.write(f"  Asignaturas BGU:   {len(MATERIAS_BGU)}")
         self.stdout.write(f"  Docentes:          {len(DOCENTES)}")
-        self.stdout.write(f"  Estudiantes:       {len(students)}")
-        self.stdout.write(f"  Matrículas:        {len(enrollments)}")
-        self.stdout.write(f"  Representantes:    {len(REPRESENTANTES)}")
+        self.stdout.write(f"  Estudiantes total: {len(students)}")
+        self.stdout.write(f"  Matrículas año:    {len(enrollments)}")
+        self.stdout.write(f"  Representantes:    {len(rep_users)}")
         self.stdout.write(self.style.SUCCESS("-" * 60))
         self.stdout.write("  CREDENCIALES DE ACCESO (Método de acceso: username)")
         self.stdout.write(self.style.SUCCESS("-" * 60))
 
-        # Admin
         self.stdout.write("  Administradores:")
         for item in ADMIN_USERS:
             u = admin_users.get(item["tag"])
             username = u.username if u else "desconocido"
             self.stdout.write(f"  [{item['tag'].upper():12}] usuario: {username:15} | pw: {item['password']:20} | correo: {item['email']}")
 
-        # Docentes
-        self.stdout.write("")
         self.stdout.write("  Docentes:")
         for d in DOCENTES:
             u = doc_users.get(d["tag"])
             username = u.username if u else "desconocido"
-            apellido_slug = d["last_names"].split()[0].lower()
-            for a, b in [("á","a"),("é","e"),("í","i"),("ó","o"),("ú","u"),("ñ","n")]:
-                apellido_slug = apellido_slug.replace(a, b)
-            email = f"doc.{apellido_slug}@uetest.edu.ec"
+            email = u.person.email if (u and u.person) else "desconocido"
             pw    = f"Doc.{d['last_names'].split()[0]}2025!"
             self.stdout.write(f"  [{d['subject_code']:8}] usuario: {username:15} | pw: {pw:20} | correo: {email}")
 
-        # Representantes
         self.stdout.write("")
         self.stdout.write("  Representantes:")
         for r in REPRESENTANTES:
             u = rep_users.get(r["tag"])
             username = u.username if u else "desconocido"
-            apellido_slug = r["last_names"].split()[0].lower()
-            for a, b in [("á","a"),("é","e"),("í","i"),("ó","o"),("ú","u"),("ñ","n")]:
-                apellido_slug = apellido_slug.replace(a, b)
-            email = f"rep.{apellido_slug}@uetest.edu.ec"
+            email = u.person.email if (u and u.person) else "desconocido"
             pw    = f"Rep.{r['last_names'].split()[0]}2025!"
             hijos = ", ".join(r["students"])
             self.stdout.write(f"  usuario: {username:15} | pw: {pw:20} | correo: {email:30} | estudiantes: {hijos}")
 
-        # Estudiantes
         self.stdout.write("")
-        self.stdout.write("  Estudiantes:")
+        self.stdout.write("  Estudiantes (Año Activo 2025-2026):")
         for e in ESTUDIANTES:
             u = est_users.get(e["tag"])
             username = u.username if u else "desconocido"
-            apellido_slug = e["last_names"].split()[0].lower()
-            for a, b in [("á","a"),("é","e"),("í","i"),("ó","o"),("ú","u"),("ñ","n")]:
-                apellido_slug = apellido_slug.replace(a, b)
-            par = e["parallel"].lower()
-            email    = f"est.{apellido_slug}.{par}@uetest.edu.ec"
+            email = u.person.email if (u and u.person) else "desconocido"
             pw       = f"Est.{e['last_names'].split()[0]}2025!"
             self.stdout.write(f"  [{e['parallel']}] usuario: {username:15} | pw: {pw:20} | correo: {email:35} | estudiante: {u.get_full_name() if u else e['names'] + ' ' + e['last_names']}")
 

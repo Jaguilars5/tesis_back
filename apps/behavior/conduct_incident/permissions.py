@@ -8,4 +8,6 @@ ACTION_PERMISSIONS = {
     "partial_update": behavior.UPDATE_CONDUCT_INCIDENT,
     "destroy": behavior.DELETE_CONDUCT_INCIDENT,
     "soft_delete": behavior.DELETE_CONDUCT_INCIDENT,
+    "replicate_push": behavior.CREATE_CONDUCT_INCIDENT,
+    "replicate_changes": behavior.VIEW_CONDUCT_INCIDENT,
 }

@@ -42,11 +42,10 @@ class AcademicGradeAPITest(APITestCase):
         self.assertTrue(response.data["ok"])
         self.assertEqual(response.data["data"]["name"], "Sexto Grado")
 
-    def test_create_grade_without_sublevel(self):
+    def test_create_grade_without_sublevel_returns_422(self):
         payload = {"name": "Septimo Grado", "code": "7MO"}
         response = self.client.post(self.url, payload, format="json")
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertIsNone(response.data["data"]["academic_sublevel"])
+        self.assertEqual(response.status_code, status.HTTP_422_UNPROCESSABLE_ENTITY)
 
     def test_create_grade_empty_name_returns_422(self):
         payload = {"name": "", "code": "X"}

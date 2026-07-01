@@ -1,3 +1,6 @@
+import logging
+
+from django.db import transaction
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
@@ -10,6 +13,8 @@ from ..application.serializers import SyncQueueSerializer
 from ..domain.services import SyncQueueService
 from ..infrastructure.repositories import SyncQueueRepository
 from ..permissions import ACTION_PERMISSIONS
+
+logger = logging.getLogger("apps.integration.sync")
 
 
 @extend_schema_view(
@@ -46,18 +51,42 @@ class SyncQueueViewSet(
     def perform_create(self, serializer):
         instance = serializer.save()
         from ..tasks.sync_tasks import process_sync_queue_item
-        process_sync_queue_item.delay(instance.id)
+        transaction.on_commit(
+            lambda id=instance.id: process_sync_queue_item.delay(id)
+        )
 
     def push(self, request):
+        operations = request.data.get("operations", [])
+        logger.info(
+            "[VIEW] POST push de user=%s: %d operacion(es) en el body. "
+            "Claves del body=%s",
+            getattr(request.user, "id", None),
+            len(operations) if isinstance(operations, list) else "N/A",
+            sorted(request.data.keys()) if hasattr(request.data, "keys") else "N/A",
+        )
+        if not operations:
+            logger.warning(
+                "[VIEW] POST push SIN operaciones. Verifica que el cliente envie "
+                "{'operations': [...]} y no otra estructura. body_keys=%s",
+                sorted(request.data.keys()) if hasattr(request.data, "keys") else "N/A",
+            )
         summary = SyncQueueService.process_push(
             user=request.user,
-            operations=request.data.get("operations", []),
+            operations=operations,
         )
         return ok_response(summary)
 
     def pull(self, request):
+        since = request.query_params.get("since")
+        source_table = request.query_params.get("source_table")
+        logger.info(
+            "[VIEW] GET pull de user=%s: since=%r source_table=%r",
+            getattr(request.user, "id", None),
+            since,
+            source_table,
+        )
         results = SyncQueueService.pull_changes(
-            since=request.query_params.get("since"),
-            source_table=request.query_params.get("source_table"),
+            since=since,
+            source_table=source_table,
         )
         return ok_response({"count": len(results), "results": results})

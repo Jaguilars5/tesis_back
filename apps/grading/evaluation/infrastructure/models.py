@@ -188,3 +188,37 @@ class EvaluativeActivity(TimeStampedModel, SyncableModel):
 
     def __str__(self):
         return f"{self.title} ({self.activity_type})"
+
+
+class EvaluativeActivityChangeHistory(TimeStampedModel):
+    """Auditoría de cambios en actividades evaluativas (p. ej. fecha de entrega)."""
+
+    evaluative_activity = models.ForeignKey(
+        "grading_evaluation.EvaluativeActivity",
+        on_delete=models.CASCADE,
+        related_name="change_history",
+        verbose_name="Actividad evaluativa",
+    )
+    modified_by_user = models.ForeignKey(
+        "iam.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        verbose_name="Modificado por",
+    )
+    previous_due_date = models.DateField(verbose_name="Fecha de entrega anterior")
+    new_due_date = models.DateField(verbose_name="Nueva fecha de entrega")
+    reason = models.TextField(blank=True, default="", verbose_name="Razón del cambio")
+    modified_at = models.DateTimeField(auto_now_add=True, verbose_name="Modificado en")
+
+    class Meta:
+        app_label = "grading_evaluation"
+        verbose_name = "Historial de cambio de actividad evaluativa"
+        verbose_name_plural = "Historiales de cambio de actividad evaluativa"
+        ordering = ["-modified_at"]
+        indexes = [
+            models.Index(fields=["evaluative_activity", "modified_at"]),
+            models.Index(fields=["modified_by_user", "modified_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.evaluative_activity_id}: {self.previous_due_date} → {self.new_due_date}"

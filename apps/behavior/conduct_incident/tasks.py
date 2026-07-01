@@ -1,8 +1,36 @@
+import logging
+
+from celery import shared_task
 from django.db import transaction
 
 from .infrastructure.models import ConductIncident
 from apps.behavior.incident_type import IncidentType
 from apps.integration.tasks.sync_tasks import BaseSyncHandler, register_sync_handler
+
+logger = logging.getLogger(__name__)
+
+
+@shared_task(bind=True, ignore_result=True)
+def recalculate_conduct_average_task(self, enrollment_id, academic_period_id):
+    """Recalcula la evaluación de conducta del estudiante para el periodo.
+
+    Se encola al crear un incidente para mantener el promedio de conducta vivo.
+    """
+    from apps.behavior.behavior_evaluation.domain.services import (
+        BehaviorEvaluationService,
+    )
+
+    if not (enrollment_id and academic_period_id):
+        logger.warning(
+            "recalculate_conduct_average_task skipped: enrollment=%s period=%s",
+            enrollment_id, academic_period_id,
+        )
+        return None
+
+    return BehaviorEvaluationService.calculate_behavior_evaluation(
+        enrollment_id=enrollment_id,
+        academic_period_id=academic_period_id,
+    )
 
 
 @register_sync_handler("conduct_incident")

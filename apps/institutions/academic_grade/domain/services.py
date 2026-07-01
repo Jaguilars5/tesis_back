@@ -6,10 +6,11 @@ class AcademicGradeService:
     repository = AcademicGradeRepository
 
     @classmethod
-    def create_grade(cls, name, academic_sublevel_id=None, code=""):
-        errors = validators.run_all_validators(
-            name=name, academic_sublevel_id=academic_sublevel_id, code=code
-        )
+    def create_grade(cls, name, academic_sublevel_id, code=""):
+        errors = validators.run_all_validators(name=name, code=code)
+        sl_errors = validators.validate_academic_sublevel_required(academic_sublevel_id)
+        if sl_errors:
+            errors.update(sl_errors)
         if errors:
             raise ValueError(errors)
         return cls.repository.create(

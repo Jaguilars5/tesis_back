@@ -41,6 +41,7 @@ urlpatterns = [
     path("api/people/", include("apps.people.urls")),
 
     path("api/integration/", include("apps.integration.urls")),
+    path("api/notifications/", include("apps.core.urls")),
     # OpenAPI Schema completo (público)
     path(
         "api/schema/",

@@ -12,6 +12,7 @@ import logging
 from celery import shared_task
 from django.db import transaction
 
+from apps.core.realtime.emitter import emit_to_user
 from apps.analytics.services.feature_builder import AcademicRiskFeatureBuilder
 from apps.analytics.student_risk.domain import risk_engine
 from apps.analytics.student_risk.domain.risk_engine import (  # noqa: F401  (re-export)
@@ -130,7 +131,11 @@ def batch_calculate_academic_risk(self, academic_period_id, student_ids, user_id
     )
 
     if user_id:
-        _emit_task_completed(getattr(self.request, "id", None), results, user_id)
+        emit_to_user(
+            user_id,
+            "task_completed",
+            {"task_id": getattr(self.request, "id", None), "result": results},
+        )
 
     return results
 
@@ -153,37 +158,6 @@ def _populate_risk_factors(risk_score, analysis):
             risk_factor=factor,
             defaults={"contribution_weight": default_weight},
         )
-
-
-def _emit_task_completed(task_id, results, user_id):
-    """
-    Publica el evento task_completed vía Redis usando el protocolo nativo de
-    python-socketio (compatibilidad con el servidor ASGI).
-    """
-    try:
-        import json
-        import uuid
-
-        import redis as redis_lib
-        from django.conf import settings
-
-        r = redis_lib.Redis.from_url(settings.SOCKETIO_REDIS_URL)
-        message = json.dumps({
-            "method": "emit",
-            "event": "task_completed",
-            "data": [{"task_id": task_id, "result": results}],
-            "binary": False,
-            "namespace": "/",
-            "room": f"user_{user_id}",
-            "skip_sid": None,
-            "callback": None,
-            "host_id": str(uuid.uuid4()),
-        })
-        r.publish("socketio", message)
-        r.close()
-        logger.info("[SOCKET.IO] Evento task_completed publicado a Redis para user_%s", user_id)
-    except Exception:
-        logger.warning("[SOCKET.IO] No se pudo publicar evento a Redis", exc_info=True)
 
 
 @shared_task(bind=True)

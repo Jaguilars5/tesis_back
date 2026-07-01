@@ -6,11 +6,14 @@ class AcademicLevelService:
     repository = AcademicLevelRepository
 
     @classmethod
-    def create_academic_level(cls, name, code=""):
-        errors = validators.run_all_validators(name=name, code=code)
+    def create_academic_level(cls, name, code="", description=""):
+        errors = validators.run_all_validators(name=name)
+        code_errors = validators.validate_code_not_empty(code)
+        if code_errors:
+            errors.update(code_errors)
         if errors:
             raise ValueError(errors)
-        return cls.repository.create(name=name, code=code)
+        return cls.repository.create(name=name, code=code, description=description)
 
     @classmethod
     def get_academic_level(cls, pk):
@@ -21,7 +24,7 @@ class AcademicLevelService:
 
     @classmethod
     def update_academic_level(cls, pk, **kwargs):
-        allowed = {"name", "code", "is_active"}
+        allowed = {"name", "code", "description", "is_active"}
         cls.get_academic_level(pk)
         clean = {k: v for k, v in kwargs.items() if k in allowed}
         errors = validators.run_all_validators(**clean)

@@ -32,7 +32,8 @@ class IntegrationAPITest(APITestCase):
             "operation": SyncOperationChoices.CREATE,
             "status": SyncStatusChoices.PENDING,
         }
-        response = self.client.post("/api/integration/sync-queue/", data, format="json")
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post("/api/integration/sync-queue/", data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         mock_delay.assert_called_once()
 
@@ -49,9 +50,10 @@ class IntegrationAPITest(APITestCase):
                 }
             ]
         }
-        response = self.client.post(
-            "/api/integration/sync/push/", payload, format="json"
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                "/api/integration/sync/push/", payload, format="json"
+            )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         body = response.json()
         self.assertTrue(body["ok"])
@@ -70,7 +72,10 @@ class IntegrationAPITest(APITestCase):
         from ..domain.services import SyncQueueService
 
         idempotency_key = SyncQueueService._build_idempotency_key(
-            operation["source_table"], operation["record_uuid"], operation["operation"]
+            operation["source_table"],
+            operation["record_uuid"],
+            operation["operation"],
+            operation.get("payload"),
         )
         SyncQueueRepository.create(
             user=self.user,
@@ -89,7 +94,59 @@ class IntegrationAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         body = response.json()
         self.assertEqual(body["data"]["accepted"], 1)
-        self.assertEqual(body["data"]["results"][0]["status"], "SYNCED")
+        self.assertEqual(body["data"]["results"][0]["status"], "DEDUP")
+
+    @patch("apps.integration.tasks.sync_tasks.process_sync_queue_item.delay")
+    def test_sync_push_new_sync_version_is_queued(self, mock_delay):
+        from ..infrastructure.repositories import SyncQueueRepository
+        from ..domain.services import SyncQueueService
+
+        record_uuid = "123e4567-e89b-12d3-a456-426614174555"
+        base_op = {
+            "source_table": "attendance",
+            "operation": SyncOperationChoices.UPDATE,
+            "record_uuid": record_uuid,
+        }
+
+        key_v2 = SyncQueueService._build_idempotency_key(
+            base_op["source_table"],
+            base_op["record_uuid"],
+            base_op["operation"],
+            {"sync_version": 2},
+        )
+        SyncQueueRepository.create(
+            user=self.user,
+            source_table=base_op["source_table"],
+            record_uuid=record_uuid,
+            operation=base_op["operation"],
+            payload={"sync_version": 2, "attendance_status_id": 1},
+            status=SyncStatusChoices.SYNCED,
+            idempotency_key=key_v2,
+            attempts=0,
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                "/api/integration/sync/push/",
+                {
+                    "operations": [
+                        {
+                            **base_op,
+                            "payload": {
+                                "sync_version": 3,
+                                "attendance_status_id": 2,
+                                "class_schedule_id": 10,
+                            },
+                        }
+                    ]
+                },
+                format="json",
+            )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = response.json()
+        self.assertEqual(body["data"]["accepted"], 1)
+        self.assertEqual(body["data"]["results"][0]["status"], "QUEUED")
+        mock_delay.assert_called_once()
 
     def test_sync_pull_returns_items(self):
         from ..infrastructure.repositories import SyncQueueRepository

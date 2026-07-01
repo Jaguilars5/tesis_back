@@ -29,7 +29,7 @@ class AcademicLevelViewSet(BaseInstitutionsViewSet):
     filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
     filterset_class = AcademicLevelFilter
     search_fields = ["name", "code"]
-    ordering_fields = ["name"]
+    ordering_fields = ["name", "code"]
     ordering = ["name"]
 
     def __init__(self, *args, **kwargs):
@@ -51,6 +51,7 @@ class AcademicLevelViewSet(BaseInstitutionsViewSet):
             obj = AcademicLevelService.create_academic_level(
                 name=data["name"],
                 code=data.get("code", ""),
+                description=data.get("description", ""),
             )
         except ValueError as e:
             raise ValidationError(e.args[0] if e.args else str(e))

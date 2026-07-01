@@ -29,7 +29,7 @@ class SectionViewSet(BaseInstitutionsViewSet):
     filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
     filterset_class = SectionFilter
     search_fields = ["parallel", "code"]
-    ordering_fields = ["parallel", "capacity"]
+    ordering_fields = ["parallel", "capacity", "academic_grade__name", "school_year__start_date"]
     ordering = ["academic_grade__name", "parallel"]
 
     def __init__(self, *args, **kwargs):

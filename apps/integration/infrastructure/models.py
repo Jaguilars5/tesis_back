@@ -115,7 +115,11 @@ class SyncQueue(TimeStampedModel):
     def save(self, *args, **kwargs):
         if not self.idempotency_key:
             op_code = self.operation if self.operation else "UNKNOWN"
-            raw = f"{self.source_table}:{self.record_uuid}:{op_code}:{self.attempts}"
+            sync_version = (self.payload or {}).get("sync_version")
+            if sync_version is not None:
+                raw = f"{self.source_table}:{self.record_uuid}:{op_code}:{sync_version}"
+            else:
+                raw = f"{self.source_table}:{self.record_uuid}:{op_code}:{self.attempts}"
             self.idempotency_key = hashlib.sha256(raw.encode()).hexdigest()[:64]
         super().save(*args, **kwargs)
 

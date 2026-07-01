@@ -12,6 +12,7 @@ from apps.core.api.scoping import scope_student_to_enrollment
 from apps.core.utils.responses import ok_response, error_response
 
 from ..application.serializers import AttendanceSerializer
+from ..domain.replication import AttendanceReplicationService
 from ..domain.services import AttendanceService
 from ..infrastructure.repositories import AttendanceRepository
 from ..permissions import ACTION_PERMISSIONS
@@ -96,6 +97,94 @@ class AttendanceViewSet(BaseAttendanceViewSet):
         if request.method == "GET":
             return self._take_by_schedule_get(request)
         return self._take_by_schedule_post(request)
+
+    @extend_schema(
+        summary="Sesión de asistencia (lista unificada)",
+        description=(
+            "Devuelve la lista de estudiantes de la sección con su registro de "
+            "asistencia para un bloque horario, materia y período. Endpoint "
+            "pensado para clientes móviles (una sola petición)."
+        ),
+        tags=["attendance"],
+    )
+    @action(detail=False, methods=["get"], url_path="session")
+    def session(self, request):
+        tss_id = request.query_params.get("teacher_subject_section")
+        period_id = request.query_params.get("academic_period")
+        date_str = request.query_params.get("date")
+        class_schedule_id = request.query_params.get("class_schedule_id")
+
+        missing = [
+            name
+            for name, value in (
+                ("teacher_subject_section", tss_id),
+                ("academic_period", period_id),
+                ("date", date_str),
+                ("class_schedule_id", class_schedule_id),
+            )
+            if not value
+        ]
+        if missing:
+            return error_response(
+                f"Parámetros requeridos: {', '.join(missing)}",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            attendance_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError:
+            return error_response(
+                "Formato de fecha inválido. Use YYYY-MM-DD",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        tss, cs, students_data = AttendanceRepository.get_students_for_session(
+            teacher_subject_section_id=int(tss_id),
+            academic_period_id=int(period_id),
+            attendance_date=attendance_date,
+            class_schedule_id=int(class_schedule_id),
+        )
+
+        if tss is None:
+            return error_response(
+                "Materia-sección no encontrada",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+        if cs is None:
+            return error_response(
+                "Horario no encontrado o no pertenece a la materia-sección",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        students_result = []
+        for sd in students_data:
+            att_data = (
+                AttendanceSerializer(sd["attendance_obj"]).data
+                if sd["attendance_obj"]
+                else None
+            )
+            students_result.append({
+                "enrollment_id": sd["enrollment_id"],
+                "student_id": sd["student_id"],
+                "student_name": sd["student_name"],
+                "attendance": att_data,
+            })
+
+        return ok_response({
+            "teacher_subject_section": {
+                "id": tss.id,
+                "name": str(tss),
+            },
+            "academic_period": int(period_id),
+            "class_schedule": {
+                "id": cs.id,
+                "day_of_week": cs.day_of_week,
+                "start_time": str(cs.start_time) if cs.start_time else None,
+                "end_time": str(cs.end_time) if cs.end_time else None,
+            },
+            "date": date_str,
+            "students": students_result,
+        })
 
     def _take_by_schedule_get(self, request):
         class_schedule_id = request.query_params.get("class_schedule_id")
@@ -187,6 +276,76 @@ class AttendanceViewSet(BaseAttendanceViewSet):
                 msg="Algunos registros no pudieron procesarse",
             )
         return ok_response(results, msg=f"{len(results)} registros procesados")
+
+    @extend_schema(
+        summary="Replicar documentos de asistencia (push)",
+        description=(
+            "Protocolo documental: cada ítem incluye uuid y base_rev (revisión base). "
+            "Si base_rev coincide con sync_version del servidor, se aplica y rev aumenta. "
+            "Si no, status=CONFLICT con el documento actual del servidor."
+        ),
+        tags=["attendance"],
+    )
+    @action(detail=False, methods=["post"], url_path="replicate/push")
+    def replicate_push(self, request):
+        documents = request.data.get("documents", [])
+        if not documents:
+            return error_response(
+                "documents es requerido",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        results = AttendanceReplicationService.apply_batch(documents)
+        applied = sum(1 for r in results if r.get("status") == "APPLIED")
+        conflicts = sum(1 for r in results if r.get("status") == "CONFLICT")
+        return ok_response(
+            {
+                "results": results,
+                "applied": applied,
+                "conflicts": conflicts,
+            },
+            msg=f"{applied} aplicado(s), {conflicts} conflicto(s)",
+        )
+
+    @extend_schema(
+        summary="Cambios de asistencia desde timestamp (pull)",
+        description="Devuelve documentos de asistencia modificados desde ``since`` (ISO 8601).",
+        tags=["attendance"],
+    )
+    @action(detail=False, methods=["get"], url_path="replicate/changes")
+    def replicate_changes(self, request):
+        tss_id = request.query_params.get("teacher_subject_section")
+        period_id = request.query_params.get("academic_period")
+        class_schedule_id = request.query_params.get("class_schedule_id")
+        since = request.query_params.get("since")
+
+        missing = [
+            name
+            for name, value in (
+                ("teacher_subject_section", tss_id),
+                ("academic_period", period_id),
+                ("class_schedule_id", class_schedule_id),
+            )
+            if not value
+        ]
+        if missing:
+            return error_response(
+                f"Parámetros requeridos: {', '.join(missing)}",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        changes = AttendanceReplicationService.get_changes(
+            since=since,
+            teacher_subject_section_id=int(tss_id),
+            academic_period_id=int(period_id),
+            class_schedule_id=int(class_schedule_id),
+        )
+        return ok_response(
+            {
+                "count": len(changes),
+                "since": since,
+                "results": changes,
+            }
+        )
 
     @extend_schema(
         summary="Crear/actualizar asistencias en lote",

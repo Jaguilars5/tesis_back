@@ -19,7 +19,6 @@
 | `LearningReport` | Informe de aprendizaje consolidado | `enrollment`, `academic_period`, `formative_avg`, `summative_avg`, `final_avg`, `attendance_rate`, `general_observations`, `recommendations`, `created_by`, `evaluated_by`, `approved_by`, `is_final`. Unique: `(enrollment, academic_period)` |
 | `GradeType` | **No existe como modelo** — referenciado en código pero sin archivo de modelo. `GradeTypeRepository` y `GradeTypeViewSet` existen pero fallarían al importar `GradeType` |
 | `QualitativeScale` | Catálogo: SE, SA, AC, NA | `code` (unique), `name`, `description`, `numeric_equivalence`, `is_active` |
-| `QualitativeScaleSublevel` | Puente: escala ↔ subnivel | `scale`, `sublevel`. Unique: `(scale, sublevel)` |
 | `ActivityType` | Catálogo: TAREA, EXAMEN, PROYECTO, etc. | `code` (unique), `name`, `is_active` |
 | `RecoveryProcessType` | Catálogo de tipos de recuperación | `code` (unique), `name`, `allows_improvement_eval`, `allows_suppletorio`, `min_grade_to_access`, `max_recovery_attempts`, `is_active` |
 

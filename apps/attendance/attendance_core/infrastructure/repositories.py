@@ -52,9 +52,9 @@ class AttendanceRepository(BaseRepository, AttendanceRepositoryInterface):
         ).order_by("student__user__person__last_names", "student__user__person__names")
 
         attendance_records = cls.model.objects.filter(
-            class_schedule_id=class_schedule_id,
             attendance_date=attendance_date,
             enrollment_id__in=enrollments.values_list("id", flat=True),
+            class_schedule_id=class_schedule_id,
         ).select_related("attendance_status", "absence_type")
 
         attendance_map = {a.enrollment_id: a for a in attendance_records}
@@ -70,6 +70,71 @@ class AttendanceRepository(BaseRepository, AttendanceRepositoryInterface):
             })
 
         return cs, students_data
+
+    @classmethod
+    def get_students_for_session(
+        cls,
+        teacher_subject_section_id,
+        academic_period_id,
+        attendance_date,
+        class_schedule_id,
+    ):
+        """Lista de estudiantes + asistencia para una sesión de clase (móvil/web).
+
+        La asistencia se resuelve únicamente por bloque horario y período, sin
+        mezclar registros de otros horarios del mismo día.
+        """
+        from apps.academic.class_schedule.infrastructure.models import ClassSchedule
+        from apps.academic.teacher_subject_section.infrastructure.models import (
+            TeacherSubjectSection,
+        )
+        from apps.students.models import Enrollment
+
+        try:
+            tss = TeacherSubjectSection.objects.select_related(
+                "subject_offering__section",
+            ).get(id=teacher_subject_section_id)
+        except TeacherSubjectSection.DoesNotExist:
+            return None, None, []
+
+        try:
+            cs = ClassSchedule.objects.get(
+                id=class_schedule_id,
+                teacher_subject_section_id=teacher_subject_section_id,
+            )
+        except ClassSchedule.DoesNotExist:
+            return tss, None, []
+
+        section = tss.subject_offering.section
+        enrollments = Enrollment.objects.filter(
+            section=section,
+            enrollment_status="ACT",
+        ).select_related(
+            "student__user__person",
+        ).order_by(
+            "student__user__person__last_names",
+            "student__user__person__names",
+        )
+
+        attendance_records = cls.model.objects.filter(
+            attendance_date=attendance_date,
+            academic_period_id=academic_period_id,
+            class_schedule_id=class_schedule_id,
+            enrollment_id__in=enrollments.values_list("id", flat=True),
+        ).select_related("attendance_status", "absence_type")
+
+        attendance_map = {a.enrollment_id: a for a in attendance_records}
+
+        students_data = []
+        for enr in enrollments:
+            students_data.append({
+                "enrollment_id": enr.id,
+                "student_id": enr.student_id,
+                "student_name": enr.student.get_full_name(),
+                "attendance_obj": attendance_map.get(enr.id),
+            })
+
+        return tss, cs, students_data
 
     @classmethod
     def get_by_enrollment_and_period(cls, enrollment_id, academic_period_id):

@@ -32,6 +32,17 @@ class AttendanceRepositoryInterface(ABC):
 
     @classmethod
     @abstractmethod
+    def get_students_for_session(
+        cls,
+        teacher_subject_section_id,
+        academic_period_id,
+        attendance_date,
+        class_schedule_id,
+    ):
+        pass
+
+    @classmethod
+    @abstractmethod
     def get_by_enrollment_and_period(cls, enrollment_id, academic_period_id):
         pass
 

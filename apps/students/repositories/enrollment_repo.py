@@ -57,6 +57,12 @@ class EnrollmentRepository(BaseRepository):
         ).exists()
 
     @classmethod
+    def get_by_representative(cls, user):
+        return cls.model.objects.filter(
+            student__representatives_set__user=user,
+        ).select_related("student__user__person", "section").distinct()
+
+    @classmethod
     def get_active_by_student_excluding(cls, student, exclude_id):
         return cls.model.objects.filter(
             student=student,

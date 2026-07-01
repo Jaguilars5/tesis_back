@@ -25,7 +25,6 @@ grading/
 │   ├── recovery_process_history.py  # RecoveryProcessHistory
 │   ├── learning_report.py      # LearningReport
 │   ├── qualitative_scale.py    # QualitativeScale
-│   ├── qualitative_scale_sublevel.py  # QualitativeScaleSublevel
 │   ├── activity_type.py        # ActivityType
 │   └── recovery_process_type.py # RecoveryProcessType
 │

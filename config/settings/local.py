@@ -80,3 +80,31 @@ REST_FRAMEWORK = {
 
 # ─── OpenAPI (drf-spectacular) ───────────────────────────────────────────────
 SPECTACULAR_SETTINGS["SERVE_INCLUDE_SCHEMA"] = True
+
+# ─── Logging (desarrollo) ────────────────────────────────────────────────────
+# Sin esta config, los logs INFO de las apps NO aparecen en consola en el
+# proceso web (daphne/runserver). El worker de Celery secuestra el root logger
+# y sí muestra INFO, por eso los logs de sincronizacion del worker se ven aparte.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "[{asctime}] {levelname} {name}: {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "loggers": {
+        "apps.integration.sync": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+    },
+}

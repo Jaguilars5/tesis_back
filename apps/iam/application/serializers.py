@@ -141,15 +141,20 @@ class UserListSerializer(serializers.ModelSerializer):
     last_names = serializers.CharField(source="person.last_names", read_only=True)
     email = serializers.CharField(source="person.email", read_only=True)
     role = serializers.SerializerMethodField(read_only=True)
+    role_id = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = User
-        fields = ["id", "username", "dni", "names", "last_names", "email", "role", "is_active", "created_at"]
+        fields = ["id", "username", "dni", "names", "last_names", "email", "role", "role_id", "is_active", "created_at"]
         read_only_fields = ["id", "created_at"]
 
     def get_role(self, obj):
         first_role = obj.user_roles.select_related("role").first()
         return first_role.role.code if first_role else None
+
+    def get_role_id(self, obj):
+        first_role = obj.user_roles.select_related("role").first()
+        return first_role.role.id if first_role else None
 
 
 class UserDetailSerializer(serializers.ModelSerializer):

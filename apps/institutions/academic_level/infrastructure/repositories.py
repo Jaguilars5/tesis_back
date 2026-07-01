@@ -3,7 +3,6 @@ from django.db import transaction
 from apps.academic.subject_academic_config.infrastructure.models import SubjectAcademicConfig
 from apps.academic.subject_offering.infrastructure.models import SubjectOffering
 from apps.core.repositories.base import BaseRepository
-from apps.grading.qualitative_scale.infrastructure.models import QualitativeScaleSublevel
 from apps.institutions.academic_grade.infrastructure.models import AcademicGrade
 from apps.institutions.academic_sublevel.infrastructure.models import AcademicSublevel
 from apps.institutions.section.infrastructure.models import Section
@@ -43,9 +42,6 @@ class AcademicLevelRepository(BaseRepository, AcademicLevelRepositoryInterface):
         config_count = SubjectAcademicConfig.objects.filter(academic_grade_id__in=grade_ids, is_active=True).count()
         if config_count:
             counts["configuraciones académicas"] = config_count
-        scale_count = QualitativeScaleSublevel.objects.filter(sublevel_id__in=sublevel_ids, is_active=True).count()
-        if scale_count:
-            counts["escalas cualitativas"] = scale_count
         return counts
 
     @classmethod
@@ -63,7 +59,6 @@ class AcademicLevelRepository(BaseRepository, AcademicLevelRepositoryInterface):
             total += SubjectAcademicConfig.objects.filter(academic_grade_id__in=grade_ids, is_active=True).update(is_active=False)
             total += AcademicGrade.objects.filter(id__in=grade_ids).update(is_active=False)
         if sublevel_ids:
-            total += QualitativeScaleSublevel.objects.filter(sublevel_id__in=sublevel_ids, is_active=True).update(is_active=False)
             total += AcademicSublevel.objects.filter(id__in=sublevel_ids).update(is_active=False)
 
         cls.model.objects.filter(pk=instance_id).update(is_active=False)

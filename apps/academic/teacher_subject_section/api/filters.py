@@ -16,6 +16,9 @@ class TeacherSubjectSectionFilter(filters.FilterSet):
     )
     user = filters.NumberFilter(field_name="user_id")
     is_active = filters.BooleanFilter(field_name="is_active")
+    school_year_is_active = filters.BooleanFilter(
+        field_name="subject_offering__section__school_year__is_active"
+    )
 
     class Meta:
         model = TeacherSubjectSection
@@ -26,4 +29,5 @@ class TeacherSubjectSectionFilter(filters.FilterSet):
             "subject",
             "user",
             "is_active",
+            "school_year_is_active",
         ]

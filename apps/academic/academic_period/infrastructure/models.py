@@ -47,6 +47,11 @@ class AcademicPeriod(TimeStampedModel):
         default=True, verbose_name="Período Regular"
     )
     is_active = models.BooleanField(default=True, verbose_name="Activo")
+    grades_locked = models.BooleanField(
+        default=False,
+        verbose_name="Calificaciones cerradas",
+        help_text="Si está activo, no se permiten cambios de notas ni actividades en este período.",
+    )
 
     class Meta:
         app_label = "academic_period"

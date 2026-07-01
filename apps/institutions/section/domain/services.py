@@ -8,6 +8,18 @@ class SectionService:
     @classmethod
     def create_section(cls, **kwargs):
         errors = validators.run_all_validators(**kwargs)
+        code_errors = validators.validate_code_not_empty(kwargs.get("code", ""))
+        if code_errors:
+            errors.update(code_errors)
+        cap_errors = validators.validate_capacity_required(kwargs.get("capacity"))
+        if cap_errors:
+            errors.update(cap_errors)
+        sy_errors = validators.validate_school_year_required(kwargs.get("school_year"))
+        if sy_errors:
+            errors.update(sy_errors)
+        ag_errors = validators.validate_academic_grade_required(kwargs.get("academic_grade"))
+        if ag_errors:
+            errors.update(ag_errors)
         if errors:
             raise ValueError(errors)
         return cls.repository.create(**kwargs)

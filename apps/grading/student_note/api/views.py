@@ -19,6 +19,7 @@ from ..application.serializers import (
     PeriodGradeSummarySerializer,
 )
 from ..domain.services import StudentNoteService, GradeCalculationService
+from ..domain.replication import StudentNoteReplicationService
 from ..infrastructure.repositories import (
     StudentNoteRepository,
     PeriodGradeSummaryRepository,
@@ -45,7 +46,12 @@ class StudentNoteViewSet(BaseGradingViewSet):
     ordering = ["-id"]
 
     def get_queryset(self):
-        qs = StudentNoteRepository.get_all()
+        qs = StudentNoteRepository.get_all().select_related(
+            "evaluative_activity__activity_type",
+            "evaluative_activity__teacher_subject_section__subject_offering__subject_academic_config__subject",
+            "evaluative_activity__teacher_subject_section__subject_offering__section",
+            "evaluative_activity__block_component__evaluation_block__academic_period",
+        )
         return scope_student_to_enrollment(self.request, qs)
 
     def perform_create(self, serializer):
@@ -57,6 +63,7 @@ class StudentNoteViewSet(BaseGradingViewSet):
                 numeric_score=data.get("numeric_score"),
                 qualitative_scale_id=data.get("qualitative_scale").id if data.get("qualitative_scale") else None,
                 teacher_observation=data.get("teacher_observation", ""),
+                user_id=self.request.user.id if self.request.user.is_authenticated else None,
             )
             serializer.instance = obj
         except ValueError as e:
@@ -74,6 +81,7 @@ class StudentNoteViewSet(BaseGradingViewSet):
         try:
             obj = StudentNoteService.update_student_note(
                 note_id=serializer.instance.id,
+                user_id=self.request.user.id if self.request.user.is_authenticated else None,
                 **kwargs,
             )
             serializer.instance = obj
@@ -149,11 +157,21 @@ class StudentNoteViewSet(BaseGradingViewSet):
                 "note": note_data,
             })
 
+        period = activity.block_component.evaluation_block.academic_period
+
         return ok_response({
             "evaluative_activity": {
                 "id": activity.id,
                 "title": activity.title,
                 "max_score": str(activity.max_score),
+                "due_date": activity.due_date.isoformat(),
+            },
+            "academic_period": {
+                "id": period.id,
+                "name": period.name,
+                "start_date": period.start_date.isoformat(),
+                "end_date": period.end_date.isoformat(),
+                "grades_locked": period.grades_locked,
             },
             "students": students_result,
         })
@@ -188,6 +206,7 @@ class StudentNoteViewSet(BaseGradingViewSet):
                     evaluative_activity_id=evaluative_activity_id,
                     numeric_score=numeric_score,
                     teacher_observation=rec.get("teacher_observation", ""),
+                    user_id=request.user.id if request.user.is_authenticated else None,
                 )
                 results.append(StudentNoteSerializer(note).data)
             except ValueError as e:
@@ -202,6 +221,45 @@ class StudentNoteViewSet(BaseGradingViewSet):
                 msg="Algunos registros no pudieron procesarse",
             )
         return ok_response(results, msg=f"{len(results)} registros procesados")
+
+    @extend_schema(
+        summary="Replicar notas de estudiante (push)",
+        tags=["grading"],
+    )
+    @action(detail=False, methods=["post"], url_path="replicate/push")
+    def replicate_push(self, request):
+        documents = request.data.get("documents", [])
+        if not documents:
+            return error_response(
+                "documents es requerido",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        results = StudentNoteReplicationService.apply_batch(documents)
+        applied = sum(1 for r in results if r.get("status") == "APPLIED")
+        conflicts = sum(1 for r in results if r.get("status") == "CONFLICT")
+        return ok_response(
+            {"results": results, "applied": applied, "conflicts": conflicts},
+            msg=f"{applied} aplicado(s), {conflicts} conflicto(s)",
+        )
+
+    @extend_schema(
+        summary="Cambios de notas desde timestamp (pull)",
+        tags=["grading"],
+    )
+    @action(detail=False, methods=["get"], url_path="replicate/changes")
+    def replicate_changes(self, request):
+        since = request.query_params.get("since")
+        activity_id = request.query_params.get("evaluative_activity_id")
+        if not activity_id:
+            return error_response(
+                "evaluative_activity_id es requerido",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        changes = StudentNoteReplicationService.get_changes(
+            since=since,
+            evaluative_activity_id=int(activity_id),
+        )
+        return ok_response({"count": len(changes), "since": since, "results": changes})
 
 
 @extend_schema_view(

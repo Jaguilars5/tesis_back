@@ -13,9 +13,8 @@ class Section(TimeStampedModel):
         "institutions_academic_grade.AcademicGrade",
         on_delete=models.CASCADE,
         verbose_name="Grado Academico",
-        null=True,
     )
-    code = models.CharField(max_length=50, blank=True, db_index=True, verbose_name="Codigo")
+    code = models.CharField(max_length=50, db_index=True, verbose_name="Codigo")
     parallel = models.CharField(max_length=255, verbose_name="Paralelo")
     capacity = models.IntegerField(verbose_name="Capacidad")
     is_active = models.BooleanField(default=True, verbose_name="Activo")

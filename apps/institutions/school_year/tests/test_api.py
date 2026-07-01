@@ -115,8 +115,7 @@ class SchoolYearAPITest(APITestCase):
     def test_destroy(self):
         sy = self.client.post(self.url, self.payload, format="json").data["data"]
         response = self.client.delete(f"{self.url}{sy['id']}/")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(response.data["ok"])
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
 
 class SchoolYearCascadeTest(APITestCase):

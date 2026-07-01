@@ -1,3 +1,11 @@
+"""Servidor Socket.IO compartido (ASGI).
+
+Vive en ``apps/core`` para que cualquier app pueda reutilizarlo. El servidor
+usa ``AsyncRedisManager`` para comunicación cross-process: los workers de
+Celery publican eventos vía Redis (ver ``apps.core.realtime.emitter``) y este
+proceso ASGI los entrega a las salas ``user_{id}``.
+"""
+
 import logging
 
 from django.conf import settings

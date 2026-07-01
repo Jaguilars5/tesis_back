@@ -9,11 +9,8 @@ from apps.attendance.models import AbsenceType, AttendanceStatus
 from apps.behavior.models import (
     IncidentType, Severity,
 )
-from apps.grading.models import (
-    ActivityType,
-    QualitativeScale,
-    QualitativeScaleSublevel,
-)
+from apps.grading.qualitative_scale import QualitativeScale
+from apps.grading.activity_type import ActivityType
 from apps.institutions.models import AcademicLevel, AcademicSublevel
 from apps.people.models import DocumentType
 from apps.students.models import (
@@ -26,7 +23,6 @@ CATALOG_COUNTS = {
     DocumentType: 6,
     AttendanceStatus: 4,
     QualitativeScale: 4,
-    QualitativeScaleSublevel: 20,
     PeriodType: 6,
     ActivityType: 6,
     AbsenceType: 4,

@@ -14,10 +14,28 @@ class AttendanceService:
     repository = AttendanceRepository
 
     @classmethod
+    def _find_existing(cls, enrollment_id, teacher_subject_section_id,
+                       attendance_date, class_schedule_id=None):
+        if class_schedule_id:
+            return cls.repository.get_by_unique_key_with_schedule(
+                enrollment_id, class_schedule_id, attendance_date
+            )
+        return cls.repository.get_by_unique_key(
+            enrollment_id, teacher_subject_section_id, attendance_date
+        )
+
+    @classmethod
     @transaction.atomic
     def create_attendance(cls, enrollment_id, teacher_subject_section_id, academic_period_id,
                           attendance_date, attendance_status_id, absence_type_id=None,
                           observation="", device_origin=None, class_schedule_id=None):
+        existing = cls._find_existing(
+            enrollment_id, teacher_subject_section_id, attendance_date, class_schedule_id
+        )
+        status_changing = validators.is_attendance_status_changing(
+            existing, attendance_status_id, absence_type_id,
+        )
+
         errors = validators.run_all_validators(
             enrollment_id=enrollment_id,
             teacher_subject_section_id=teacher_subject_section_id,
@@ -28,18 +46,11 @@ class AttendanceService:
             observation=observation,
             device_origin=device_origin,
             class_schedule_id=class_schedule_id,
+            existing_attendance=existing,
+            is_status_change=status_changing,
         )
         if errors:
             raise ValueError(errors)
-
-        if class_schedule_id:
-            existing = cls.repository.get_by_unique_key_with_schedule(
-                enrollment_id, class_schedule_id, attendance_date
-            )
-        else:
-            existing = cls.repository.get_by_unique_key(
-                enrollment_id, teacher_subject_section_id, attendance_date
-            )
 
         if existing:
             update_data = {
@@ -49,8 +60,6 @@ class AttendanceService:
                 "observation": observation,
                 "device_origin": device_origin,
             }
-            # Solo tocar class_schedule si se envió explícitamente, para no
-            # borrar el horario de registros ya asociados a un bloque.
             if class_schedule_id is not None:
                 update_data["class_schedule_id"] = class_schedule_id
             attendance = cls.repository.update(existing.id, **update_data)
@@ -71,8 +80,25 @@ class AttendanceService:
                 cls._check_schedule_day_warning(attendance, class_schedule_id, attendance_date)
 
         cls._maybe_notify_absence(attendance)
+        cls._enqueue_attendance_notification(attendance)
 
         return attendance
+
+    @classmethod
+    def _enqueue_attendance_notification(cls, attendance):
+        """Notifica al estudiante y sus representantes que se registró una asistencia."""
+        try:
+            from apps.core.notifications.tasks import notify_attendance_created
+
+            transaction.on_commit(
+                lambda: notify_attendance_created.delay(attendance.id)
+            )
+        except Exception:
+            logger.warning(
+                "No se pudo programar la notificación de asistencia attendance=%s",
+                getattr(attendance, "id", None),
+                exc_info=True,
+            )
 
     @classmethod
     def _maybe_notify_absence(cls, attendance):
@@ -117,7 +143,28 @@ class AttendanceService:
 
     @classmethod
     def update_attendance(cls, attendance_id, **kwargs):
-        cls.get_attendance(attendance_id)
+        existing = cls.get_attendance(attendance_id)
+        new_status = kwargs.get("attendance_status_id", existing.attendance_status_id)
+        new_absence = kwargs.get("absence_type_id", existing.absence_type_id)
+        status_changing = validators.is_attendance_status_changing(
+            existing, new_status, new_absence,
+        )
+
+        schedule_id = kwargs.get("class_schedule_id", existing.class_schedule_id)
+        errors = validators.run_all_validators(
+            enrollment_id=existing.enrollment_id,
+            teacher_subject_section_id=existing.teacher_subject_section_id,
+            academic_period_id=kwargs.get("academic_period_id", existing.academic_period_id),
+            attendance_date=existing.attendance_date,
+            attendance_status_id=new_status,
+            absence_type_id=new_absence,
+            class_schedule_id=schedule_id,
+            existing_attendance=existing,
+            is_status_change=status_changing,
+        )
+        if errors:
+            raise ValueError(errors)
+
         allowed = {
             "academic_period_id", "attendance_status_id", "absence_type_id",
             "observation", "device_origin", "class_schedule_id",

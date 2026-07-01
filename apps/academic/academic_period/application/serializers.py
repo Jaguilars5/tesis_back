@@ -22,6 +22,7 @@ class AcademicPeriodSerializer(serializers.ModelSerializer):
             "year_weight",
             "is_regular_period",
             "is_active",
+            "grades_locked",
             "school_year_name",
             "period_type_name",
             "created_at",

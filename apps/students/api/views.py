@@ -346,6 +346,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         "transfer": students.TRANSFER_STUDENT,
         "by_section": students.VIEW_ENROLLMENT,
         "by_student": students.VIEW_ENROLLMENT,
+        "by_representative": students.VIEW_ENROLLMENT,
     }
 
     def get_queryset(self):
@@ -457,6 +458,12 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         if not enrollment:
             return Response("No tiene matricula activa", status=404)
         return Response(self.get_serializer(enrollment).data)
+
+    @action(detail=False, methods=["get"], url_path="by-representative")
+    def by_representative(self, request):
+        enrollments = EnrollmentRepository.get_by_representative(request.user)
+        serializer = self.get_serializer(enrollments, many=True)
+        return Response(serializer.data)
 
     def destroy(self, request, *args, **kwargs):
         """

@@ -8,7 +8,7 @@ from ..infrastructure.repositories import SyncQueueRepository
 from ..domain.services import ConflictResolutionStrategy
 from ..infrastructure.models import SyncStatusChoices
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("apps.integration.sync")
 
 SYNC_HANDLERS = {}
 
@@ -16,8 +16,47 @@ SYNC_HANDLERS = {}
 def register_sync_handler(source_table):
     def decorator(cls):
         SYNC_HANDLERS[source_table] = cls
+        logger.info(
+            "[REGISTRO] Handler registrado source_table=%r -> %s (modelo=%s)",
+            source_table,
+            cls.__name__,
+            getattr(getattr(cls, "model", None), "__name__", None),
+        )
         return cls
     return decorator
+
+
+# Modulos que definen handlers via @register_sync_handler. El worker de Celery
+# autodescubre solo "<app>/tasks.py"; el proceso web NO hace autodiscover y
+# "apps.analytics.tasks_handlers" no se autodescubre por su nombre. Por eso los
+# cargamos explicitamente desde IntegrationConfig.ready() para tener el registro
+# completo en TODOS los procesos (web, worker, beat).
+HANDLER_MODULES = (
+    "apps.attendance.attendance_core.tasks",
+    "apps.behavior.conduct_incident.tasks",
+    "apps.behavior.behavior_evaluation.tasks",
+    "apps.grading.student_note.tasks",
+    "apps.grading.evaluation.tasks",
+    "apps.analytics.tasks_handlers",
+    "apps.students.tasks",
+)
+
+
+def load_sync_handlers():
+    import importlib
+
+    for module_path in HANDLER_MODULES:
+        try:
+            importlib.import_module(module_path)
+        except Exception:
+            logger.exception(
+                "[REGISTRO] No se pudo importar el modulo de handlers %r", module_path
+            )
+    logger.info(
+        "[REGISTRO] Carga de handlers finalizada. Registrados=%s",
+        sorted(SYNC_HANDLERS.keys()),
+    )
+    return SYNC_HANDLERS
 
 
 class BaseSyncHandler:
@@ -27,6 +66,12 @@ class BaseSyncHandler:
 
     @classmethod
     def handle_insert(cls, record_uuid, payload):
+        logger.info(
+            "[INSERT] tabla_destino=%s record_uuid=%s payload_keys=%s",
+            getattr(cls.model, "__name__", None),
+            record_uuid,
+            sorted((payload or {}).keys()),
+        )
         instance = cls.model(**payload)
         instance.uuid = record_uuid
         instance.sync_status = "SYNCED"
@@ -34,10 +79,23 @@ class BaseSyncHandler:
         instance.sync_version = 1
         instance.full_clean()
         instance.save()
+        logger.info(
+            "[INSERT] OK guardado en %s pk=%s uuid=%s",
+            getattr(cls.model, "__name__", None),
+            instance.pk,
+            record_uuid,
+        )
         return instance
 
     @classmethod
     def handle_update(cls, record_uuid, payload):
+        logger.info(
+            "[UPDATE] tabla_destino=%s lookup=%s=%s payload_keys=%s",
+            getattr(cls.model, "__name__", None),
+            cls.lookup_field,
+            record_uuid,
+            sorted((payload or {}).keys()),
+        )
         instance = cls.model.objects.get(**{cls.lookup_field: record_uuid})
         incoming_version = payload.get("sync_version", 1)
 
@@ -59,36 +117,85 @@ class BaseSyncHandler:
         instance.mark_synced()
         instance.full_clean()
         instance.save()
+        logger.info(
+            "[UPDATE] OK actualizado en %s pk=%s uuid=%s nueva_version=%s",
+            getattr(cls.model, "__name__", None),
+            instance.pk,
+            str(instance.uuid),
+            instance.sync_version,
+        )
         return {"status": "SYNCED", "uuid": str(instance.uuid)}
 
     @classmethod
     def handle_delete(cls, record_uuid, payload=None):
+        logger.info(
+            "[DELETE] tabla_destino=%s lookup=%s=%s",
+            getattr(cls.model, "__name__", None),
+            cls.lookup_field,
+            record_uuid,
+        )
         instance = cls.model.objects.get(**{cls.lookup_field: record_uuid})
         instance.delete()
+        logger.info(
+            "[DELETE] OK eliminado de %s uuid=%s",
+            getattr(cls.model, "__name__", None),
+            record_uuid,
+        )
         return {"status": "DELETED", "uuid": str(record_uuid)}
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def process_sync_queue_item(self, sync_id):
+    logger.info("[TASK] Iniciando process_sync_queue_item sync_id=%s", sync_id)
     try:
         sync_item = SyncQueueRepository.get_by_id(sync_id)
         if not sync_item:
-            logger.warning("SyncQueue item %s no encontrado", sync_id)
-            return {"ok": False, "error": "not_found"}
+            logger.warning(
+                "[TASK] SyncQueue item %s no encontrado; reintento en 2s",
+                sync_id,
+            )
+            raise self.retry(countdown=2, max_retries=5)
+
+        logger.info(
+            "[TASK] item id=%s source_table=%r operation=%r record_uuid=%r status=%s attempts=%s",
+            sync_item.id,
+            sync_item.source_table,
+            sync_item.operation,
+            sync_item.record_uuid,
+            sync_item.status,
+            sync_item.attempts,
+        )
 
         if sync_item.status != SyncStatusChoices.PENDING:
-            logger.info("SyncQueue item %s ya procesado (status=%s)", sync_id, sync_item.status)
+            logger.info("[TASK] SyncQueue item %s ya procesado (status=%s), se omite", sync_id, sync_item.status)
             return {"ok": True, "status": str(sync_item.status)}
 
         SyncQueueRepository.update(sync_item.id, status=SyncStatusChoices.PROCESSING, attempts=sync_item.attempts + 1, last_attempt_at=timezone.now())
 
         handler = SYNC_HANDLERS.get(sync_item.source_table)
         if not handler:
+            logger.error(
+                "[TASK] NO hay handler para source_table=%r. "
+                "Por esto la tabla destino NO se actualiza. "
+                "Handlers registrados=%s. "
+                "Revisa que el modulo que define @register_sync_handler(%r) sea importado "
+                "por el worker (Celery autodiscover solo importa <app>/tasks.py).",
+                sync_item.source_table,
+                sorted(SYNC_HANDLERS.keys()),
+                sync_item.source_table,
+            )
             raise ValueError(f"No hay handler para source_table='{sync_item.source_table}'")
 
         operation = sync_item.operation or ""
         record_uuid = sync_item.record_uuid
         payload = sync_item.payload or {}
+
+        logger.info(
+            "[TASK] Handler resuelto %s -> modelo=%s. Aplicando operation=%r",
+            handler.__name__,
+            getattr(getattr(handler, "model", None), "__name__", None),
+            operation,
+        )
 
         with transaction.atomic():
             if operation in ("INSERT", "CREATE"):
@@ -98,16 +205,22 @@ def process_sync_queue_item(self, sync_id):
             elif operation == "DELETE":
                 result = handler.handle_delete(record_uuid, payload)
             else:
+                logger.error(
+                    "[TASK] Operacion desconocida=%r para item id=%s. "
+                    "Se esperaba INSERT/CREATE/UPDATE/DELETE.",
+                    operation,
+                    sync_item.id,
+                )
                 raise ValueError(f"Operación desconocida: {operation}")
 
             SyncQueueRepository.update(
                 sync_item.id,
                 status=SyncStatusChoices.SYNCED,
                 processed_at=timezone.now(),
-                last_error=None,
+                last_error="",
             )
 
-        logger.info("SyncQueue item %s procesado exitosamente", sync_id)
+        logger.info("[TASK] SyncQueue item %s procesado exitosamente -> SYNCED", sync_id)
         return {"ok": True, "status": "PROCESADO", "result": result}
 
     except Exception as exc:

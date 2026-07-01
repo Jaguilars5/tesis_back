@@ -9,7 +9,7 @@ from django.core.management.base import BaseCommand
 from apps.people.models import City, DocumentType
 from apps.academic.period_type import PeriodType
 from apps.academic.subject import Subject
-from apps.grading.qualitative_scale import QualitativeScale, QualitativeScaleSublevel
+from apps.grading.qualitative_scale import QualitativeScale
 from apps.grading.activity_type import ActivityType
 from apps.attendance.attendance_status import AttendanceStatus
 from apps.attendance.absence_type import AbsenceType
@@ -624,31 +624,6 @@ class Command(BaseCommand):
                 created_count += 1
             else:
                 existing_count += 1
-
-        # ----------------------------------------------------------------
-        # QualitativeScaleSublevel: relación escala × subnivel
-        # ----------------------------------------------------------------
-        scale_codes = ["SE", "SA", "AC", "NA"]
-        sublevel_codes = [
-            "PREPARATORIA",
-            "BASICA_ELEMENTAL",
-            "BASICA_MEDIA",
-            "BASICA_SUPERIOR",
-            "BACHILLERATO",
-        ]
-        for scale_code in scale_codes:
-            scale = QualitativeScale.objects.get(code=scale_code)
-            for sublevel_code in sublevel_codes:
-                sublevel = AcademicSublevel.objects.get(code=sublevel_code)
-                _, created = QualitativeScaleSublevel.objects.get_or_create(
-                    scale=scale,
-                    sublevel=sublevel,
-                    defaults={"is_active": True},
-                )
-                if created:
-                    created_count += 1
-                else:
-                    existing_count += 1
 
         self.stdout.write(
             self.style.SUCCESS(

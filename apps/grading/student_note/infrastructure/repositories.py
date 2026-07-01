@@ -47,7 +47,10 @@ class StudentNoteRepository(BaseRepository, StudentNoteRepositoryInterface):
         from apps.students.models import Enrollment
 
         try:
-            activity = EvaluativeActivity.objects.get(id=evaluative_activity_id)
+            activity = EvaluativeActivity.objects.select_related(
+                "block_component__evaluation_block__academic_period",
+                "teacher_subject_section__subject_offering",
+            ).get(id=evaluative_activity_id)
         except EvaluativeActivity.DoesNotExist:
             return None, []
 
@@ -135,15 +138,126 @@ class PeriodGradeSummaryRepository(BaseRepository, PeriodGradeSummaryRepositoryI
 class EvaluationRepository:
     """Metodos de acceso a datos para c\u00e1lculos de evaluacion."""
 
-    @staticmethod
-    def calculate_period_average_for_subject(enrollment_id, subject_offering_id):
-        from django.db.models import Avg
+    FORMATIVE_TYPES = {"FORMATIVA"}
+    SUMMATIVE_TYPES = {"SUMATIVA", "PROJECT"}
 
-        result = StudentNote.objects.filter(
-            enrollment_id=enrollment_id,
-            evaluative_activity__teacher_subject_section__subject_offering_id=subject_offering_id,
-        ).aggregate(avg=Avg("numeric_score"))
-        avg = result.get("avg")
-        if avg is None:
+    @staticmethod
+    def _normalized_value(note):
+        """Normaliza la nota a base 10.
+
+        - Cuantitativa: ``numeric_score / max_score * 10``.
+        - Cualitativa (sin nota numérica): ``qualitative_scale.numeric_equivalence``.
+
+        Devuelve ``None`` si la nota no aporta valor (anulada / sin score).
+        """
+        if note.manually_overridden:
             return None
-        return Decimal(str(avg)).quantize(Decimal("0.01"))
+        if note.numeric_score is not None:
+            return note.calculate_normalized_value()
+        if note.qualitative_scale_id and note.qualitative_scale:
+            return Decimal(str(note.qualitative_scale.numeric_equivalence))
+        return None
+
+    @classmethod
+    def calculate_period_average_for_subject(
+        cls, enrollment_id, subject_offering_id, academic_period_id=None
+    ):
+        """Promedio ponderado jerárquico (actividad → componente → bloque) del
+        periodo, renormalizando en cada nivel sobre los pesos efectivamente
+        calificados (promedio "vivo").
+
+        Returns:
+            ``None`` si no hay notas calificables; de lo contrario un dict con
+            ``final`` (ponderado de todos los bloques), ``formative`` (bloques
+            FORMATIVA) y ``summative`` (bloques SUMATIVA/PROJECT), todos
+            ``Decimal`` cuantizados a 0.01.
+        """
+        notes = (
+            StudentNote.objects.filter(
+                enrollment_id=enrollment_id,
+                evaluative_activity__block_component__evaluation_block__subject_offering_id=subject_offering_id,
+            )
+            .select_related(
+                "evaluative_activity__block_component__evaluation_block",
+                "qualitative_scale",
+            )
+        )
+        if academic_period_id is not None:
+            notes = notes.filter(
+                evaluative_activity__block_component__evaluation_block__academic_period_id=academic_period_id
+            )
+
+        # block_id -> {"weight", "block_type", "components": {comp_id: {"weight", "num", "den"}}}
+        blocks = {}
+        for note in notes:
+            normalized = cls._normalized_value(note)
+            if normalized is None:
+                continue
+
+            activity = note.evaluative_activity
+            component = activity.block_component
+            block = component.evaluation_block
+
+            block_entry = blocks.setdefault(
+                block.id,
+                {
+                    "weight": Decimal(str(block.weight_percentage)),
+                    "block_type": block.block_type,
+                    "components": {},
+                },
+            )
+            comp_entry = block_entry["components"].setdefault(
+                component.id,
+                {"weight": Decimal(str(component.internal_weight)), "num": Decimal("0"), "den": Decimal("0")},
+            )
+            act_weight = Decimal(str(activity.internal_weight))
+            comp_entry["num"] += act_weight * normalized
+            comp_entry["den"] += act_weight
+
+        if not blocks:
+            return None
+
+        block_grades = {}  # block_id -> (block_grade, weight, block_type)
+        for block_id, block_entry in blocks.items():
+            num = Decimal("0")
+            den = Decimal("0")
+            for comp_entry in block_entry["components"].values():
+                if comp_entry["den"] == 0:
+                    continue
+                comp_grade = comp_entry["num"] / comp_entry["den"]
+                num += comp_entry["weight"] * comp_grade
+                den += comp_entry["weight"]
+            if den == 0:
+                continue
+            block_grade = num / den
+            block_grades[block_id] = (
+                block_grade,
+                block_entry["weight"],
+                block_entry["block_type"],
+            )
+
+        if not block_grades:
+            return None
+
+        def _weighted(filter_types=None):
+            num = Decimal("0")
+            den = Decimal("0")
+            for block_grade, weight, block_type in block_grades.values():
+                if filter_types is not None and block_type not in filter_types:
+                    continue
+                num += weight * block_grade
+                den += weight
+            if den == 0:
+                return None
+            return num / den
+
+        final = _weighted()
+        formative = _weighted(cls.FORMATIVE_TYPES)
+        summative = _weighted(cls.SUMMATIVE_TYPES)
+
+        quant = lambda v: v.quantize(Decimal("0.01")) if v is not None else Decimal("0.00")
+        return {
+            "final": final.quantize(Decimal("0.01")),
+            "formative": quant(formative),
+            "summative": quant(summative),
+        }

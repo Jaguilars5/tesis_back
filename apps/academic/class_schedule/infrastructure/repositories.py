@@ -34,7 +34,7 @@ class ClassScheduleRepository(BaseRepository, ClassScheduleRepositoryInterface):
     def get_by_teacher(cls, user_id):
         return (
             cls._base_select_related()
-            .filter(teacher_subject_section__user_id=user_id)
+            .filter(teacher_subject_section__user_id=user_id, is_active=True)
             .order_by("day_of_week", "start_time")
         )
 
@@ -58,7 +58,8 @@ class ClassScheduleRepository(BaseRepository, ClassScheduleRepositoryInterface):
         return (
             cls._base_select_related()
             .filter(
-                teacher_subject_section__subject_offering__section_id__in=section_ids
+                teacher_subject_section__subject_offering__section_id__in=section_ids,
+                is_active=True,
             )
             .order_by("day_of_week", "start_time")
         )
@@ -66,7 +67,8 @@ class ClassScheduleRepository(BaseRepository, ClassScheduleRepositoryInterface):
     @classmethod
     def get_by_section(cls, section_id):
         return cls._base_select_related().filter(
-            teacher_subject_section__subject_offering__section_id=section_id
+            teacher_subject_section__subject_offering__section_id=section_id,
+            is_active=True,
         ).order_by("day_of_week", "start_time")
 
     @classmethod

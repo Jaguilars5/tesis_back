@@ -7,17 +7,11 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from apps.core.utils import ok_response
 from apps.grading.api.base import BaseGradingViewSet
 
-from ..application.serializers import (
-    QualitativeScaleSerializer,
-    QualitativeScaleSublevelSerializer,
-)
+from ..application.serializers import QualitativeScaleSerializer
 from ..domain.services import QualitativeScaleService
-from ..infrastructure.repositories import (
-    QualitativeScaleRepository,
-    QualitativeScaleSublevelRepository,
-)
+from ..infrastructure.repositories import QualitativeScaleRepository
 from ..permissions import ACTION_PERMISSIONS
-from .filters import QualitativeScaleFilter, QualitativeScaleSublevelFilter
+from .filters import QualitativeScaleFilter
 
 
 @extend_schema_view(
@@ -74,21 +68,3 @@ class QualitativeScaleViewSet(BaseGradingViewSet):
         confirm = request.data.get("confirm", False)
         result = QualitativeScaleService.soft_delete(pk, confirm=confirm)
         return ok_response(result)
-
-
-@extend_schema_view(
-    list=extend_schema(summary="Listar escalas por subnivel", tags=["grading"]),
-    get=extend_schema(summary="Obtener escala por subnivel", tags=["grading"]),
-    create=extend_schema(summary="Asignar escala a subnivel", tags=["grading"]),
-    update=extend_schema(summary="Actualizar asignacion escala-subnivel", tags=["grading"]),
-    partial_update=extend_schema(summary="Actualizar asignacion parcialmente", tags=["grading"]),
-    destroy=extend_schema(summary="Eliminar asignacion escala-subnivel", tags=["grading"]),
-)
-class QualitativeScaleSublevelViewSet(BaseGradingViewSet):
-    serializer_class = QualitativeScaleSublevelSerializer
-    action_permissions = ACTION_PERMISSIONS
-    filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
-    filterset_class = QualitativeScaleSublevelFilter
-
-    def get_queryset(self):
-        return QualitativeScaleSublevelRepository.get_all()

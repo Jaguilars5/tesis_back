@@ -5,7 +5,8 @@ from apps.core.models import TimeStampedModel
 
 class AcademicLevel(TimeStampedModel):
     name = models.CharField(max_length=100, verbose_name="Nombre del Nivel")
-    code = models.CharField(max_length=50, blank=True, db_index=True, verbose_name="Codigo")
+    code = models.CharField(max_length=50, db_index=True, verbose_name="Codigo")
+    description = models.TextField(blank=True, verbose_name="Descripción")
     is_active = models.BooleanField(default=True, verbose_name="Activo")
 
     class Meta:

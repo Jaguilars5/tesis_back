@@ -1,3 +1,3 @@
-from .views import QualitativeScaleViewSet, QualitativeScaleSublevelViewSet
+from .views import QualitativeScaleViewSet
 
-__all__ = ["QualitativeScaleViewSet", "QualitativeScaleSublevelViewSet"]
+__all__ = ["QualitativeScaleViewSet"]

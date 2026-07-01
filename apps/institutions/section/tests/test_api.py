@@ -37,6 +37,7 @@ class SectionAPITest(APITestCase):
             "academic_grade": self.grade.id,
             "parallel": "A",
             "capacity": 30,
+            "code": "SEC-A",
         }
 
     def test_list_empty(self):
@@ -136,8 +137,7 @@ class SectionAPITest(APITestCase):
     def test_destroy(self):
         section = self.client.post(self.url, self.payload, format="json").data["data"]
         response = self.client.delete(f"{self.url}{section['id']}/")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(response.data["ok"])
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
 
 class SectionCascadeTest(APITestCase):
@@ -168,6 +168,7 @@ class SectionCascadeTest(APITestCase):
                 "academic_grade": grade.id,
                 "parallel": "A",
                 "capacity": 30,
+                "code": "SEC-A",
             },
             format="json",
         )

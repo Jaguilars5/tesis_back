@@ -1,13 +1,3 @@
-"""
-Vista base para todos los ViewSets del módulo Analytics.
-
-Siguiendo el patrón de apps/academic/api/base.py, proporciona:
-- Respuestas estandarizadas con ok_response()
-- Paginación estándar
-- Permisos HasPermission + IsAuthenticated
-- Mapeo de 'retrieve' a 'get' para compatibilidad con AnalyticsRouter
-"""
-
 from rest_framework import mixins, status, viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -27,31 +17,21 @@ class BaseAnalyticsViewSet(
     SoftDestroyMixin,
     viewsets.GenericViewSet,
 ):
-    """
-    ViewSet base para módulos de Analytics.
-
-    Todas las respuestas usan el formato estándar {"ok", "data", "msg"}.
-    Las operaciones de lectura usan el repositorio inyectado en get_queryset().
-    Las operaciones de escritura deben sobreescribir perform_create/update.
-    """
 
     permission_classes = [IsAuthenticated, HasPermission]
     pagination_class = StandardResultsSetPagination
 
     def initial(self, request, *args, **kwargs):
-        """Mapea la acción 'retrieve' a 'get' para usar AnalyticsRouter."""
         if self.action == "retrieve":
             self.action = "get"
         super().initial(request, *args, **kwargs)
 
     def get(self, request, *args, **kwargs):
-        """Obtener un registro por ID (reemplaza retrieve)."""
         instance = self.get_object()
         serializer = self.get_serializer(instance)
         return ok_response(serializer.data)
 
     def list(self, request, *args, **kwargs):
-        """Listar registros con paginación opcional."""
         queryset = self.filter_queryset(self.get_queryset())
         if self.paginator is not None:
             page = self.paginate_queryset(queryset)
@@ -62,7 +42,6 @@ class BaseAnalyticsViewSet(
         return ok_response(serializer.data)
 
     def create(self, request, *args, **kwargs):
-        """Crear un nuevo registro."""
         serializer = self.get_serializer(data=request.data)
         if not serializer.is_valid():
             raise ValidationError(serializer.errors)
@@ -74,7 +53,6 @@ class BaseAnalyticsViewSet(
         )
 
     def update(self, request, *args, **kwargs):
-        """Actualizar un registro existente."""
         partial = kwargs.pop("partial", False)
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=partial)

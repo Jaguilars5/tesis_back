@@ -258,6 +258,7 @@ ROLES_CONFIG = {
             "analytics.view_early_alert",
             "analytics.view_risk_score",
             "students.view_kinship",
+            "students.view_enrollment",
         ],
     },
     "DOCENTE": {

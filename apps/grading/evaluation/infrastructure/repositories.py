@@ -61,6 +61,34 @@ class BlockComponentRepository(BaseRepository, BlockComponentRepositoryInterface
         ).select_related("evaluation_block").first()
 
     @classmethod
+    def get_by_teacher_subject_section(
+        cls,
+        teacher_subject_section_id,
+        academic_period_id=None,
+        active_only=True,
+    ):
+        from apps.academic.teacher_subject_section.infrastructure.models import (
+            TeacherSubjectSection,
+        )
+
+        try:
+            tss = TeacherSubjectSection.objects.get(pk=teacher_subject_section_id)
+        except TeacherSubjectSection.DoesNotExist:
+            return cls.model.objects.none()
+
+        queryset = cls.model.objects.filter(
+            evaluation_block__subject_offering_id=tss.subject_offering_id,
+            evaluation_block__is_active=True,
+        ).select_related("evaluation_block", "evaluation_block__academic_period")
+        if active_only:
+            queryset = queryset.filter(is_active=True)
+        if academic_period_id is not None:
+            queryset = queryset.filter(
+                evaluation_block__academic_period_id=academic_period_id,
+            )
+        return queryset.order_by("evaluation_block", "name")
+
+    @classmethod
     def get_cascade_counts(cls, instance_id: int) -> dict[str, int]:
         child_ids = list(EvaluativeActivity.objects.filter(
             block_component_id=instance_id, is_active=True

@@ -7,9 +7,13 @@ class AcademicSublevelService:
 
     @classmethod
     def create_academic_sublevel(cls, academic_level_id, code, name, description=""):
-        errors = validators.run_all_validators(
-            code=code, name=name, academic_level_id=academic_level_id
-        )
+        errors = validators.run_all_validators(name=name)
+        code_errors = validators.validate_code_not_empty(code)
+        if code_errors:
+            errors.update(code_errors)
+        lvl_errors = validators.validate_academic_level_required(academic_level_id)
+        if lvl_errors:
+            errors.update(lvl_errors)
         if errors:
             raise ValueError(errors)
         return cls.repository.create(

@@ -15,6 +15,6 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.local")
 
 django_asgi = get_asgi_application()
 
-from apps.analytics.socketio import sio
+from apps.core.realtime.server import sio
 
 application = ASGIApp(sio, other_asgi_app=django_asgi)

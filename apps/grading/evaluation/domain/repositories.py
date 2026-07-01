@@ -63,6 +63,13 @@ class BlockComponentRepositoryInterface(ABC):
 
     @classmethod
     @abstractmethod
+    def get_by_teacher_subject_section(
+        cls, teacher_subject_section_id, academic_period_id=None, active_only=True
+    ):
+        pass
+
+    @classmethod
+    @abstractmethod
     def create(cls, **data):
         pass
 
