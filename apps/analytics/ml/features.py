@@ -42,6 +42,11 @@ FEATURE_COLUMNS = [
     "has_special_needs",
 ]
 
+# Features para entrenamiento supervisado: excluye failing_subjects_count
+# porque tiene correlación directa (leakage) con el target is_failing:
+# si count > 0 → is_failing = True siempre.
+TRAIN_FEATURES = [col for col in FEATURE_COLUMNS if col != "failing_subjects_count"]
+
 CONDUCT_BASE = 10.0
 
 

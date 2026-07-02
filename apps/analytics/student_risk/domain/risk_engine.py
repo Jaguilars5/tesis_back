@@ -15,7 +15,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from apps.analytics.ml import features
-from apps.analytics.ml.features import FEATURE_COLUMNS, MODEL_PATH
+from apps.analytics.ml.features import FEATURE_COLUMNS, TRAIN_FEATURES, MODEL_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -315,9 +315,39 @@ def _fallback_risk_score(variables: Dict, level: str, config=None) -> float:
     return max(0, min(100, score))
 
 
+_cached_artifact = None
+_cached_artifact_mtime = None
+
+
+def _load_artifact_cached():
+    """Carga y mantiene en memoria el artefacto (model + scaler). Recarga si cambia en disco."""
+    global _cached_artifact, _cached_artifact_mtime
+    import os
+    import joblib
+
+    if not MODEL_PATH.exists():
+        _cached_artifact = None
+        _cached_artifact_mtime = None
+        return None
+
+    try:
+        current_mtime = os.path.getmtime(MODEL_PATH)
+        if _cached_artifact is None or _cached_artifact_mtime != current_mtime:
+            logger.info("[ML] Cargando artefacto desde %s (mtime=%s)", MODEL_PATH, current_mtime)
+            _cached_artifact = joblib.load(MODEL_PATH)
+            _cached_artifact_mtime = current_mtime
+        return _cached_artifact
+    except Exception:
+        logger.exception("[ML][ERROR] Error al cargar o deserializar el artefacto.")
+        return None
+
+
 def _predict_ml_score(snapshot: Dict, metrics: Optional[Dict] = None) -> Optional[float]:
     """
-    Predicción ML. Retorna score o None para fallback por reglas.
+    Predicción del modelo matemático (regresión logística).
+
+    Retorna ``P(is_failing=True) * 100`` como score 0-100, o ``None``
+    para que el motor de reglas actúe como fallback.
     """
     estudiante_id = snapshot.get("estudiante_id", "?")
 
@@ -331,21 +361,9 @@ def _predict_ml_score(snapshot: Dict, metrics: Optional[Dict] = None) -> Optiona
         return None
 
     try:
-        import joblib
-
-        logger.info(
-            "[ML] Estudiante=%s — Cargando modelo desde %s",
-            estudiante_id,
-            MODEL_PATH,
-        )
-        model = joblib.load(MODEL_PATH)
-    except ImportError as exc:
-        logger.exception(
-            "[ML][ERROR] Estudiante=%s — Dependencia ausente al cargar el modelo (%s). Fallback.",
-            estudiante_id,
-            exc,
-        )
-        return None
+        artifact = _load_artifact_cached()
+        if artifact is None:
+            return None
     except Exception:
         logger.exception(
             "[ML][ERROR] Estudiante=%s — No se pudo cargar el artefacto del modelo. Fallback.",
@@ -353,24 +371,17 @@ def _predict_ml_score(snapshot: Dict, metrics: Optional[Dict] = None) -> Optiona
         )
         return None
 
-    # Validación explícita del contrato de columnas
-    model_columns = getattr(model, "feature_names_in_", None)
-    if model_columns is not None and not features.columns_match(model_columns):
-        logger.warning(
-            "[ML][FALLBACK-INTENCIONAL] Estudiante=%s — Desajuste de columnas tren/inferencia. "
-            "modelo=%s contrato=%s. Se usa el motor de reglas.",
-            estudiante_id,
-            list(model_columns),
-            FEATURE_COLUMNS,
-        )
-        return None
+    model = artifact["model"]
+    scaler = artifact["scaler"]
+    model_features = artifact.get("features", TRAIN_FEATURES)
 
     try:
-        feature_dict = (
+        full_dict = (
             features.feature_dict_from_metrics(metrics)
             if metrics
             else features.feature_dict_from_snapshot(snapshot)
         )
+        feature_dict = {col: full_dict.get(col, 0.0) for col in model_features}
         logger.info(
             "[ML] Estudiante=%s — Features (%d cols): %s",
             estudiante_id,
@@ -378,73 +389,30 @@ def _predict_ml_score(snapshot: Dict, metrics: Optional[Dict] = None) -> Optiona
             {k: round(v, 2) if isinstance(v, float) else v for k, v in feature_dict.items()},
         )
 
-        prediction_input = _prediction_input(feature_dict)
+        import pandas as pd
+        X = pd.DataFrame([feature_dict], columns=model_features)
+        X_scaled = scaler.transform(X)
 
-        if hasattr(model, "predict_proba"):
-            score = _score_from_proba(model, prediction_input)
-            logger.info(
-                "[ML] Estudiante=%s — predict_proba exitoso. Score=%.2f",
-                estudiante_id,
-                score,
-            )
-            return score
+        proba = model.predict_proba(X_scaled)[0]
+        clases = getattr(model, "classes_", [0, 1])
+        # classes_[1] = clase positiva (is_failing=True)
+        pos_idx = list(clases).index(1) if 1 in clases else 1
+        score = round(float(proba[pos_idx]) * 100, 2)
 
-        prediction = model.predict(prediction_input)[0]
-        if isinstance(prediction, str):
-            score = _score_for_label(prediction)
-            logger.info(
-                "[ML] Estudiante=%s — predict etiqueta='%s' score=%.2f",
-                estudiante_id,
-                prediction,
-                score,
-            )
-            return score
-
-        score = max(0, min(100, float(prediction)))
         logger.info(
-            "[ML] Estudiante=%s — predict numerico=%.2f score=%.2f",
+            "[ML] Estudiante=%s — P(is_failing)=%.4f Score=%.2f",
             estudiante_id,
-            float(prediction),
+            float(proba[pos_idx]),
             score,
         )
         return score
+
     except Exception:
         logger.exception(
             "[ML][ERROR] Estudiante=%s — Excepcion inesperada al predecir. Fallback.",
             estudiante_id,
         )
         return None
-
-
-def _prediction_input(feature_dict: Dict):
-    """Convierte feature dict a formato de entrada para el modelo."""
-    try:
-        import pandas as pd
-
-        return pd.DataFrame([feature_dict], columns=FEATURE_COLUMNS)
-    except Exception:
-        return [features.feature_row(feature_dict)]
-
-
-def _score_from_proba(model, prediction_input) -> float:
-    """Extrae score de probabilidades del modelo."""
-    probabilities = model.predict_proba(prediction_input)[0]
-    classes = [str(item).lower() for item in getattr(model, "classes_", [])]
-    if "rojo" in classes:
-        return float(probabilities[classes.index("rojo")]) * 100
-    if "alto" in classes:
-        return float(probabilities[classes.index("alto")]) * 100
-    return float(max(probabilities)) * 100
-
-
-def _score_for_label(label: str) -> float:
-    """Score asignado a etiquetas categóricas."""
-    normalized = label.lower()
-    if normalized in ("rojo", "alto"):
-        return 85
-    if normalized in ("amarillo", "medio", "moderado"):
-        return 55
-    return 20
 
 
 def _feature_vector(snapshot: Dict, metrics: Optional[Dict] = None) -> Dict:

@@ -6,7 +6,8 @@ Pobla la base de datos con datos realistas para el año lectivo 2025-2026.
 Nivel creado: Primero de Bachillerato (1ro BGU), paralelos A y B.
 
 Características:
-  • Año lectivo 2025-2026 dividido en 3 trimestres
+  • Año lectivo 2025-2026 (cierre administrativo hasta 31-jul-2026) en 3 trimestres
+  • Clases, asistencia y entregas solo hasta el 30-jun-2026
   • 7 asignaturas del currículo BGU, un docente titular por asignatura
   • 12 estudiantes por paralelo (24 en total)
   • Cada estudiante tiene exactamente un representante primario
@@ -81,11 +82,22 @@ random.seed(RANDOM_SEED)
 SCHOOL_YEAR = {
     "name": "2025-2026",
     "start_date": date(2025, 9, 1),
-    "end_date":   date(2026, 6, 30),
+    "end_date":   date(2026, 7, 31),
     "is_active":  True,
 }
 
-# Tres trimestres del año lectivo 2025-2026
+# Último día con clases / asistencia / entregas (julio = cierre administrativo del año)
+ACTIVE_YEAR_INSTRUCTIONAL_END = date(2026, 6, 30)
+
+
+def _instructional_end_date(period) -> date:
+    """Fin de actividad lectiva del período (asistencia, tareas, incidentes en aula)."""
+    if period.code.endswith("-2526"):
+        return min(period.end_date, ACTIVE_YEAR_INSTRUCTIONAL_END)
+    return period.end_date
+
+
+# Tres trimestres del año lectivo 2025-2026 (cierre administrativo hasta fin de julio)
 TRIMESTRES = [
     {
         "code":       "T1-2526",
@@ -98,14 +110,14 @@ TRIMESTRES = [
         "code":       "T2-2526",
         "name":       "Segundo Trimestre",
         "start_date": date(2025, 12, 1),
-        "end_date":   date(2026, 3, 13),
+        "end_date":   date(2026, 3, 20),
         "weight":     Decimal("33.33"),
     },
     {
         "code":       "T3-2526",
         "name":       "Tercer Trimestre",
-        "start_date": date(2026, 3, 16),
-        "end_date":   date(2026, 6, 30),
+        "start_date": date(2026, 3, 23),
+        "end_date":   date(2026, 7, 31),
         "weight":     Decimal("33.34"),
     },
 ]
@@ -864,12 +876,12 @@ SCHOOL_YEARS_DATA = [
     {
         "name": "2025-2026",
         "start_date": date(2025, 9, 1),
-        "end_date":   date(2026, 6, 30),
+        "end_date":   date(2026, 7, 31),
         "is_active":  True,
         "trimestres": [
             {"code": "T1-2526", "name": "Primer Trimestre", "start_date": date(2025, 9, 1), "end_date": date(2025, 11, 30), "weight": Decimal("33.33")},
-            {"code": "T2-2526", "name": "Segundo Trimestre", "start_date": date(2025, 12, 1), "end_date": date(2026, 3, 13), "weight": Decimal("33.33")},
-            {"code": "T3-2526", "name": "Tercer Trimestre", "start_date": date(2026, 3, 16), "end_date": date(2026, 6, 30), "weight": Decimal("33.34")},
+            {"code": "T2-2526", "name": "Segundo Trimestre", "start_date": date(2025, 12, 1), "end_date": date(2026, 3, 20), "weight": Decimal("33.33")},
+            {"code": "T3-2526", "name": "Tercer Trimestre", "start_date": date(2026, 3, 23), "end_date": date(2026, 7, 31), "weight": Decimal("33.34")},
         ]
     }
 ]
@@ -976,16 +988,27 @@ class Command(BaseCommand):
             self.stdout.write(f"PROCESANDO AÑO LECTIVO: {sy_data['name']}")
             self.stdout.write(f"==================================================")
 
-            school_year, _ = SchoolYear.objects.get_or_create(
+            school_year, created_sy = SchoolYear.objects.get_or_create(
                 start_date=sy_data["start_date"],
                 defaults={
                     "end_date":   sy_data["end_date"],
                     "is_active":  sy_data["is_active"],
                 },
             )
-            if not sy_data["is_active"]:
+            if not created_sy:
+                sy_updates = {}
+                if school_year.end_date != sy_data["end_date"]:
+                    sy_updates["end_date"] = sy_data["end_date"]
+                expected_active = sy_data["is_active"]
+                if school_year.is_active != expected_active:
+                    sy_updates["is_active"] = expected_active
+                if sy_updates:
+                    for field, value in sy_updates.items():
+                        setattr(school_year, field, value)
+                    school_year.save(update_fields=list(sy_updates.keys()))
+            elif not sy_data["is_active"]:
                 school_year.is_active = False
-                school_year.save()
+                school_year.save(update_fields=["is_active"])
 
             sections = {}
             for grade_code, grade in [("BGU_1RO", grade_bgu1), ("BGU_2DO", grade_bgu2)]:
@@ -1041,6 +1064,10 @@ class Command(BaseCommand):
                     expected_locked = not year_is_active
                     if obj.grades_locked != expected_locked:
                         updates["grades_locked"] = expected_locked
+                    for date_field in ("start_date", "end_date"):
+                        expected = t[date_field]
+                        if getattr(obj, date_field) != expected:
+                            updates[date_field] = expected
                     if updates:
                         for field, value in updates.items():
                             setattr(obj, field, value)
@@ -1167,13 +1194,21 @@ class Command(BaseCommand):
             self.stdout.write(f"  [OK] Matrículas generadas: {len(current_enrollments)} (1ro BGU: {len(intake_1ro)}, 2do BGU: {len(passed_1ro[:36])})")
 
             failing_students = set()
+            medium_risk_students = set()
+            
             students_1ro = [tag for tag in current_enrollments if student_states[tag]["last_grade"] == "BGU_1RO"]
-            num_fail_1ro = int(len(students_1ro) * 0.25)
-            failing_students.update(local_rand.sample(students_1ro, num_fail_1ro))
+            num_fail_1ro = int(len(students_1ro) * 0.15)
+            num_med_1ro = int(len(students_1ro) * 0.15)
+            sampled_1ro = local_rand.sample(students_1ro, num_fail_1ro + num_med_1ro)
+            failing_students.update(sampled_1ro[:num_fail_1ro])
+            medium_risk_students.update(sampled_1ro[num_fail_1ro:])
 
             students_2do = [tag for tag in current_enrollments if student_states[tag]["last_grade"] == "BGU_2DO"]
             num_fail_2do = int(len(students_2do) * 0.15)
-            failing_students.update(local_rand.sample(students_2do, num_fail_2do))
+            num_med_2do = int(len(students_2do) * 0.15)
+            sampled_2do = local_rand.sample(students_2do, num_fail_2do + num_med_2do)
+            failing_students.update(sampled_2do[:num_fail_2do])
+            medium_risk_students.update(sampled_2do[num_fail_2do:])
 
             for tag in current_enrollments:
                 if tag in failing_students:
@@ -1181,8 +1216,8 @@ class Command(BaseCommand):
                 else:
                     student_states[tag]["last_status"] = "PASSED"
 
-            self._generate_attendance_for_sy(current_enrollments, teacher_map, periods, failing_students)
-            self._generate_conduct_incidents_for_sy(current_enrollments, periods, failing_students)
+            self._generate_attendance_for_sy(current_enrollments, teacher_map, periods, failing_students, medium_risk_students)
+            self._generate_conduct_incidents_for_sy(current_enrollments, periods, failing_students, medium_risk_students)
 
             grading_struct = self._create_grading_structure_for_sy(
                 periods, offerings, year_is_active
@@ -1190,11 +1225,11 @@ class Command(BaseCommand):
             self._create_evaluative_activities_for_sy(
                 teacher_map, grading_struct, periods, year_is_active
             )
-            self._create_student_notes_for_sy(current_enrollments, grading_struct, doc_users, failing_students)
+            self._create_student_notes_for_sy(current_enrollments, grading_struct, doc_users, failing_students, medium_risk_students)
 
             self._create_behavior_evaluations(current_enrollments, periods, admin_users)
             self._create_early_alerts(current_enrollments, periods, admin_users)
-            self._create_risk_data_for_sy(current_enrollments, periods, failing_students)
+            self._create_risk_data_for_sy(current_enrollments, periods, failing_students, medium_risk_students)
 
         global ESTUDIANTES, REPRESENTANTES
         ESTUDIANTES = []
@@ -1386,13 +1421,14 @@ class Command(BaseCommand):
             UserRole.objects.get_or_create(user=user, role=docente_role)
         self.stdout.write("  [OK] Roles asignados")
 
-    def _generate_attendance_for_sy(self, enrollments, teacher_map, periods, failing_students):
+    def _generate_attendance_for_sy(self, enrollments, teacher_map, periods, failing_students, medium_risk_students):
         status_P = AttendanceStatus.objects.get(code="P")
         status_T = AttendanceStatus.objects.get(code="T")
         status_J = AttendanceStatus.objects.get(code="J")
         status_A = AttendanceStatus.objects.get(code="A")
 
         passing_pool = [status_P] * 92 + [status_T] * 5 + [status_J] * 2 + [status_A] * 1
+        medium_pool  = [status_P] * 78 + [status_T] * 6 + [status_J] * 6 + [status_A] * 10
         failing_pool = [status_P] * 60 + [status_T] * 8 + [status_J] * 12 + [status_A] * 20
 
         schedules = ClassSchedule.objects.select_related("teacher_subject_section").all()
@@ -1400,10 +1436,7 @@ class Command(BaseCommand):
 
         for period in periods:
             start_dt = period.start_date
-            if period.code == "T3-2526":
-                end_dt = min(period.end_date, date(2026, 6, 26))
-            else:
-                end_dt = period.end_date
+            end_dt = _instructional_end_date(period)
 
             current_date = start_dt
             dates_by_weekday = {i: [] for i in range(1, 8)}
@@ -1425,7 +1458,12 @@ class Command(BaseCommand):
                 dates = dates_by_weekday.get(schedule.day_of_week, [])
                 for date_val in dates:
                     for est_tag, enrollment in matching_enrollments:
-                        pool = failing_pool if est_tag in failing_students else passing_pool
+                        if est_tag in failing_students:
+                            pool = failing_pool
+                        elif est_tag in medium_risk_students:
+                            pool = medium_pool
+                        else:
+                            pool = passing_pool
                         status = local_rand.choice(pool)
                         attendance_to_create.append(
                             Attendance(
@@ -1444,7 +1482,7 @@ class Command(BaseCommand):
             Attendance.objects.bulk_create(attendance_to_create, batch_size=2000)
         self.stdout.write(f"  [OK] Asistencias generadas para el año: {len(attendance_to_create)}")
 
-    def _generate_conduct_incidents_for_sy(self, enrollments, periods, failing_students):
+    def _generate_conduct_incidents_for_sy(self, enrollments, periods, failing_students, medium_risk_students):
         count = 0
         severity_leve = Severity.objects.get(code="LEVE")
         severity_mod  = Severity.objects.get(code="MODERADA")
@@ -1462,7 +1500,12 @@ class Command(BaseCommand):
                     inc_type  = IncidentType.objects.get(code=inc_type_code)
                     severity  = severity_mod if inc_type_code == "IRRESPETO" else severity_leve
                     desc      = local_rand.choice(descriptions)
-                    incident_date = period.start_date + datetime.timedelta(days=local_rand.randint(5, 45))
+                    instructional_end = _instructional_end_date(period)
+                    max_day = (instructional_end - period.start_date).days
+                    incident_date = period.start_date + datetime.timedelta(
+                        days=local_rand.randint(5, min(45, max(5, max_day)))
+                    )
+                    incident_date = min(incident_date, instructional_end)
                     ConductIncident.objects.get_or_create(
                         enrollment=enrollment,
                         academic_period=period,
@@ -1489,7 +1532,12 @@ class Command(BaseCommand):
                     try:
                         inc_type = IncidentType.objects.get(code="INASISTENCIA")
                         desc = "Falta de respeto o inasistencia reiterativa a clases."
-                        incident_date = period.start_date + datetime.timedelta(days=local_rand.randint(5, 45))
+                        instructional_end = _instructional_end_date(period)
+                        max_day = (instructional_end - period.start_date).days
+                        incident_date = period.start_date + datetime.timedelta(
+                            days=local_rand.randint(5, min(45, max(5, max_day)))
+                        )
+                        incident_date = min(incident_date, instructional_end)
                         ConductIncident.objects.get_or_create(
                             enrollment=enrollment,
                             academic_period=period,
@@ -1577,7 +1625,9 @@ class Command(BaseCommand):
             ]
 
             comp_by_name = {c["name"]: c["component"] for c in structure["comps"]}
-            due_date = period.start_date + ((period.end_date - period.start_date) // 2)
+            instructional_end = _instructional_end_date(period)
+            due_date = period.start_date + ((instructional_end - period.start_date) // 2)
+            due_date = min(due_date, instructional_end)
 
             for (_, comp_name, title, atype_code) in sub_actividades:
                 component = comp_by_name.get(comp_name)
@@ -1602,16 +1652,20 @@ class Command(BaseCommand):
                         "sync_version":    1,
                     },
                 )
+                if not created and obj.due_date != due_date:
+                    obj.due_date = due_date
+                    obj.save(update_fields=["due_date"])
                 self._sync_is_active(obj, year_is_active, created)
                 if created:
                     count += 1
         self.stdout.write(f"  [OK] Actividades evaluativas: {count}")
 
-    def _create_student_notes_for_sy(self, enrollments, grading_struct, doc_users, failing_students):
+    def _create_student_notes_for_sy(self, enrollments, grading_struct, doc_users, failing_students, medium_risk_students):
         count = 0
         docente_by_scode = {d["subject_code"]: d["tag"] for d in DOCENTES}
 
         passing_grade_pool = [7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0]
+        medium_grade_pool  = [5.5, 6.0, 6.5, 7.0, 7.5, 8.0]
         failing_grade_pool = [2.0, 3.5, 4.0, 5.0, 5.5, 6.0, 6.5]
 
         with skip_period_summary_recalc():
@@ -1633,7 +1687,12 @@ class Command(BaseCommand):
                         if enrollment.section_id != structure["offering"].section_id:
                             continue
 
-                        pool = failing_grade_pool if est_tag in failing_students else passing_grade_pool
+                        if est_tag in failing_students:
+                            pool = failing_grade_pool
+                        elif est_tag in medium_risk_students:
+                            pool = medium_grade_pool
+                        else:
+                            pool = passing_grade_pool
                         for activity in activities:
                             nota = local_rand.choice(pool)
                             _, created = StudentNote.objects.get_or_create(
@@ -1702,7 +1761,7 @@ class Command(BaseCommand):
             for enrollment in targets:
                 alert_type, description = local_rand.choice(alert_types)
                 attended_at = datetime.datetime.combine(
-                    period.end_date,
+                    _instructional_end_date(period),
                     datetime.time(16, 0, 0),
                     tzinfo=datetime.timezone.utc,
                 )
@@ -1725,9 +1784,10 @@ class Command(BaseCommand):
                     count += 1
         self.stdout.write(f"  [OK] Alertas tempranas: {count}")
 
-    def _create_risk_data_for_sy(self, enrollments, periods, failing_students):
+    def _create_risk_data_for_sy(self, enrollments, periods, failing_students, medium_risk_students):
         from apps.analytics.student_risk.infrastructure.repositories import StudentFeatureSnapshotRepository, StudentRiskScoreRepository
         from apps.analytics.services.feature_builder import AcademicRiskFeatureBuilder
+        from apps.analytics.tasks import calculate_academic_risk
         snap_count = 0
         score_count = 0
 
@@ -1748,29 +1808,9 @@ class Command(BaseCommand):
                     )
                     snap_count += 1
 
-                    if est_tag in failing_students:
-                        risk_score = round(local_rand.uniform(75, 98), 2)
-                        risk_label = "rojo"
-                    else:
-                        attendance_rate = float(metrics["attendance_rate"])
-                        avg_grade = float(metrics["avg_grade_normalized"])
-
-                        risk_score = round(
-                            min(100, max(0,
-                                (100 - attendance_rate) * 0.35
-                                + (10 - avg_grade) * 10 * 0.35
-                                + int(metrics["failing_subjects_count"]) * 6
-                                + int(metrics["severe_incidents_count"]) * 8
-                            )),
-                            2,
-                        )
-
-                        if risk_score > 70:
-                            risk_label = "rojo"
-                        elif risk_score > 40:
-                            risk_label = "amarillo"
-                        else:
-                            risk_label = "verde"
+                    analysis = calculate_academic_risk(snapshot, metrics)
+                    risk_score = analysis["semaforo_riesgo"]["puntaje_riesgo"]
+                    risk_label = analysis["semaforo_riesgo"]["nivel"]
 
                     StudentRiskScoreRepository.create_score(
                         student_id=enrollment.student_id,

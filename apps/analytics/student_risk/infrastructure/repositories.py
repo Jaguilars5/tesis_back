@@ -113,7 +113,15 @@ class StudentRiskScoreRepository(BaseRepository, StudentRiskScoreRepositoryInter
         risk_label=None,
         model_version=None,
     ) -> StudentRiskScore:
-        """Crea o actualiza el puntaje de riesgo (idempotente por modelo/periodo)."""
+        """
+        Persiste el puntaje de riesgo.
+
+        Primero elimina cualquier registro previo del mismo (enrollment, periodo)
+        para evitar duplicados cuando el ``model_version`` cambia entre recálculos
+        (p. ej. por un nuevo ``version_tag`` en la configuración o cambio de motor
+        reglas → ML). Luego crea un registro nuevo, garantizando que siempre haya
+        exactamente un puntaje vigente por matrícula y período.
+        """
         if not enrollment_id and student_id:
             from apps.students.models import Enrollment
             from apps.academic.academic_period import AcademicPeriod
@@ -126,16 +134,18 @@ class StudentRiskScoreRepository(BaseRepository, StudentRiskScoreRepositoryInter
             if enrollment:
                 enrollment_id = enrollment.id
 
-        obj, _ = cls.model.objects.update_or_create(
+        cls.model.objects.filter(
             enrollment_id=enrollment_id,
             academic_period_id=academic_period_id,
+        ).delete()
+
+        return cls.model.objects.create(
+            enrollment_id=enrollment_id,
+            academic_period_id=academic_period_id,
+            risk_score=risk_score,
+            risk_label=risk_label,
             model_version=model_version,
-            defaults={
-                "risk_score": risk_score,
-                "risk_label": risk_label,
-            },
         )
-        return obj
 
     @classmethod
     def get_by_period(cls, academic_period_id: int):

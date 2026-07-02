@@ -113,7 +113,7 @@ def batch_calculate_academic_risk(self, academic_period_id, student_ids, user_id
 
     for student_id in student_ids:
         try:
-            calculate_student_academic_risk_task(student_id, academic_period_id)
+            calculate_student_academic_risk_task.apply(args=[student_id, academic_period_id])
             results["processed"] += 1
         except Exception as exc:
             results["failed"] += 1

@@ -85,12 +85,26 @@ def notify_representatives_of_absence(self, attendance_id):
     return {"attendance_id": attendance.id, "notified": notified}
 
 
+from django.utils.dateparse import parse_date
+
+
 def _pick(payload, *keys):
     for key in keys:
         value = payload.get(key)
         if value is not None:
             return value
     return None
+
+
+def _parse_attendance_date(value):
+    if value is None:
+        return None
+    if hasattr(value, "year"):
+        return value
+    parsed = parse_date(str(value))
+    if parsed is None:
+        raise ValueError("Formato de fecha inválido. Use YYYY-MM-DD")
+    return parsed
 
 
 def _writable_fields(payload):
@@ -135,7 +149,9 @@ class AttendanceSyncHandler(BaseSyncHandler):
 
         if existing is None:
             enrollment_id = _pick(payload, "enrollment_id", "enrollment")
-            attendance_date = _pick(payload, "attendance_date")
+            attendance_date = _parse_attendance_date(
+                _pick(payload, "attendance_date")
+            )
             schedule_id = _pick(payload, "class_schedule_id", "class_schedule")
             tss_id = _pick(
                 payload, "teacher_subject_section_id", "teacher_subject_section"
@@ -172,7 +188,9 @@ class AttendanceSyncHandler(BaseSyncHandler):
                 academic_period_id=_pick(
                     payload, "academic_period_id", "academic_period"
                 ),
-                attendance_date=_pick(payload, "attendance_date"),
+                attendance_date=_parse_attendance_date(
+                    _pick(payload, "attendance_date")
+                ),
                 attendance_status_id=_pick(
                     payload, "attendance_status_id", "attendance_status"
                 ),

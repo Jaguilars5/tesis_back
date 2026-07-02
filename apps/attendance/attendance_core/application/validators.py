@@ -5,6 +5,15 @@ Validaciones de negocio para Attendance.
 from datetime import date, time
 
 
+def _coerce_attendance_date(value):
+    """Normaliza attendance_date a ``date`` cuando viene como string ISO del sync."""
+    if value is None or isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        return date.fromisoformat(value)
+    return value
+
+
 def validate_required_fields(data, required):
     errors = {}
     for field in required:
@@ -31,7 +40,11 @@ def validate_attendance_date(value):
 def validate_academic_period_date(attendance_date, academic_period):
     from ..infrastructure.models import Attendance
     if attendance_date and academic_period:
-        if attendance_date < academic_period.start_date or attendance_date > academic_period.end_date:
+        try:
+            parsed_date = _coerce_attendance_date(attendance_date)
+        except ValueError:
+            return {"attendance_date": "Formato de fecha inválido. Use YYYY-MM-DD"}
+        if parsed_date < academic_period.start_date or parsed_date > academic_period.end_date:
             return {
                 "attendance_date": (
                     f"La fecha debe estar dentro del período académico "
@@ -67,13 +80,18 @@ def validate_class_schedule(schedule_id, teacher_subject_section_id, attendance_
             cs = ClassSchedule.objects.get(id=schedule_id)
             if cs.teacher_subject_section_id != teacher_subject_section_id:
                 return {"class_schedule": "El horario no pertenece a la clase seleccionada"}
-            if attendance_date and cs.day_of_week != attendance_date.isoweekday():
-                return {
-                    "class_schedule": (
-                        f"La fecha ({attendance_date}, día {attendance_date.isoweekday()}) "
-                        f"no coincide con el día del horario ({cs.day_of_week})"
-                    )
-                }
+            if attendance_date:
+                try:
+                    parsed_date = _coerce_attendance_date(attendance_date)
+                except ValueError:
+                    return {"attendance_date": "Formato de fecha inválido. Use YYYY-MM-DD"}
+                if cs.day_of_week != parsed_date.isoweekday():
+                    return {
+                        "class_schedule": (
+                            f"La fecha ({parsed_date}, día {parsed_date.isoweekday()}) "
+                            f"no coincide con el día del horario ({cs.day_of_week})"
+                        )
+                    }
         except ClassSchedule.DoesNotExist:
             return {"class_schedule": "Horario no encontrado"}
     return {}
@@ -176,6 +194,14 @@ def validate_schedule_time_window(
 
 def run_all_validators(**kwargs):
     errors = {}
+    raw_date = kwargs.get("attendance_date")
+    if isinstance(raw_date, str):
+        try:
+            kwargs["attendance_date"] = _coerce_attendance_date(raw_date)
+        except ValueError:
+            errors["attendance_date"] = "Formato de fecha inválido. Use YYYY-MM-DD"
+            return errors
+
     errors.update(validate_required_fields(kwargs, [
         "enrollment_id", "teacher_subject_section_id",
         "academic_period_id", "attendance_date", "attendance_status_id",

@@ -5,10 +5,10 @@ from ...ml.train_model import RiskModelTrainer
 
 
 class Command(BaseCommand):
-    help = "Entrena el modelo ML de riesgo académico"
-
-    def add_arguments(self, parser):
-        parser.add_argument("--period-id", type=int, help="ID del período académico")
+    help = (
+        "Entrena el modelo de regresión logística para riesgo académico. "
+        "Usa TODOS los períodos históricos. Target: is_failing (PeriodGradeSummary)."
+    )
 
     def handle(self, *args, **options):
         logging.basicConfig(
@@ -17,7 +17,7 @@ class Command(BaseCommand):
         )
         trainer = RiskModelTrainer()
         try:
-            trainer.train(period_id=options.get("period_id"))
+            trainer.train()
             self.stdout.write(self.style.SUCCESS("Modelo entrenado exitosamente"))
         except ValueError as e:
             self.stdout.write(self.style.WARNING(str(e)))

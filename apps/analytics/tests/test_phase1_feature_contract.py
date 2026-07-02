@@ -24,7 +24,7 @@ from unittest.mock import patch
 from django.test import SimpleTestCase, TestCase
 
 from apps.analytics.ml import features
-from apps.analytics.ml.features import FEATURE_COLUMNS
+from apps.analytics.ml.features import FEATURE_COLUMNS, TRAIN_FEATURES
 from apps.analytics.ml.train_model import RiskModelTrainer
 from apps.analytics import tasks
 from apps.analytics.student_risk.domain import risk_engine
@@ -97,7 +97,7 @@ class Phase1ColumnContractTest(SimpleTestCase):
     """El test que debe FALLAR si tren e inferencia divergen."""
 
     def test_trainer_uses_canonical_columns(self):
-        self.assertEqual(RiskModelTrainer.FEATURE_COLUMNS, FEATURE_COLUMNS)
+        self.assertEqual(RiskModelTrainer.FEATURES, TRAIN_FEATURES)
 
     def test_contract_has_16_columns(self):
         self.assertEqual(len(FEATURE_COLUMNS), 16)
