@@ -139,6 +139,11 @@ class StudentRiskScoreRepository(BaseRepository, StudentRiskScoreRepositoryInter
             academic_period_id=academic_period_id,
         ).delete()
 
+        if risk_score is not None:
+            from apps.analytics.student_risk.domain.risk_engine import score_to_risk_label
+
+            risk_label = score_to_risk_label(float(risk_score))
+
         return cls.model.objects.create(
             enrollment_id=enrollment_id,
             academic_period_id=academic_period_id,

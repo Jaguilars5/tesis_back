@@ -4,6 +4,7 @@ Mappers para convertir entre modelos Django y entities de dominio.
 Placeholder para futura implementación de entities inmutables.
 """
 
+from apps.analytics.student_risk.domain.risk_engine import score_to_risk_label
 from .models import RiskFactor, StudentRiskScore, StudentFeatureSnapshot
 
 
@@ -24,7 +25,7 @@ def student_risk_score_to_dict(score: StudentRiskScore) -> dict:
         "enrollment_id": score.enrollment_id,
         "academic_period_id": score.academic_period_id,
         "risk_score": float(score.risk_score),
-        "risk_label": score.risk_label,
+        "risk_label": score_to_risk_label(float(score.risk_score)),
         "model_version": score.model_version,
         "calculated_at": score.calculated_at,
         "risk_factors": [

@@ -15,6 +15,7 @@ Características:
   • Horario sin cruces ni solapamientos entre docentes, materias y paralelos
   • Actividades evaluativas con nombres descriptivos por asignatura y trimestre
   • Notas con distribución variada entre 0 y 10 (no todas iguales)
+  • Perfiles de riesgo con ruido y solapamiento (datos «sucios», más realistas para ML)
   • Incidentes conductuales con descripciones realistas por tipo
   • Idempotente: re-ejecutar no duplica registros
 
@@ -30,7 +31,9 @@ import datetime
 import random
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 
+from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
 
@@ -96,6 +99,9 @@ def _instructional_end_date(period) -> date:
         return min(period.end_date, ACTIVE_YEAR_INSTRUCTIONAL_END)
     return period.end_date
 
+
+def _clamp_grade(value: float) -> float:
+    return round(max(0.0, min(10.0, value)), 1)
 
 # Tres trimestres del año lectivo 2025-2026 (cierre administrativo hasta fin de julio)
 TRIMESTRES = [
@@ -889,6 +895,17 @@ SCHOOL_YEARS_DATA = [
 class Command(BaseCommand):
     help = "Siembra datos de prueba multianuales coherentes con el paralelo C y soporte para ML"
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--credentials-file",
+            type=str,
+            default=None,
+            help=(
+                "Ruta del archivo .txt con las credenciales generadas "
+                "(por defecto: <BASE_DIR>/seed_credentials.txt)"
+            ),
+        )
+
     @staticmethod
     def _sync_is_active(obj, is_active, created):
         """Alinea is_active en re-ejecuciones (años históricos deben quedar inactivos)."""
@@ -1216,8 +1233,16 @@ class Command(BaseCommand):
                 else:
                     student_states[tag]["last_status"] = "PASSED"
 
-            self._generate_attendance_for_sy(current_enrollments, teacher_map, periods, failing_students, medium_risk_students)
-            self._generate_conduct_incidents_for_sy(current_enrollments, periods, failing_students, medium_risk_students)
+            risk_profiles = self._build_student_risk_profiles(
+                current_enrollments, failing_students, medium_risk_students
+            )
+
+            self._generate_attendance_for_sy(
+                current_enrollments, teacher_map, periods, risk_profiles
+            )
+            self._generate_conduct_incidents_for_sy(
+                current_enrollments, periods, failing_students, medium_risk_students
+            )
 
             grading_struct = self._create_grading_structure_for_sy(
                 periods, offerings, year_is_active
@@ -1225,7 +1250,9 @@ class Command(BaseCommand):
             self._create_evaluative_activities_for_sy(
                 teacher_map, grading_struct, periods, year_is_active
             )
-            self._create_student_notes_for_sy(current_enrollments, grading_struct, doc_users, failing_students, medium_risk_students)
+            self._create_student_notes_for_sy(
+                current_enrollments, grading_struct, doc_users, risk_profiles
+            )
 
             self._create_behavior_evaluations(current_enrollments, periods, admin_users)
             self._create_early_alerts(current_enrollments, periods, admin_users)
@@ -1269,7 +1296,8 @@ class Command(BaseCommand):
 
         self._print_summary(
             active_sy, active_sections, active_periods, active_students_objs, active_enrollments,
-            admin_users, doc_users, rep_users, est_users
+            admin_users, doc_users, rep_users, est_users,
+            credentials_file=options.get("credentials_file"),
         )
 
     def _seed_catalogs(self):
@@ -1421,15 +1449,81 @@ class Command(BaseCommand):
             UserRole.objects.get_or_create(user=user, role=docente_role)
         self.stdout.write("  [OK] Roles asignados")
 
-    def _generate_attendance_for_sy(self, enrollments, teacher_map, periods, failing_students, medium_risk_students):
+    def _build_student_risk_profiles(self, enrollments, failing_students, medium_risk_students):
+        """
+        Perfil latente por estudiante con ruido y solapamiento entre dimensiones.
+
+        A diferencia de pools fijos (reprobado → siempre nota baja), cada estudiante
+        tiene tendencias propias; el grupo de riesgo solo sesga la media. Así el ML
+        ve correlaciones imperfectas como en datos reales.
+        """
+        subject_codes = [d["subject_code"] for d in DOCENTES]
+        profiles = {}
+
+        for tag in enrollments:
+            if tag in failing_students:
+                grade_mean = local_rand.uniform(4.0, 6.4)
+                attendance_present = local_rand.uniform(0.58, 0.80)
+                if local_rand.random() < 0.20:
+                    # Reprueba por notas con asistencia aceptable
+                    attendance_present = local_rand.uniform(0.82, 0.93)
+                    grade_mean = local_rand.uniform(5.6, 6.9)
+            elif tag in medium_risk_students:
+                grade_mean = local_rand.uniform(5.4, 7.6)
+                attendance_present = local_rand.uniform(0.70, 0.88)
+            else:
+                grade_mean = local_rand.uniform(7.0, 9.4)
+                attendance_present = local_rand.uniform(0.84, 0.97)
+                if local_rand.random() < 0.14:
+                    # Buen promedio pero inasistencia recurrente
+                    attendance_present = local_rand.uniform(0.62, 0.78)
+                if local_rand.random() < 0.10:
+                    # Promedio alto con una materia muy débil (se aplica vía weak_subject)
+                    grade_mean = local_rand.uniform(7.5, 8.8)
+
+            profiles[tag] = {
+                "grade_mean": grade_mean,
+                "grade_std": local_rand.uniform(0.5, 1.4),
+                "grade_trend": local_rand.uniform(-0.25, 0.25),
+                "attendance_present": attendance_present,
+                "weak_subject": local_rand.choice(subject_codes),
+                "attendance_volatility": local_rand.uniform(0.02, 0.08),
+            }
+        return profiles
+
+    def _pick_attendance_status(self, profile, status_P, status_T, status_J, status_A):
+        """Elige estado de asistencia con probabilidad individual + ruido diario."""
+        p_present = profile["attendance_present"] + local_rand.uniform(
+            -profile["attendance_volatility"], profile["attendance_volatility"]
+        )
+        p_present = max(0.45, min(0.98, p_present))
+
+        roll = local_rand.random()
+        if roll < p_present * 0.88:
+            return status_P
+        if roll < p_present * 0.88 + 0.06:
+            return status_T
+        if roll < p_present * 0.88 + 0.10:
+            return status_J
+        return status_A
+
+    def _sample_numeric_grade(self, profile, subject_code, activity_index):
+        """Nota con media por estudiante, materia débil opcional y jitter por actividad."""
+        mean = profile["grade_mean"]
+        if subject_code == profile["weak_subject"]:
+            mean -= local_rand.uniform(1.0, 2.8)
+        if local_rand.random() < 0.08:
+            mean += local_rand.uniform(-1.5, 1.5)
+
+        trend = profile["grade_trend"] * (activity_index / 10.0)
+        raw = mean + trend + local_rand.gauss(0, profile["grade_std"])
+        return _clamp_grade(raw)
+
+    def _generate_attendance_for_sy(self, enrollments, teacher_map, periods, risk_profiles):
         status_P = AttendanceStatus.objects.get(code="P")
         status_T = AttendanceStatus.objects.get(code="T")
         status_J = AttendanceStatus.objects.get(code="J")
         status_A = AttendanceStatus.objects.get(code="A")
-
-        passing_pool = [status_P] * 92 + [status_T] * 5 + [status_J] * 2 + [status_A] * 1
-        medium_pool  = [status_P] * 78 + [status_T] * 6 + [status_J] * 6 + [status_A] * 10
-        failing_pool = [status_P] * 60 + [status_T] * 8 + [status_J] * 12 + [status_A] * 20
 
         schedules = ClassSchedule.objects.select_related("teacher_subject_section").all()
         attendance_to_create = []
@@ -1458,13 +1552,10 @@ class Command(BaseCommand):
                 dates = dates_by_weekday.get(schedule.day_of_week, [])
                 for date_val in dates:
                     for est_tag, enrollment in matching_enrollments:
-                        if est_tag in failing_students:
-                            pool = failing_pool
-                        elif est_tag in medium_risk_students:
-                            pool = medium_pool
-                        else:
-                            pool = passing_pool
-                        status = local_rand.choice(pool)
+                        profile = risk_profiles[est_tag]
+                        status = self._pick_attendance_status(
+                            profile, status_P, status_T, status_J, status_A
+                        )
                         attendance_to_create.append(
                             Attendance(
                                 enrollment=enrollment,
@@ -1660,13 +1751,9 @@ class Command(BaseCommand):
                     count += 1
         self.stdout.write(f"  [OK] Actividades evaluativas: {count}")
 
-    def _create_student_notes_for_sy(self, enrollments, grading_struct, doc_users, failing_students, medium_risk_students):
+    def _create_student_notes_for_sy(self, enrollments, grading_struct, doc_users, risk_profiles):
         count = 0
         docente_by_scode = {d["subject_code"]: d["tag"] for d in DOCENTES}
-
-        passing_grade_pool = [7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0]
-        medium_grade_pool  = [5.5, 6.0, 6.5, 7.0, 7.5, 8.0]
-        failing_grade_pool = [2.0, 3.5, 4.0, 5.0, 5.5, 6.0, 6.5]
 
         with skip_period_summary_recalc():
             for (period_code, grade_code, scode, parallel), structure in grading_struct.items():
@@ -1687,14 +1774,9 @@ class Command(BaseCommand):
                         if enrollment.section_id != structure["offering"].section_id:
                             continue
 
-                        if est_tag in failing_students:
-                            pool = failing_grade_pool
-                        elif est_tag in medium_risk_students:
-                            pool = medium_grade_pool
-                        else:
-                            pool = passing_grade_pool
-                        for activity in activities:
-                            nota = local_rand.choice(pool)
+                        profile = risk_profiles[est_tag]
+                        for act_idx, activity in enumerate(activities):
+                            nota = self._sample_numeric_grade(profile, scode, act_idx)
                             _, created = StudentNote.objects.get_or_create(
                                 enrollment=enrollment,
                                 evaluative_activity=activity,
@@ -1810,14 +1892,12 @@ class Command(BaseCommand):
 
                     analysis = calculate_academic_risk(snapshot, metrics)
                     risk_score = analysis["semaforo_riesgo"]["puntaje_riesgo"]
-                    risk_label = analysis["semaforo_riesgo"]["nivel"]
 
                     StudentRiskScoreRepository.create_score(
                         student_id=enrollment.student_id,
                         academic_period_id=period.id,
                         risk_score=risk_score,
-                        risk_label=risk_label,
-                        model_version="seed-v2"
+                        model_version=analysis.get("model_version", "seed-v2"),
                     )
                     score_count += 1
 
@@ -1827,8 +1907,64 @@ class Command(BaseCommand):
         self.stdout.write(f"  [OK] Feature snapshots creados: {snap_count}")
         self.stdout.write(f"  [OK] Risk scores creados: {score_count}")
 
+    def _build_credentials_lines(self, admin_users, doc_users, rep_users, est_users):
+        sep = "-" * 60
+        lines = [
+            sep,
+            "  CREDENCIALES DE ACCESO (Método de acceso: username)",
+            sep,
+            "",
+            "  Administradores:",
+        ]
+        for item in ADMIN_USERS:
+            u = admin_users.get(item["tag"])
+            username = u.username if u else "desconocido"
+            lines.append(
+                f"  [{item['tag'].upper():12}] usuario: {username:15} | pw: {item['password']:20} | correo: {item['email']}"
+            )
+
+        lines.extend(["", "  Docentes:"])
+        for d in DOCENTES:
+            u = doc_users.get(d["tag"])
+            username = u.username if u else "desconocido"
+            email = u.person.email if (u and u.person) else "desconocido"
+            pw = f"Doc.{d['last_names'].split()[0]}2025!"
+            lines.append(
+                f"  [{d['subject_code']:8}] usuario: {username:15} | pw: {pw:20} | correo: {email}"
+            )
+
+        lines.extend(["", "  Representantes:"])
+        for r in REPRESENTANTES:
+            u = rep_users.get(r["tag"])
+            username = u.username if u else "desconocido"
+            email = u.person.email if (u and u.person) else "desconocido"
+            pw = f"Rep.{r['last_names'].split()[0]}2025!"
+            hijos = ", ".join(r["students"])
+            lines.append(
+                f"  usuario: {username:15} | pw: {pw:20} | correo: {email:30} | estudiantes: {hijos}"
+            )
+
+        lines.extend(["", "  Estudiantes:"])
+        for e in ESTUDIANTES:
+            u = est_users.get(e["tag"])
+            username = u.username if u else "desconocido"
+            email = u.person.email if (u and u.person) else "desconocido"
+            pw = f"Est.{e['last_names'].split()[0]}2025!"
+            full_name = u.get_full_name() if u else f"{e['names']} {e['last_names']}"
+            lines.append(
+                f"  [{e['parallel']}] usuario: {username:15} | pw: {pw:20} | correo: {email:35} | estudiante: {full_name}"
+            )
+
+        return lines
+
+    def _save_credentials_file(self, lines, credentials_file=None):
+        output_path = Path(credentials_file) if credentials_file else Path(settings.BASE_DIR) / "seed_credentials.txt"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return output_path
+
     def _print_summary(self, school_year, sections, periods, students, enrollments,
-                       admin_users, doc_users, rep_users, est_users):
+                       admin_users, doc_users, rep_users, est_users, credentials_file=None):
         line = "=" * 60
         self.stdout.write(self.style.SUCCESS(f"\n{line}"))
         self.stdout.write(self.style.SUCCESS("  SEED COMPLETADO – AÑO LECTIVO"))
@@ -1841,41 +1977,16 @@ class Command(BaseCommand):
         self.stdout.write(f"  Estudiantes total: {len(students)}")
         self.stdout.write(f"  Matrículas año:    {len(enrollments)}")
         self.stdout.write(f"  Representantes:    {len(rep_users)}")
-        self.stdout.write(self.style.SUCCESS("-" * 60))
-        self.stdout.write("  CREDENCIALES DE ACCESO (Método de acceso: username)")
-        self.stdout.write(self.style.SUCCESS("-" * 60))
 
-        self.stdout.write("  Administradores:")
-        for item in ADMIN_USERS:
-            u = admin_users.get(item["tag"])
-            username = u.username if u else "desconocido"
-            self.stdout.write(f"  [{item['tag'].upper():12}] usuario: {username:15} | pw: {item['password']:20} | correo: {item['email']}")
+        credential_lines = self._build_credentials_lines(
+            admin_users, doc_users, rep_users, est_users
+        )
+        for cred_line in credential_lines:
+            if cred_line.startswith("-"):
+                self.stdout.write(self.style.SUCCESS(cred_line))
+            else:
+                self.stdout.write(cred_line)
 
-        self.stdout.write("  Docentes:")
-        for d in DOCENTES:
-            u = doc_users.get(d["tag"])
-            username = u.username if u else "desconocido"
-            email = u.person.email if (u and u.person) else "desconocido"
-            pw    = f"Doc.{d['last_names'].split()[0]}2025!"
-            self.stdout.write(f"  [{d['subject_code']:8}] usuario: {username:15} | pw: {pw:20} | correo: {email}")
-
-        self.stdout.write("")
-        self.stdout.write("  Representantes:")
-        for r in REPRESENTANTES:
-            u = rep_users.get(r["tag"])
-            username = u.username if u else "desconocido"
-            email = u.person.email if (u and u.person) else "desconocido"
-            pw    = f"Rep.{r['last_names'].split()[0]}2025!"
-            hijos = ", ".join(r["students"])
-            self.stdout.write(f"  usuario: {username:15} | pw: {pw:20} | correo: {email:30} | estudiantes: {hijos}")
-
-        self.stdout.write("")
-        self.stdout.write("  Estudiantes (Año Activo 2025-2026):")
-        for e in ESTUDIANTES:
-            u = est_users.get(e["tag"])
-            username = u.username if u else "desconocido"
-            email = u.person.email if (u and u.person) else "desconocido"
-            pw       = f"Est.{e['last_names'].split()[0]}2025!"
-            self.stdout.write(f"  [{e['parallel']}] usuario: {username:15} | pw: {pw:20} | correo: {email:35} | estudiante: {u.get_full_name() if u else e['names'] + ' ' + e['last_names']}")
-
+        output_path = self._save_credentials_file(credential_lines, credentials_file)
         self.stdout.write(self.style.SUCCESS(line))
+        self.stdout.write(self.style.SUCCESS(f"  Credenciales guardadas en: {output_path.resolve()}"))

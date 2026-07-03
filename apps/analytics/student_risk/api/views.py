@@ -266,12 +266,13 @@ class StudentRiskScoreViewSet(BaseAnalyticsViewSet):
             raise DRFValidationError(serializer.errors)
 
         result = StudentRiskCalculationService.simulate(serializer.validated_data)
-        config_serializer = RiskScoringConfigSerializer(result["config"])
 
         return ok_response({
             "reglas": result["reglas"],
             "ml": result["ml"],
-            "config_usada": config_serializer.data,
+            "produccion": result["produccion"],
+            "config_usada": result["config_simulacion"],
+            "config_institucional": result["config_institucional"],
         })
 
 

@@ -22,6 +22,11 @@ logger = logging.getLogger(__name__)
 MODEL_VERSION_FALLBACK = "rules-fallback-v1"
 MODEL_VERSION_SKLEARN = "sklearn-joblib-v2"
 
+# Umbrales del semáforo derivados del puntaje final (0–100).
+# Deben coincidir con la interpretación del simulador ML en el frontend.
+SCORE_LEVEL_RED_MIN = 70.0
+SCORE_LEVEL_YELLOW_MIN = 40.0
+
 _model_available = MODEL_PATH.exists()
 
 
@@ -67,8 +72,9 @@ def calculate_risk(
     """
     Calcula el semáforo de riesgo.
 
-    Mantiene reglas críticas para la etiqueta y usa
-    ML opcional para ajustar el puntaje si existe un artefacto entrenado.
+    El puntaje (reglas o ML) y la etiqueta del semáforo comparten los mismos
+    umbrales: ``>=70`` rojo, ``>=40`` amarillo, ``<40`` verde. Las reglas por
+    variable siguen usándose para factores críticos, recomendaciones y detalle.
 
     `config` puede ser ``None`` (se lee la config efectiva normalizada), una
     instancia de :class:`EffectiveScoringConfig`, o el modelo singleton
@@ -80,20 +86,19 @@ def calculate_risk(
         RiskScoringConfigService,
     )
 
-    if not isinstance(config, EffectiveScoringConfig):
-        # None o el modelo singleton -> usar la config efectiva normalizada.
-        config = RiskScoringConfigService.get_effective()
+    config = RiskScoringConfigService._normalize_config(config)
 
     variables = snapshot["variables"]
     detail = _detail_by_variable(variables, config)
     factors = _critical_factors(variables, config)
     recommendations = _recommendations(factors, variables, config)
-    level = _risk_level(variables, config)
-    fallback_score = _fallback_risk_score(variables, level, config)
+    rule_level = _risk_level(variables, config)
+    fallback_score = _fallback_risk_score(variables, rule_level, config)
 
     # El motor ML solo se intenta cuando la institución lo selecciona.
     ml_score = _predict_ml_score(snapshot, metrics) if config.engine == "ML" else None
     score = ml_score if ml_score is not None else fallback_score
+    level = _score_to_level(score)
     if ml_score is not None:
         model_version = MODEL_VERSION_SKLEARN
     elif config.version_tag:
@@ -134,8 +139,22 @@ def _public_analysis(analysis: Dict) -> Dict:
     return public
 
 
+def score_to_risk_label(score: float) -> str:
+    """Convierte el puntaje 0–100 en etiqueta de semáforo (API pública)."""
+    if score >= SCORE_LEVEL_RED_MIN:
+        return "rojo"
+    if score >= SCORE_LEVEL_YELLOW_MIN:
+        return "amarillo"
+    return "verde"
+
+
+def _score_to_level(score: float) -> str:
+    """Alias interno de :func:`score_to_risk_label`."""
+    return score_to_risk_label(score)
+
+
 def _risk_level(variables: Dict, config=None) -> str:
-    """Determina el nivel de riesgo basado en umbrales."""
+    """Nivel por umbrales de variables (conducta/asistencia/notas). Usado en detalle y factores."""
     config = config or _default_config()
     conducta = variables["conducta"]
     asistencia = variables["asistencia"]
@@ -153,8 +172,8 @@ def _risk_level(variables: Dict, config=None) -> str:
     ):
         return "rojo"
     if (
-        config.attendance_red_max <= attendance <= config.attendance_yellow_max
-        or config.average_red_max <= average <= config.average_yellow_max
+        config.attendance_red_max <= attendance < config.attendance_green_min
+        or config.average_red_max <= average < config.average_green_min
         or mild > config.mild_yellow_min
     ):
         return "amarillo"
@@ -184,14 +203,15 @@ def _detail_by_variable(variables: Dict, config=None) -> Dict:
 def _conduct_level(conducta: Dict, config=None) -> str:
     """Nivel de riesgo para conducta."""
     config = config or _default_config()
-    if conducta["faltas_graves"] > config.severe_red_min:
+    graves = conducta["faltas_graves"]
+    leves = conducta["faltas_leves"]
+    if graves > config.severe_red_min:
         return "rojo"
-    if (
-        conducta["faltas_leves"] > config.mild_yellow_min
-        or conducta["faltas_graves"] > 0
-    ):
+    if leves <= config.mild_green_max and graves <= config.severe_green_max:
+        return "verde"
+    if leves > config.mild_yellow_min or graves > config.severe_green_max:
         return "amarillo"
-    return "verde"
+    return "amarillo"
 
 
 def _attendance_level(asistencia: Dict, config=None) -> str:
@@ -200,7 +220,7 @@ def _attendance_level(asistencia: Dict, config=None) -> str:
     attendance = asistencia["porcentaje_asistencia"]
     if attendance < config.attendance_red_max:
         return "rojo"
-    if attendance <= config.attendance_yellow_max:
+    if attendance < config.attendance_green_min:
         return "amarillo"
     return "verde"
 
@@ -211,7 +231,7 @@ def _grades_level(calificaciones: Dict, config=None) -> str:
     average = calificaciones["promedio_actual"]
     if average < config.average_red_max:
         return "rojo"
-    if average <= config.average_yellow_max:
+    if average < config.average_green_min:
         return "amarillo"
     return "verde"
 

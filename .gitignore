@@ -49,3 +49,9 @@ diagrams/
 
 
 node_modules
+
+.env
+
+seed_credentials.txt
+
+.sqlite3

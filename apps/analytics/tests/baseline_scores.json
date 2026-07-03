@@ -1,5 +1,5 @@
 {
-  "_comment": "Snapshot dorado (Fase 0 del PLAN_IMPLEMENTACION). Congela el comportamiento vigente del calculo de riesgo academico por reglas (fallback), ya que no existe risk_model.joblib. Cualquier cambio en _risk_level / _fallback_risk_score / WEIGHTS que altere estos valores debe ser intencional y revisado contra este baseline. Los puntajes son los retornados por calculate_academic_risk()['semaforo_riesgo']['puntaje_riesgo'].",
+  "_comment": "Snapshot dorado (Fase 0). Congela puntajes de calculate_academic_risk() con motor por reglas. El nivel del semáforo se deriva del puntaje (>=70 rojo, >=40 amarillo). Los umbrales por variable (_risk_level) siguen usándose en detalle y factores críticos.",
   "generated_for_phase": "Fase 0 - Baseline y red de seguridad",
   "model_version_expected": "rules-fallback-v1",
   "weights": {

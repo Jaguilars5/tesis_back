@@ -395,6 +395,18 @@ class RiskScoringConfig(TimeStampedModel):
         default=7.00,
         verbose_name="Promedio máximo para Amarillo",
     )
+    attendance_green_min = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=85.01,
+        verbose_name="Asistencia mínima para Verde (%)",
+    )
+    average_green_min = models.DecimalField(
+        max_digits=4,
+        decimal_places=2,
+        default=7.01,
+        verbose_name="Promedio mínimo para Verde",
+    )
 
     # Umbrales de conducta (conteos)
     severe_red_min = models.IntegerField(
@@ -404,6 +416,14 @@ class RiskScoringConfig(TimeStampedModel):
     mild_yellow_min = models.IntegerField(
         default=5,
         verbose_name="Faltas leves para Amarillo (>)",
+    )
+    severe_green_max = models.IntegerField(
+        default=0,
+        verbose_name="Faltas graves máximas para Verde (≤)",
+    )
+    mild_green_max = models.IntegerField(
+        default=5,
+        verbose_name="Faltas leves máximas para Verde (≤)",
     )
 
     class Meta:

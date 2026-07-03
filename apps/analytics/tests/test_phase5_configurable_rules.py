@@ -76,10 +76,14 @@ class Phase5ThresholdConfigEffectTest(SimpleTestCase):
             weight_calificaciones=0.35,
             attendance_red_max=60.0,
             attendance_yellow_max=78.0,
+            attendance_green_min=79.0,
             average_red_max=6.0,
             average_yellow_max=7.0,
+            average_green_min=7.5,
             severe_red_min=3,
             mild_yellow_min=5,
+            severe_green_max=0,
+            mild_green_max=5,
         )
         self.assertEqual(
             _risk_level(_snapshot(attendance=80.0)["variables"], config), "verde"
@@ -103,10 +107,14 @@ class Phase5ThresholdConfigEffectTest(SimpleTestCase):
             weight_calificaciones=0.30,
             attendance_red_max=70.0,
             attendance_yellow_max=85.0,
+            attendance_green_min=90.0,
             average_red_max=6.0,
             average_yellow_max=7.0,
+            average_green_min=7.5,
             severe_red_min=3,
             mild_yellow_min=5,
+            severe_green_max=0,
+            mild_green_max=5,
         )
         weighted = _fallback_risk_score(variables, "amarillo", heavy_attendance)  # 42.0
         # Distinta distribución de pesos → score distinto.
@@ -125,7 +133,10 @@ class Phase5DefaultConfigTest(SimpleTestCase):
         self.assertEqual(DEFAULT_CONFIG.average_red_max, 6.0)
         self.assertEqual(DEFAULT_CONFIG.average_yellow_max, 7.0)
         self.assertEqual(DEFAULT_CONFIG.severe_red_min, 3)
-        self.assertEqual(DEFAULT_CONFIG.mild_yellow_min, 5)
+        self.assertEqual(DEFAULT_CONFIG.attendance_green_min, 85.01)
+        self.assertEqual(DEFAULT_CONFIG.average_green_min, 7.01)
+        self.assertEqual(DEFAULT_CONFIG.severe_green_max, 0)
+        self.assertEqual(DEFAULT_CONFIG.mild_green_max, 5)
 
     def test_get_effective_falls_back_without_db(self):
         # SimpleTestCase bloquea la BD → debe devolver DEFAULT_CONFIG.
@@ -143,10 +154,14 @@ class Phase5SerializerValidationTest(SimpleTestCase):
         "weight_calificaciones": 35,
         "attendance_red_max": 70,
         "attendance_yellow_max": 85,
+        "attendance_green_min": 85.01,
         "average_red_max": 6.0,
         "average_yellow_max": 7.0,
+        "average_green_min": 7.01,
         "severe_red_min": 3,
         "mild_yellow_min": 5,
+        "severe_green_max": 0,
+        "mild_green_max": 5,
     }
 
     def test_valid_config_passes(self):
@@ -208,14 +223,14 @@ class Phase5DbConfigAppliedTest(TestCase):
         self.assertEqual(RiskScoringConfig.objects.count(), 1)
 
     def test_strict_preset_changes_classification(self):
-        # Preset estricto: asistencia amarillo hasta 80 → 80 sigue amarillo,
-        # pero 82 (entre 80 y 100) pasa a verde, mientras que en default (85) sería amarillo.
+        # Preset estricto: verde desde 85% → 86 es verde; en equilibrado (verde 85.01) 86 también.
+        # Usamos 88: en estricto es verde (≥85), en equilibrado por defecto sería amarillo si green=90.
         config = RiskScoringConfigRepository.get_or_create_singleton()
         for field, value in {**PRESETS["estricto"], "preset": "estricto"}.items():
             setattr(config, field, value)
         config.save()
 
-        result = calculate_academic_risk(_snapshot(attendance=82.0, average=9.0))
+        result = calculate_academic_risk(_snapshot(attendance=88.0, average=9.0))
         self.assertEqual(result["semaforo_riesgo"]["nivel"], "verde")
 
     def test_model_version_reflects_db_config(self):

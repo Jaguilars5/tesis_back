@@ -1,8 +1,12 @@
 from datetime import date, timedelta
 from decimal import Decimal
+from dataclasses import replace
 from unittest.mock import patch
 
 from django.test import TestCase
+
+from apps.analytics.services.risk_scoring_config_service import DEFAULT_CONFIG
+from apps.analytics.student_risk.domain.risk_engine import calculate_risk
 
 from apps.institutions.models import Section
 from apps.academic.period_type import PeriodType
@@ -270,6 +274,18 @@ class AcademicRiskModelTest(TestCase):
 
         self.assertEqual(result["semaforo_riesgo"]["nivel"], "verde")
 
+    @patch("apps.analytics.student_risk.domain.risk_engine._predict_ml_score", return_value=98.0)
+    def test_semaphore_level_follows_ml_score_not_rule_band(self, _mocked_ml):
+        """Puntaje ML alto debe clasificar en rojo aunque las reglas digan amarillo."""
+        config = replace(DEFAULT_CONFIG, engine="ML")
+        snapshot = self._base_snapshot()
+        snapshot["variables"]["asistencia"]["porcentaje_asistencia"] = 80.0
+
+        result = calculate_risk(snapshot, config=config)
+
+        self.assertEqual(result["semaforo_riesgo"]["puntaje_riesgo"], 98.0)
+        self.assertEqual(result["semaforo_riesgo"]["nivel"], "rojo")
+
     @patch("apps.analytics.tasks._predict_ml_score", return_value=None)
     def test_task_returns_json_and_persists_fallback_result(self, mocked_predict):
         self._create_attendance_sequence(["P"] * 9 + ["A"])
@@ -286,3 +302,68 @@ class AcademicRiskModelTest(TestCase):
         # Fase 5: con el motor por defecto ("reglas") NO se invoca el ML; el
         # cálculo usa directamente el fallback por reglas (ML sólo con engine=ML).
         mocked_predict.assert_not_called()
+
+
+class SimulateRiskEnginesTest(TestCase):
+    """El simulador debe evaluar reglas y ML por separado."""
+
+    BASE_PARAMS = {
+        "attendance_rate": 85.0,
+        "average_grade": 7.0,
+        "failing_subjects_count": 0,
+        "severe_incidents_count": 0,
+        "mild_incidents_count": 1,
+    }
+
+    @patch(
+        "apps.analytics.student_risk.domain.risk_engine._predict_ml_score",
+        return_value=92.0,
+    )
+    def test_simulate_rules_ignore_ml_even_when_production_uses_ml(self, _mock_ml):
+        from apps.analytics.student_risk.domain.services import StudentRiskCalculationService
+
+        result = StudentRiskCalculationService.simulate(
+            {
+                **self.BASE_PARAMS,
+                "config_overrides": {"engine": "ML"},
+            }
+        )
+
+        self.assertIn("rules-fallback", result["reglas"]["model_version"])
+        self.assertEqual(result["reglas"]["motor"], "reglas")
+        self.assertLess(result["reglas"]["semaforo_riesgo"]["puntaje_riesgo"], 90)
+        self.assertEqual(result["ml"]["puntaje_riesgo"], 92.0)
+        self.assertEqual(result["produccion"]["semaforo_riesgo"]["puntaje_riesgo"], 92.0)
+        self.assertEqual(result["produccion"]["motor"], "ML")
+
+
+class SimulateRiskEnginesTest(TestCase):
+  """El simulador debe evaluar reglas y ML por separado."""
+
+  BASE_PARAMS = {
+      "attendance_rate": 85.0,
+      "average_grade": 7.0,
+      "failing_subjects_count": 0,
+      "severe_incidents_count": 0,
+      "mild_incidents_count": 1,
+  }
+
+  @patch(
+      "apps.analytics.student_risk.domain.risk_engine._predict_ml_score",
+      return_value=92.0,
+  )
+  def test_simulate_rules_ignore_ml_even_when_production_uses_ml(self, _mock_ml):
+      from apps.analytics.student_risk.domain.services import StudentRiskCalculationService
+
+      result = StudentRiskCalculationService.simulate(
+          {
+              **self.BASE_PARAMS,
+              "config_overrides": {"engine": "ML"},
+          }
+      )
+
+      self.assertIn("rules-fallback", result["reglas"]["model_version"])
+      self.assertLess(result["reglas"]["semaforo_riesgo"]["puntaje_riesgo"], 90)
+      self.assertEqual(result["ml"]["puntaje_riesgo"], 92.0)
+      self.assertEqual(result["produccion"]["semaforo_riesgo"]["puntaje_riesgo"], 92.0)
+      self.assertEqual(result["produccion"]["motor"], "ML")

@@ -25,6 +25,10 @@ from apps.analytics.student_risk.domain.risk_engine import (  # noqa: F401  (re-
     _predict_ml_score,
     _public_analysis,
     _risk_level,
+    _score_to_level,
+    score_to_risk_label,
+    SCORE_LEVEL_RED_MIN,
+    SCORE_LEVEL_YELLOW_MIN,
 )
 from apps.analytics.ml.features import MODEL_PATH  # noqa: F401  (re-export)
 from apps.analytics.student_risk.infrastructure.repositories import (

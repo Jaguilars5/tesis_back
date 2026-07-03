@@ -110,14 +110,21 @@ class StudentRiskCalculationService:
     @classmethod
     def simulate(cls, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Evalúa ambos motores con parámetros simulados.
+        Evalúa reglas, ML y motor institucional con parámetros simulados.
 
         Retorna:
-          - ``reglas``: score heurístico + factores críticos + recomendaciones.
-          - ``ml``: probabilidad estimada de reprobar (regresión logística) o error.
-          - ``config``: configuración activa del motor de riesgo.
+          - ``reglas``: score heurístico (siempre motor de reglas).
+          - ``ml``: probabilidad estimada de reprobar (regresión logística).
+          - ``produccion``: resultado con el motor seleccionado en config.
+          - ``config_simulacion``: pesos/umbrales usados en la simulación.
+          - ``config_institucional``: configuración persistida en BD.
         """
-        from .risk_engine import calculate_risk, _predict_ml_score
+        from dataclasses import replace
+
+        from apps.analytics.services.risk_scoring_config_service import (
+            RiskScoringConfigService,
+        )
+        from .risk_engine import calculate_risk, _predict_ml_score, score_to_risk_label
 
         variables = {
             "conducta": {
@@ -147,16 +154,24 @@ class StudentRiskCalculationService:
             "variables": variables,
         }
 
+        avg_grade = params["average_grade"]
         metrics = {
             "attendance_rate": params["attendance_rate"],
             "consecutive_absences_max": params.get("consecutive_absences_max", 0),
             "tardiness_count": params.get("tardiness_count", 0),
             "justified_absences": params.get("justified_absences", 0),
             "unjustified_absences": params.get("unjustified_absences", 0),
-            "avg_grade_normalized": params["average_grade"],
+            "avg_grade_normalized": avg_grade,
+            "formative_avg_normalized": avg_grade,
+            "summative_avg_normalized": avg_grade,
             "grade_trend_slope": params.get("grade_trend_slope", 0),
             "failing_subjects_count": params["failing_subjects_count"],
-            "conduct_score": 10 - (params.get("mild_incidents_count", 0) * 0.5 + params.get("moderate_incidents_count", 0) * 1.0 + params.get("severe_incidents_count", 0) * 2.0),
+            "conduct_score": 10
+            - (
+                params.get("mild_incidents_count", 0) * 0.5
+                + params.get("moderate_incidents_count", 0) * 1.0
+                + params.get("severe_incidents_count", 0) * 2.0
+            ),
             "severe_incidents_count": params.get("severe_incidents_count", 0),
             "family_notified_ratio": params.get("family_notified_ratio", 0),
             "prev_period_avg_grade": params.get("prev_period_avg_grade", 0),
@@ -165,28 +180,104 @@ class StudentRiskCalculationService:
             "has_special_needs": params.get("has_special_needs", False),
         }
 
-        config = RiskScoringConfigService.get_effective_config()
-        rules_result = calculate_risk(snapshot, config=config)
+        overrides = params.get("config_overrides") or {}
+        sim_config = RiskScoringConfigService.build_effective_from_dict(overrides)
+        rules_config = replace(sim_config, engine="reglas")
+
+        rules_result = calculate_risk(snapshot, metrics=metrics, config=rules_config)
+        produccion_result = calculate_risk(snapshot, metrics=metrics, config=sim_config)
 
         ml_result: Dict[str, Any] = {}
-        try:
-            ml_score = _predict_ml_score(snapshot, metrics)
-            if ml_score is not None:
-                ml_result = {
-                    "puntaje_riesgo": round(float(ml_score), 2),
-                    "model_version": "sklearn-joblib-v2",
-                }
-            else:
-                ml_result = {"error": "Modelo no disponible. Entrena con: python manage.py train_risk_model"}
-        except Exception:
-            ml_result = {"error": "Error al ejecutar modelo ML"}
+        if params.get("try_ml", True):
+            try:
+                ml_score = _predict_ml_score(snapshot, metrics)
+                if ml_score is not None:
+                    puntaje = round(float(ml_score), 2)
+                    ml_result = {
+                        "puntaje_riesgo": puntaje,
+                        "nivel": score_to_risk_label(puntaje),
+                        "model_version": "sklearn-joblib-v2",
+                    }
+                else:
+                    ml_result = {
+                        "error": "Modelo no disponible. Entrena con: python manage.py train_risk_model"
+                    }
+            except Exception:
+                ml_result = {"error": "Error al ejecutar modelo ML"}
+        else:
+            ml_result = {"error": "ML deshabilitado en esta simulación"}
+
+        institucional = RiskScoringConfigService.get_effective()
+        sim_preset = cls._resolve_simulation_preset(overrides)
+        inst_preset = cls._resolve_institutional_preset()
+
+        config_simulacion = cls._effective_config_to_api_dict(sim_config, sim_preset)
+
+        reglas_model_version = rules_result["model_version"]
+        if "sklearn" in reglas_model_version:
+            from .risk_engine import MODEL_VERSION_FALLBACK
+
+            reglas_model_version = (
+                f"{MODEL_VERSION_FALLBACK}+{rules_config.version_tag or 'simulate'}"
+            )
 
         return {
             "reglas": {
                 "semaforo_riesgo": rules_result["semaforo_riesgo"],
                 "detalle_por_variable": rules_result["detalle_por_variable"],
-                "model_version": rules_result["model_version"],
+                "model_version": reglas_model_version,
+                "motor": "reglas",
             },
             "ml": ml_result,
-            "config": config,
+            "produccion": {
+                "semaforo_riesgo": produccion_result["semaforo_riesgo"],
+                "detalle_por_variable": produccion_result["detalle_por_variable"],
+                "model_version": produccion_result["model_version"],
+                "motor": sim_config.engine,
+            },
+            "config_simulacion": config_simulacion,
+            "config_institucional": cls._effective_config_to_api_dict(
+                institucional, inst_preset
+            ),
+        }
+
+    @staticmethod
+    def _resolve_simulation_preset(overrides: dict) -> str:
+        if overrides.get("preset"):
+            return overrides["preset"]
+        return StudentRiskCalculationService._resolve_institutional_preset()
+
+    @staticmethod
+    def _resolve_institutional_preset() -> str:
+        try:
+            from apps.analytics.student_risk.infrastructure.repositories import (
+                RiskScoringConfigRepository,
+            )
+
+            db_row = RiskScoringConfigRepository.get_singleton()
+            return db_row.preset if db_row else "equilibrado"
+        except Exception:
+            return "equilibrado"
+
+    @staticmethod
+    def _effective_config_to_api_dict(effective_config, preset: str) -> dict:
+        """Convierte EffectiveScoringConfig a dict compatible con el serializer."""
+        return {
+            "engine": effective_config.engine,
+            "preset": preset,
+            "weight_conducta": round(effective_config.weight_conducta * 100, 2),
+            "weight_asistencia": round(effective_config.weight_asistencia * 100, 2),
+            "weight_calificaciones": round(
+                effective_config.weight_calificaciones * 100, 2
+            ),
+            "attendance_red_max": effective_config.attendance_red_max,
+            "attendance_yellow_max": effective_config.attendance_yellow_max,
+            "attendance_green_min": effective_config.attendance_green_min,
+            "average_red_max": effective_config.average_red_max,
+            "average_yellow_max": effective_config.average_yellow_max,
+            "average_green_min": effective_config.average_green_min,
+            "severe_red_min": effective_config.severe_red_min,
+            "mild_yellow_min": effective_config.mild_yellow_min,
+            "severe_green_max": effective_config.severe_green_max,
+            "mild_green_max": effective_config.mild_green_max,
         }

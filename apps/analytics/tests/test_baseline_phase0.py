@@ -26,6 +26,7 @@ from apps.analytics.tasks import (
     WEIGHTS,
     _fallback_risk_score,
     _risk_level,
+    _score_to_level,
     calculate_academic_risk,
 )
 
@@ -125,6 +126,18 @@ class Phase0RiskLevelBoundaryTest(SimpleTestCase):
         self.assertEqual(_risk_level(self._vars(attendance=86.0, average=7.01)), "verde")
 
 
+class Phase0ScoreToLevelTest(SimpleTestCase):
+    """El semáforo publicado debe derivarse del puntaje final."""
+
+    def test_thresholds(self):
+        self.assertEqual(_score_to_level(0), "verde")
+        self.assertEqual(_score_to_level(39.99), "verde")
+        self.assertEqual(_score_to_level(40), "amarillo")
+        self.assertEqual(_score_to_level(69.99), "amarillo")
+        self.assertEqual(_score_to_level(70), "rojo")
+        self.assertEqual(_score_to_level(98), "rojo")
+
+
 class Phase0FallbackScoreTest(SimpleTestCase):
     """Congela la fórmula y los pisos/topes por nivel de _fallback_risk_score."""
 
@@ -189,6 +202,11 @@ class Phase0GoldenSnapshotTest(SimpleTestCase):
             result = calculate_academic_risk(snapshot)
             level = result["semaforo_riesgo"]["nivel"]
             score = result["semaforo_riesgo"]["puntaje_riesgo"]
+
+            if level != _score_to_level(score):
+                failures.append(
+                    f"{profile['name']}: nivel {level} no coincide con puntaje {score}"
+                )
 
             if level != profile["expected_level"]:
                 failures.append(

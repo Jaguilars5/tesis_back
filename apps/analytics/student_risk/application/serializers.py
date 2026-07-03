@@ -72,6 +72,14 @@ class StudentRiskScoreSerializer(serializers.ModelSerializer):
     )
     risk_factors = StudentRiskFactorSerializer(many=True, read_only=True)
 
+    def to_representation(self, instance):
+        """La etiqueta siempre se deriva del puntaje (evita desincronización en BD)."""
+        from apps.analytics.student_risk.domain.risk_engine import score_to_risk_label
+
+        data = super().to_representation(instance)
+        data["risk_label"] = score_to_risk_label(float(instance.risk_score))
+        return data
+
     class Meta:
         model = StudentRiskScore
         fields = [
@@ -177,10 +185,14 @@ class RiskScoringConfigSerializer(serializers.ModelSerializer):
             "weight_calificaciones",
             "attendance_red_max",
             "attendance_yellow_max",
+            "attendance_green_min",
             "average_red_max",
             "average_yellow_max",
+            "average_green_min",
             "severe_red_min",
             "mild_yellow_min",
+            "severe_green_max",
+            "mild_green_max",
             "created_at",
             "updated_at",
         ]
@@ -217,19 +229,28 @@ class RiskScoringConfigSerializer(serializers.ModelSerializer):
             })
 
     def _validate_domains(self, attrs):
-        for field in ("attendance_red_max", "attendance_yellow_max"):
+        for field in (
+            "attendance_red_max",
+            "attendance_yellow_max",
+            "attendance_green_min",
+        ):
             value = Decimal(str(self._merged(attrs, field)))
             if value < 0 or value > 100:
                 raise serializers.ValidationError({
                     field: "La asistencia debe estar entre 0 y 100.",
                 })
-        for field in ("average_red_max", "average_yellow_max"):
+        for field in ("average_red_max", "average_yellow_max", "average_green_min"):
             value = Decimal(str(self._merged(attrs, field)))
             if value < 0 or value > 10:
                 raise serializers.ValidationError({
                     field: "El promedio debe estar entre 0 y 10.",
                 })
-        for field in ("severe_red_min", "mild_yellow_min"):
+        for field in (
+            "severe_red_min",
+            "mild_yellow_min",
+            "severe_green_max",
+            "mild_green_max",
+        ):
             value = int(self._merged(attrs, field))
             if value < 0:
                 raise serializers.ValidationError({
@@ -239,20 +260,52 @@ class RiskScoringConfigSerializer(serializers.ModelSerializer):
     def _validate_threshold_coherence(self, attrs):
         attendance_red = Decimal(str(self._merged(attrs, "attendance_red_max")))
         attendance_yellow = Decimal(str(self._merged(attrs, "attendance_yellow_max")))
+        attendance_green = Decimal(str(self._merged(attrs, "attendance_green_min")))
         if attendance_red >= attendance_yellow:
             raise serializers.ValidationError({
                 "attendance_red_max": (
-                    "El corte de asistencia para rojo debe ser menor al de amarillo "
+                    "El corte rojo de asistencia debe ser menor al de amarillo "
+                    "(rojo < amarillo < verde)."
+                ),
+            })
+        if attendance_yellow >= attendance_green:
+            raise serializers.ValidationError({
+                "attendance_green_min": (
+                    "El mínimo verde de asistencia debe ser mayor al tope amarillo "
                     "(rojo < amarillo < verde)."
                 ),
             })
         average_red = Decimal(str(self._merged(attrs, "average_red_max")))
         average_yellow = Decimal(str(self._merged(attrs, "average_yellow_max")))
+        average_green = Decimal(str(self._merged(attrs, "average_green_min")))
         if average_red >= average_yellow:
             raise serializers.ValidationError({
                 "average_red_max": (
-                    "El corte de promedio para rojo debe ser menor al de amarillo "
+                    "El corte rojo de promedio debe ser menor al de amarillo "
                     "(rojo < amarillo < verde)."
+                ),
+            })
+        if average_yellow >= average_green:
+            raise serializers.ValidationError({
+                "average_green_min": (
+                    "El mínimo verde de promedio debe ser mayor al tope amarillo "
+                    "(rojo < amarillo < verde)."
+                ),
+            })
+        severe_red = int(self._merged(attrs, "severe_red_min"))
+        severe_green = int(self._merged(attrs, "severe_green_max"))
+        mild_yellow = int(self._merged(attrs, "mild_yellow_min"))
+        mild_green = int(self._merged(attrs, "mild_green_max"))
+        if severe_green > severe_red:
+            raise serializers.ValidationError({
+                "severe_green_max": (
+                    "El máximo verde de faltas graves debe ser menor o igual al umbral rojo."
+                ),
+            })
+        if mild_green > mild_yellow:
+            raise serializers.ValidationError({
+                "mild_green_max": (
+                    "El máximo verde de faltas leves debe ser menor o igual al umbral amarillo."
                 ),
             })
 
@@ -264,12 +317,36 @@ class RiskScoringConfigSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class SimulateConfigOverrideSerializer(serializers.Serializer):
+    """Overrides opcionales del motor para el simulador (no persisten en BD)."""
+
+    preset = serializers.ChoiceField(
+        choices=["conservador", "equilibrado", "estricto", "personalizado"],
+        required=False,
+    )
+    engine = serializers.ChoiceField(choices=["reglas", "ML"], required=False)
+    weight_conducta = serializers.FloatField(min_value=10, max_value=60, required=False)
+    weight_asistencia = serializers.FloatField(min_value=10, max_value=60, required=False)
+    weight_calificaciones = serializers.FloatField(min_value=10, max_value=60, required=False)
+    attendance_red_max = serializers.FloatField(min_value=0, max_value=100, required=False)
+    attendance_yellow_max = serializers.FloatField(min_value=0, max_value=100, required=False)
+    average_red_max = serializers.FloatField(min_value=0, max_value=10, required=False)
+    average_yellow_max = serializers.FloatField(min_value=0, max_value=10, required=False)
+    severe_red_min = serializers.IntegerField(min_value=0, required=False)
+    mild_yellow_min = serializers.IntegerField(min_value=0, required=False)
+    attendance_green_min = serializers.FloatField(min_value=0, max_value=100, required=False)
+    average_green_min = serializers.FloatField(min_value=0, max_value=10, required=False)
+    severe_green_max = serializers.IntegerField(min_value=0, required=False)
+    mild_green_max = serializers.IntegerField(min_value=0, required=False)
+
+
 class SimulateRiskInputSerializer(serializers.Serializer):
     attendance_rate = serializers.FloatField(min_value=0, max_value=100)
     average_grade = serializers.FloatField(min_value=0, max_value=10)
     failing_subjects_count = serializers.IntegerField(min_value=0)
     severe_incidents_count = serializers.IntegerField(min_value=0)
     mild_incidents_count = serializers.IntegerField(min_value=0)
+    moderate_incidents_count = serializers.IntegerField(min_value=0, default=0)
     consecutive_absences_max = serializers.IntegerField(min_value=0, default=0)
     tardiness_count = serializers.IntegerField(min_value=0, default=0)
     justified_absences = serializers.IntegerField(min_value=0, default=0)
@@ -280,7 +357,8 @@ class SimulateRiskInputSerializer(serializers.Serializer):
     age_grade_gap = serializers.IntegerField(min_value=0, default=0)
     is_repeat = serializers.BooleanField(default=False)
     has_special_needs = serializers.BooleanField(default=False)
-    try_ml = serializers.BooleanField(default=False)
+    config_overrides = SimulateConfigOverrideSerializer(required=False)
+    try_ml = serializers.BooleanField(default=True)
 
 
 class ApplyPresetSerializer(serializers.Serializer):
