@@ -59,7 +59,7 @@ from apps.grading.activity_type import ActivityType
 from apps.grading.evaluation import EvaluationBlock, BlockComponent, EvaluativeActivity
 from apps.grading.qualitative_scale import QualitativeScale
 from apps.grading.student_note import StudentNote, GradeCalculationService
-from apps.grading.student_note.infrastructure.models import PeriodGradeSummary, PromotionStatusChoices
+from apps.grading.student_note.infrastructure.models import PeriodGradeSummary, PromotionStatusChoices, AnnualGradeSummary
 from apps.grading.student_note.signals import skip_period_summary_recalc
 from apps.iam import Role, User, UserRole
 from apps.institutions.school_year import SchoolYear
@@ -1461,12 +1461,6 @@ class Command(BaseCommand):
                 failing_students.update(sampled[:num_fail])
                 medium_risk_students.update(sampled[num_fail:])
 
-            for tag in current_enrollments:
-                if tag in failing_students:
-                    student_states[tag]["last_status"] = "FAILED"
-                else:
-                    student_states[tag]["last_status"] = "PASSED"
-
             risk_profiles = self._build_student_risk_profiles(
                 current_enrollments, failing_students, medium_risk_students, periods
             )
@@ -1490,6 +1484,16 @@ class Command(BaseCommand):
             self._create_student_notes_for_sy(
                 current_enrollments, grading_struct, doc_users, risk_profiles
             )
+
+            # ── Estado de promoción desde AnnualGradeSummary ────
+            for tag in current_enrollments:
+                enroll = current_enrollments[tag]
+                has_failing = AnnualGradeSummary.objects.filter(
+                    enrollment=enroll,
+                    school_year=school_year,
+                    is_failing=True,
+                ).exists()
+                student_states[tag]["last_status"] = "FAILED" if has_failing else "PASSED"
 
             self._create_behavior_evaluations(current_enrollments, periods, admin_users)
             self._create_early_alerts(current_enrollments, periods, admin_users)
