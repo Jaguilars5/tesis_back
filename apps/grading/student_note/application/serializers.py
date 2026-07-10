@@ -4,6 +4,7 @@ from ..infrastructure.models import (
     StudentNote,
     GradeChangeHistory,
     PeriodGradeSummary,
+    AnnualGradeSummary,
 )
 
 
@@ -76,5 +77,16 @@ class PeriodGradeSummarySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PeriodGradeSummary
+        fields = "__all__"
+        read_only_fields = ["created_at", "updated_at"]
+
+
+class AnnualGradeSummarySerializer(serializers.ModelSerializer):
+    enrollment_name = serializers.CharField(read_only=True)
+    subject_offering_name = serializers.CharField(read_only=True)
+    school_year_name = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = AnnualGradeSummary
         fields = "__all__"
         read_only_fields = ["created_at", "updated_at"]

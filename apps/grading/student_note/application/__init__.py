@@ -4,4 +4,5 @@ __all__ = [
     "StudentNoteSerializer",
     "GradeChangeHistorySerializer",
     "PeriodGradeSummarySerializer",
+    "AnnualGradeSummarySerializer",
 ]

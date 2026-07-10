@@ -27,6 +27,7 @@ def _enqueue_activity_graded_notification(note):
 from ..infrastructure.repositories import (
     StudentNoteRepository,
     PeriodGradeSummaryRepository,
+    AnnualGradeSummaryRepository,
     EvaluationRepository,
 )
 
@@ -260,7 +261,7 @@ class StudentNoteService:
 
 
 class GradeCalculationService:
-    """Servicio para calcular resúmenes de calificaciones por periodo."""
+    """Servicio para calcular resúmenes de calificaciones por periodo y anuales."""
 
     @staticmethod
     @transaction.atomic
@@ -310,7 +311,101 @@ class GradeCalculationService:
                 is_failing=is_failing,
                 promotion_status=promotion_status,
             )
+
+        # Actualizar resumen anual acumulado
+        school_year = academic_period.school_year
+        GradeCalculationService._update_annual_summary(
+            enrollment, subject_offering, school_year
+        )
+
         return summary
+
+    @staticmethod
+    @transaction.atomic
+    def _update_annual_summary(enrollment, subject_offering, school_year):
+        """Calcula o actualiza el resumen anual acumulado para un (enrollment, offering, school_year).
+
+        Promedia todos los períodos disponibles del año usando sus pesos (year_weight).
+        Si todos los períodos están cerrados, marca is_finalized=True.
+        """
+        from ..infrastructure.models import PromotionStatusChoices
+
+        summaries = PeriodGradeSummary.objects.filter(
+            enrollment=enrollment,
+            subject_offering=subject_offering,
+            academic_period__school_year=school_year,
+        ).select_related("academic_period")
+
+        if not summaries.exists():
+            return None
+
+        total_weight = Decimal("0")
+        weighted_sum = Decimal("0")
+        all_locked = True
+
+        for s in summaries:
+            w = s.academic_period.year_weight or Decimal("0")
+            total_weight += w
+            weighted_sum += s.final_avg_truncated * w
+            if not s.academic_period.grades_locked:
+                all_locked = False
+
+        if total_weight == 0:
+            return None
+
+        annual_grade = (weighted_sum / total_weight).quantize(Decimal("0.01"))
+        is_failing = annual_grade < Decimal("7.00")
+        promotion_status = PromotionStatusChoices.FAILED if is_failing else PromotionStatusChoices.APPROVED
+
+        annual = AnnualGradeSummaryRepository.get_by_enrollment_offering_year(
+            enrollment, subject_offering, school_year
+        )
+
+        if annual:
+            AnnualGradeSummaryRepository.update(
+                annual.id,
+                annual_final_avg=annual_grade,
+                is_failing=is_failing,
+                promotion_status=promotion_status,
+                is_finalized=all_locked,
+            )
+        else:
+            annual = AnnualGradeSummaryRepository.create(
+                enrollment=enrollment,
+                subject_offering=subject_offering,
+                school_year=school_year,
+                annual_final_avg=annual_grade,
+                is_failing=is_failing,
+                promotion_status=promotion_status,
+                is_finalized=all_locked,
+            )
+        return annual
+
+    @staticmethod
+    def calculate_all_for_school_year(school_year_id):
+        """Calcula los resúmenes anuales para todas las combinaciones
+        (enrollment, offering) de un año escolar."""
+        from apps.academic.subject_offering.infrastructure.repositories import SubjectOfferingRepository
+        from apps.students.repositories.enrollment_repo import EnrollmentRepository
+        from apps.institutions.school_year.infrastructure.repositories import SchoolYearRepository
+
+        school_year = SchoolYearRepository.get_by_id(school_year_id)
+        if not school_year:
+            return []
+
+        offerings = SubjectOfferingRepository.get_by_school_year(school_year_id)
+        enrollments = EnrollmentRepository.get_by_school_year(school_year_id)
+
+        results = []
+        for offering in offerings:
+            for enrollment in enrollments.filter(section_id=offering.section_id):
+                annual = GradeCalculationService._update_annual_summary(
+                    enrollment, offering, school_year
+                )
+                if annual:
+                    results.append(annual.id)
+
+        return results
 
     @staticmethod
     def calculate_all_for_period(academic_period_id):

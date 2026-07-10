@@ -5,8 +5,9 @@ from apps.core.repositories.base import BaseRepository
 from ..domain.repositories import (
     StudentNoteRepositoryInterface,
     PeriodGradeSummaryRepositoryInterface,
+    AnnualGradeSummaryRepositoryInterface,
 )
-from .models import StudentNote, PeriodGradeSummary
+from .models import StudentNote, PeriodGradeSummary, AnnualGradeSummary
 
 
 class StudentNoteRepository(BaseRepository, StudentNoteRepositoryInterface):
@@ -131,6 +132,50 @@ class PeriodGradeSummaryRepository(BaseRepository, PeriodGradeSummaryRepositoryI
         return cls.model.objects.filter(
             enrollment_id=enrollment_id,
             academic_period_id=academic_period_id,
+            is_failing=True,
+        ).count()
+
+
+class AnnualGradeSummaryRepository(BaseRepository, AnnualGradeSummaryRepositoryInterface):
+    model = AnnualGradeSummary
+
+    @classmethod
+    def get_all(cls, active_only=True):
+        queryset = super().get_all(active_only=active_only)
+        return queryset.order_by("-id")
+
+    @classmethod
+    def get_by_enrollment(cls, enrollment_id):
+        return cls.model.objects.filter(
+            enrollment_id=enrollment_id,
+        ).select_related("subject_offering", "school_year")
+
+    @classmethod
+    def get_by_enrollment_offering_year(cls, enrollment, subject_offering, school_year):
+        return cls.model.objects.filter(
+            enrollment=enrollment,
+            subject_offering=subject_offering,
+            school_year=school_year,
+        ).first()
+
+    @classmethod
+    def get_by_school_year(cls, school_year_id):
+        return cls.model.objects.filter(
+            school_year_id=school_year_id,
+        ).select_related("enrollment", "subject_offering")
+
+    @classmethod
+    def get_failing_for_school_year(cls, school_year_id):
+        return cls.model.objects.filter(
+            school_year_id=school_year_id,
+            is_failing=True,
+        ).select_related("enrollment__student", "subject_offering")
+
+    @classmethod
+    def count_failing(cls, enrollment_id, school_year_id):
+        return cls.model.objects.filter(
+            enrollment_id=enrollment_id,
+            school_year_id=school_year_id,
             is_failing=True,
         ).count()
 

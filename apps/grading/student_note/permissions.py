@@ -28,3 +28,13 @@ GRADE_SUMMARY_PERMISSIONS = {
     "recalculate": grading.RECALCULATE_GRADE_SUMMARY,
     "recalculate_period": grading.RECALCULATE_GRADE_SUMMARY,
 }
+
+ANNUAL_GRADE_SUMMARY_PERMISSIONS = {
+    "list": grading.VIEW_GRADE_SUMMARY,
+    "get": grading.VIEW_GRADE_SUMMARY,
+    "create": grading.CREATE_GRADE_SUMMARY,
+    "update": grading.UPDATE_GRADE_SUMMARY,
+    "partial_update": grading.UPDATE_GRADE_SUMMARY,
+    "destroy": grading.DELETE_GRADE_SUMMARY,
+    "recalculate_school_year": grading.RECALCULATE_GRADE_SUMMARY,
+}

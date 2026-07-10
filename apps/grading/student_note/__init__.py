@@ -2,8 +2,10 @@ __all__ = [
     "StudentNote",
     "GradeChangeHistory",
     "PeriodGradeSummary",
+    "AnnualGradeSummary",
     "StudentNoteRepository",
     "PeriodGradeSummaryRepository",
+    "AnnualGradeSummaryRepository",
     "StudentNoteService",
     "GradeCalculationService",
 ]
@@ -18,12 +20,18 @@ def __getattr__(name):
     if name == "PeriodGradeSummary":
         from .infrastructure.models import PeriodGradeSummary
         return PeriodGradeSummary
+    if name == "AnnualGradeSummary":
+        from .infrastructure.models import AnnualGradeSummary
+        return AnnualGradeSummary
     if name == "StudentNoteRepository":
         from .infrastructure.repositories import StudentNoteRepository
         return StudentNoteRepository
     if name == "PeriodGradeSummaryRepository":
         from .infrastructure.repositories import PeriodGradeSummaryRepository
         return PeriodGradeSummaryRepository
+    if name == "AnnualGradeSummaryRepository":
+        from .infrastructure.repositories import AnnualGradeSummaryRepository
+        return AnnualGradeSummaryRepository
     if name == "StudentNoteService":
         from .domain.services import StudentNoteService
         return StudentNoteService

@@ -17,14 +17,16 @@ from ..application.serializers import (
     StudentNoteSerializer,
     GradeChangeHistorySerializer,
     PeriodGradeSummarySerializer,
+    AnnualGradeSummarySerializer,
 )
 from ..domain.services import StudentNoteService, GradeCalculationService
 from ..domain.replication import StudentNoteReplicationService
 from ..infrastructure.repositories import (
     StudentNoteRepository,
     PeriodGradeSummaryRepository,
+    AnnualGradeSummaryRepository,
 )
-from ..permissions import ACTION_PERMISSIONS, GRADE_HISTORY_PERMISSIONS, GRADE_SUMMARY_PERMISSIONS
+from ..permissions import ACTION_PERMISSIONS, GRADE_HISTORY_PERMISSIONS, GRADE_SUMMARY_PERMISSIONS, ANNUAL_GRADE_SUMMARY_PERMISSIONS
 
 
 @extend_schema_view(
@@ -384,3 +386,52 @@ class PeriodGradeSummaryViewSet(BaseGradingViewSet):
             {"status": "OK", "summaries_calculated": len(ids), "ids": ids},
             status_code=202,
         )
+
+
+@extend_schema_view(
+    list=extend_schema(summary="Listar res\u00famenes anuales", tags=["grading"]),
+    get=extend_schema(summary="Obtener resumen anual", tags=["grading"]),
+    create=extend_schema(summary="Crear resumen anual", tags=["grading"]),
+    update=extend_schema(summary="Actualizar resumen anual", tags=["grading"]),
+    partial_update=extend_schema(summary="Actualizar resumen anual parcialmente", tags=["grading"]),
+)
+class AnnualGradeSummaryViewSet(BaseGradingViewSet):
+    http_method_names = ["get", "post", "put", "patch", "head", "options"]
+    serializer_class = AnnualGradeSummarySerializer
+    action_permissions = ANNUAL_GRADE_SUMMARY_PERMISSIONS
+    filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
+    filterset_fields = ["enrollment", "school_year"]
+    search_fields = ["enrollment__student__user__person__names"]
+    ordering_fields = ["annual_final_avg", "calculated_at"]
+    ordering = ["-id"]
+
+    def get_queryset(self):
+        qs = AnnualGradeSummaryRepository.get_all()
+        return scope_student_to_enrollment(self.request, qs)
+
+    @extend_schema(
+        summary="Recalcular todos los res\u00famenes anuales de un a\u00f1o escolar",
+        tags=["grading"],
+        request={
+            "application/json": {
+                "type": "object",
+                "properties": {"school_year_id": {"type": "integer"}},
+                "required": ["school_year_id"],
+            }
+        },
+        responses={202: {"type": "object"}},
+    )
+    @action(detail=False, methods=["post"], url_path="recalculate-school-year")
+    def recalculate_school_year(self, request):
+        from ..tasks import calculate_annual_grade_summaries_task
+
+        try:
+            school_year_id = int(request.data.get("school_year_id"))
+        except (TypeError, ValueError):
+            return ok_response(
+                {"error": "school_year_id es requerido"},
+                msg="Error", status_code=400,
+            )
+
+        task = calculate_annual_grade_summaries_task.delay(school_year_id)
+        return ok_response({"task_id": task.id, "status": "PENDING"}, status_code=202)

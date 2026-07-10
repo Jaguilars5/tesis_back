@@ -73,3 +73,35 @@ class PeriodGradeSummaryRepositoryInterface(ABC):
     @abstractmethod
     def delete(cls, pk):
         pass
+
+
+class AnnualGradeSummaryRepositoryInterface(ABC):
+    @classmethod
+    @abstractmethod
+    def get_by_enrollment_offering_year(cls, enrollment, subject_offering, school_year):
+        pass
+
+    @classmethod
+    @abstractmethod
+    def get_failing_for_school_year(cls, school_year_id):
+        pass
+
+    @classmethod
+    @abstractmethod
+    def count_failing(cls, enrollment_id, school_year_id):
+        pass
+
+    @classmethod
+    @abstractmethod
+    def create(cls, **data):
+        pass
+
+    @classmethod
+    @abstractmethod
+    def update(cls, pk, **data):
+        pass
+
+    @classmethod
+    @abstractmethod
+    def delete(cls, pk):
+        pass

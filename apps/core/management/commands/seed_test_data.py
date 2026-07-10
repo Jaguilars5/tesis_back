@@ -2148,35 +2148,13 @@ class Command(BaseCommand):
                     f"  [OK] Resúmenes recalculados – {period.name}: {len(ids)}"
                 )
 
-        # ── Materias reprobadas (fracaso parcial, no arrastre de año) ────
-        subject_codes = list({s["subject"] for s in grading_struct.values()})
-        all_enroll_tags = list(enrollments.keys())
-        if all_enroll_tags:
-            failing_subject_count = 0
-            partial_fail_tags = local_rand.sample(
-                all_enroll_tags,
-                min(6, len(all_enroll_tags))
-            )
-            for pf_tag in partial_fail_tags:
-                enroll = enrollments[pf_tag]
-                pf_subjects = local_rand.sample(
-                    subject_codes,
-                    local_rand.randint(1, 2)
-                )
-                for pf_scode in pf_subjects:
-                    summary_qs = PeriodGradeSummary.objects.filter(
-                        enrollment=enroll,
-                        subject_offering__subject_academic_config__subject__code=pf_scode,
-                    )
-                    updated = summary_qs.update(
-                        is_failing=True,
-                        promotion_status=PromotionStatusChoices.FAILED,
-                    )
-                    failing_subject_count += updated
-            if failing_subject_count:
+        # ── Resúmenes anuales acumulados ────
+        school_year_id = next(iter(set(s["period"].school_year_id for s in grading_struct.values())), None)
+        if school_year_id:
+            annual_ids = GradeCalculationService.calculate_all_for_school_year(school_year_id)
+            if annual_ids:
                 self.stdout.write(
-                    f"  [OK] Materias reprobadas: {failing_subject_count} registros "
-                    f"marcados para {len(partial_fail_tags)} estudiantes"
+                    f"  [OK] Resúmenes anuales calculados: {len(annual_ids)}"
                 )
 
     def _create_behavior_evaluations(self, enrollments, periods, admin_users):

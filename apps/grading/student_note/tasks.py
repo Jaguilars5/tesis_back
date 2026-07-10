@@ -50,3 +50,30 @@ def recompute_period_grade_summary_task(self, enrollment_id, subject_offering_id
         subject_offering=offering,
         academic_period=period,
     )
+
+
+@shared_task(bind=True, ignore_result=True)
+def calculate_annual_grade_summaries_task(self, school_year_id):
+    from apps.institutions.school_year.infrastructure.repositories import (
+        SchoolYearRepository,
+    )
+
+    logger.info(
+        "calculate_annual_grade_summaries_task start school_year_id=%s task_id=%s",
+        school_year_id, getattr(self.request, "id", None),
+    )
+
+    school_year = SchoolYearRepository.get_by_id(school_year_id)
+    if not school_year:
+        logger.warning(
+            "calculate_annual_grade_summaries_task skipped: school_year %s not found",
+            school_year_id,
+        )
+        return None
+
+    ids = GradeCalculationService.calculate_all_for_school_year(school_year_id)
+    logger.info(
+        "calculate_annual_grade_summaries_task done: %s summaries calculated",
+        len(ids),
+    )
+    return ids

@@ -4,7 +4,9 @@ __all__ = [
     "StudentNote",
     "GradeChangeHistory",
     "PeriodGradeSummary",
+    "AnnualGradeSummary",
     "StudentNoteRepository",
     "PeriodGradeSummaryRepository",
+    "AnnualGradeSummaryRepository",
     "EvaluationRepository",
 ]

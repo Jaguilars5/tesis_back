@@ -247,3 +247,82 @@ class PeriodGradeSummary(TimeStampedModel):
 
     def __str__(self):
         return f"{self.enrollment} - {self.subject_offering} ({self.academic_period})"
+
+
+class AnnualGradeSummary(TimeStampedModel):
+    enrollment = models.ForeignKey(
+        "students.Enrollment",
+        on_delete=models.CASCADE,
+        related_name="annual_grade_summaries",
+        verbose_name="Matr\u00edcula",
+    )
+    subject_offering = models.ForeignKey(
+        "academic_subject_offering.SubjectOffering",
+        on_delete=models.CASCADE,
+        related_name="annual_grade_summaries",
+        verbose_name="Oferta de Asignatura",
+    )
+    school_year = models.ForeignKey(
+        "institutions_school_year.SchoolYear",
+        on_delete=models.CASCADE,
+        related_name="annual_grade_summaries",
+        verbose_name="A\u00f1o Escolar",
+    )
+    annual_final_avg = models.DecimalField(
+        max_digits=5, decimal_places=2,
+        verbose_name="Promedio Final Anual",
+    )
+    is_failing = models.BooleanField(
+        default=False, verbose_name="Reprob\u00f3 la materia",
+    )
+    promotion_status = models.CharField(
+        max_length=20, choices=PromotionStatusChoices.choices,
+        null=True, blank=True, verbose_name="Estado de Promoci\u00f3n",
+    )
+    is_finalized = models.BooleanField(
+        default=False, verbose_name="Resultado Anual Definitivo",
+    )
+    calculated_at = models.DateTimeField(
+        auto_now_add=True, verbose_name="Calculado en",
+    )
+    calculated_by = models.ForeignKey(
+        "iam.User", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="annual_grade_summaries_calculated",
+        verbose_name="Calculado por",
+    )
+    approved_by = models.ForeignKey(
+        "iam.User", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="annual_grade_summaries_approved",
+        verbose_name="Aprobado por",
+    )
+
+    class Meta:
+        app_label = "grading_student_note"
+        verbose_name = "Resumen Anual de Calificaciones"
+        verbose_name_plural = "Res\u00famenes Anuales de Calificaciones"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["enrollment", "subject_offering", "school_year"],
+                name="unique_annual_grade_summary",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["school_year", "subject_offering"]),
+            models.Index(fields=["enrollment", "school_year"]),
+            models.Index(fields=["is_failing", "school_year"]),
+        ]
+
+    @property
+    def enrollment_name(self):
+        return str(self.enrollment) if self.enrollment else None
+
+    @property
+    def subject_offering_name(self):
+        return str(self.subject_offering) if self.subject_offering else None
+
+    @property
+    def school_year_name(self):
+        return str(self.school_year) if self.school_year else None
+
+    def __str__(self):
+        return f"{self.enrollment} - {self.subject_offering} ({self.school_year})"
