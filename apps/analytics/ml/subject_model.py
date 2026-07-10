@@ -135,11 +135,28 @@ class SubjectRiskModelTrainer:
 
         X, y = [], []
         skipped = 0
-        for summary in summaries:
-            snapshot = StudentFeatureSnapshot.objects.filter(
-                enrollment_id=summary.enrollment_id,
-                academic_period_id=summary.academic_period_id,
-            ).first()
+        # Prefetch todos los snapshots en un dict para evitar N+1 queries
+        summary_ids = list(summaries.values_list("enrollment_id", "academic_period_id"))
+        enrollment_ids = list(set(s[0] for s in summary_ids))
+        period_ids = list(set(s[1] for s in summary_ids))
+
+        snapshots_qs = StudentFeatureSnapshot.objects.filter(
+            enrollment_id__in=enrollment_ids,
+            academic_period_id__in=period_ids,
+        ).only("id", "enrollment_id", "academic_period_id",
+               "attendance_rate", "consecutive_absences_max", "tardiness_count",
+               "conduct_score", "severe_incidents_count",
+               "age_grade_gap", "is_repeat", "has_special_needs")
+
+        snapshot_map = {}
+        for snap in snapshots_qs:
+            snapshot_map[(snap.enrollment_id, snap.academic_period_id)] = snap
+
+        batch_size = 500
+        processed = 0
+        for summary in summaries.iterator(chunk_size=batch_size):
+            key = (summary.enrollment_id, summary.academic_period_id)
+            snapshot = snapshot_map.get(key)
             if not snapshot:
                 skipped += 1
                 continue
@@ -147,6 +164,9 @@ class SubjectRiskModelTrainer:
             row = [_to_number(features.get(col, 0)) for col in self.FEATURES]
             X.append(row)
             y.append(1 if summary.is_failing else 0)
+            processed += 1
+            if processed % 5000 == 0:
+                logger.info("Procesados %d / %d registros...", processed, total)
 
         if skipped:
             logger.info("Registros omitidos (sin snapshot): %d", skipped)
