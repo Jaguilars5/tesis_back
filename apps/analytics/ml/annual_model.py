@@ -1,0 +1,163 @@
+"""
+Entrenamiento del modelo anual (modelo_riesgo_anual).
+
+Predice la probabilidad de que un estudiante pierda el año
+(1+ materia con annual_final_avg < 7.00) usando features disponibles
+en un período académico intermedio.
+
+Target: AnnualGradeSummary.is_failing (verdaderos anuales finalizados).
+
+Ejecutar: python manage.py train_risk_model --annual-model
+"""
+import logging
+from decimal import Decimal
+
+from apps.analytics.student_risk.infrastructure.models import StudentFeatureSnapshot
+from apps.grading.student_note.infrastructure.models import AnnualGradeSummary
+
+from .annual_features import (
+    ANNUAL_FEATURES,
+    TRAIN_ANNUAL_FEATURES,
+    ANNUAL_MODEL_PATH,
+    _to_number,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class AnnualRiskModelTrainer:
+
+    FEATURES = TRAIN_ANNUAL_FEATURES
+
+    def _get_period_index(self, academic_period):
+        """Obtiene el índice del período dentro del año escolar (1, 2, 3...)."""
+        from apps.academic.academic_period.infrastructure.repositories import (
+            AcademicPeriodRepository,
+        )
+        periods = AcademicPeriodRepository.get_by_school_year(
+            academic_period.school_year_id
+        ).order_by("start_date")
+        for idx, p in enumerate(periods, start=1):
+            if p.id == academic_period.id:
+                return idx
+        return 1
+
+    def train(self, model_path=None):
+        import joblib
+        import pandas as pd
+        import numpy as np
+        from sklearn.ensemble import RandomForestClassifier
+        from sklearn.model_selection import cross_val_score, StratifiedKFold
+        from sklearn.metrics import classification_report
+
+        annual_summaries = AnnualGradeSummary.objects.filter(
+            is_finalized=True,
+        ).select_related("enrollment", "school_year")
+
+        total_annual = annual_summaries.count()
+        logger.info("Resúmenes anuales finalizados encontrados: %d", total_annual)
+        if total_annual == 0:
+            raise ValueError("No hay resúmenes anuales finalizados para entrenar")
+
+        X, y = [], []
+        skipped = 0
+
+        for annual in annual_summaries:
+            snapshots = StudentFeatureSnapshot.objects.filter(
+                enrollment_id=annual.enrollment_id,
+                academic_period__school_year=annual.school_year,
+            ).select_related("academic_period").order_by("academic_period__start_date")
+
+            if not snapshots.exists():
+                skipped += 1
+                continue
+
+            target = 1 if annual.is_failing else 0
+
+            for snapshot in snapshots:
+                period_idx = self._get_period_index(snapshot.academic_period)
+
+                features = {
+                    "period_index": period_idx,
+                    "attendance_rate": _to_number(snapshot.attendance_rate),
+                    "consecutive_absences_max": _to_number(snapshot.consecutive_absences_max),
+                    "tardiness_count": _to_number(snapshot.tardiness_count),
+                    "justified_absences": _to_number(snapshot.justified_absences),
+                    "unjustified_absences": _to_number(snapshot.unjustified_absences),
+                    "formative_avg_normalized": _to_number(snapshot.formative_avg_normalized),
+                    "summative_avg_normalized": _to_number(snapshot.summative_avg_normalized),
+                    "grade_trend_slope": _to_number(snapshot.grade_trend_slope),
+                    "failing_subjects_count": _to_number(snapshot.failing_subjects_count),
+                    "conduct_score": _to_number(snapshot.conduct_score),
+                    "severe_incidents_count": _to_number(snapshot.severe_incidents_count),
+                    "family_notified_ratio": _to_number(snapshot.family_notified_ratio),
+                    "prev_period_avg_grade": _to_number(snapshot.prev_period_avg_grade),
+                    "age_grade_gap": _to_number(snapshot.age_grade_gap),
+                    "is_repeat": _to_number(snapshot.is_repeat),
+                    "has_special_needs": _to_number(snapshot.has_special_needs),
+                }
+
+                row = [features[col] for col in self.FEATURES]
+                X.append(row)
+                y.append(target)
+
+        if skipped:
+            logger.info(
+                "Estudiantes omitidos (sin snapshots en el año): %d", skipped
+            )
+
+        logger.info(
+            "Pares (X, y) generados: %d (target=1: %d, target=0: %d)",
+            len(X), sum(y), len(X) - sum(y),
+        )
+
+        if len(X) < 100:
+            raise ValueError(
+                f"Datos insuficientes: solo {len(X)} registros"
+            )
+
+        df = pd.DataFrame(X, columns=self.FEATURES).fillna(0)
+
+        logger.info("Estadísticas descriptivas:\n%s", df.describe())
+
+        model = RandomForestClassifier(
+            n_estimators=200,
+            max_depth=12,
+            min_samples_leaf=5,
+            class_weight="balanced",
+            random_state=42,
+            n_jobs=-1,
+        )
+
+        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+        cv_scores = cross_val_score(model, df, y, cv=cv, scoring="roc_auc")
+        logger.info(
+            "CV ROC-AUC: %.4f (±%.4f)", cv_scores.mean(), cv_scores.std()
+        )
+
+        model.fit(df, y)
+
+        y_pred = model.predict(df)
+        logger.info(
+            "Classification report (train):\n%s",
+            classification_report(y, y_pred, target_names=["aprueba", "pierde_año"]),
+        )
+
+        importance_df = pd.DataFrame({
+            "feature": self.FEATURES,
+            "importance": model.feature_importances_,
+        }).sort_values("importance", ascending=False)
+        logger.info("Feature importances:\n%s", importance_df)
+
+        artifact = {
+            "model": model,
+            "features": self.FEATURES,
+            "feature_importances": model.feature_importances_.tolist(),
+            "model_type": "annual_risk",
+        }
+
+        target_path = model_path or ANNUAL_MODEL_PATH
+        joblib.dump(artifact, target_path)
+        logger.info("Modelo anual guardado en: %s", target_path)
+
+        return model

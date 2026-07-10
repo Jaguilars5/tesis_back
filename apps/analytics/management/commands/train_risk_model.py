@@ -3,12 +3,13 @@ import logging
 from django.core.management.base import BaseCommand, CommandParser
 from ...ml.train_model import RiskModelTrainer
 from ...ml.subject_model import SubjectRiskModelTrainer
+from ...ml.annual_model import AnnualRiskModelTrainer
 
 
 class Command(BaseCommand):
     help = (
         "Entrena modelos de riesgo académico. Por defecto entrena el modelo "
-        "general por estudiante. Con --subject-models entrena modelos por materia."
+        "general por estudiante. Opciones: --subject-models, --annual-model."
     )
 
     def add_arguments(self, parser: CommandParser):
@@ -24,6 +25,12 @@ class Command(BaseCommand):
             default=None,
             help="C\u00f3digo de materia espec\u00edfica (ej: MAT). Si se omite, entrena todas.",
         )
+        parser.add_argument(
+            "--annual-model",
+            action="store_true",
+            dest="annual_model",
+            help="Entrena modelo anual (predice si el estudiante pierde el a\u00f1o)",
+        )
 
     def handle(self, *args, **options):
         logging.basicConfig(
@@ -31,7 +38,9 @@ class Command(BaseCommand):
             format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         )
 
-        if options.get("subject_models"):
+        if options.get("annual_model"):
+            self._train_annual_model()
+        elif options.get("subject_models"):
             self._train_subject_models(options.get("subject_code"))
         else:
             self._train_general_model()
@@ -65,3 +74,11 @@ class Command(BaseCommand):
             )
             for code in trained:
                 self.stdout.write(f"  - {code}")
+
+    def _train_annual_model(self):
+        trainer = AnnualRiskModelTrainer()
+        try:
+            trainer.train()
+            self.stdout.write(self.style.SUCCESS("Modelo anual entrenado exitosamente"))
+        except ValueError as e:
+            self.stdout.write(self.style.WARNING(str(e)))
