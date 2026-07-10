@@ -1243,6 +1243,8 @@ class Command(BaseCommand):
             period_type = PeriodType.objects.get(code=period_type_code)
             periods = []
             for t in sy_data["trimestres"]:
+                # Un período es activo solo si el año está activo Y ya inició
+                period_is_active = year_is_active and t["start_date"] <= ACTIVE_YEAR_INSTRUCTIONAL_END
                 obj, created = AcademicPeriod.objects.get_or_create(
                     school_year=school_year,
                     code=t["code"],
@@ -1252,16 +1254,16 @@ class Command(BaseCommand):
                         "end_date":           t["end_date"],
                         "period_type":        period_type,
                         "is_regular_period":  True,
-                        "is_active":          year_is_active,
+                        "is_active":          period_is_active,
                         "year_weight":        t["weight"],
-                        "grades_locked":      not year_is_active,
+                        "grades_locked":      not period_is_active,
                     },
                 )
                 if not created:
                     updates = {}
-                    if obj.is_active != year_is_active:
-                        updates["is_active"] = year_is_active
-                    expected_locked = not year_is_active
+                    if obj.is_active != period_is_active:
+                        updates["is_active"] = period_is_active
+                    expected_locked = not period_is_active
                     if obj.grades_locked != expected_locked:
                         updates["grades_locked"] = expected_locked
                     for date_field in ("start_date", "end_date"):

@@ -57,6 +57,7 @@ class AcademicPeriod(TimeStampedModel):
         app_label = "academic_period"
         verbose_name = "Período Académico"
         verbose_name_plural = "Períodos Académicos"
+        ordering = ["start_date"]
 
     def __str__(self):
         return self.name

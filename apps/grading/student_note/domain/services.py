@@ -328,7 +328,7 @@ class GradeCalculationService:
         Promedia todos los períodos disponibles del año usando sus pesos (year_weight).
         Si todos los períodos están cerrados, marca is_finalized=True.
         """
-        from ..infrastructure.models import PromotionStatusChoices
+        from ..infrastructure.models import PeriodGradeSummary, PromotionStatusChoices
 
         summaries = PeriodGradeSummary.objects.filter(
             enrollment=enrollment,
