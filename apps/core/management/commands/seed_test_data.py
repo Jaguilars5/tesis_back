@@ -2,17 +2,18 @@
 seed_test_data.py
 Management command: seed_test_data
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Pobla la base de datos con datos realistas para el año lectivo 2025-2026.
-Nivel creado: Primero de Bachillerato (1ro BGU), paralelos A y B.
+Pobla la base de datos con datos realistas multianuales (2022-2027) para
+1ro, 2do y 3ro de Bachillerato (BGU), paralelos A, B y C.
 
 Características:
-  • Año lectivo 2025-2026 (cierre administrativo hasta 31-jul-2026) en 3 trimestres
-  • Clases, asistencia y entregas solo hasta el 30-jun-2026
-  • 7 asignaturas del currículo BGU, un docente titular por asignatura
-  • 12 estudiantes por paralelo (24 en total)
+  • Años lectivos 2022-2023 a 2025-2026 (históricos) y 2026-2027 (activo)
+  • Clases, asistencia y entregas solo hasta el 09-jul-2026
+  • 10 asignaturas del currículo BGU, 20 docentes titulares
+  • 20 estudiantes por paralelo (60 por curso, 180 por año lectivo)
   • Cada estudiante tiene exactamente un representante primario
   • Algunos representantes están vinculados a dos hermanos (max 2 estudiantes)
   • Horario sin cruces ni solapamientos entre docentes, materias y paralelos
+  • Bloques de 40 min, 7:00-11:55, 7 bloques por día, lunes a viernes
   • Actividades evaluativas con nombres descriptivos por asignatura y trimestre
   • Notas con distribución variada entre 0 y 10 (no todas iguales)
   • Perfiles de riesgo con ruido y solapamiento (datos «sucios», más realistas para ML)
@@ -29,6 +30,8 @@ Credenciales generadas por convención (el acceso en el sistema es por username)
 
 import datetime
 import random
+import re
+from collections import defaultdict
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -56,6 +59,7 @@ from apps.grading.activity_type import ActivityType
 from apps.grading.evaluation import EvaluationBlock, BlockComponent, EvaluativeActivity
 from apps.grading.qualitative_scale import QualitativeScale
 from apps.grading.student_note import StudentNote, GradeCalculationService
+from apps.grading.student_note.infrastructure.models import PeriodGradeSummary, PromotionStatusChoices
 from apps.grading.student_note.signals import skip_period_summary_recalc
 from apps.iam import Role, User, UserRole
 from apps.institutions.school_year import SchoolYear
@@ -63,12 +67,14 @@ from apps.institutions.academic_level import AcademicLevel
 from apps.institutions.academic_sublevel import AcademicSublevel
 from apps.institutions.academic_grade import AcademicGrade
 from apps.institutions.section import Section
-from apps.people.models import DocumentType, Person
+from apps.people.models import DocumentType, Parish, Person
 from apps.students.models import (
     Enrollment,
     Kinship,
+    SpecialNeedsType,
     Student,
     StudentRepresentative,
+    WithdrawalReason,
 )
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -83,19 +89,19 @@ random.seed(RANDOM_SEED)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 SCHOOL_YEAR = {
-    "name": "2025-2026",
-    "start_date": date(2025, 9, 1),
-    "end_date":   date(2026, 7, 31),
+    "name": "2026-2027",
+    "start_date": date(2026, 5, 4),
+    "end_date":   date(2027, 3, 11),
     "is_active":  True,
 }
 
-# Último día con clases / asistencia / entregas (julio = cierre administrativo del año)
-ACTIVE_YEAR_INSTRUCTIONAL_END = date(2026, 6, 30)
+# Último día con clases / asistencia / entregas (hoy = 09-jul-2026)
+ACTIVE_YEAR_INSTRUCTIONAL_END = date(2026, 7, 9)
 
 
 def _instructional_end_date(period) -> date:
     """Fin de actividad lectiva del período (asistencia, tareas, incidentes en aula)."""
-    if period.code.endswith("-2526"):
+    if period.school_year.is_active:
         return min(period.end_date, ACTIVE_YEAR_INSTRUCTIONAL_END)
     return period.end_date
 
@@ -103,27 +109,27 @@ def _instructional_end_date(period) -> date:
 def _clamp_grade(value: float) -> float:
     return round(max(0.0, min(10.0, value)), 1)
 
-# Tres trimestres del año lectivo 2025-2026 (cierre administrativo hasta fin de julio)
+# Tres trimestres del año lectivo 2026-2027 (activo)
 TRIMESTRES = [
     {
-        "code":       "T1-2526",
+        "code":       "T1-2627",
         "name":       "Primer Trimestre",
-        "start_date": date(2025, 9, 1),
-        "end_date":   date(2025, 11, 30),
+        "start_date": date(2026, 5, 4),
+        "end_date":   date(2026, 8, 7),
         "weight":     Decimal("33.33"),
     },
     {
-        "code":       "T2-2526",
+        "code":       "T2-2627",
         "name":       "Segundo Trimestre",
-        "start_date": date(2025, 12, 1),
-        "end_date":   date(2026, 3, 20),
+        "start_date": date(2026, 8, 11),
+        "end_date":   date(2026, 11, 13),
         "weight":     Decimal("33.33"),
     },
     {
-        "code":       "T3-2526",
+        "code":       "T3-2627",
         "name":       "Tercer Trimestre",
-        "start_date": date(2026, 3, 23),
-        "end_date":   date(2026, 7, 31),
+        "start_date": date(2026, 11, 16),
+        "end_date":   date(2027, 2, 24),
         "weight":     Decimal("33.34"),
     },
 ]
@@ -225,6 +231,87 @@ DOCENTES = [
         "last_names":      "Loor Peñaherrera",
         "subject_code":    "EDU_ART",
         "birth_date":      date(1990, 5, 20),
+    },
+    # ── Docentes 3ro BGU ──────────────────────────────────────────────────────
+    {
+        "tag":             "doc_mat3",
+        "document_number": "0901100011",
+        "names":           "María Elena",
+        "last_names":      "Villacís Cueva",
+        "subject_code":    "MAT",
+        "birth_date":      date(1984, 5, 10),
+    },
+    {
+        "tag":             "doc_fis3",
+        "document_number": "0901100012",
+        "names":           "Pedro Pablo",
+        "last_names":      "Palacio Martínez",
+        "subject_code":    "FIS",
+        "birth_date":      date(1981, 9, 3),
+    },
+    {
+        "tag":             "doc_qui3",
+        "document_number": "0901100013",
+        "names":           "Rosa Cecilia",
+        "last_names":      "Astudillo Paredes",
+        "subject_code":    "QUI",
+        "birth_date":      date(1987, 2, 18),
+    },
+    {
+        "tag":             "doc_bio3",
+        "document_number": "0901100014",
+        "names":           "Lenin Eduardo",
+        "last_names":      "Rosero Molina",
+        "subject_code":    "BIO",
+        "birth_date":      date(1983, 8, 25),
+    },
+    {
+        "tag":             "doc_len3",
+        "document_number": "0901100015",
+        "names":           "Paulina Fernanda",
+        "last_names":      "Cevallos García",
+        "subject_code":    "LEN",
+        "birth_date":      date(1979, 12, 7),
+    },
+    {
+        "tag":             "doc_ing3",
+        "document_number": "0901100016",
+        "names":           "Michael Steve",
+        "last_names":      "Montenegro López",
+        "subject_code":    "ING",
+        "birth_date":      date(1986, 4, 14),
+    },
+    {
+        "tag":             "doc_soc3",
+        "document_number": "0901100017",
+        "names":           "Lucía Margarita",
+        "last_names":      "Aguilar Neira",
+        "subject_code":    "SOC",
+        "birth_date":      date(1980, 10, 30),
+    },
+    {
+        "tag":             "doc_fil3",
+        "document_number": "0901100018",
+        "names":           "Diego Ramiro",
+        "last_names":      "Bravo Escobar",
+        "subject_code":    "FIL",
+        "birth_date":      date(1985, 7, 12),
+    },
+    {
+        "tag":             "doc_edf3",
+        "document_number": "0901100019",
+        "names":           "Carla Jimena",
+        "last_names":      "Freire Villón",
+        "subject_code":    "EDU_FIS",
+        "birth_date":      date(1988, 1, 28),
+    },
+    {
+        "tag":             "doc_art3",
+        "document_number": "0901100020",
+        "names":           "Pablo Esteban",
+        "last_names":      "Loor Cedeño",
+        "subject_code":    "EDU_ART",
+        "birth_date":      date(1989, 11, 5),
     },
 ]
 
@@ -508,33 +595,29 @@ REPRESENTANTES = [
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # HORARIO SIN CRUCES
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Estructura del día: bloques de 45 min, 7:00-13:15, con recreo 10:00-10:15
+# Estructura del día: bloques de 40 min, 7:00-11:55, con recreo 09:40-09:55
 #
-#  Bloque 1  07:00 – 07:45
-#  Bloque 2  07:45 – 08:30
-#  Bloque 3  08:30 – 09:15
-#  Bloque 4  09:15 – 10:00
-#  [recreo]  10:00 – 10:15
-#  Bloque 5  10:15 – 11:00
-#  Bloque 6  11:00 – 11:45
-#  Bloque 7  11:45 – 12:30
-#  Bloque 8  12:30 – 13:15
+#  Bloque 1  07:00 – 07:40
+#  Bloque 2  07:40 – 08:20
+#  Bloque 3  08:20 – 09:00
+#  Bloque 4  09:00 – 09:40
+#  [recreo]  09:40 – 09:55
+#  Bloque 5  09:55 – 10:35
+#  Bloque 6  10:35 – 11:15
+#  Bloque 7  11:15 – 11:55
 #
 # Reglas de cruce CERO:
 #   1. El constraint del modelo es (teacher_subject_section, day_of_week, start_time).
 #      El mismo TSS no puede tener dos entradas con mismo día + hora inicio.
-#   2. Un docente puede dictar al mismo día a A y a B SOLO si sus bloques
-#      no se solapan en tiempo (bloques 1-4 para uno, bloques 5-8 para el otro).
+#   2. Un docente no puede estar en dos paralelos distintos en el mismo bloque.
 #   3. Un paralelo no puede tener dos materias en el mismo bloque horario.
 #
-# Diseño aplicado:
-#   Lunes    → A en bloques 1-4  (MAT×2, LEN, ING)        B en bloques 5-8  (FIS×2, SOC, ING)
-#   Martes   → A en bloques 1-4  (FIS×2, QUI, SOC)        B en bloques 5-8  (MAT×2, LEN, QUI)
-#   Miércoles→ A en bloques 1-4  (ING, BIO, FIL, EDU_ART) B en bloques 5-8  (ING, BIO, FIL, EDU_ART)
-#   Jueves   → A en bloques 1-4  (LEN, MAT, ING, EDU_FIS) B en bloques 5-8  (LEN, MAT, ING, EDU_FIS)
-#   Viernes  → A en bloques 1-4  (QUI, SOC, LEN, BIO)     B en bloques 5-8  (QUI, SOC, LEN, BIO)
+# Los 3 paralelos (A, B, C) comparten los 7 bloques diarios, con distintas
+# materias asignadas a cada uno en cada bloque (sin solapamiento de docentes).
+# Para los grados 2do y 3ro se aplica una rotación de bloques (swap) para
+# distribuir los horarios dentro de la ventana de 7:00-11:55.
 #
-# Horas semanales resultantes (cada slot = 45 min ≈ 1 hora pedagógica):
+# Horas semanales resultantes (cada slot = 40 min ≈ 1 hora pedagógica):
 #   MAT 4 | FIS 4 | QUI 3 | BIO 3 | LEN 4 | ING 5 | SOC 3 | FIL 2 | EDU_FIS 2 | EDU_ART 2
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -543,84 +626,98 @@ def _t(h: int, m: int) -> datetime.time:
     return datetime.time(h, m)
 
 
-# Formato: (subject_code, parallel, day_of_week, start_time, end_time)
+def _build_schedule():
+    """Genera SCHEDULE_SLOTS para 3 paralelos, 40-min bloques, 7:00-11:55."""
+    _BLOCK_TIMES = [
+        (1, _t(7, 0), _t(7, 40)),
+        (2, _t(7, 40), _t(8, 20)),
+        (3, _t(8, 20), _t(9, 0)),
+        (4, _t(9, 0), _t(9, 40)),
+        (5, _t(9, 55), _t(10, 35)),
+        (6, _t(10, 35), _t(11, 15)),
+        (7, _t(11, 15), _t(11, 55)),
+    ]
 
-SCHEDULE_SLOTS = [
-    # ── LUNES ────────────────────────────────────────────────────────────────
-    # Paralelo A (bloques 1-4): MAT MAT LEN ING
-    ("MAT", "A", 1, _t(7,  0), _t(7, 45)),
-    ("MAT", "A", 1, _t(7, 45), _t(8, 30)),
-    ("LEN", "A", 1, _t(8, 30), _t(9, 15)),
-    ("ING", "A", 1, _t(9, 15), _t(10, 0)),
-    # Paralelo B (bloques 5-8): FIS FIS SOC ING
-    # ING mismo día → A termina 10:00 / B empieza 12:30 → sin solapamiento ✓
-    ("FIS", "B", 1, _t(10, 15), _t(11, 0)),
-    ("FIS", "B", 1, _t(11,  0), _t(11, 45)),
-    ("SOC", "B", 1, _t(11, 45), _t(12, 30)),
-    ("ING", "B", 1, _t(12, 30), _t(13, 15)),
+    # Matriz semanal: day(1-5) → block(1-7) → (A_subj, B_subj, C_subj)
+    # Diseñada para que en cada bloque los 3 sujetos sean distintos y cada
+    # paralelo reciba exactamente: MAT4 FIS4 QUI3 BIO3 LEN4 ING5 SOC3 FIL2 EF2 EA2
+    _WEEKLY = {
+        1: [  # LUNES
+            ("MAT", "FIS", "QUI"),
+            ("MAT", "FIS", "LEN"),
+            ("LEN", "QUI", "BIO"),
+            ("ING", "SOC", "EDU_ART"),
+            ("ING", "LEN", "FIL"),
+            ("SOC", "BIO", "MAT"),
+            ("FIL", "EDU_ART", "EDU_FIS"),
+        ],
+        2: [  # MARTES
+            ("FIS", "MAT", "BIO"),
+            ("FIS", "MAT", "QUI"),
+            ("QUI", "LEN", "MAT"),
+            ("SOC", "ING", "LEN"),
+            ("LEN", "QUI", "ING"),
+            ("BIO", "SOC", "MAT"),
+            ("ING", "FIL", "EDU_FIS"),
+        ],
+        3: [  # MIERCOLES
+            ("FIL", "EDU_FIS", "ING"),
+            ("EDU_FIS", "MAT", "FIS"),
+            ("MAT", "BIO", "QUI"),
+            ("EDU_ART", "ING", "MAT"),
+            ("ING", "LEN", "SOC"),
+            ("QUI", "EDU_FIS", "BIO"),
+            ("EDU_ART", "FIL", "SOC"),
+        ],
+        4: [  # JUEVES
+            ("BIO", "MAT", "FIS"),
+            ("ING", "FIS", "FIL"),
+            ("MAT", "BIO", "ING"),
+            ("EDU_FIS", "QUI", "EDU_ART"),
+            ("FIS", "ING", "LEN"),
+            ("QUI", "EDU_ART", "ING"),
+            ("BIO", "LEN", "SOC"),
+        ],
+        5: [  # VIERNES
+            ("FIS", "ING", "LEN"),
+            ("LEN", "FIS", "ING"),
+            ("SOC", "ING", "FIS"),
+            ("LEN", "SOC", "FIS"),
+            (None, None, None),
+            (None, None, None),
+            (None, None, None),
+        ],
+    }
 
-    # ── MARTES ───────────────────────────────────────────────────────────────
-    # Paralelo A (bloques 1-4): FIS FIS QUI SOC
-    ("FIS", "A", 2, _t(7,  0), _t(7, 45)),
-    ("FIS", "A", 2, _t(7, 45), _t(8, 30)),
-    ("QUI", "A", 2, _t(8, 30), _t(9, 15)),
-    ("SOC", "A", 2, _t(9, 15), _t(10, 0)),
-    # Paralelo B (bloques 5-8): MAT MAT LEN QUI
-    # QUI mismo día → A termina 09:15 / B empieza 12:30 → sin solapamiento ✓
-    ("MAT", "B", 2, _t(10, 15), _t(11, 0)),
-    ("MAT", "B", 2, _t(11,  0), _t(11, 45)),
-    ("LEN", "B", 2, _t(11, 45), _t(12, 30)),
-    ("QUI", "B", 2, _t(12, 30), _t(13, 15)),
+    slots = []
+    for day in range(1, 6):
+        day_blocks = _WEEKLY[day]
+        for block_idx, (block_num, start, end) in enumerate(_BLOCK_TIMES):
+            a_subj, b_subj, c_subj = day_blocks[block_idx]
+            if a_subj:
+                slots.append((a_subj, "A", day, start, end))
+            if b_subj:
+                slots.append((b_subj, "B", day, start, end))
+            if c_subj:
+                slots.append((c_subj, "C", day, start, end))
+    return slots
 
-    # ── MIÉRCOLES ────────────────────────────────────────────────────────────
-    # Cada docente atiende A en bloques 1-4 y B en bloques 5-8 del mismo día
-    # Paralelo A: ING BIO FIL EDU_ART
-    ("ING",     "A", 3, _t(7,  0), _t(7, 45)),
-    ("BIO",     "A", 3, _t(7, 45), _t(8, 30)),
-    ("FIL",     "A", 3, _t(8, 30), _t(9, 15)),
-    ("EDU_ART", "A", 3, _t(9, 15), _t(10, 0)),
-    # Paralelo B: ING BIO FIL EDU_ART
-    # ING:     A 07:00-07:45 / B 10:15-11:00  → sin solapamiento ✓
-    # BIO:     A 07:45-08:30 / B 11:00-11:45  → sin solapamiento ✓
-    # FIL:     A 08:30-09:15 / B 11:45-12:30  → sin solapamiento ✓
-    # EDU_ART: A 09:15-10:00 / B 12:30-13:15  → sin solapamiento ✓
-    ("ING",     "B", 3, _t(10, 15), _t(11, 0)),
-    ("BIO",     "B", 3, _t(11,  0), _t(11, 45)),
-    ("FIL",     "B", 3, _t(11, 45), _t(12, 30)),
-    ("EDU_ART", "B", 3, _t(12, 30), _t(13, 15)),
 
-    # ── JUEVES ───────────────────────────────────────────────────────────────
-    # Paralelo A: LEN MAT ING EDU_FIS
-    ("LEN",     "A", 4, _t(7,  0), _t(7, 45)),
-    ("MAT",     "A", 4, _t(7, 45), _t(8, 30)),
-    ("ING",     "A", 4, _t(8, 30), _t(9, 15)),
-    ("EDU_FIS", "A", 4, _t(9, 15), _t(10, 0)),
-    # Paralelo B: LEN MAT ING EDU_FIS
-    # LEN:     A 07:00-07:45 / B 10:15-11:00  → sin solapamiento ✓
-    # MAT:     A 07:45-08:30 / B 11:00-11:45  → sin solapamiento ✓
-    # ING:     A 08:30-09:15 / B 11:45-12:30  → sin solapamiento ✓
-    # EDU_FIS: A 09:15-10:00 / B 12:30-13:15  → sin solapamiento ✓
-    ("LEN",     "B", 4, _t(10, 15), _t(11, 0)),
-    ("MAT",     "B", 4, _t(11,  0), _t(11, 45)),
-    ("ING",     "B", 4, _t(11, 45), _t(12, 30)),
-    ("EDU_FIS", "B", 4, _t(12, 30), _t(13, 15)),
+SCHEDULE_SLOTS = _build_schedule()
 
-    # ── VIERNES ──────────────────────────────────────────────────────────────
-    # Paralelo A: QUI SOC LEN BIO
-    ("QUI", "A", 5, _t(7,  0), _t(7, 45)),
-    ("SOC", "A", 5, _t(7, 45), _t(8, 30)),
-    ("LEN", "A", 5, _t(8, 30), _t(9, 15)),
-    ("BIO", "A", 5, _t(9, 15), _t(10, 0)),
-    # Paralelo B: QUI SOC LEN BIO
-    # QUI: A 07:00-07:45 / B 10:15-11:00  → sin solapamiento ✓
-    # SOC: A 07:45-08:30 / B 11:00-11:45  → sin solapamiento ✓
-    # LEN: A 08:30-09:15 / B 11:45-12:30  → sin solapamiento ✓
-    # BIO: A 09:15-10:00 / B 12:30-13:15  → sin solapamiento ✓
-    ("QUI", "B", 5, _t(10, 15), _t(11, 0)),
-    ("SOC", "B", 5, _t(11,  0), _t(11, 45)),
-    ("LEN", "B", 5, _t(11, 45), _t(12, 30)),
-    ("BIO", "B", 5, _t(12, 30), _t(13, 15)),
-]
+
+def _get_swapped_times(start_time, end_time):
+    """Rotación de bloques para 2do y 3ro (distintos horarios que 1ro)."""
+    # Morning blocks (1-4): 7:00-9:40
+    if start_time == _t(7, 0): return _t(8, 20), _t(9, 0)
+    if start_time == _t(7, 40): return _t(9, 0), _t(9, 40)
+    if start_time == _t(8, 20): return _t(7, 0), _t(7, 40)
+    if start_time == _t(9, 0): return _t(7, 40), _t(8, 20)
+    # Afternoon blocks (5-7): 9:55-11:55
+    if start_time == _t(9, 55): return _t(10, 35), _t(11, 15)
+    if start_time == _t(10, 35): return _t(11, 15), _t(11, 55)
+    if start_time == _t(11, 15): return _t(9, 55), _t(10, 35)
+    return start_time, end_time
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ACTIVIDADES EVALUATIVAS POR ASIGNATURA Y TRIMESTRE
@@ -628,8 +725,9 @@ SCHEDULE_SLOTS = [
 # Formato por trimestre: (subject_code, component_name, activity_title, activity_type_code)
 # component_name: "Tareas", "Lecciones", "Talleres"
 
+# Actividades indexadas por número de período (1, 2, 3) — genérico para cualquier año
 ACTIVIDADES_POR_TRIMESTRE = {
-    "T1-2526": [
+    1: [
         # Matemática
         ("MAT", "Tareas",    "Tarea 1: Funciones lineales y cuadráticas",              "TAREA"),
         ("MAT", "Tareas",    "Tarea 2: Sistemas de ecuaciones",                        "TAREA"),
@@ -671,7 +769,7 @@ ACTIVIDADES_POR_TRIMESTRE = {
         ("EDU_ART", "Tareas",    "Tarea 1: Historia del arte – Renacimiento",            "TAREA"),
         ("EDU_ART", "Talleres",  "Taller: Técnicas mixtas – collage y acuarela",         "TALLER"),
     ],
-    "T2-2526": [
+    2: [
         ("MAT", "Tareas",    "Tarea 3: Trigonometría básica y razones trigonométricas",  "TAREA"),
         ("MAT", "Tareas",    "Tarea 4: Geometría analítica – circunferencia",            "TAREA"),
         ("MAT", "Lecciones", "Lección oral: Funciones trigonométricas inversas",         "LECCION_ORAL"),
@@ -712,7 +810,7 @@ ACTIVIDADES_POR_TRIMESTRE = {
         ("EDU_ART", "Tareas",    "Tarea 2: Análisis de obra artística contemporánea",   "TAREA"),
         ("EDU_ART", "Talleres",  "Taller: Diseño gráfico – composición y color",        "TALLER"),
     ],
-    "T3-2526": [
+    3: [
         ("MAT", "Tareas",    "Tarea 5: Estadística descriptiva y medidas de tendencia central","TAREA"),
         ("MAT", "Tareas",    "Tarea 6: Probabilidad clásica y frecuencial",              "TAREA"),
         ("MAT", "Lecciones", "Lección oral: Distribuciones de probabilidad",             "LECCION_ORAL"),
@@ -772,6 +870,7 @@ INCIDENTES_DESCRIPCION = {
         "Habló en voz alta interrumpiendo la explicación del docente.",
         "Uso de celular durante la clase pese a indicaciones previas.",
         "Generó desorden al cambiar de sitio sin autorización.",
+        "Llegó tarde de forma reiterada durante el período académico, afectando el inicio de clases.",
     ],
     "IRRESPETO": [
         "Hizo comentarios hirientes sobre el trabajo de un compañero.",
@@ -821,12 +920,23 @@ NOMBRES_REP = [
 # Inicializar un generador de aleatoriedad local
 local_rand = random.Random(2025)
 
-# Generar 120 alumnos y representantes únicos
-for i in range(1, 121):
+# Generar 420 alumnos y representantes únicos (agrupados por tanda de ingreso a 1ro BGU)
+# Tanda 1 (est_001-060): ingresan 2022-2023 → nacen 2008 (14-15 años al entrar)
+# Tanda 2 (est_061-120): ingresan 2023-2024 → nacen 2009
+# Tanda 3 (est_121-180): ingresan 2024-2025 → nacen 2010
+# Tanda 4 (est_181-240): ingresan 2025-2026 → nacen 2011
+# Tanda 5 (est_241-300): ingresan 2026-2027 → nacen 2012
+# Tanda 6 (est_301-360): reserva
+# Tanda 7 (est_361-420): reserva
+_BIRTH_YEARS = {1: 2008, 2: 2009, 3: 2010, 4: 2011, 5: 2012, 6: 2013, 7: 2014}
+
+for i in range(1, 421):
     names = local_rand.choice(NOMBRES_EST)
     last_names = f"{local_rand.choice(APELLIDOS)} {local_rand.choice(APELLIDOS)}"
     doc_num = f"091020{i:04d}"
-    birth_date = date(2009 + (i % 3), local_rand.randint(1, 12), local_rand.randint(1, 28))
+    tanda = ((i - 1) // 60) + 1
+    birth_year = _BIRTH_YEARS.get(tanda, 2014)
+    birth_date = date(birth_year, local_rand.randint(1, 12), local_rand.randint(1, 28))
     
     student_tag = f"est_{i:03d}"
     
@@ -855,45 +965,97 @@ for i in range(1, 121):
         "students": [student_tag]
     })
 
-# Definición de años escolares e históricos
+# ── Parroquias disponibles (dependen de seed_catalogs, se usan como lookup) ──
+ALL_PARISH_CODES = (
+    # Zaruma urbano ~45%
+    ["ZAR-URB"] * 45 +
+    # Zaruma rural ~37%
+    ["ZAR-ABA", "ZAR-ARC", "ZAR-GUA", "ZAR-GÜI", "ZAR-HUE", "ZAR-MAL", "ZAR-MUL", "ZAR-SAL", "ZAR-SIN"] * 4 +
+    # Portovelo ~8%
+    ["PTO-URB", "PTO-CUR", "PTO-MOR", "PTO-SAL"] * 2 +
+    # Piñas ~10%
+    ["PIN-URB", "PIN-GRA", "PIN-SUS", "PIN-CAP", "PIN-BOC", "PIN-MOR", "PIN-ROQ", "PIN-SAR", "PIN-SIN"] * 1
+)
+URBAN_PARISH_CODES = ["ZAR-URB", "PTO-URB", "PIN-URB", "PIN-GRA", "PIN-SUS"]
+
+# ── Estudiantes con Necesidades Educativas Especiales (tag → tipo NEE) ──────
+NEE_STUDENTS = {
+    "est_001": "TRASTORNOS_APRENDIZAJE",
+    "est_003": "TDAH",
+    "est_005": "DISCAPACIDAD_FISICA",
+    "est_010": "AUTISMO",
+    "est_020": "TRASTORNOS_APRENDIZAJE",
+    "est_050": "DISCAPACIDAD_SENSORIAL",
+}
+
+# Definición de años escolares e históricos (Costa-Galápagos)
+# 2022-2023: Quimestres (2 períodos), cerrado
+# 2023-2024 a 2025-2026: Trimestres (3 períodos), cerrados
+# 2026-2027: Trimestres (3 períodos), activo
 SCHOOL_YEARS_DATA = [
     {
+        "period_type_code": "QUIMESTRE",
+        "name": "2022-2023",
+        "start_date": date(2022, 5, 6),
+        "end_date":   date(2023, 3, 31),
+        "is_active":  False,
+        "trimestres": [
+            {"code": "Q1-2223", "name": "Primer Quimestre",  "start_date": date(2022, 5, 6),   "end_date": date(2022, 9, 23),  "weight": Decimal("50.00")},
+            {"code": "Q2-2223", "name": "Segundo Quimestre", "start_date": date(2022, 9, 26),  "end_date": date(2023, 2, 22),  "weight": Decimal("50.00")},
+        ]
+    },
+    {
+        "period_type_code": "TRIMESTRE",
         "name": "2023-2024",
-        "start_date": date(2023, 9, 1),
-        "end_date":   date(2024, 6, 30),
+        "start_date": date(2023, 4, 24),
+        "end_date":   date(2024, 4, 9),
         "is_active":  False,
         "trimestres": [
-            {"code": "T1-2324", "name": "Primer Trimestre", "start_date": date(2023, 9, 1), "end_date": date(2023, 11, 30), "weight": Decimal("33.33")},
-            {"code": "T2-2324", "name": "Segundo Trimestre", "start_date": date(2023, 12, 1), "end_date": date(2024, 3, 15), "weight": Decimal("33.33")},
-            {"code": "T3-2324", "name": "Tercer Trimestre", "start_date": date(2024, 3, 18), "end_date": date(2024, 6, 30), "weight": Decimal("33.34")},
+            {"code": "T1-2324", "name": "Primer Trimestre",  "start_date": date(2023, 4, 24),  "end_date": date(2023, 8, 4),   "weight": Decimal("33.33")},
+            {"code": "T2-2324", "name": "Segundo Trimestre", "start_date": date(2023, 8, 7),   "end_date": date(2023, 11, 10), "weight": Decimal("33.33")},
+            {"code": "T3-2324", "name": "Tercer Trimestre",  "start_date": date(2023, 11, 13), "end_date": date(2024, 2, 19),  "weight": Decimal("33.34")},
         ]
     },
     {
+        "period_type_code": "TRIMESTRE",
         "name": "2024-2025",
-        "start_date": date(2024, 9, 1),
-        "end_date":   date(2025, 6, 30),
+        "start_date": date(2024, 5, 6),
+        "end_date":   date(2025, 3, 31),
         "is_active":  False,
         "trimestres": [
-            {"code": "T1-2425", "name": "Primer Trimestre", "start_date": date(2024, 9, 1), "end_date": date(2024, 11, 30), "weight": Decimal("33.33")},
-            {"code": "T2-2425", "name": "Segundo Trimestre", "start_date": date(2024, 12, 1), "end_date": date(2025, 3, 14), "weight": Decimal("33.33")},
-            {"code": "T3-2425", "name": "Tercer Trimestre", "start_date": date(2025, 3, 17), "end_date": date(2025, 6, 30), "weight": Decimal("33.34")},
+            {"code": "T1-2425", "name": "Primer Trimestre",  "start_date": date(2024, 5, 6),   "end_date": date(2024, 8, 7),   "weight": Decimal("33.33")},
+            {"code": "T2-2425", "name": "Segundo Trimestre", "start_date": date(2024, 8, 12),  "end_date": date(2024, 10, 30), "weight": Decimal("33.33")},
+            {"code": "T3-2425", "name": "Tercer Trimestre",  "start_date": date(2024, 11, 18), "end_date": date(2025, 2, 28),  "weight": Decimal("33.34")},
         ]
     },
     {
+        "period_type_code": "TRIMESTRE",
         "name": "2025-2026",
-        "start_date": date(2025, 9, 1),
-        "end_date":   date(2026, 7, 31),
+        "start_date": date(2025, 5, 5),
+        "end_date":   date(2026, 3, 31),
+        "is_active":  False,
+        "trimestres": [
+            {"code": "T1-2526", "name": "Primer Trimestre",  "start_date": date(2025, 5, 5),   "end_date": date(2025, 8, 8),   "weight": Decimal("33.33")},
+            {"code": "T2-2526", "name": "Segundo Trimestre", "start_date": date(2025, 8, 11),  "end_date": date(2025, 11, 7),  "weight": Decimal("33.33")},
+            {"code": "T3-2526", "name": "Tercer Trimestre",  "start_date": date(2025, 11, 10), "end_date": date(2026, 2, 27),  "weight": Decimal("33.34")},
+        ]
+    },
+    {
+        "period_type_code": "TRIMESTRE",
+        "name": "2026-2027",
+        "start_date": date(2026, 5, 4),
+        "end_date":   date(2027, 3, 11),
         "is_active":  True,
         "trimestres": [
-            {"code": "T1-2526", "name": "Primer Trimestre", "start_date": date(2025, 9, 1), "end_date": date(2025, 11, 30), "weight": Decimal("33.33")},
-            {"code": "T2-2526", "name": "Segundo Trimestre", "start_date": date(2025, 12, 1), "end_date": date(2026, 3, 20), "weight": Decimal("33.33")},
-            {"code": "T3-2526", "name": "Tercer Trimestre", "start_date": date(2026, 3, 23), "end_date": date(2026, 7, 31), "weight": Decimal("33.34")},
+            {"code": "T1-2627", "name": "Primer Trimestre",  "start_date": date(2026, 5, 4),   "end_date": date(2026, 8, 7),   "weight": Decimal("33.33")},
+            {"code": "T2-2627", "name": "Segundo Trimestre", "start_date": date(2026, 8, 11),  "end_date": date(2026, 11, 13), "weight": Decimal("33.33")},
+            {"code": "T3-2627", "name": "Tercer Trimestre",  "start_date": date(2026, 11, 16), "end_date": date(2027, 2, 24),  "weight": Decimal("33.34")},
         ]
-    }
+    },
 ]
 
 class Command(BaseCommand):
-    help = "Siembra datos de prueba multianuales coherentes con el paralelo C y soporte para ML"
+    help = "Siembra datos de prueba multianuales: 1ro, 2do, 3ro BGU (A, B, C) con soporte para ML"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -920,10 +1082,11 @@ class Command(BaseCommand):
         self._seed_catalogs()
         self._seed_permissions_and_roles()
 
-        grade_bgu1, grade_bgu2 = self._create_grades()
+        grade_bgu1, grade_bgu2, grade_bgu3 = self._create_grades()
         subjects = self._create_subjects()
         configs_bgu1 = self._create_subject_configs(subjects, grade_bgu1)
         configs_bgu2 = self._create_subject_configs(subjects, grade_bgu2)
+        configs_bgu3 = self._create_subject_configs(subjects, grade_bgu3)
 
         admin_users = self._create_admin_users()
         doc_users = self._create_docentes()
@@ -932,13 +1095,15 @@ class Command(BaseCommand):
         self.stdout.write("  -> Creando pool global de estudiantes...")
         est_users = {}
         students = {}
+        student_parish_map = {}
         est_role = Role.objects.get(code="ESTUDIANTE")
-        for e in STUDENT_POOL:
+        for idx, e in enumerate(STUDENT_POOL):
             apellido_slug = e["last_names"].split()[0].lower()
             for a, b in [("á","a"),("é","e"),("í","i"),("ó","o"),("ú","u"),("ñ","n")]:
                 apellido_slug = apellido_slug.replace(a, b)
             email    = f"est.{apellido_slug}.{e['tag']}@uetest.edu.ec"
             password = f"Est.{e['last_names'].split()[0]}2025!"
+            parish_code = ALL_PARISH_CODES[idx % len(ALL_PARISH_CODES)]
             u = self._make_user(
                 document_number=e["document_number"],
                 names=e["names"],
@@ -946,17 +1111,31 @@ class Command(BaseCommand):
                 email=email,
                 password=password,
                 birth_date=e["birth_date"],
+                parish_code=parish_code,
             )
             est_users[e["tag"]] = u
+            student_parish_map[e["tag"]] = parish_code
             UserRole.objects.get_or_create(user=u, role=est_role)
             student, _ = Student.objects.get_or_create(
                 student_code=f"BGU-{e['document_number'][-6:]}",
                 defaults={
                     "user":              u,
                     "is_active":         True,
-                    "has_special_needs": e["tag"] == "est_001",
+                    "has_special_needs": e["tag"] in NEE_STUDENTS,
                 },
             )
+            nee_type_code = NEE_STUDENTS.get(e["tag"])
+            if nee_type_code:
+                nee_type = SpecialNeedsType.objects.get(code=nee_type_code)
+                needs_update = False
+                if student.special_needs_type_id != nee_type.id:
+                    student.special_needs_type = nee_type
+                    needs_update = True
+                if not student.has_special_needs:
+                    student.has_special_needs = True
+                    needs_update = True
+                if needs_update:
+                    student.save(update_fields=["special_needs_type", "has_special_needs"])
             students[e["tag"]] = student
 
         self.stdout.write("  -> Creando pool global de representantes...")
@@ -968,6 +1147,8 @@ class Command(BaseCommand):
                 apellido_slug = apellido_slug.replace(a, b)
             email    = f"rep.{apellido_slug}@uetest.edu.ec"
             password = f"Rep.{r['last_names'].split()[0]}2025!"
+            first_student_tag = r["students"][0]
+            parish_code = student_parish_map.get(first_student_tag, ALL_PARISH_CODES[0])
             u = self._make_user(
                 document_number=r["document_number"],
                 names=r["names"],
@@ -975,6 +1156,7 @@ class Command(BaseCommand):
                 email=email,
                 password=password,
                 birth_date=r["birth_date"],
+                parish_code=parish_code,
             )
             rep_users[r["tag"]] = u
             UserRole.objects.get_or_create(user=u, role=rep_role)
@@ -998,7 +1180,7 @@ class Command(BaseCommand):
         free_students = [e["tag"] for e in STUDENT_POOL]
         current_enrollments = {}
 
-        for sy_data in SCHOOL_YEARS_DATA:
+        for year_idx, sy_data in enumerate(SCHOOL_YEARS_DATA):
             year_is_active = sy_data["is_active"]
 
             self.stdout.write(f"\n==================================================")
@@ -1028,7 +1210,7 @@ class Command(BaseCommand):
                 school_year.save(update_fields=["is_active"])
 
             sections = {}
-            for grade_code, grade in [("BGU_1RO", grade_bgu1), ("BGU_2DO", grade_bgu2)]:
+            for grade_code, grade in [("BGU_1RO", grade_bgu1), ("BGU_2DO", grade_bgu2), ("BGU_3RO", grade_bgu3)]:
                 sections[grade_code] = {}
                 for parallel in ("A", "B", "C"):
                     code = f"{grade_code}_{parallel}_{sy_data['name'].replace('-', '')}"
@@ -1046,7 +1228,7 @@ class Command(BaseCommand):
                     sections[grade_code][parallel] = obj
 
             offerings = {}
-            for grade_code, configs in [("BGU_1RO", configs_bgu1), ("BGU_2DO", configs_bgu2)]:
+            for grade_code, configs in [("BGU_1RO", configs_bgu1), ("BGU_2DO", configs_bgu2), ("BGU_3RO", configs_bgu3)]:
                 for parallel, section in sections[grade_code].items():
                     for code, cfg in configs.items():
                         obj, created = SubjectOffering.objects.get_or_create(
@@ -1057,7 +1239,8 @@ class Command(BaseCommand):
                         self._sync_is_active(obj, year_is_active, created)
                         offerings[(grade_code, code, parallel)] = obj
 
-            period_type = PeriodType.objects.get(code="TRIMESTRE")
+            period_type_code = sy_data.get("period_type_code", "TRIMESTRE")
+            period_type = PeriodType.objects.get(code=period_type_code)
             periods = []
             for t in sy_data["trimestres"]:
                 obj, created = AcademicPeriod.objects.get_or_create(
@@ -1091,11 +1274,16 @@ class Command(BaseCommand):
                         obj.save(update_fields=list(updates.keys()))
                 periods.append(obj)
 
+            # Excluir períodos futuros para el año activo (aún no inician)
+            if sy_data["is_active"]:
+                periods = [p for p in periods if p.start_date <= ACTIVE_YEAR_INSTRUCTIONAL_END]
+
             teacher_map = {}
             for d in DOCENTES:
                 user = doc_users[d["tag"]]
                 scode = d["subject_code"]
-                for grade_code in ("BGU_1RO", "BGU_2DO"):
+                grade_codes = ("BGU_3RO",) if d["tag"].endswith("3") else ("BGU_1RO", "BGU_2DO")
+                for grade_code in grade_codes:
                     for parallel in ("A", "B", "C"):
                         key = (grade_code, scode, parallel)
                         offering = offerings.get(key)
@@ -1109,27 +1297,13 @@ class Command(BaseCommand):
                         self._sync_is_active(tss, year_is_active, created)
                         teacher_map[key] = tss
 
-            def _get_swapped_times(start_time, end_time):
-                # Shift A
-                if start_time == _t(7, 0): return _t(8, 30), _t(9, 15)
-                if start_time == _t(7, 45): return _t(9, 15), _t(10, 0)
-                if start_time == _t(8, 30): return _t(7, 0), _t(7, 45)
-                if start_time == _t(9, 15): return _t(7, 45), _t(8, 30)
-                # Shift B
-                if start_time == _t(10, 15): return _t(11, 45), _t(12, 30)
-                if start_time == _t(11, 0): return _t(12, 30), _t(13, 15)
-                if start_time == _t(11, 45): return _t(10, 15), _t(11, 0)
-                if start_time == _t(12, 30): return _t(11, 0), _t(11, 45)
-                return start_time, end_time
-
             count_schedules = 0
             for (scode, parallel, day, start, end) in SCHEDULE_SLOTS:
-                for grade_code in ("BGU_1RO", "BGU_2DO"):
-                    if grade_code == "BGU_2DO":
-                        actual_start, actual_end = _get_swapped_times(start, end)
-                    else:
+                for grade_code in ("BGU_1RO", "BGU_2DO", "BGU_3RO"):
+                    if grade_code == "BGU_1RO":
                         actual_start, actual_end = start, end
-
+                    else:
+                        actual_start, actual_end = _get_swapped_times(start, end)
                     tss = teacher_map.get((grade_code, scode, parallel))
                     if tss:
                         cs, created = ClassSchedule.objects.get_or_create(
@@ -1143,89 +1317,149 @@ class Command(BaseCommand):
                             cs.end_time = actual_end
                             cs.save()
                         count_schedules += 1
-
-                    if parallel == "A":
-                        tss_c = teacher_map.get((grade_code, scode, "C"))
-                        if tss_c:
-                            c_start = (datetime.datetime.combine(datetime.date.today(), actual_start) + datetime.timedelta(hours=6, minutes=30)).time()
-                            c_end = (datetime.datetime.combine(datetime.date.today(), actual_end) + datetime.timedelta(hours=6, minutes=30)).time()
-                            cs_c, created_c = ClassSchedule.objects.get_or_create(
-                                teacher_subject_section=tss_c,
-                                day_of_week=day,
-                                start_time=c_start,
-                                defaults={"end_time": c_end, "is_active": year_is_active},
-                            )
-                            if not created_c and (cs_c.is_active != year_is_active or cs_c.end_time != c_end):
-                                cs_c.is_active = year_is_active
-                                cs_c.end_time = c_end
-                                cs_c.save()
-                            count_schedules += 1
             self.stdout.write(f"  [OK] Horarios creados para el año: {count_schedules}")
 
+            STUDENTS_PER_GRADE = 60
             current_enrollments = {}
+            is_first_year = (year_idx == 0)
 
-            # --- Matrículas 2do BGU ---
-            passed_1ro = [tag for tag, state in student_states.items() if state["last_grade"] == "BGU_1RO" and state["last_status"] == "PASSED"]
-            local_rand.shuffle(passed_1ro)
+            if is_first_year:
+                # ── Bootstrap: asignación directa a los 3 grados ──
+                for grade_code in ("BGU_1RO", "BGU_2DO", "BGU_3RO"):
+                    intake = free_students[:STUDENTS_PER_GRADE]
+                    free_students = free_students[STUDENTS_PER_GRADE:]
+                    for idx, tag in enumerate(intake):
+                        parallel = ("A", "B", "C")[idx % 3]
+                        sec = sections[grade_code][parallel]
+                        stud = students[tag]
+                        enroll, _ = Enrollment.objects.get_or_create(
+                            student=stud,
+                            section=sec,
+                            defaults={"enrollment_status": "ACT", "is_repeat": False}
+                        )
+                        current_enrollments[tag] = enroll
+                        student_states[tag]["last_grade"] = grade_code
+                        student_states[tag]["last_status"] = None
+                self.stdout.write(f"  [OK] Matrículas bootstrap: {len(current_enrollments)} (1ro BGU: {STUDENTS_PER_GRADE}, 2do BGU: {STUDENTS_PER_GRADE}, 3ro BGU: {STUDENTS_PER_GRADE})")
+            else:
+                # ── Promoción normal ──
+                previous_states = {tag: dict(state) for tag, state in student_states.items() if not state.get("graduated")}
 
-            for idx, tag in enumerate(passed_1ro[:36]):
-                parallel = ("A", "B", "C")[idx % 3]
-                sec = sections["BGU_2DO"][parallel]
-                stud = students[tag]
-                enroll, _ = Enrollment.objects.get_or_create(
-                    student=stud,
-                    section=sec,
-                    defaults={"enrollment_status": "ACT", "is_repeat": False}
+                # --- Matrículas 3ro BGU ---
+                passed_2do = [tag for tag, state in previous_states.items() if state.get("last_grade") == "BGU_2DO" and state.get("last_status") == "PASSED"]
+                repeaters_3ro = [tag for tag, state in previous_states.items() if state.get("last_grade") == "BGU_3RO" and state.get("last_status") == "FAILED"]
+                local_rand.shuffle(passed_2do)
+
+                intake_3ro = repeaters_3ro + passed_2do[:STUDENTS_PER_GRADE - len(repeaters_3ro)]
+                local_rand.shuffle(intake_3ro)
+
+                for idx, tag in enumerate(intake_3ro[:STUDENTS_PER_GRADE]):
+                    parallel = ("A", "B", "C")[idx % 3]
+                    sec = sections["BGU_3RO"][parallel]
+                    stud = students[tag]
+                    is_rep = tag in repeaters_3ro
+                    enroll, _ = Enrollment.objects.get_or_create(
+                        student=stud,
+                        section=sec,
+                        defaults={"enrollment_status": "ACT", "is_repeat": is_rep}
+                    )
+                    current_enrollments[tag] = enroll
+                    student_states[tag]["last_grade"] = "BGU_3RO"
+                    student_states[tag]["last_status"] = None
+                    if is_rep:
+                        student_states[tag]["repeat_count"] += 1
+
+                # --- Matrículas 2do BGU ---
+                passed_1ro = [tag for tag, state in previous_states.items() if state.get("last_grade") == "BGU_1RO" and state.get("last_status") == "PASSED"]
+                repeaters_2do = [tag for tag, state in previous_states.items() if state.get("last_grade") == "BGU_2DO" and state.get("last_status") == "FAILED"]
+                local_rand.shuffle(passed_1ro)
+
+                intake_2do = repeaters_2do + passed_1ro[:STUDENTS_PER_GRADE - len(repeaters_2do)]
+                local_rand.shuffle(intake_2do)
+
+                for idx, tag in enumerate(intake_2do[:STUDENTS_PER_GRADE]):
+                    parallel = ("A", "B", "C")[idx % 3]
+                    sec = sections["BGU_2DO"][parallel]
+                    stud = students[tag]
+                    is_rep = tag in repeaters_2do
+                    enroll, _ = Enrollment.objects.get_or_create(
+                        student=stud,
+                        section=sec,
+                        defaults={"enrollment_status": "ACT", "is_repeat": is_rep}
+                    )
+                    current_enrollments[tag] = enroll
+                    student_states[tag]["last_grade"] = "BGU_2DO"
+                    student_states[tag]["last_status"] = None
+                    if is_rep:
+                        student_states[tag]["repeat_count"] += 1
+
+                # --- Matrículas 1ro BGU ---
+                repeaters_1ro = [tag for tag, state in previous_states.items() if state.get("last_grade") == "BGU_1RO" and state.get("last_status") == "FAILED"]
+                needed_new = STUDENTS_PER_GRADE - len(repeaters_1ro)
+                new_intake = []
+                if needed_new > 0:
+                    new_intake = free_students[:needed_new]
+                    free_students = free_students[needed_new:]
+
+                intake_1ro = repeaters_1ro + new_intake
+                local_rand.shuffle(intake_1ro)
+
+                for idx, tag in enumerate(intake_1ro[:STUDENTS_PER_GRADE]):
+                    parallel = ("A", "B", "C")[idx % 3]
+                    sec = sections["BGU_1RO"][parallel]
+                    stud = students[tag]
+                    is_rep = tag in repeaters_1ro
+                    enroll, _ = Enrollment.objects.get_or_create(
+                        student=stud,
+                        section=sec,
+                        defaults={"enrollment_status": "ACT", "is_repeat": is_rep}
+                    )
+                    current_enrollments[tag] = enroll
+                    student_states[tag]["last_grade"] = "BGU_1RO"
+                    student_states[tag]["last_status"] = None
+                    if is_rep:
+                        student_states[tag]["repeat_count"] += 1
+
+                # Marcar graduados (passed 3ro del año anterior)
+                for tag, state in student_states.items():
+                    if state.get("last_grade") == "BGU_3RO" and state.get("last_status") == "PASSED" and tag not in current_enrollments:
+                        state["graduated"] = True
+
+                self.stdout.write(f"  [OK] Matrículas generadas: {len(current_enrollments)} (1ro BGU: {len(intake_1ro)}, 2do BGU: {len(intake_2do)}, 3ro BGU: {len(intake_3ro)})")
+
+            # ── Estudiantes retirados ─────────────────────────────────────
+            withdrawal_reasons = list(WithdrawalReason.objects.all())
+            withdrawn_tags = local_rand.sample(
+                sorted(current_enrollments.keys()),
+                min(4, len(current_enrollments))
+            )
+            for w_tag in withdrawn_tags:
+                enroll = current_enrollments[w_tag]
+                reason = local_rand.choice(withdrawal_reasons)
+                w_date = sy_data["trimestres"][0]["start_date"] + datetime.timedelta(
+                    days=local_rand.randint(30, 120)
                 )
-                current_enrollments[tag] = enroll
-                student_states[tag]["last_grade"] = "BGU_2DO"
-                student_states[tag]["last_status"] = None
+                enroll.enrollment_status = "RET"
+                enroll.withdrawal_reason = reason
+                enroll.withdrawal_date = w_date
+                enroll.save(update_fields=["enrollment_status", "withdrawal_reason", "withdrawal_date"])
+                student_states[w_tag].pop("last_status", None)
 
-            # --- Matrículas 1ro BGU ---
-            repeaters_1ro = [tag for tag, state in student_states.items() if state["last_grade"] == "BGU_1RO" and state["last_status"] == "FAILED"]
-            needed_new = 36 - len(repeaters_1ro)
-            new_intake = []
-            if needed_new > 0:
-                new_intake = free_students[:needed_new]
-                free_students = free_students[needed_new:]
-
-            intake_1ro = repeaters_1ro + new_intake
-            local_rand.shuffle(intake_1ro)
-
-            for idx, tag in enumerate(intake_1ro[:36]):
-                parallel = ("A", "B", "C")[idx % 3]
-                sec = sections["BGU_1RO"][parallel]
-                stud = students[tag]
-                is_rep = tag in repeaters_1ro
-                enroll, _ = Enrollment.objects.get_or_create(
-                    student=stud,
-                    section=sec,
-                    defaults={"enrollment_status": "ACT", "is_repeat": is_rep}
-                )
-                current_enrollments[tag] = enroll
-                student_states[tag]["last_grade"] = "BGU_1RO"
-                student_states[tag]["last_status"] = None
-                if is_rep:
-                    student_states[tag]["repeat_count"] += 1
-
-            self.stdout.write(f"  [OK] Matrículas generadas: {len(current_enrollments)} (1ro BGU: {len(intake_1ro)}, 2do BGU: {len(passed_1ro[:36])})")
+            if withdrawn_tags:
+                self.stdout.write(f"  [OK] Retiros: {len(withdrawn_tags)} estudiantes marcados como retirados")
 
             failing_students = set()
             medium_risk_students = set()
-            
-            students_1ro = [tag for tag in current_enrollments if student_states[tag]["last_grade"] == "BGU_1RO"]
-            num_fail_1ro = int(len(students_1ro) * 0.15)
-            num_med_1ro = int(len(students_1ro) * 0.15)
-            sampled_1ro = local_rand.sample(students_1ro, num_fail_1ro + num_med_1ro)
-            failing_students.update(sampled_1ro[:num_fail_1ro])
-            medium_risk_students.update(sampled_1ro[num_fail_1ro:])
 
-            students_2do = [tag for tag in current_enrollments if student_states[tag]["last_grade"] == "BGU_2DO"]
-            num_fail_2do = int(len(students_2do) * 0.15)
-            num_med_2do = int(len(students_2do) * 0.15)
-            sampled_2do = local_rand.sample(students_2do, num_fail_2do + num_med_2do)
-            failing_students.update(sampled_2do[:num_fail_2do])
-            medium_risk_students.update(sampled_2do[num_fail_2do:])
+            for grade_tag in ("BGU_1RO", "BGU_2DO", "BGU_3RO"):
+                grade_students = [tag for tag in current_enrollments if student_states[tag]["last_grade"] == grade_tag]
+                if not grade_students:
+                    continue
+                num_fail = int(len(grade_students) * 0.15)
+                num_med = int(len(grade_students) * 0.15)
+                sampled = local_rand.sample(grade_students, num_fail + num_med)
+                failing_students.update(sampled[:num_fail])
+                medium_risk_students.update(sampled[num_fail:])
 
             for tag in current_enrollments:
                 if tag in failing_students:
@@ -1234,7 +1468,7 @@ class Command(BaseCommand):
                     student_states[tag]["last_status"] = "PASSED"
 
             risk_profiles = self._build_student_risk_profiles(
-                current_enrollments, failing_students, medium_risk_students
+                current_enrollments, failing_students, medium_risk_students, periods
             )
 
             self._generate_attendance_for_sy(
@@ -1242,6 +1476,9 @@ class Command(BaseCommand):
             )
             self._generate_conduct_incidents_for_sy(
                 current_enrollments, periods, failing_students, medium_risk_students
+            )
+            self._generate_tardiness_conduct_incidents(
+                current_enrollments, periods
             )
 
             grading_struct = self._create_grading_structure_for_sy(
@@ -1271,6 +1508,8 @@ class Command(BaseCommand):
                     "names": stud_obj.user.person.names,
                     "last_names": stud_obj.user.person.last_names,
                     "parallel": active_enroll.section.parallel,
+                    "grade_name": active_enroll.section.academic_grade.name,
+                    "school_year_name": active_enroll.section.school_year.name,
                     "birth_date": stud_obj.user.person.birth_date,
                 })
 
@@ -1335,8 +1574,16 @@ class Command(BaseCommand):
                 "is_active":         True,
             },
         )
-        self.stdout.write(f"  [OK] Grados creados: 1ro BGU, 2do BGU")
-        return grade_bgu1, grade_bgu2
+        grade_bgu3, _ = AcademicGrade.objects.get_or_create(
+            code="BGU_3RO",
+            defaults={
+                "name":              "3ro BGU",
+                "academic_sublevel": sublevel,
+                "is_active":         True,
+            },
+        )
+        self.stdout.write(f"  [OK] Grados creados: 1ro BGU, 2do BGU, 3ro BGU")
+        return grade_bgu1, grade_bgu2, grade_bgu3
 
     def _create_subjects(self):
         objs = {}
@@ -1367,20 +1614,27 @@ class Command(BaseCommand):
         return configs
 
     def _make_user(self, document_number, names, last_names, email, password,
-                   birth_date, is_superuser=False):
+                   birth_date, is_superuser=False, parish_code=None):
         doc_type = DocumentType.objects.get(code="CC")
+        parish = Parish.objects.get(code=parish_code) if parish_code else None
+        defaults = {
+            "document_type": doc_type,
+            "names":         names,
+            "last_names":    last_names,
+            "email":         email,
+            "birth_date":    birth_date,
+            "is_active":     True,
+            "phone":         f"+5939{document_number[-8:]}",
+        }
+        if parish:
+            defaults["parish"] = parish
         person, _ = Person.objects.get_or_create(
             document_number=document_number,
-            defaults={
-                "document_type": doc_type,
-                "names":         names,
-                "last_names":    last_names,
-                "email":         email,
-                "birth_date":    birth_date,
-                "is_active":     True,
-                "phone":         f"+5939{document_number[-8:]}",
-            },
+            defaults=defaults,
         )
+        if parish and person.parish_id != parish.id:
+            person.parish = parish
+            person.save(update_fields=["parish"])
         username = User.generate_username(names, last_names)
         kwargs = {
             "username":   username,
@@ -1406,6 +1660,7 @@ class Command(BaseCommand):
                 password=item["password"],
                 birth_date=item["birth_date"],
                 is_superuser=item.get("is_superuser", False),
+                parish_code="ZAR-URB",
             )
             users[item["tag"]] = u
             self.stdout.write(f"  [OK] Admin: {item['email']}")
@@ -1413,7 +1668,7 @@ class Command(BaseCommand):
 
     def _create_docentes(self):
         users = {}
-        for d in DOCENTES:
+        for idx, d in enumerate(DOCENTES):
             apellido_slug = d["last_names"].split()[0].lower()
             for a, b in [("á","a"),("é","e"),("í","i"),("ó","o"),("ú","u"),("ñ","n")]:
                 apellido_slug = apellido_slug.replace(a, b)
@@ -1426,6 +1681,7 @@ class Command(BaseCommand):
                 email=email,
                 password=password,
                 birth_date=d["birth_date"],
+                parish_code=URBAN_PARISH_CODES[idx % len(URBAN_PARISH_CODES)],
             )
             users[d["tag"]] = u
             self.stdout.write(f"  [OK] Docente ({d['subject_code']}): {email}")
@@ -1449,73 +1705,101 @@ class Command(BaseCommand):
             UserRole.objects.get_or_create(user=user, role=docente_role)
         self.stdout.write("  [OK] Roles asignados")
 
-    def _build_student_risk_profiles(self, enrollments, failing_students, medium_risk_students):
+    def _build_student_risk_profiles(self, enrollments, failing_students, medium_risk_students, periods):
         """
-        Perfil latente por estudiante con ruido y solapamiento entre dimensiones.
+        Perfil latente por estudiante con variación por materia y período.
 
-        A diferencia de pools fijos (reprobado → siempre nota baja), cada estudiante
-        tiene tendencias propias; el grupo de riesgo solo sesga la media. Así el ML
-        ve correlaciones imperfectas como en datos reales.
+        Cada materia tiene su propia media y tendencia, simulando que un estudiante
+        puede ser fuerte en unas materias y débil en otras, y cada período tiene
+        un factor de ajuste (buen/mal período).
         """
+        n_periods = len(periods)
         subject_codes = [d["subject_code"] for d in DOCENTES]
         profiles = {}
 
         for tag in enrollments:
             if tag in failing_students:
-                grade_mean = local_rand.uniform(4.0, 6.4)
-                attendance_present = local_rand.uniform(0.58, 0.80)
+                base_mean = local_rand.uniform(4.0, 6.4)
+                attendance_present = local_rand.uniform(0.65, 0.80)
                 if local_rand.random() < 0.20:
-                    # Reprueba por notas con asistencia aceptable
                     attendance_present = local_rand.uniform(0.82, 0.93)
-                    grade_mean = local_rand.uniform(5.6, 6.9)
+                    base_mean = local_rand.uniform(5.6, 6.9)
+                recovery_chance = 0.30
             elif tag in medium_risk_students:
-                grade_mean = local_rand.uniform(5.4, 7.6)
+                base_mean = local_rand.uniform(5.4, 7.6)
                 attendance_present = local_rand.uniform(0.70, 0.88)
+                recovery_chance = 0.50
             else:
-                grade_mean = local_rand.uniform(7.0, 9.4)
+                base_mean = local_rand.uniform(7.0, 9.4)
                 attendance_present = local_rand.uniform(0.84, 0.97)
                 if local_rand.random() < 0.14:
-                    # Buen promedio pero inasistencia recurrente
-                    attendance_present = local_rand.uniform(0.62, 0.78)
+                    attendance_present = local_rand.uniform(0.70, 0.80)
                 if local_rand.random() < 0.10:
-                    # Promedio alto con una materia muy débil (se aplica vía weak_subject)
-                    grade_mean = local_rand.uniform(7.5, 8.8)
+                    base_mean = local_rand.uniform(7.5, 8.8)
+                recovery_chance = 0.70
+
+            subject_means = {}
+            subject_trends = {}
+            weak_subj = local_rand.choice(subject_codes)
+            for sc in subject_codes:
+                spread = local_rand.uniform(-0.8, 0.8)
+                mean = base_mean + spread
+                if sc == weak_subj:
+                    mean -= local_rand.uniform(0.5, 1.5)
+                    if local_rand.random() < recovery_chance:
+                        subject_trends[sc] = local_rand.uniform(0.1, 0.4)
+                    else:
+                        subject_trends[sc] = local_rand.uniform(-0.4, -0.05)
+                else:
+                    subject_trends[sc] = local_rand.uniform(-0.2, 0.2)
+                subject_means[sc] = max(1.0, min(10.0, round(mean, 1)))
+
+            period_adjustments = [0.0]
+            for _ in range(1, n_periods):
+                period_adjustments.append(local_rand.uniform(-0.8, 0.8))
 
             profiles[tag] = {
-                "grade_mean": grade_mean,
+                "subject_means": subject_means,
+                "subject_trends": subject_trends,
                 "grade_std": local_rand.uniform(0.5, 1.4),
-                "grade_trend": local_rand.uniform(-0.25, 0.25),
+                "period_adjustments": period_adjustments,
                 "attendance_present": attendance_present,
-                "weak_subject": local_rand.choice(subject_codes),
                 "attendance_volatility": local_rand.uniform(0.02, 0.08),
             }
         return profiles
 
     def _pick_attendance_status(self, profile, status_P, status_T, status_J, status_A):
-        """Elige estado de asistencia con probabilidad individual + ruido diario."""
-        p_present = profile["attendance_present"] + local_rand.uniform(
+        """Elige estado de asistencia respetando: T ≤ 20%, J+A ≤ 10%."""
+        p_present_raw = profile["attendance_present"] + local_rand.uniform(
             -profile["attendance_volatility"], profile["attendance_volatility"]
         )
-        p_present = max(0.45, min(0.98, p_present))
+        p_present_raw = max(0.55, min(0.98, p_present_raw))
+
+        p_miss = 1.0 - p_present_raw
+        p_tardy = min(p_miss * 0.60, 0.20)
+        p_absence = min(p_miss - p_tardy, 0.10)
+        p_present = 1.0 - p_tardy - p_absence
+
+        p_justified = p_absence * 0.4
+        p_unjustified = p_absence * 0.6
 
         roll = local_rand.random()
-        if roll < p_present * 0.88:
+        if roll < p_present:
             return status_P
-        if roll < p_present * 0.88 + 0.06:
+        if roll < p_present + p_tardy:
             return status_T
-        if roll < p_present * 0.88 + 0.10:
+        if roll < p_present + p_tardy + p_justified:
             return status_J
         return status_A
 
-    def _sample_numeric_grade(self, profile, subject_code, activity_index):
-        """Nota con media por estudiante, materia débil opcional y jitter por actividad."""
-        mean = profile["grade_mean"]
-        if subject_code == profile["weak_subject"]:
-            mean -= local_rand.uniform(1.0, 2.8)
+    def _sample_numeric_grade(self, profile, subject_code, activity_index, period_idx=0):
+        """Nota con media por materia, tendencia por materia y ajuste por trimestre."""
+        mean = profile["subject_means"].get(subject_code, 7.0)
+        mean += profile["period_adjustments"][period_idx]
         if local_rand.random() < 0.08:
             mean += local_rand.uniform(-1.5, 1.5)
 
-        trend = profile["grade_trend"] * (activity_index / 10.0)
+        trend = profile["subject_trends"].get(subject_code, 0.0) * (activity_index / 6.0)
         raw = mean + trend + local_rand.gauss(0, profile["grade_std"])
         return _clamp_grade(raw)
 
@@ -1648,6 +1932,60 @@ class Command(BaseCommand):
                         pass
         self.stdout.write(f"  [OK] Incidentes de conducta creados: {count}")
 
+    def _generate_tardiness_conduct_incidents(self, enrollments, periods):
+        """Crea incidentes PERTURBACION para estudiantes con tardanzas reiteradas (>10%)."""
+        tardy_count = defaultdict(int)
+        total_count = defaultdict(int)
+
+        for period in periods:
+            records = Attendance.objects.filter(
+                academic_period=period,
+                enrollment__in=enrollments.values(),
+            ).values_list("enrollment_id", "attendance_status__code")
+
+            for enroll_id, status_code in records:
+                total_count[enroll_id] += 1
+                if status_code == "T":
+                    tardy_count[enroll_id] += 1
+
+        enrollment_by_id = {e.id: (tag, e) for tag, e in enrollments.items()}
+        inc_type = IncidentType.objects.get(code="PERTURBACION")
+        severity = Severity.objects.get(code="LEVE")
+        created = 0
+
+        for enroll_id, total in total_count.items():
+            tardy_pct = tardy_count.get(enroll_id, 0) / total if total > 0 else 0
+            if tardy_pct <= 0.10:
+                continue
+            tag, enrollment = enrollment_by_id.get(enroll_id, (None, None))
+            if not enrollment:
+                continue
+            period = AcademicPeriod.objects.filter(
+                school_year=enrollment.section.school_year
+            ).order_by("start_date").last()
+            if not period:
+                continue
+            mid_date = period.start_date + (period.end_date - period.start_date) // 2
+            _, inc_created = ConductIncident.objects.get_or_create(
+                enrollment=enrollment,
+                academic_period=period,
+                incident_date=mid_date,
+                incident_type=inc_type,
+                defaults={
+                    "severity": severity,
+                    "description": "Acumula múltiples retrasos en el período, incumpliendo el horario de ingreso de forma reiterada.",
+                    "family_notified": True,
+                    "actions_taken": "Diálogo con el estudiante y notificación al representante.",
+                    "sync_status": "SYNCED",
+                    "sync_version": 1,
+                },
+            )
+            if inc_created:
+                created += 1
+
+        if created:
+            self.stdout.write(f"  [OK] Incidentes por tardanzas creados: {created}")
+
     def _create_grading_structure_for_sy(self, periods, offerings, year_is_active):
         result = {}
         components_meta = [
@@ -1705,9 +2043,10 @@ class Command(BaseCommand):
                 continue
 
             period = structure["period"]
-            mapped_tri_code = period_code.split("-")[0]
-            original_code_key = f"{mapped_tri_code}-2526"
-            actividades = ACTIVIDADES_POR_TRIMESTRE.get(original_code_key, [])
+            prefix = period_code.split("-")[0]
+            period_num_match = re.search(r'(\d+)$', prefix)
+            period_num = int(period_num_match.group(1)) if period_num_match else 1
+            actividades = ACTIVIDADES_POR_TRIMESTRE.get(period_num, [])
 
             sub_actividades = [
                 (sc, comp_name, title, atype_code)
@@ -1755,6 +2094,11 @@ class Command(BaseCommand):
         count = 0
         docente_by_scode = {d["subject_code"]: d["tag"] for d in DOCENTES}
 
+        def _get_period_idx(code):
+            prefix = code.split("-")[0]
+            m = re.search(r'(\d+)$', prefix)
+            return int(m.group(1)) - 1 if m else 0
+
         with skip_period_summary_recalc():
             for (period_code, grade_code, scode, parallel), structure in grading_struct.items():
                 doc_tag = docente_by_scode.get(scode)
@@ -1763,6 +2107,8 @@ class Command(BaseCommand):
                 docente = doc_users.get(doc_tag)
                 if not docente:
                     continue
+
+                period_idx = _get_period_idx(period_code)
 
                 for comp in structure["comps"]:
                     component = comp["component"]
@@ -1776,7 +2122,7 @@ class Command(BaseCommand):
 
                         profile = risk_profiles[est_tag]
                         for act_idx, activity in enumerate(activities):
-                            nota = self._sample_numeric_grade(profile, scode, act_idx)
+                            nota = self._sample_numeric_grade(profile, scode, act_idx, period_idx)
                             _, created = StudentNote.objects.get_or_create(
                                 enrollment=enrollment,
                                 evaluative_activity=activity,
@@ -1800,6 +2146,37 @@ class Command(BaseCommand):
             if ids:
                 self.stdout.write(
                     f"  [OK] Resúmenes recalculados – {period.name}: {len(ids)}"
+                )
+
+        # ── Materias reprobadas (fracaso parcial, no arrastre de año) ────
+        subject_codes = list({s["subject"] for s in grading_struct.values()})
+        all_enroll_tags = list(enrollments.keys())
+        if all_enroll_tags:
+            failing_subject_count = 0
+            partial_fail_tags = local_rand.sample(
+                all_enroll_tags,
+                min(6, len(all_enroll_tags))
+            )
+            for pf_tag in partial_fail_tags:
+                enroll = enrollments[pf_tag]
+                pf_subjects = local_rand.sample(
+                    subject_codes,
+                    local_rand.randint(1, 2)
+                )
+                for pf_scode in pf_subjects:
+                    summary_qs = PeriodGradeSummary.objects.filter(
+                        enrollment=enroll,
+                        subject_offering__subject_academic_config__subject__code=pf_scode,
+                    )
+                    updated = summary_qs.update(
+                        is_failing=True,
+                        promotion_status=PromotionStatusChoices.FAILED,
+                    )
+                    failing_subject_count += updated
+            if failing_subject_count:
+                self.stdout.write(
+                    f"  [OK] Materias reprobadas: {failing_subject_count} registros "
+                    f"marcados para {len(partial_fail_tags)} estudiantes"
                 )
 
     def _create_behavior_evaluations(self, enrollments, periods, admin_users):
@@ -1835,7 +2212,7 @@ class Command(BaseCommand):
         alert_types = [
             ("low_attendance",  "Porcentaje de asistencia por debajo del umbral mínimo (80%)."),
             ("failing_grades",  "Promedio acumulado inferior a 7 puntos en una o más asignaturas."),
-            ("behavior_issues", "Registro de más de dos incidentes conductuales en el período."),
+            ("behavioral", "Registro de más de dos incidentes conductuales en el período."),
         ]
 
         for period in periods:
@@ -1934,14 +2311,22 @@ class Command(BaseCommand):
             )
 
         lines.extend(["", "  Representantes:"])
+        est_by_tag = {e["tag"]: e for e in ESTUDIANTES}
         for r in REPRESENTANTES:
             u = rep_users.get(r["tag"])
             username = u.username if u else "desconocido"
             email = u.person.email if (u and u.person) else "desconocido"
             pw = f"Rep.{r['last_names'].split()[0]}2025!"
-            hijos = ", ".join(r["students"])
+            hijos = []
+            for s_tag in r["students"]:
+                se = est_by_tag.get(s_tag)
+                if se:
+                    hijos.append(f"{se['names']} {se['last_names']} ({se.get('parallel', '?')})")
+                else:
+                    hijos.append(s_tag)
+            hijos_str = ", ".join(hijos)
             lines.append(
-                f"  usuario: {username:15} | pw: {pw:20} | correo: {email:30} | estudiantes: {hijos}"
+                f"  usuario: {username:15} | pw: {pw:20} | correo: {email:30} | estudiantes: {hijos_str}"
             )
 
         lines.extend(["", "  Estudiantes:"])
@@ -1952,7 +2337,7 @@ class Command(BaseCommand):
             pw = f"Est.{e['last_names'].split()[0]}2025!"
             full_name = u.get_full_name() if u else f"{e['names']} {e['last_names']}"
             lines.append(
-                f"  [{e['parallel']}] usuario: {username:15} | pw: {pw:20} | correo: {email:35} | estudiante: {full_name}"
+                f"  curso: {e.get('grade_name', '?')} | paralelo: {e.get('parallel', '?')} | año: {e.get('school_year_name', '?')} | usuario: {username:15} | pw: {pw:20} | estudiante: {full_name}"
             )
 
         return lines
@@ -1971,7 +2356,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(line))
         self.stdout.write(f"  Año escolar:       {school_year.start_date} – {school_year.end_date}")
         self.stdout.write(f"  Secciones activas: {sections.count()}")
-        self.stdout.write(f"  Períodos (trim.):  {len(periods)}")
+        self.stdout.write(f"  Períodos:          {len(periods)}")
         self.stdout.write(f"  Asignaturas BGU:   {len(MATERIAS_BGU)}")
         self.stdout.write(f"  Docentes:          {len(DOCENTES)}")
         self.stdout.write(f"  Estudiantes total: {len(students)}")

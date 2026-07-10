@@ -7,9 +7,11 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.filters import SearchFilter, OrderingFilter
 
+from apps.academic.academic_period.infrastructure.models import AcademicPeriod
 from apps.attendance.api.base import BaseAttendanceViewSet
 from apps.core.api.scoping import scope_student_to_enrollment
 from apps.core.utils.responses import ok_response, error_response
+from apps.institutions.school_year.infrastructure.repositories import SchoolYearRepository
 
 from ..application.serializers import AttendanceSerializer
 from ..domain.replication import AttendanceReplicationService
@@ -346,6 +348,31 @@ class AttendanceViewSet(BaseAttendanceViewSet):
                 "results": changes,
             }
         )
+
+    @extend_schema(
+        summary="Resumen de asistencia",
+        description="Devuelve conteos agregados de asistencia (total, presentes, ausentes, tardanzas, justificados). Por defecto filtra por el año lectivo activo. Soporta los mismos filtros que el listado (academic_period, teacher_subject_section, attendance_date_after, attendance_date_before, etc.).",
+        tags=["attendance"],
+    )
+    @action(detail=False, methods=["get"])
+    def summary(self, request):
+        qs = self.get_queryset()
+
+        academic_period = request.query_params.get("academic_period")
+        if not academic_period:
+            current_sy = SchoolYearRepository.get_current()
+            if current_sy:
+                period_ids = list(
+                    AcademicPeriod.objects.filter(
+                        school_year=current_sy, is_active=True
+                    ).values_list("id", flat=True)
+                )
+                if period_ids:
+                    qs = qs.filter(academic_period_id__in=period_ids)
+
+        qs = self.filter_queryset(qs)
+        data = AttendanceRepository.get_summary(qs)
+        return ok_response(data)
 
     @extend_schema(
         summary="Crear/actualizar asistencias en lote",

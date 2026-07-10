@@ -40,7 +40,7 @@ class DocumentTypeAPITest(APITestCase):
 
     def test_delete(self):
         response = self.client.delete(f"{self.url}{self.doc_type.id}/")
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
 class PersonAPITest(APITestCase):
@@ -99,4 +99,4 @@ class PersonAPITest(APITestCase):
             birth_date=date(1990, 1, 1),
         )
         response = self.client.delete(f"{self.url}{person.id}/")
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)

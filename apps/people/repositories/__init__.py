@@ -1,5 +1,3 @@
-from .city_repository import CityRepository
-from .document_type_repository import DocumentTypeRepository
-from .person_repo import PersonRepository
+from ..infrastructure.repositories import CityRepository, DocumentTypeRepository, PersonRepository
 
 __all__ = ["CityRepository", "DocumentTypeRepository", "PersonRepository"]

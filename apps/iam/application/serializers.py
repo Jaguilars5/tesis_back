@@ -196,6 +196,10 @@ class UserCreateSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True, min_length=8)
     role_id = serializers.IntegerField()
+    birth_date = serializers.DateField(required=False, allow_null=True)
+    phone = serializers.CharField(required=False, allow_blank=True, max_length=15)
+    document_type = serializers.IntegerField(required=False, allow_null=True)
+    parish = serializers.IntegerField(required=False, allow_null=True)
 
     def validate_email(self, value):
         from apps.people.models import Person

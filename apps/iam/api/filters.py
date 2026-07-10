@@ -1,5 +1,5 @@
 import django_filters
-from apps.iam.models import User, Role, Permission
+from ..infrastructure.models import User, Role, Permission
 
 
 class PermissionFilter(django_filters.FilterSet):

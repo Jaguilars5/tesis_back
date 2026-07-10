@@ -6,7 +6,7 @@ Idempotente: get_or_create garantiza que re-ejecuciones no duplican registros.
 """
 from django.core.management.base import BaseCommand
 
-from apps.people.models import City, DocumentType
+from apps.people.models import City, DocumentType, Parish
 from apps.academic.period_type import PeriodType
 from apps.academic.subject import Subject
 from apps.grading.qualitative_scale import QualitativeScale
@@ -34,8 +34,6 @@ CATALOGS = {
             {"code": "ZARU",  "name": "Zaruma",     "is_active": True},
             {"code": "PINA",  "name": "Piñas",       "is_active": True},
             {"code": "PORTO", "name": "Portovelo",   "is_active": True},
-            {"code": "MILAG", "name": "Milagro",     "is_active": True},
-            {"code": "GUAYA", "name": "Guayaquil",   "is_active": True},
         ],
     },
 
@@ -618,6 +616,49 @@ class Command(BaseCommand):
         ]
         for data in sublevels:
             _, created = AcademicSublevel.objects.get_or_create(
+                code=data["code"], defaults=data
+            )
+            if created:
+                created_count += 1
+            else:
+                existing_count += 1
+
+        # ----------------------------------------------------------------
+        # Parishes (Parroquias): requieren FK a City
+        # ----------------------------------------------------------------
+        PARISHES = [
+            # ── Zaruma ─────────────────────────────────────────────
+            {"code": "ZAR-URB", "name": "Zaruma",       "parish_type": "URBANA", "city_code": "ZARU", "is_active": True},
+            {"code": "ZAR-ABA", "name": "Abañín",       "parish_type": "RURAL",  "city_code": "ZARU", "is_active": True},
+            {"code": "ZAR-ARC", "name": "Arcapamba",    "parish_type": "RURAL",  "city_code": "ZARU", "is_active": True},
+            {"code": "ZAR-GUA", "name": "Guanazán",     "parish_type": "RURAL",  "city_code": "ZARU", "is_active": True},
+            {"code": "ZAR-GÜI", "name": "Güizhagüiña",  "parish_type": "RURAL",  "city_code": "ZARU", "is_active": True},
+            {"code": "ZAR-HUE", "name": "Huertas",      "parish_type": "RURAL",  "city_code": "ZARU", "is_active": True},
+            {"code": "ZAR-MAL", "name": "Malvas",       "parish_type": "RURAL",  "city_code": "ZARU", "is_active": True},
+            {"code": "ZAR-MUL", "name": "Muluncay",     "parish_type": "RURAL",  "city_code": "ZARU", "is_active": True},
+            {"code": "ZAR-SAL", "name": "Salvias",      "parish_type": "RURAL",  "city_code": "ZARU", "is_active": True},
+            {"code": "ZAR-SIN", "name": "Sinsao",       "parish_type": "RURAL",  "city_code": "ZARU", "is_active": True},
+            # ── Portovelo ──────────────────────────────────────────
+            {"code": "PTO-URB", "name": "Portovelo",    "parish_type": "URBANA", "city_code": "PORTO", "is_active": True},
+            {"code": "PTO-CUR", "name": "Curtincápac",  "parish_type": "RURAL",  "city_code": "PORTO", "is_active": True},
+            {"code": "PTO-MOR", "name": "Morales",      "parish_type": "RURAL",  "city_code": "PORTO", "is_active": True},
+            {"code": "PTO-SAL", "name": "Salatí",       "parish_type": "RURAL",  "city_code": "PORTO", "is_active": True},
+            # ── Piñas ──────────────────────────────────────────────
+            {"code": "PIN-URB", "name": "Piñas",        "parish_type": "URBANA", "city_code": "PINA", "is_active": True},
+            {"code": "PIN-GRA", "name": "Piñas Grande", "parish_type": "URBANA", "city_code": "PINA", "is_active": True},
+            {"code": "PIN-SUS", "name": "La Susaya",    "parish_type": "URBANA", "city_code": "PINA", "is_active": True},
+            {"code": "PIN-CAP", "name": "Capiro",       "parish_type": "RURAL",  "city_code": "PINA", "is_active": True},
+            {"code": "PIN-BOC", "name": "La Bocana",    "parish_type": "RURAL",  "city_code": "PINA", "is_active": True},
+            {"code": "PIN-MOR", "name": "Moromoro",     "parish_type": "RURAL",  "city_code": "PINA", "is_active": True},
+            {"code": "PIN-ROQ", "name": "San Roque",    "parish_type": "RURAL",  "city_code": "PINA", "is_active": True},
+            {"code": "PIN-SAR", "name": "Saracay",      "parish_type": "RURAL",  "city_code": "PINA", "is_active": True},
+            {"code": "PIN-SIN", "name": "Sinias",       "parish_type": "RURAL",  "city_code": "PINA", "is_active": True},
+        ]
+        cities_cache = {c.code: c for c in City.objects.all()}
+        for data in PARISHES:
+            city_code = data.pop("city_code")
+            data["city"] = cities_cache[city_code]
+            _, created = Parish.objects.get_or_create(
                 code=data["code"], defaults=data
             )
             if created:

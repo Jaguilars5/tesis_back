@@ -1,5 +1,3 @@
-from .city import CitySerializer
-from .document_type import DocumentTypeSerializer
-from .person import PersonSerializer
+from ...application.serializers import CitySerializer, DocumentTypeSerializer, ParishSerializer, PersonSerializer
 
-__all__ = ["CitySerializer", "DocumentTypeSerializer", "PersonSerializer"]
+__all__ = ["CitySerializer", "DocumentTypeSerializer", "ParishSerializer", "PersonSerializer"]

@@ -1,4 +1,3 @@
-from .document_type_service import DocumentTypeService
-from .person_service import PersonService
+from ..domain.services import CityService, DocumentTypeService, PersonService
 
-__all__ = ["DocumentTypeService", "PersonService"]
+__all__ = ["CityService", "DocumentTypeService", "PersonService"]

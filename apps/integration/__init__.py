@@ -1,3 +1,7 @@
+INTEGRATION_APPS = [
+    "apps.integration",
+]
+
 __all__ = [
     "SyncQueue",
     "SyncableModel",

@@ -17,9 +17,11 @@ from apps.core.utils import ok_response, error_response
 
 from ..permissions import DASHBOARD_ACTION_PERMISSIONS
 from ..domain.services import (
-    DashboardService,
     CSVExportService,
+    DashboardService,
+    DirectorDashboardService,
     RecalculationService,
+    TeacherDashboardService,
 )
 
 
@@ -50,6 +52,12 @@ from ..domain.services import (
     ),
     recalculate_period=extend_schema(
         summary="Recalcular riesgo del período", tags=["analytics"]
+    ),
+    director_dashboard=extend_schema(
+        summary="Dashboard unificado del director", tags=["analytics"]
+    ),
+    teacher_dashboard=extend_schema(
+        summary="Dashboard unificado del docente", tags=["analytics"]
     ),
 )
 class DashboardViewSet(viewsets.ViewSet):
@@ -244,6 +252,42 @@ class DashboardViewSet(viewsets.ViewSet):
         except Exception as e:
             return error_response(str(e), status_code=400)
 
+    @action(detail=False, methods=["get"])
+    def enrollment_comparison(self, request):
+        """
+        Comparativa de matrículas entre años lectivos.
+
+        GET /api/analytics/dashboard/enrollment_comparison/
+        
+        Devuelve lista de años lectivos con su total de matrículas
+        para poder comparar años entre sí.
+        """
+        try:
+            data = DashboardService.get_enrollment_comparison()
+            return ok_response(data)
+        except Exception as e:
+            return error_response(str(e), status_code=400)
+
+    @action(detail=False, methods=["get"])
+    def enrollment_cumulative(self, request):
+        """
+        Evolución acumulada de matrículas dentro de un año lectivo.
+
+        GET /api/analytics/dashboard/enrollment_cumulative/?school_year_id=<id>
+        
+        Muestra cómo crece el número de matrículas a lo largo del tiempo
+        desde el inicio del año lectivo.
+        """
+        school_year_id = request.query_params.get("school_year_id")
+        if not school_year_id:
+            return error_response("school_year_id es requerido", status_code=400)
+
+        try:
+            data = DashboardService.get_enrollment_cumulative(int(school_year_id))
+            return ok_response(data)
+        except Exception as e:
+            return error_response(str(e), status_code=400)
+
     @action(detail=False, methods=["post"])
     def recalculate_period(self, request):
         """
@@ -269,5 +313,60 @@ class DashboardViewSet(viewsets.ViewSet):
                 {"task_id": None, "status": "NO_STUDENTS"},
                 msg="No hay estudiantes para recalcular",
             )
+        except Exception as e:
+            return error_response(str(e), status_code=400)
+
+    @action(detail=False, methods=["get"])
+    def director_dashboard(self, request):
+        """
+        Dashboard unificado del director.
+
+        GET /api/analytics/dashboard/director_dashboard/?period_id=<id>
+        Parámetros opcionales:
+          - school_year_id=<id>            (para tendencia de matrículas)
+          - include_risk_by_city=true       (distribución por ciudad)
+          - include_risk_by_parish=true     (distribución por parroquia)
+          - include_special_needs_gap=true  (brecha NEE)
+        """
+        period_id = request.query_params.get("period_id")
+        if not period_id:
+            return error_response("period_id es requerido", status_code=400)
+
+        school_year_id = request.query_params.get("school_year_id")
+        include_city = request.query_params.get("include_risk_by_city", "").lower() == "true"
+        include_parish = request.query_params.get("include_risk_by_parish", "").lower() == "true"
+        include_needs = request.query_params.get("include_special_needs_gap", "").lower() == "true"
+
+        try:
+            data = DirectorDashboardService.get_director_dashboard(
+                academic_period_id=int(period_id),
+                school_year_id=int(school_year_id) if school_year_id else None,
+                include_risk_by_city=include_city,
+                include_risk_by_parish=include_parish,
+                include_special_needs_gap=include_needs,
+            )
+            return ok_response(data)
+        except Exception as e:
+            return error_response(str(e), status_code=400)
+
+    @action(detail=False, methods=["get"])
+    def teacher_dashboard(self, request):
+        """
+        Dashboard unificado del docente.
+
+        Retorna métricas scoped a las secciones que el docente enseña.
+
+        GET /api/analytics/dashboard/teacher_dashboard/?period_id=<id>
+        """
+        period_id = request.query_params.get("period_id")
+        if not period_id:
+            return error_response("period_id es requerido", status_code=400)
+
+        try:
+            data = TeacherDashboardService.get_teacher_dashboard(
+                user_id=request.user.id,
+                academic_period_id=int(period_id),
+            )
+            return ok_response(data)
         except Exception as e:
             return error_response(str(e), status_code=400)

@@ -1,8 +1,8 @@
 from django.urls import path, include
-from apps.institutions.api.routers import InstitutionsRouter
-from apps.iam.api.views import PermissionViewSet, RoleViewSet, UserViewSet, CustomTokenObtainPairView, CustomTokenRefreshView
+from .routers import IamRouter
+from .views import PermissionViewSet, RoleViewSet, UserViewSet, CustomTokenObtainPairView, CustomTokenRefreshView
 
-router = InstitutionsRouter()
+router = IamRouter()
 router.register(r"permissions", PermissionViewSet, basename="permission")
 router.register(r"roles", RoleViewSet, basename="role")
 router.register(r"users", UserViewSet, basename="user")

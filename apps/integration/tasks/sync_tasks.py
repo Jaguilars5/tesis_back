@@ -16,12 +16,6 @@ SYNC_HANDLERS = {}
 def register_sync_handler(source_table):
     def decorator(cls):
         SYNC_HANDLERS[source_table] = cls
-        logger.info(
-            "[REGISTRO] Handler registrado source_table=%r -> %s (modelo=%s)",
-            source_table,
-            cls.__name__,
-            getattr(getattr(cls, "model", None), "__name__", None),
-        )
         return cls
     return decorator
 
@@ -52,10 +46,6 @@ def load_sync_handlers():
             logger.exception(
                 "[REGISTRO] No se pudo importar el modulo de handlers %r", module_path
             )
-    logger.info(
-        "[REGISTRO] Carga de handlers finalizada. Registrados=%s",
-        sorted(SYNC_HANDLERS.keys()),
-    )
     return SYNC_HANDLERS
 
 

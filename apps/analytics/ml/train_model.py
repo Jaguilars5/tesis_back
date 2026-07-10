@@ -47,10 +47,9 @@ class RiskModelTrainer:
         import joblib
         import pandas as pd
         import numpy as np
-        from sklearn.linear_model import LogisticRegression
-        from sklearn.preprocessing import StandardScaler
+        from sklearn.ensemble import RandomForestClassifier
         from sklearn.model_selection import cross_val_score, StratifiedKFold
-        from sklearn.metrics import roc_auc_score, classification_report
+        from sklearn.metrics import classification_report
 
         snapshots = StudentFeatureSnapshot.objects.all()
 
@@ -60,7 +59,6 @@ class RiskModelTrainer:
             raise ValueError("No hay snapshots para entrenar")
 
         X, y = [], []
-        skipped_no_pgs = 0
 
         for snapshot in snapshots:
             target = self._get_target(snapshot.enrollment_id, snapshot.academic_period_id)
@@ -82,47 +80,42 @@ class RiskModelTrainer:
 
         logger.info("Estadísticas descriptivas:\n%s", df.describe())
 
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(df)
-
-        model = LogisticRegression(
+        model = RandomForestClassifier(
+            n_estimators=200,
+            max_depth=12,
+            min_samples_leaf=5,
             class_weight="balanced",
-            max_iter=2000,
             random_state=42,
-            C=1.0,
-            solver="lbfgs",
+            n_jobs=-1,
         )
 
-        # Validación cruzada estratificada (deja un período fuera)
+        # Validación cruzada estratificada
         cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-        cv_scores = cross_val_score(model, X_scaled, y, cv=cv, scoring="roc_auc")
+        cv_scores = cross_val_score(model, df, y, cv=cv, scoring="roc_auc")
         logger.info(
             "CV ROC-AUC: %.4f (±%.4f)", cv_scores.mean(), cv_scores.std()
         )
 
-        model.fit(X_scaled, y)
+        model.fit(df, y)
 
-        # Reporte sobre todo el dataset (diagnóstico)
-        y_pred = model.predict(X_scaled)
+        # Reporte sobre todo el dataset
+        y_pred = model.predict(df)
         logger.info(
             "Classification report (train):\n%s",
             classification_report(y, y_pred, target_names=["aprobado", "reprobado"]),
         )
 
-        # Importancia: coeficientes normalizados
-        coef_df = pd.DataFrame({
+        # Importancia: feature_importances_ del Random Forest
+        importance_df = pd.DataFrame({
             "feature": self.FEATURES,
-            "coef": np.abs(model.coef_[0]),
-            "signo": np.sign(model.coef_[0]),
-        }).sort_values("coef", ascending=False)
-        logger.info("Coeficientes del modelo:\n%s", coef_df)
+            "importance": model.feature_importances_,
+        }).sort_values("importance", ascending=False)
+        logger.info("Feature importances:\n%s", importance_df)
 
         artifact = {
             "model": model,
-            "scaler": scaler,
             "features": self.FEATURES,
-            "mean": df.mean().to_dict(),
-            "std": df.std().to_dict(),
+            "feature_importances": model.feature_importances_.tolist(),
         }
 
         target_path = model_path or MODEL_PATH

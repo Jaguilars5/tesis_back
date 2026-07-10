@@ -11,7 +11,8 @@ class UserService:
     repository = UserRepository
 
     @classmethod
-    def create_user(cls, document_number, names, last_names, email, password, role_id):
+    def create_user(cls, document_number, names, last_names, email, password, role_id,
+                    birth_date=None, phone="", document_type_id=None, parish_id=None):
         existing_email = cls.repository.get_by_email(email)
         if existing_email:
             raise ValueError(f"El email {email} ya está registrado")
@@ -31,6 +32,10 @@ class UserService:
             email=email,
             password=password,
             role_id=role_id,
+            birth_date=birth_date,
+            phone=phone,
+            document_type_id=document_type_id,
+            parish_id=parish_id,
         )
 
     @classmethod

@@ -117,7 +117,7 @@ def calculate_risk(
         round(float(fallback_score), 2),
     )
 
-    return {
+    result = {
         "estudiante_id": estudiante_id,
         "periodo": snapshot["periodo"],
         "fecha_analisis": timezone.now().isoformat(),
@@ -130,6 +130,14 @@ def calculate_risk(
         "detalle_por_variable": detail,
         "model_version": model_version,
     }
+
+    # Incluir importancias del modelo ML para factores de riesgo dinámicos
+    if ml_score is not None:
+        importances = _get_ml_feature_importances()
+        if importances:
+            result["ml_feature_importances"] = importances
+
+    return result
 
 
 def _public_analysis(analysis: Dict) -> Dict:
@@ -362,6 +370,18 @@ def _load_artifact_cached():
         return None
 
 
+def _get_ml_feature_importances() -> Optional[List[float]]:
+    """Carga las feature importances del artifact del modelo."""
+    try:
+        artifact = _load_artifact_cached()
+        if artifact is None:
+            return None
+        importances = artifact.get("feature_importances")
+        return importances if importances else None
+    except Exception:
+        return None
+
+
 def _predict_ml_score(snapshot: Dict, metrics: Optional[Dict] = None) -> Optional[float]:
     """
     Predicción del modelo matemático (regresión logística).
@@ -392,7 +412,6 @@ def _predict_ml_score(snapshot: Dict, metrics: Optional[Dict] = None) -> Optiona
         return None
 
     model = artifact["model"]
-    scaler = artifact["scaler"]
     model_features = artifact.get("features", TRAIN_FEATURES)
 
     try:
@@ -411,9 +430,8 @@ def _predict_ml_score(snapshot: Dict, metrics: Optional[Dict] = None) -> Optiona
 
         import pandas as pd
         X = pd.DataFrame([feature_dict], columns=model_features)
-        X_scaled = scaler.transform(X)
 
-        proba = model.predict_proba(X_scaled)[0]
+        proba = model.predict_proba(X)[0]
         clases = getattr(model, "classes_", [0, 1])
         # classes_[1] = clase positiva (is_failing=True)
         pos_idx = list(clases).index(1) if 1 in clases else 1

@@ -18,6 +18,9 @@ from apps.behavior import BEHAVIOR_APPS
 from apps.grading import GRADING_APPS
 from apps.academic import ACADEMIC_APPS
 from apps.analytics import ANALYTICS_APPS
+from apps.people import PEOPLE_APPS
+from apps.students import STUDENTS_APPS
+from apps.integration import INTEGRATION_APPS
 
 # ─── Carga de .env ───────────────────────────────────────────────────────────
 load_dotenv(BASE_DIR / ".env")
@@ -51,13 +54,13 @@ LOCAL_APPS = [
     *ACADEMIC_APPS,
     *GRADING_APPS,
     *INSTITUTIONS_APPS,
-    "apps.students",
+    *STUDENTS_APPS,
     "apps.analytics",
     *ANALYTICS_APPS,
     *ATTENDANCE_APPS,
-    "apps.people",
+    *PEOPLE_APPS,
     *BEHAVIOR_APPS,
-    "apps.integration",
+    *INTEGRATION_APPS,
 ]
 
 INSTALLED_APPS = DEFAULT_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -257,5 +260,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.integration.tasks.sync_tasks.process_pending_sync_batch",
         "schedule": 300.0,
         "description": "Procesa items pendientes de SyncQueue cada 5 minutos",
+    },
+    "generate-early-alerts": {
+        "task": "apps.analytics.tasks.auto_generate_early_alerts",
+        "schedule": crontab(hour=6, minute=0),
+        "description": "Genera alertas tempranas automáticamente cada día a las 6:00 AM",
     },
 }

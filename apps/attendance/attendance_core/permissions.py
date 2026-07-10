@@ -13,4 +13,5 @@ ACTION_PERMISSIONS = {
     "session": attendance.VIEW_ATTENDANCE,
     "replicate_push": attendance.CREATE_ATTENDANCE,
     "replicate_changes": attendance.VIEW_ATTENDANCE,
+    "summary": attendance.VIEW_ATTENDANCE,
 }

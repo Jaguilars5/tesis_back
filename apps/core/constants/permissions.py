@@ -29,6 +29,10 @@ class PeoplePermissions:
     UPDATE_DOCUMENT_TYPE: Final[str] = "people.update_document_type"
     DELETE_DOCUMENT_TYPE: Final[str] = "people.delete_document_type"
     VIEW_CITY: Final[str] = "people.view_city"
+    VIEW_PARISH: Final[str] = "people.view_parish"
+    CREATE_PARISH: Final[str] = "people.create_parish"
+    UPDATE_PARISH: Final[str] = "people.update_parish"
+    DELETE_PARISH: Final[str] = "people.delete_parish"
 
 
 @dataclass(frozen=True)

@@ -32,7 +32,7 @@ from apps.institutions.models import (
     SchoolYear,
     Section,
 )
-from apps.people.models import City
+from apps.people.models import City, Parish
 from apps.students.models import Enrollment, SpecialNeedsType, WithdrawalReason
 
 
@@ -58,13 +58,19 @@ class Phase4EnrichmentTest(TestCase):
         )
         self.quito = City.objects.create(name="Quito", code="UIO")
         self.guayaquil = City.objects.create(name="Guayaquil", code="GYE")
+        self.parroquia_quito = Parish.objects.create(
+            name="Quito", code="UIO-URB", parish_type="URBANA", city=self.quito
+        )
+        self.parroquia_guayaquil = Parish.objects.create(
+            name="Guayaquil", code="GYE-URB", parish_type="URBANA", city=self.guayaquil
+        )
         self.tdah = SpecialNeedsType.objects.create(code="TDAH", name="TDAH")
         self.dislexia = SpecialNeedsType.objects.create(code="DIS", name="Dislexia")
         self.reason_econ = WithdrawalReason.objects.create(code="ECO", name="Económico")
         self.reason_move = WithdrawalReason.objects.create(code="MUD", name="Mudanza")
         self._counter = 0
 
-    def _make_student(self, city, needs_type, status, risk_label, withdrawal_reason=None):
+    def _make_student(self, parish, needs_type, status, risk_label, withdrawal_reason=None):
         self._counter += 1
         student = create_test_student(
             document_number=f"09000000{self._counter:02d}",
@@ -73,8 +79,8 @@ class Phase4EnrichmentTest(TestCase):
             birth_date=date(2012, 1, 1),
         )
         person = student.user.person
-        person.city = city
-        person.save(update_fields=["city"])
+        person.parish = parish
+        person.save(update_fields=["parish"])
         student.special_needs_type = needs_type
         student.save(update_fields=["special_needs_type"])
 
@@ -96,7 +102,7 @@ class Phase4EnrichmentTest(TestCase):
     # ——— build_persistence_metrics ———
 
     def test_build_persistence_metrics_exposes_dimensions(self):
-        student, _ = self._make_student(self.quito, self.tdah, "ACT", "rojo")
+        student, _ = self._make_student(self.parroquia_quito, self.tdah, "ACT", "rojo")
         builder = AcademicRiskFeatureBuilder(student.id, self.period.id)
         snapshot = builder.build()
         metrics = builder.build_persistence_metrics(snapshot)
@@ -106,7 +112,7 @@ class Phase4EnrichmentTest(TestCase):
         self.assertIsNone(metrics["withdrawal_reason_id"])
 
     def test_create_snapshot_persists_dimensions(self):
-        _, enrollment = self._make_student(self.quito, self.tdah, "ACT", "rojo")
+        _, enrollment = self._make_student(self.parroquia_quito, self.tdah, "ACT", "rojo")
         snapshot = StudentFeatureSnapshotRepository.create_snapshot(
             enrollment_id=enrollment.id,
             academic_period_id=self.period.id,
@@ -124,9 +130,9 @@ class Phase4EnrichmentTest(TestCase):
     # ——— Segmentación de riesgo ———
 
     def test_risk_distribution_by_city(self):
-        self._make_student(self.quito, None, "ACT", "rojo")
-        self._make_student(self.quito, None, "ACT", "verde")
-        self._make_student(self.guayaquil, None, "ACT", "amarillo")
+        self._make_student(self.parroquia_quito, None, "ACT", "rojo")
+        self._make_student(self.parroquia_quito, None, "ACT", "verde")
+        self._make_student(self.parroquia_guayaquil, None, "ACT", "amarillo")
 
         dist = DashboardService.get_risk_distribution_by_city(self.period.id)
 
@@ -137,9 +143,9 @@ class Phase4EnrichmentTest(TestCase):
         self.assertEqual(dist["Guayaquil"]["total"], 1)
 
     def test_risk_distribution_by_special_needs_type(self):
-        self._make_student(self.quito, self.tdah, "ACT", "rojo")
-        self._make_student(self.quito, self.dislexia, "ACT", "amarillo")
-        self._make_student(self.quito, None, "ACT", "verde")
+        self._make_student(self.parroquia_quito, self.tdah, "ACT", "rojo")
+        self._make_student(self.parroquia_quito, self.dislexia, "ACT", "amarillo")
+        self._make_student(self.parroquia_quito, None, "ACT", "verde")
 
         dist = DashboardService.get_risk_distribution_by_special_needs_type(self.period.id)
 
@@ -150,10 +156,10 @@ class Phase4EnrichmentTest(TestCase):
     # ——— Deserción ———
 
     def test_dropout_by_city(self):
-        self._make_student(self.quito, None, "ACT", "verde")
-        self._make_student(self.quito, None, "ACT", "rojo")
-        self._make_student(self.guayaquil, None, "RET", "rojo", self.reason_econ)
-        self._make_student(self.guayaquil, None, "RET", "amarillo", self.reason_move)
+        self._make_student(self.parroquia_quito, None, "ACT", "verde")
+        self._make_student(self.parroquia_quito, None, "ACT", "rojo")
+        self._make_student(self.parroquia_guayaquil, None, "RET", "rojo", self.reason_econ)
+        self._make_student(self.parroquia_guayaquil, None, "RET", "amarillo", self.reason_move)
 
         rows = DashboardService.get_dropout_by_city(self.school_year.id)
         by_city = {r["city"]: r for r in rows}
@@ -168,9 +174,9 @@ class Phase4EnrichmentTest(TestCase):
         self.assertEqual(rows[0]["city"], "Guayaquil")
 
     def test_withdrawal_reasons_report(self):
-        self._make_student(self.guayaquil, None, "RET", "rojo", self.reason_econ)
-        self._make_student(self.guayaquil, None, "RET", "amarillo", self.reason_move)
-        self._make_student(self.quito, None, "ACT", "verde")
+        self._make_student(self.parroquia_guayaquil, None, "RET", "rojo", self.reason_econ)
+        self._make_student(self.parroquia_guayaquil, None, "RET", "amarillo", self.reason_move)
+        self._make_student(self.parroquia_quito, None, "ACT", "verde")
 
         report = DashboardService.get_withdrawal_reasons(self.school_year.id)
         by_reason = {r["reason"]: r["count"] for r in report}

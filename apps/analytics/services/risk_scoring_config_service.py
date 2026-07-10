@@ -31,6 +31,8 @@ PRESETS = {
         "mild_yellow_min": 5,
         "severe_green_max": 0,
         "mild_green_max": 5,
+        "score_red_min": 70,
+        "score_yellow_min": 40,
     },
     # Conservador: más sensible (clasifica en riesgo antes) → umbrales más altos.
     "conservador": {
@@ -48,6 +50,8 @@ PRESETS = {
         "mild_yellow_min": 4,
         "severe_green_max": 0,
         "mild_green_max": 4,
+        "score_red_min": 68,
+        "score_yellow_min": 38,
     },
     # Estricto: menos sensible (sólo casos extremos en rojo) → umbrales más bajos.
     "estricto": {
@@ -65,6 +69,8 @@ PRESETS = {
         "mild_yellow_min": 6,
         "severe_green_max": 0,
         "mild_green_max": 6,
+        "score_red_min": 72,
+        "score_yellow_min": 42,
     },
 }
 
@@ -91,6 +97,9 @@ class EffectiveScoringConfig:
     mild_yellow_min: int
     severe_green_max: int
     mild_green_max: int
+    # Umbrales del puntaje final (0–100) para clasificación rojo/amarillo/verde
+    score_red_min: float
+    score_yellow_min: float
     # Trazabilidad: identifica el origen de la config para `model_version`.
     source: str = "default"  # "default" | "db"
     version_tag: str = ""
@@ -111,6 +120,8 @@ DEFAULT_CONFIG = EffectiveScoringConfig(
     weight_conducta=0.30,
     weight_asistencia=0.35,
     weight_calificaciones=0.35,
+    score_red_min=70.0,
+    score_yellow_min=40.0,
     attendance_red_max=70.0,
     attendance_yellow_max=85.0,
     attendance_green_min=85.01,
@@ -163,6 +174,8 @@ class RiskScoringConfigService:
                 "mild_yellow_min": base.mild_yellow_min,
                 "severe_green_max": base.severe_green_max,
                 "mild_green_max": base.mild_green_max,
+                "score_red_min": base.score_red_min,
+                "score_yellow_min": base.score_yellow_min,
                 "severe_red_min": base.severe_red_min,
                 "mild_yellow_min": base.mild_yellow_min,
                 **data,
@@ -180,6 +193,8 @@ class RiskScoringConfigService:
             weight_conducta=wc / total,
             weight_asistencia=wa / total,
             weight_calificaciones=wg / total,
+            score_red_min=float(merged.get("score_red_min", 70)),
+            score_yellow_min=float(merged.get("score_yellow_min", 40)),
             attendance_red_max=float(merged.get("attendance_red_max", 70)),
             attendance_yellow_max=float(merged.get("attendance_yellow_max", 85)),
             attendance_green_min=float(merged.get("attendance_green_min", 85.01)),
@@ -210,6 +225,8 @@ class RiskScoringConfigService:
             weight_conducta=float(config.weight_conducta) / total,
             weight_asistencia=float(config.weight_asistencia) / total,
             weight_calificaciones=float(config.weight_calificaciones) / total,
+            score_red_min=float(config.score_red_min),
+            score_yellow_min=float(config.score_yellow_min),
             attendance_red_max=float(config.attendance_red_max),
             attendance_yellow_max=float(config.attendance_yellow_max),
             attendance_green_min=float(config.attendance_green_min),

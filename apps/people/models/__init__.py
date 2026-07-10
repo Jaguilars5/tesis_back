@@ -1,9 +1,8 @@
-from .document_type import DocumentType
-from .city import City
-from .person import Person
+from ..infrastructure.models import City, DocumentType, Parish, Person
 
 __all__ = [
-    "DocumentType",
     "City",
+    "DocumentType",
+    "Parish",
     "Person",
 ]

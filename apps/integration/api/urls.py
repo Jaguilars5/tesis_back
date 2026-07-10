@@ -1,8 +1,8 @@
 from django.urls import path
-from rest_framework.routers import DefaultRouter
+from .routers import IntegrationRouter
 from .views import SyncQueueViewSet
 
-router = DefaultRouter()
+router = IntegrationRouter()
 router.register(r"sync-queue", SyncQueueViewSet, basename="sync-queue")
 
 urlpatterns = router.urls + [

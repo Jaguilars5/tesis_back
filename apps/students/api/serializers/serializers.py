@@ -34,11 +34,6 @@ class StudentSerializer(serializers.ModelSerializer):
 
     def get_primary_representative(self, obj):
         cache = getattr(obj, "_primary_rep_cache", None)
-        logger.warning(
-            "[primary_rep] student_id=%s full_name=%s has_cache=%s cache_len=%s",
-            obj.id, obj.get_full_name(), cache is not None,
-            len(cache) if cache else 0,
-        )
         if cache:
             rep = cache[0]
         else:
@@ -47,12 +42,7 @@ class StudentSerializer(serializers.ModelSerializer):
                 .select_related("kinship", "user__person")
                 .first()
             )
-            logger.warning(
-                "[primary_rep] fallback rep=%s",
-                rep.user.get_full_name() if rep else None,
-            )
         if rep is None:
-            logger.warning("[primary_rep] NO_REP student_id=%s", obj.id)
             return None
         result = {
             "id": rep.id,
@@ -60,7 +50,6 @@ class StudentSerializer(serializers.ModelSerializer):
             "kinship": rep.kinship_id,
             "kinship_name": rep.kinship.name,
         }
-        logger.warning("[primary_rep] RETURN result=%s", result)
         return result
 
 

@@ -71,14 +71,7 @@ class StudentRiskScoreSerializer(serializers.ModelSerializer):
         source="academic_period.name", read_only=True
     )
     risk_factors = StudentRiskFactorSerializer(many=True, read_only=True)
-
-    def to_representation(self, instance):
-        """La etiqueta siempre se deriva del puntaje (evita desincronización en BD)."""
-        from apps.analytics.student_risk.domain.risk_engine import score_to_risk_label
-
-        data = super().to_representation(instance)
-        data["risk_label"] = score_to_risk_label(float(instance.risk_score))
-        return data
+    feature_importances = serializers.SerializerMethodField()
 
     class Meta:
         model = StudentRiskScore
@@ -93,10 +86,49 @@ class StudentRiskScoreSerializer(serializers.ModelSerializer):
             "model_version",
             "calculated_at",
             "risk_factors",
+            "feature_importances",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["id", "calculated_at", "created_at", "updated_at"]
+
+    def get_feature_importances(self, obj):
+        """Retorna las feature importances del modelo ML si está activo."""
+        try:
+            from apps.analytics.ml.features import TRAIN_FEATURES
+            from apps.analytics.student_risk.domain.risk_engine import (
+                _load_artifact_cached,
+            )
+
+            if "sklearn" not in (obj.model_version or ""):
+                return None
+
+            artifact = _load_artifact_cached()
+            if artifact is None:
+                return None
+
+            importances = artifact.get("feature_importances")
+            if not importances or len(importances) != len(TRAIN_FEATURES):
+                return None
+
+            return [
+                {
+                    "feature": TRAIN_FEATURES[i],
+                    "importance": round(float(importances[i]), 4),
+                }
+                for i in range(len(TRAIN_FEATURES))
+                if float(importances[i]) > 0.001
+            ]
+        except Exception:
+            return None
+
+    def to_representation(self, instance):
+        """La etiqueta siempre se deriva del puntaje (evita desincronización en BD)."""
+        from apps.analytics.student_risk.domain.risk_engine import score_to_risk_label
+
+        data = super().to_representation(instance)
+        data["risk_label"] = score_to_risk_label(float(instance.risk_score))
+        return data
 
 
 # ─────────────────────────────────────────────────────────────────────────────

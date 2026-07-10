@@ -69,15 +69,29 @@ class DashboardService:
 
     @classmethod
     def get_risk_distribution_by_city(cls, academic_period_id: int) -> Dict[str, Dict]:
-        """Distribución de riesgo por ciudad de origen (Fase 4)."""
+        """Distribución de riesgo por ciudad de origen."""
 
         def city_name(score):
             person = getattr(score.enrollment.student.user, "person", None)
-            city = getattr(person, "city", None) if person else None
+            parish = getattr(person, "parish", None) if person else None
+            city = getattr(parish, "city", None) if parish else None
             return city.name if city else None
 
         return cls._risk_distribution_by_dimension(
             cls.repository.scores_with_city(academic_period_id), city_name
+        )
+
+    @classmethod
+    def get_risk_distribution_by_parish(cls, academic_period_id: int) -> Dict[str, Dict]:
+        """Distribución de riesgo por parroquia de origen."""
+
+        def parish_name(score):
+            person = getattr(score.enrollment.student.user, "person", None)
+            parish = getattr(person, "parish", None) if person else None
+            return parish.name if parish else None
+
+        return cls._risk_distribution_by_dimension(
+            cls.repository.scores_with_parish(academic_period_id), parish_name
         )
 
     @classmethod
@@ -189,6 +203,143 @@ class DashboardService:
             if r["month"] is not None
         ]
 
+    @classmethod
+    def get_enrollment_comparison(cls) -> List[Dict[str, Any]]:
+        """
+        Comparativa de matrículas entre años lectivos.
+        
+        Devuelve lista de años lectivos con su total de matrículas.
+        """
+        return [
+            {
+                "school_year_id": r["section__school_year__id"],
+                "start_date": r["section__school_year__start_date"].isoformat(),
+                "end_date": r["section__school_year__end_date"].isoformat(),
+                "name": f"{r['section__school_year__start_date'].year}-{r['section__school_year__end_date'].year}",
+                "total_enrollments": r["total_enrollments"],
+            }
+            for r in cls.repository.get_enrollment_comparison_by_school_year()
+        ]
+
+    @classmethod
+    def get_enrollment_cumulative(cls, school_year_id: int) -> List[Dict[str, Any]]:
+        """
+        Evolución acumulada de matrículas dentro de un año lectivo.
+        """
+        return cls.repository.get_enrollment_cumulative_by_school_year(school_year_id)
+
+
+class TeacherDashboardService:
+    """
+    Servicio que consolida las métricas del docente en una sola respuesta,
+    enfocada en actividades sin calificar, próximas actividades, rendimiento
+    de sus cursos, y estudiantes que requieren atención.
+    """
+
+    repository = DashboardRepository
+
+    @classmethod
+    def get_teacher_dashboard(
+        cls,
+        user_id: int,
+        academic_period_id: int,
+    ) -> Dict[str, Any]:
+        """
+        Respuesta unificada del dashboard del docente.
+
+        Args:
+            user_id: ID del usuario docente.
+            academic_period_id: período activo.
+
+        Returns:
+            Dict con datos orientados a la gestión del aula.
+        """
+        repo = cls.repository
+        data: Dict[str, Any] = {}
+
+        # ── Core: resumen general ──
+        try:
+            overview = repo.get_teacher_overview(user_id, academic_period_id)
+            data["total_students"] = overview["total_students"]
+            data["attendance_rate_avg"] = overview["attendance_rate_avg"]
+            data["formative_avg"] = overview["formative_avg"]
+        except Exception:
+            data["total_students"] = 0
+            data["attendance_rate_avg"] = 0
+            data["formative_avg"] = 0
+
+        try:
+            data["active_alerts"] = repo.get_teacher_active_alerts_count(
+                user_id, academic_period_id
+            )
+        except Exception:
+            data["active_alerts"] = 0
+
+        try:
+            data["courses_count"] = len(
+                repo.get_teacher_sections_performance(user_id, academic_period_id)
+            )
+        except Exception:
+            data["courses_count"] = 0
+
+        # ── Secciones ──
+        try:
+            data["sections_performance"] = repo.get_teacher_sections_performance(
+                user_id, academic_period_id
+            )
+        except Exception:
+            data["sections_performance"] = []
+
+        # ── Actividades sin calificar ──
+        try:
+            data["pending_grading"] = repo.get_teacher_pending_grading(
+                user_id, academic_period_id
+            )
+        except Exception:
+            data["pending_grading"] = []
+
+        # ── Próximas actividades ──
+        try:
+            data["upcoming_activities"] = repo.get_teacher_upcoming_activities(
+                user_id, academic_period_id
+            )
+        except Exception:
+            data["upcoming_activities"] = []
+
+        # ── Riesgo ──
+        try:
+            data["risk_distribution"] = repo.get_teacher_risk_distribution(
+                user_id, academic_period_id
+            )
+        except Exception:
+            data["risk_distribution"] = {"rojo": 0, "amarillo": 0, "verde": 0}
+
+        # ── Estudiantes en declive ──
+        try:
+            data["declining_students"] = repo.get_teacher_declining_students(
+                user_id, academic_period_id
+            )
+        except Exception:
+            data["declining_students"] = []
+
+        # ── Alertas críticas ──
+        try:
+            data["critical_alerts"] = repo.get_teacher_critical_alerts(
+                user_id, academic_period_id
+            )
+        except Exception:
+            data["critical_alerts"] = []
+
+        # ── Estudiantes cerca del umbral ──
+        try:
+            data["students_near_threshold"] = repo.get_teacher_students_near_threshold(
+                user_id, academic_period_id
+            )
+        except Exception:
+            data["students_near_threshold"] = []
+
+        return data
+
 
 class CSVExportService:
     """
@@ -265,3 +416,99 @@ class RecalculationService:
         return StudentRiskCalculationService.batch_calculate(
             academic_period_id, student_ids, user_id=user_id
         )
+
+
+class DirectorDashboardService:
+    """
+    Servicio que consolida todas las métricas del director en una sola
+    respuesta, delegando cada consulta al repositorio.
+
+    Sigue el mismo patrón que DashboardService pero orquesta múltiples
+    fuentes de datos para evitar N llamadas desde el frontend.
+    """
+
+    repository = DashboardRepository
+
+    # ── Secciones "core" (siempre incluidas) ──────────────────────────────
+
+    SECTIONS = {
+        "overview": lambda repo, pid, **_kw: DashboardService.get_overview(pid),
+        "risk_by_grade": lambda repo, pid, **_kw: DashboardService.get_risk_distribution_by_grade(pid),
+        "enrollment_trend": lambda repo, pid, **kw: DashboardService.get_enrollment_trend(kw.get("school_year_id")),
+        "failing_subjects": lambda repo, pid, **_kw: repo.get_failing_subjects_ranking(pid),
+        "unattended_alerts_summary": lambda repo, pid, **_kw: repo.get_unattended_alerts_summary(pid),
+        "risk_factor_breakdown": lambda repo, pid, **_kw: repo.get_risk_factors_breakdown(pid),
+        "declining_students": lambda repo, pid, **_kw: repo.get_declining_students(pid),
+        "near_threshold": lambda repo, pid, **_kw: repo.get_near_threshold_students(pid),
+        "critical_alerts": lambda repo, pid, **_kw: repo.get_critical_alerts(pid),
+        "recent_incidents": lambda repo, pid, **_kw: repo.get_recent_incidents(pid),
+    }
+
+    # ── Secciones "opt-in" (solo si se solicitan) ─────────────────────────
+    OPTIONAL_SECTIONS = {
+        "risk_by_city": lambda repo, pid, **_kw: DashboardService.get_risk_distribution_by_city(pid),
+        "risk_by_parish": lambda repo, pid, **_kw: DashboardService.get_risk_distribution_by_parish(pid),
+        "special_needs_gap": lambda repo, pid, **_kw: repo.get_special_needs_gap(pid),
+    }
+
+    @classmethod
+    def get_director_dashboard(
+        cls,
+        academic_period_id: int,
+        school_year_id: Optional[int] = None,
+        include_risk_by_city: bool = False,
+        include_risk_by_parish: bool = False,
+        include_special_needs_gap: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Respuesta unificada del dashboard del director.
+
+        Args:
+            academic_period_id: período activo.
+            school_year_id: año escolar (opcional, para tendencia de matrículas).
+            include_risk_by_city: incluir distribución por ciudad.
+            include_special_needs_gap: incluir brecha NEE.
+
+        Returns:
+            Dict con todas las secciones solicitadas.
+        """
+        data: Dict[str, Any] = {}
+        kw = {"school_year_id": school_year_id}
+
+        # Core sections
+        for name, loader in cls.SECTIONS.items():
+            try:
+                data[name] = loader(cls.repository, academic_period_id, **kw)
+            except Exception as exc:
+                data[name] = None
+
+        # Merge overview keys at top level for backward compatibility
+        overview = data.pop("overview", {}) or {}
+        data.update(overview)
+
+        # Optional sections
+        if include_risk_by_city:
+            try:
+                data["risk_by_city"] = cls.OPTIONAL_SECTIONS["risk_by_city"](
+                    cls.repository, academic_period_id
+                )
+            except Exception:
+                data["risk_by_city"] = None
+
+        if include_risk_by_parish:
+            try:
+                data["risk_by_parish"] = cls.OPTIONAL_SECTIONS["risk_by_parish"](
+                    cls.repository, academic_period_id
+                )
+            except Exception:
+                data["risk_by_parish"] = None
+
+        if include_special_needs_gap:
+            try:
+                data["special_needs_gap"] = cls.OPTIONAL_SECTIONS["special_needs_gap"](
+                    cls.repository, academic_period_id
+                )
+            except Exception:
+                data["special_needs_gap"] = None
+
+        return data

@@ -2,7 +2,7 @@ from apps.core.constants.permissions import iam
 
 PERMISSION_ACTION_PERMISSIONS = {
     "list": iam.VIEW_PERMISSION,
-    "retrieve": iam.VIEW_PERMISSION,
+    "get": iam.VIEW_PERMISSION,
     "create": iam.CREATE_PERMISSION,
     "update": iam.UPDATE_PERMISSION,
     "partial_update": iam.UPDATE_PERMISSION,
@@ -13,7 +13,7 @@ PERMISSION_ACTION_PERMISSIONS = {
 
 ROLE_ACTION_PERMISSIONS = {
     "list": iam.VIEW_ROLE,
-    "retrieve": iam.VIEW_ROLE,
+    "get": iam.VIEW_ROLE,
     "create": iam.CREATE_ROLE,
     "update": iam.UPDATE_ROLE,
     "partial_update": iam.UPDATE_ROLE,
@@ -25,7 +25,7 @@ ROLE_ACTION_PERMISSIONS = {
 
 USER_ACTION_PERMISSIONS = {
     "list": iam.VIEW_USER,
-    "retrieve": iam.VIEW_USER,
+    "get": iam.VIEW_USER,
     "create": iam.CREATE_USER,
     "update": iam.UPDATE_USER,
     "partial_update": iam.UPDATE_USER,

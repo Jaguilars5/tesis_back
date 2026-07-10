@@ -1,1 +1,1 @@
-# API module for students
+# Students API module

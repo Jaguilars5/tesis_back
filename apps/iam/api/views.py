@@ -1,13 +1,13 @@
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError as DjangoValidationError
 from drf_spectacular.utils import extend_schema, extend_schema_view
 
-from rest_framework import viewsets, status, permissions
+from rest_framework import status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
-from apps.core.api.mixins import SoftDeleteModelMixin, SoftDestroyMixin
+from apps.core.api.mixins import SoftDeleteModelMixin
 from apps.core.api.permissions import HasPermission
 from apps.core.constants.permissions import iam
 from apps.core.utils import ok_response, error_response
@@ -31,6 +31,7 @@ from apps.iam.permissions import (
     ROLE_ACTION_PERMISSIONS,
     USER_ACTION_PERMISSIONS,
 )
+from .base import BaseIamViewSet
 
 
 @extend_schema(
@@ -61,7 +62,7 @@ class CustomTokenRefreshView(TokenRefreshView):
 
 @extend_schema_view(
     list=extend_schema(summary="Listar permisos", tags=["iam"]),
-    retrieve=extend_schema(summary="Obtener permiso", tags=["iam"]),
+    get=extend_schema(summary="Obtener permiso", tags=["iam"]),
     create=extend_schema(summary="Crear permiso", tags=["iam"]),
     update=extend_schema(summary="Actualizar permiso", tags=["iam"]),
     partial_update=extend_schema(
@@ -71,9 +72,8 @@ class CustomTokenRefreshView(TokenRefreshView):
     bulk_create=extend_schema(summary="Crear múltiples permisos", tags=["iam"]),
     by_module=extend_schema(summary="Permisos por módulo", tags=["iam"]),
 )
-class PermissionViewSet(SoftDeleteModelMixin, SoftDestroyMixin, viewsets.ModelViewSet):
+class PermissionViewSet(SoftDeleteModelMixin, BaseIamViewSet):
     serializer_class = PermissionSerializer
-    permission_classes = [permissions.IsAuthenticated, HasPermission]
     action_permissions = PERMISSION_ACTION_PERMISSIONS
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = PermissionFilter
@@ -81,11 +81,6 @@ class PermissionViewSet(SoftDeleteModelMixin, SoftDestroyMixin, viewsets.ModelVi
     ordering_fields = ["code", "module", "created_at"]
     ordering = ["code"]
     service = PermissionService
-
-    def initial(self, request, *args, **kwargs):
-        if self.action == "get":
-            self.action = "retrieve"
-        super().initial(request, *args, **kwargs)
 
     def get_queryset(self):
         return self.service.list_permissions()
@@ -141,7 +136,7 @@ class PermissionViewSet(SoftDeleteModelMixin, SoftDestroyMixin, viewsets.ModelVi
 
 @extend_schema_view(
     list=extend_schema(summary="Listar roles", tags=["iam"]),
-    retrieve=extend_schema(summary="Obtener rol", tags=["iam"]),
+    get=extend_schema(summary="Obtener rol", tags=["iam"]),
     create=extend_schema(summary="Crear rol", tags=["iam"]),
     update=extend_schema(summary="Actualizar rol", tags=["iam"]),
     partial_update=extend_schema(
@@ -157,8 +152,7 @@ class PermissionViewSet(SoftDeleteModelMixin, SoftDestroyMixin, viewsets.ModelVi
     ),
     soft_delete=extend_schema(summary="Desactivar rol con cascada", tags=["iam"]),
 )
-class RoleViewSet(SoftDeleteModelMixin, SoftDestroyMixin, viewsets.ModelViewSet):
-    permission_classes = [permissions.IsAuthenticated, HasPermission]
+class RoleViewSet(SoftDeleteModelMixin, BaseIamViewSet):
     action_permissions = ROLE_ACTION_PERMISSIONS
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = RoleFilter
@@ -167,16 +161,11 @@ class RoleViewSet(SoftDeleteModelMixin, SoftDestroyMixin, viewsets.ModelViewSet)
     ordering = ["name"]
     service = RoleService
 
-    def initial(self, request, *args, **kwargs):
-        if self.action == "get":
-            self.action = "retrieve"
-        super().initial(request, *args, **kwargs)
-
     def get_queryset(self):
         return self.service.list_roles()
 
     def get_serializer_class(self):
-        if self.action == "retrieve":
+        if self.action == "get":
             return RoleDetailSerializer
         return RoleListSerializer
 
@@ -246,7 +235,7 @@ class RoleViewSet(SoftDeleteModelMixin, SoftDestroyMixin, viewsets.ModelViewSet)
 
 @extend_schema_view(
     list=extend_schema(summary="Listar usuarios", tags=["iam"]),
-    retrieve=extend_schema(summary="Obtener usuario", tags=["iam"]),
+    get=extend_schema(summary="Obtener usuario", tags=["iam"]),
     create=extend_schema(summary="Crear usuario", tags=["iam"]),
     update=extend_schema(summary="Actualizar usuario", tags=["iam"]),
     partial_update=extend_schema(
@@ -260,26 +249,12 @@ class RoleViewSet(SoftDeleteModelMixin, SoftDestroyMixin, viewsets.ModelViewSet)
     students=extend_schema(summary="Listar usuarios con rol estudiante", tags=["iam"]),
     representatives=extend_schema(summary="Listar usuarios con rol representante", tags=["iam"]),
 )
-class UserViewSet(SoftDeleteModelMixin, viewsets.ModelViewSet):
+class UserViewSet(SoftDeleteModelMixin, BaseIamViewSet):
     """
     ViewSet para gestión de usuarios.
     DELETE realiza desactivación lógica (is_active=False).
     """
 
-    def destroy(self, request, *args, **kwargs):
-        """
-        Desactiva un usuario en lugar de borrarlo físicamente.
-        Alineado con la documentación: 'Desactivar usuario'.
-        """
-        try:
-            user = self.service.deactivate_user(kwargs.get("pk"))
-            return ok_response(
-                {"id": user.id, "is_active": user.is_active},
-                msg="Usuario desactivado exitosamente",
-            )
-        except ValueError as e:
-            return error_response(str(e), status_code=status.HTTP_400_BAD_REQUEST)
-    permission_classes = [permissions.IsAuthenticated, HasPermission]
     action_permissions = USER_ACTION_PERMISSIONS
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = UserFilter
@@ -294,10 +269,19 @@ class UserViewSet(SoftDeleteModelMixin, viewsets.ModelViewSet):
     ordering = ["username"]
     service = UserService
 
-    def initial(self, request, *args, **kwargs):
-        if self.action == "get":
-            self.action = "retrieve"
-        super().initial(request, *args, **kwargs)
+    def destroy(self, request, *args, **kwargs):
+        """
+        Desactiva un usuario en lugar de borrarlo físicamente.
+        Alineado con la documentación: 'Desactivar usuario'.
+        """
+        try:
+            user = self.service.deactivate_user(kwargs.get("pk"))
+            return ok_response(
+                {"id": user.id, "is_active": user.is_active},
+                msg="Usuario desactivado exitosamente",
+            )
+        except ValueError as e:
+            return error_response(str(e), status_code=status.HTTP_400_BAD_REQUEST)
 
     def get_queryset(self):
         return self.service.list_users()
@@ -305,7 +289,7 @@ class UserViewSet(SoftDeleteModelMixin, viewsets.ModelViewSet):
     def get_serializer_class(self):
         if self.action == "create":
             return UserCreateSerializer
-        elif self.action == "retrieve":
+        elif self.action == "get":
             return UserDetailSerializer
         return UserListSerializer
 
@@ -321,6 +305,10 @@ class UserViewSet(SoftDeleteModelMixin, viewsets.ModelViewSet):
                 email=serializer.validated_data["email"],
                 password=serializer.validated_data["password"],
                 role_id=serializer.validated_data["role_id"],
+                birth_date=serializer.validated_data.get("birth_date"),
+                phone=serializer.validated_data.get("phone", ""),
+                document_type_id=serializer.validated_data.get("document_type"),
+                parish_id=serializer.validated_data.get("parish"),
             )
             return ok_response(
                 UserDetailSerializer(user).data,

@@ -19,9 +19,13 @@ from .filters import SectionFilter
     get=extend_schema(summary="Obtener sección", tags=["institutions"]),
     create=extend_schema(summary="Crear sección", tags=["institutions"]),
     update=extend_schema(summary="Actualizar sección", tags=["institutions"]),
-    partial_update=extend_schema(summary="Actualizar sección parcialmente", tags=["institutions"]),
+    partial_update=extend_schema(
+        summary="Actualizar sección parcialmente", tags=["institutions"]
+    ),
     destroy=extend_schema(summary="Eliminar sección", tags=["institutions"]),
-    soft_delete=extend_schema(summary="Desactivar sección con cascada", tags=["institutions"]),
+    soft_delete=extend_schema(
+        summary="Desactivar sección con cascada", tags=["institutions"]
+    ),
 )
 class SectionViewSet(BaseInstitutionsViewSet):
     serializer_class = SectionSerializer
@@ -29,7 +33,12 @@ class SectionViewSet(BaseInstitutionsViewSet):
     filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
     filterset_class = SectionFilter
     search_fields = ["parallel", "code"]
-    ordering_fields = ["parallel", "capacity", "academic_grade__name", "school_year__start_date"]
+    ordering_fields = [
+        "parallel",
+        "capacity",
+        "academic_grade__name",
+        "school_year__start_date",
+    ]
     ordering = ["academic_grade__name", "parallel"]
 
     def __init__(self, *args, **kwargs):

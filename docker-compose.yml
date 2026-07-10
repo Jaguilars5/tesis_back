@@ -1,10 +1,12 @@
+name: edu-manager
+
 services:
   # ─────────────────────────────────────────
   # BASE DE DATOS
   # ─────────────────────────────────────────
   db:
     image: postgres:15-alpine
-    container_name: tesis_db
+    container_name: edu-manager-db
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
@@ -21,7 +23,7 @@ services:
       retries: 5
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: tesis_pgadmin
+    container_name: edu-manager-pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
@@ -35,7 +37,7 @@ services:
   # ─────────────────────────────────────────
   redis:
     image: redis:7-alpine
-    container_name: tesis_redis
+    container_name: edu-manager-redis
     ports:
       - "6379:6379"
     healthcheck:
@@ -49,7 +51,7 @@ services:
   # ─────────────────────────────────────────
   web:
     build: .
-    container_name: tesis_web
+    container_name: edu-manager-web
     command: uvicorn config.asgi:application --host 0.0.0.0 --port 8000 --ws websockets
     volumes:
       # Monta el código local dentro del contenedor
@@ -78,7 +80,7 @@ services:
   # ─────────────────────────────────────────
   celery:
     build: .
-    container_name: tesis_celery
+    container_name: edu-manager-celery
     command: celery -A config worker --loglevel=info
     volumes:
       - .:/app
@@ -100,7 +102,7 @@ services:
   # ─────────────────────────────────────────
   flower:
     build: .
-    container_name: tesis_flower
+    container_name: edu-manager-flower
     command: celery -A config flower --port=5555
     ports:
       - "5555:5555"
@@ -119,3 +121,4 @@ services:
 # ─────────────────────────────────────────
 volumes:
   postgres_data:
+    name: edu-manager_postgres_data

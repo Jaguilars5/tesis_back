@@ -39,7 +39,27 @@ Gestión de asistencia diaria, incidentes conductuales, evaluaciones socioemocio
 
 ### Analítica y Riesgo Académico (Analytics)
 
-Análisis de riesgo estudiantil basado en métricas de asistencia, rendimiento académico y conducta. Genera perfiles de riesgo y prioriza estudiantes que requieren intervención.
+Análisis de riesgo estudiantil basado en métricas de asistencia, rendimiento académico y conducta. Genera perfiles de riesgo y prioriza estudiantes que requieren intervención. Incluye un modelo de Machine Learning (regresión logística) para predicción de riesgo académico.
+
+```bash
+# Sembrar configuración de scoring (ejecutar una vez antes de entrenar)
+python manage.py seed_scoring_config
+
+# Entrenar modelo de riesgo (usa todos los StudentFeatureSnapshot históricos)
+python manage.py train_risk_model
+
+# Sincronizar etiquetas de riesgo post-entrenamiento
+python manage.py sync_risk_labels
+```
+
+**Scripts de análisis y diagnóstico:**
+```bash
+python scripts/analyze_historical_data.py   # Diagnóstico de cobertura de datos
+python scripts/inspect_risk_scores.py        # Inspeccionar scores generados
+python scripts/debug_predict.py              # Probar predicción con datos de ejemplo
+```
+
+> **Nota**: Si el modelo entrenado no existe, el sistema usa reglas heurísticas como fallback. El artefacto entrenado se guarda en `apps/analytics/ml/risk_model.joblib`.
 
 ### Configuración del Sistema (Configuration)
 
@@ -70,7 +90,10 @@ python manage.py seed_catalogs
 # 2. Permisos + Roles (DOCENTE, ESTUDIANTE, etc.)
 python manage.py seed_permissions
 
-# 3. Datos de prueba
+# 3. Configuración de scoring de riesgo
+python manage.py seed_scoring_config
+
+# 4. Datos de prueba
 python manage.py seed_test_data
 ```
 
@@ -146,6 +169,7 @@ docker-compose up
 # 4. En otra terminal: poblar datos iniciales
 docker-compose exec web python manage.py seed_catalogs
 docker-compose exec web python manage.py seed_permissions
+docker-compose exec web python manage.py seed_scoring_config
 docker-compose exec web python manage.py seed_test_data
 
 # 5. Crear superusuario
@@ -204,6 +228,7 @@ python manage.py migrate
 # 6. Poblar datos iniciales (idempotente, ejecutar en orden)
 python manage.py seed_catalogs
 python manage.py seed_permissions
+python manage.py seed_scoring_config
 python manage.py seed_test_data
 
 # 7. Crear superusuario

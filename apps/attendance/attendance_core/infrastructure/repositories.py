@@ -144,6 +144,17 @@ class AttendanceRepository(BaseRepository, AttendanceRepositoryInterface):
         ).select_related("attendance_status")
 
     @classmethod
+    def get_summary(cls, queryset=None):
+        qs = queryset if queryset is not None else cls.model.objects.all()
+        return qs.aggregate(
+            total=Count("id"),
+            present=Count("id", filter=Q(attendance_status__code="P")),
+            absent=Count("id", filter=Q(attendance_status__code="A")),
+            late=Count("id", filter=Q(attendance_status__code="T")),
+            justified=Count("id", filter=Q(attendance_status__code="J")),
+        )
+
+    @classmethod
     def get_absences_summary(cls, enrollment_id, academic_period_id):
         return cls.model.objects.filter(
             enrollment_id=enrollment_id,

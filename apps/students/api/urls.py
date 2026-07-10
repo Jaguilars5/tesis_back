@@ -1,5 +1,4 @@
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
 from .views import (
     EnrollmentViewSet,
     KinshipViewSet,
@@ -7,8 +6,9 @@ from .views import (
     StudentViewSet,
     StudentRepresentativeViewSet,
 )
+from .routers import StudentsRouter
 
-router = DefaultRouter()
+router = StudentsRouter()
 router.register(r"student", StudentViewSet, basename="student")
 router.register(
     r"student-representative",

@@ -1,29 +1,25 @@
 from django.db import models
 from drf_spectacular.utils import extend_schema, extend_schema_view
-
-from rest_framework import viewsets, status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 
-from apps.core.api.mixins import SoftDestroyMixin
 from apps.core.api.pagination import StandardResultsSetPagination
-from apps.core.constants.permissions import students
 from apps.core.api.permissions import HasPermission
 from apps.core.utils import ok_response, error_response
 
-from ..services.students_service import StudentService
-from ..services.enrollment_service import EnrollmentService
-from ..repositories import EnrollmentRepository
-
-from ..models import Kinship, StudentRepresentative
-from ..repositories.students_repo import (
+from ..domain.services import EnrollmentService, StudentService
+from ..infrastructure.repositories import (
+    EnrollmentRepository,
     StudentRepository,
     StudentRepresentativeRepository,
 )
-from .serializers.serializers import (
+from ..infrastructure.models import Kinship, StudentRepresentative
+from ..application.serializers import (
     EnrollmentCreateSerializer,
     EnrollmentSerializer,
     KinshipSerializer,
@@ -33,19 +29,30 @@ from .serializers.serializers import (
     StudentDetailSerializer,
     StudentRepresentativeSerializer,
 )
-from .filters.filters import StudentFilter
+from .base import BaseStudentsViewSet
+from ..permissions import ACTION_PERMISSIONS
+from .filters.student import StudentFilter
+
+
+def _raise_validation_error(exc: ValueError) -> None:
+    errors = (
+        exc.args[0]
+        if exc.args and isinstance(exc.args[0], dict)
+        else {"non_field_errors": str(exc)}
+    )
+    raise ValidationError(errors) from exc
 
 
 @extend_schema_view(
     list=extend_schema(summary="Listar estudiantes", tags=["students"]),
-    retrieve=extend_schema(summary="Obtener estudiante", tags=["students"]),
+    get=extend_schema(summary="Obtener estudiante", tags=["students"]),
     create=extend_schema(summary="Crear estudiante", tags=["students"]),
     update=extend_schema(summary="Actualizar estudiante", tags=["students"]),
     partial_update=extend_schema(
         summary="Actualizar estudiante parcialmente", tags=["students"]
     ),
     destroy=extend_schema(summary="Desactivar estudiante", tags=["students"]),
-    by_section=extend_schema(summary="Estudiantes por sección", tags=["students"]),
+    by_section=extend_schema(summary="Estudiantes por secci\u00f3n", tags=["students"]),
     search=extend_schema(summary="Buscar estudiantes", tags=["students"]),
     representatives=extend_schema(
         summary="Representantes del estudiante", tags=["students"]
@@ -54,11 +61,9 @@ from .filters.filters import StudentFilter
         summary="Asignar representante al estudiante", tags=["students"]
     ),
 )
-class StudentViewSet(viewsets.ModelViewSet):
-    """ViewSet para Student"""
-
+class StudentViewSet(BaseStudentsViewSet):
     serializer_class = StudentSerializer
-    permission_classes = [IsAuthenticated, HasPermission]
+    action_permissions = ACTION_PERMISSIONS["student"]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = StudentFilter
     search_fields = [
@@ -69,21 +74,12 @@ class StudentViewSet(viewsets.ModelViewSet):
     ]
     ordering_fields = ["user__person__last_names", "is_active"]
     ordering = ["user__person__last_names"]
-    action_permissions = {
-        "list": students.VIEW_STUDENT,
-        "retrieve": students.VIEW_STUDENT,
-        "create": students.CREATE_STUDENT,
-        "update": students.UPDATE_STUDENT,
-        "partial_update": students.UPDATE_STUDENT,
-        "destroy": students.DELETE_STUDENT,
-        "by_section": students.VIEW_STUDENT,
-        "search": students.VIEW_STUDENT,
-        "representatives": students.VIEW_REPRESENTATIVE_RELATIONSHIP,
-        "assign_representative": students.CREATE_REPRESENTATIVE_RELATIONSHIP,
-    }
 
     def get_queryset(self):
-        qs = StudentRepository.get_all().select_related("user__person")
+        qs = StudentRepository.get_all().select_related(
+            "user__person__parish__city",
+            "user__person__document_type",
+        )
         if self.action == "list":
             qs = qs.prefetch_related(
                 models.Prefetch(
@@ -95,10 +91,20 @@ class StudentViewSet(viewsets.ModelViewSet):
                     to_attr="_primary_rep_cache",
                 )
             )
+        elif self.action == "get":
+            qs = qs.prefetch_related(
+                models.Prefetch(
+                    "representatives_set",
+                    queryset=StudentRepresentative.objects.select_related(
+                        "kinship", "user__person"
+                    ),
+                    to_attr="_representatives_all",
+                )
+            )
         return qs
 
     def get_serializer_class(self):
-        if self.action == "retrieve":
+        if self.action == "get":
             return StudentDetailSerializer
         elif self.action == "create":
             return StudentCreateSerializer
@@ -116,38 +122,27 @@ class StudentViewSet(viewsets.ModelViewSet):
                 email=serializer.validated_data.get("email", ""),
                 phone=serializer.validated_data.get("phone", ""),
                 document_type_id=serializer.validated_data.get("document_type"),
-                city_id=serializer.validated_data.get("city"),
-                has_special_needs=serializer.validated_data.get(
-                    "has_special_needs", False
-                ),
-                special_needs_type_id=serializer.validated_data.get(
-                    "special_needs_type"
-                ),
+                parish_id=serializer.validated_data.get("parish"),
+                has_special_needs=serializer.validated_data.get("has_special_needs", False),
+                special_needs_type_id=serializer.validated_data.get("special_needs_type"),
             )
             out_serializer = StudentSerializer(student)
             return Response(out_serializer.data, status=201)
         except ValueError as e:
             return Response(str(e), status=400)
 
-    def update(self, request, *args, **kwargs):
+    def perform_update(self, serializer):
         try:
-            student = StudentService.update_student(kwargs.get("pk"), **request.data)
-            serializer = self.get_serializer(student)
-            return Response(serializer.data)
-        except ValueError as e:
-            return Response(str(e), status=400)
-
-    def destroy(self, request, *args, **kwargs):
-        """Desactiva un estudiante (soft delete)"""
-        try:
-            StudentService.deactivate_student(kwargs.get("pk"))
-            return Response({"id": kwargs.get("pk"), "deleted": True})
-        except ValueError as e:
-            return Response(str(e), status=400)
+            student = StudentService.update_student(
+                serializer.instance.id,
+                **serializer.validated_data,
+            )
+        except ValueError as exc:
+            _raise_validation_error(exc)
+        serializer.instance = student
 
     @action(detail=False, methods=["get"])
     def by_section(self, request):
-        """Estudiantes de una sección"""
         section_id = request.query_params.get("section_id")
         if not section_id:
             return Response("section_id requerido", status=400)
@@ -158,10 +153,9 @@ class StudentViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"])
     def search(self, request):
-        """Búsqueda de estudiantes"""
         query = request.query_params.get("q", "")
         if not query:
-            return Response("Parámetro q requerido", status=400)
+            return Response("Par\u00e1metro q requerido", status=400)
 
         students = StudentService.search_students(query)
         serializer = self.get_serializer(students, many=True)
@@ -169,7 +163,6 @@ class StudentViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"])
     def representatives(self, request, pk=None):
-        """Representantes de un estudiante"""
         relationships = StudentRepresentativeRepository.get_by_student(pk)
         serializer = StudentRepresentativeSerializer(relationships, many=True)
         return Response(serializer.data)
@@ -200,7 +193,7 @@ class StudentViewSet(viewsets.ModelViewSet):
                     phone=request.data.get("phone", ""),
                     birth_date=request.data.get("birth_date"),
                     document_type_id=request.data.get("document_type"),
-                    city_id=request.data.get("city"),
+                    parish_id=request.data.get("parish"),
                 )
             serializer = StudentRepresentativeSerializer(rel)
             return Response(serializer.data, status=201)
@@ -210,7 +203,7 @@ class StudentViewSet(viewsets.ModelViewSet):
 
 @extend_schema_view(
     list=extend_schema(summary="Listar representantes", tags=["students"]),
-    retrieve=extend_schema(summary="Obtener representante", tags=["students"]),
+    get=extend_schema(summary="Obtener representante", tags=["students"]),
     create=extend_schema(summary="Asignar representante", tags=["students"]),
     update=extend_schema(summary="Actualizar representante", tags=["students"]),
     partial_update=extend_schema(
@@ -222,25 +215,13 @@ class StudentViewSet(viewsets.ModelViewSet):
     ),
     unlink=extend_schema(summary="Desasignar representante", tags=["students"]),
 )
-class StudentRepresentativeViewSet(SoftDestroyMixin, viewsets.ModelViewSet):
-    """ViewSet para StudentRepresentative"""
-
+class StudentRepresentativeViewSet(BaseStudentsViewSet):
     serializer_class = StudentRepresentativeSerializer
-    permission_classes = [IsAuthenticated, HasPermission]
+    action_permissions = ACTION_PERMISSIONS["student_representative"]
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_fields = ["student", "user", "is_primary"]
     ordering_fields = ["created_at"]
     ordering = ["-is_primary", "created_at"]
-    action_permissions = {
-        "list": students.VIEW_REPRESENTATIVE_RELATIONSHIP,
-        "retrieve": students.VIEW_REPRESENTATIVE_RELATIONSHIP,
-        "create": students.CREATE_REPRESENTATIVE_RELATIONSHIP,
-        "update": students.UPDATE_REPRESENTATIVE_RELATIONSHIP,
-        "partial_update": students.UPDATE_REPRESENTATIVE_RELATIONSHIP,
-        "destroy": students.DELETE_REPRESENTATIVE_RELATIONSHIP,
-        "set_primary": students.UPDATE_REPRESENTATIVE_RELATIONSHIP,
-        "unlink": students.DELETE_REPRESENTATIVE_RELATIONSHIP,
-    }
 
     def get_queryset(self):
         return StudentRepresentativeRepository.get_all()
@@ -278,7 +259,6 @@ class StudentRepresentativeViewSet(SoftDestroyMixin, viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"])
     def set_primary(self, request):
-        """Establecer como principal"""
         try:
             StudentService.set_primary_representative(
                 student_id=request.data.get("student"),
@@ -290,7 +270,6 @@ class StudentRepresentativeViewSet(SoftDestroyMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=["delete"])
     def unlink(self, request, pk=None):
-        """Desasignar representante"""
         relationship = self.get_object()
         try:
             StudentService.remove_representative(
@@ -303,25 +282,25 @@ class StudentRepresentativeViewSet(SoftDestroyMixin, viewsets.ModelViewSet):
 
 
 @extend_schema_view(
-    list=extend_schema(summary="Listar matrículas", tags=["students"]),
-    retrieve=extend_schema(summary="Obtener matrícula", tags=["students"]),
-    create=extend_schema(summary="Crear matrícula", tags=["students"]),
-    update=extend_schema(summary="Actualizar matrícula", tags=["students"]),
+    list=extend_schema(summary="Listar matr\u00edculas", tags=["students"]),
+    get=extend_schema(summary="Obtener matr\u00edcula", tags=["students"]),
+    create=extend_schema(summary="Crear matr\u00edcula", tags=["students"]),
+    update=extend_schema(summary="Actualizar matr\u00edcula", tags=["students"]),
     partial_update=extend_schema(
-        summary="Actualizar matrícula parcialmente", tags=["students"]
+        summary="Actualizar matr\u00edcula parcialmente", tags=["students"]
     ),
-    destroy=extend_schema(summary="Eliminar matrícula", tags=["students"]),
-    soft_delete=extend_schema(summary="Desactivar matrícula (soft delete)", tags=["students"]),
+    destroy=extend_schema(summary="Eliminar matr\u00edcula", tags=["students"]),
+    soft_delete=extend_schema(summary="Desactivar matr\u00edcula (soft delete)", tags=["students"]),
     withdraw=extend_schema(summary="Retirar estudiante", tags=["students"]),
     transfer=extend_schema(summary="Transferir estudiante", tags=["students"]),
-    by_section=extend_schema(summary="Matrículas por sección", tags=["students"]),
+    by_section=extend_schema(summary="Matr\u00edculas por secci\u00f3n", tags=["students"]),
     by_student=extend_schema(
-        summary="Matrícula activa del estudiante", tags=["students"]
+        summary="Matr\u00edcula activa del estudiante", tags=["students"]
     ),
 )
-class EnrollmentViewSet(viewsets.ModelViewSet):
+class EnrollmentViewSet(BaseStudentsViewSet):
     serializer_class = EnrollmentSerializer
-    permission_classes = [IsAuthenticated, HasPermission]
+    action_permissions = ACTION_PERMISSIONS["enrollment"]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = [
         "student",
@@ -334,20 +313,6 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         "student__student_code",
     ]
     ordering = ["-enrollment_date"]
-    action_permissions = {
-        "list": students.VIEW_ENROLLMENT,
-        "retrieve": students.VIEW_ENROLLMENT,
-        "create": students.CREATE_ENROLLMENT,
-        "update": students.UPDATE_ENROLLMENT,
-        "partial_update": students.UPDATE_ENROLLMENT,
-        "destroy": students.DELETE_ENROLLMENT,
-        "soft_delete": students.DELETE_ENROLLMENT,
-        "withdraw": students.WITHDRAW_STUDENT,
-        "transfer": students.TRANSFER_STUDENT,
-        "by_section": students.VIEW_ENROLLMENT,
-        "by_student": students.VIEW_ENROLLMENT,
-        "by_representative": students.VIEW_ENROLLMENT,
-    }
 
     def get_queryset(self):
         return EnrollmentRepository.get_all()
@@ -466,21 +431,17 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     def destroy(self, request, *args, **kwargs):
-        """
-        Desactiva una matrícula (soft delete) usando el servicio.
-        Reemplaza el borrado físico por cambio de estado.
-        """
         enrollment = self.get_object()
         try:
             result = EnrollmentService.soft_delete_enrollment(enrollment)
-            return ok_response(result, msg="Matrícula desactivada exitosamente")
+            return ok_response(result, msg="Matr\u00edcula desactivada exitosamente")
         except ValueError as e:
             return error_response(str(e), status_code=400)
 
 
 @extend_schema_view(
-    list=extend_schema(summary="Listar parentescos", tags=["students"]),
-    retrieve=extend_schema(summary="Obtener parentesco", tags=["students"]),
+    list=extend_schema(summary="Listar necesidades especiales", tags=["students"]),
+    retrieve=extend_schema(summary="Obtener necesidad especial", tags=["students"]),
 )
 class SpecialNeedsTypeViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = SpecialNeedsTypeSerializer
@@ -488,15 +449,17 @@ class SpecialNeedsTypeViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        from ..models import SpecialNeedsType as SNT
+        from ..infrastructure.models import SpecialNeedsType as SNT
+
         return SNT.objects.filter(is_active=True).order_by("name")
 
 
+@extend_schema_view(
+    list=extend_schema(summary="Listar parentescos", tags=["students"]),
+    retrieve=extend_schema(summary="Obtener parentesco", tags=["students"]),
+)
 class KinshipViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = KinshipSerializer
     permission_classes = [IsAuthenticated, HasPermission]
     queryset = Kinship.objects.all()
-    action_permissions = {
-        "list": students.VIEW_KINSHIP,
-        "retrieve": students.VIEW_KINSHIP,
-    }
+    action_permissions = ACTION_PERMISSIONS["kinship"]

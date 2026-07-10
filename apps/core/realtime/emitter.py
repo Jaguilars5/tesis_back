@@ -21,24 +21,31 @@ def emit_to_user(user_id, event, data):
     Falla en silencio (solo log) para que un problema de mensajería en tiempo
     real nunca rompa la transacción de negocio que la disparó.
     """
+    _publish(event, data, room=f"user_{user_id}")
+    logger.info("[SOCKET.IO] Evento %s publicado a Redis para user_%s", event, user_id)
+
+
+def emit_to_all(event, data):
+    """Publica ``event`` con ``data`` a todos los clientes conectados vía Redis.
+
+    Similar a emit_to_user pero sin filtrar por sala (broadcast global).
+    """
+    _publish(event, data)
+    logger.info("[SOCKET.IO] Evento %s emitido globalmente", event)
+
+
+def _publish(event, data, room=None):
+    """Internal helper: publica un mensaje Socket.IO en Redis."""
     try:
         import redis as redis_lib
         from django.conf import settings
 
+        message = {"method": "emit", "event": event, "data": [data], "binary": False, "namespace": "/", "skip_sid": None, "callback": None, "host_id": str(uuid.uuid4())}
+        if room:
+            message["room"] = room
+
         r = redis_lib.Redis.from_url(settings.SOCKETIO_REDIS_URL)
-        message = json.dumps({
-            "method": "emit",
-            "event": event,
-            "data": [data],
-            "binary": False,
-            "namespace": "/",
-            "room": f"user_{user_id}",
-            "skip_sid": None,
-            "callback": None,
-            "host_id": str(uuid.uuid4()),
-        })
-        r.publish("socketio", message)
+        r.publish("socketio", json.dumps(message))
         r.close()
-        logger.info("[SOCKET.IO] Evento %s publicado a Redis para user_%s", event, user_id)
     except Exception:
         logger.warning("[SOCKET.IO] No se pudo publicar evento a Redis", exc_info=True)

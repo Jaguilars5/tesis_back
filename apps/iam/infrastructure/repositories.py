@@ -92,20 +92,27 @@ class UserRepository(BaseRepository, UserRepositoryInterface):
 
     @classmethod
     @transaction.atomic
-    def create_user_with_person(cls, document_number, names, last_names, email, password, role_id):
+    def create_user_with_person(cls, document_number, names, last_names, email, password, role_id,
+                                 birth_date=None, phone="", document_type_id=None, parish_id=None):
         from datetime import date
         from apps.people.models import DocumentType, Person
 
-        doc_type = DocumentType.objects.get_or_create(
-            code="CC", defaults={"name": "Cédula de Ciudadanía"}
-        )[0]
+        if not document_type_id:
+            doc_type = DocumentType.objects.get_or_create(
+                code="CC", defaults={"name": "Cédula de Ciudadanía"}
+            )[0]
+        else:
+            doc_type = DocumentType.objects.get(id=document_type_id)
+
         person = Person.objects.create(
             document_type=doc_type,
             document_number=document_number,
             names=names,
             last_names=last_names,
             email=email,
-            birth_date=date(2000, 1, 1),
+            phone=phone,
+            birth_date=birth_date or date(2000, 1, 1),
+            parish_id=parish_id,
         )
         user = cls.model.objects.create_user(person=person, password=password)
         role = Role.objects.get(id=role_id)

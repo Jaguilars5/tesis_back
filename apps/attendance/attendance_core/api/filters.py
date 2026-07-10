@@ -12,6 +12,11 @@ class AttendanceFilter(django_filters.FilterSet):
     academic_period = django_filters.NumberFilter(field_name="academic_period_id")
     attendance_status = django_filters.NumberFilter(field_name="attendance_status_id")
     absence_type = django_filters.NumberFilter(field_name="absence_type_id")
+    day_of_week = django_filters.NumberFilter(method="filter_day_of_week")
+
+    def filter_day_of_week(self, queryset, name, value):
+        django_day = (value % 7) + 1
+        return queryset.filter(attendance_date__week_day=django_day)
 
     class Meta:
         model = Attendance
@@ -24,4 +29,5 @@ class AttendanceFilter(django_filters.FilterSet):
             "academic_period",
             "attendance_status",
             "absence_type",
+            "day_of_week",
         ]

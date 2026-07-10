@@ -426,6 +426,22 @@ class RiskScoringConfig(TimeStampedModel):
         verbose_name="Faltas leves máximas para Verde (≤)",
     )
 
+    # Umbrales del puntaje final (0–100) para el semáforo de riesgo
+    score_red_min = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=70.00,
+        verbose_name="Puntaje mínimo para Rojo (≥)",
+        help_text="Los puntajes >= este valor se clasifican como Rojo",
+    )
+    score_yellow_min = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=40.00,
+        verbose_name="Puntaje mínimo para Amarillo (≥)",
+        help_text="Los puntajes >= este valor y < score_red_min se clasifican como Amarillo",
+    )
+
     class Meta:
         app_label = "student_risk"
         db_table = "analytics_riskscoringconfig"  # Preservar tabla existente

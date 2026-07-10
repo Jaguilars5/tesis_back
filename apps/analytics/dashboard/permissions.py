@@ -15,5 +15,9 @@ DASHBOARD_ACTION_PERMISSIONS = {
     "export_csv": analytics.VIEW_RISK_SCORE,
     "section_summary": analytics.VIEW_RISK_SCORE,
     "enrollment_trend": analytics.VIEW_RISK_SCORE,
+    "enrollment_comparison": analytics.VIEW_RISK_SCORE,
+    "enrollment_cumulative": analytics.VIEW_RISK_SCORE,
+    "director_dashboard": analytics.VIEW_RISK_SCORE,
+    "teacher_dashboard": analytics.VIEW_RISK_SCORE,
     "recalculate_period": analytics.CREATE_STUDENT_RISK_FACTOR,
 }

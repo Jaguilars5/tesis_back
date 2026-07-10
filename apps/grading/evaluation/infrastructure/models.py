@@ -3,7 +3,7 @@ from django.db import models
 from django.db.models import Sum, TextChoices
 
 from apps.core.models import TimeStampedModel
-from apps.integration.models.syncable_mixin import SyncableModel
+from apps.integration.infrastructure.models import SyncableModel
 
 
 class EvaluationBlockTypeChoices(TextChoices):

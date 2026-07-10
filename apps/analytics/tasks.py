@@ -27,8 +27,6 @@ from apps.analytics.student_risk.domain.risk_engine import (  # noqa: F401  (re-
     _risk_level,
     _score_to_level,
     score_to_risk_label,
-    SCORE_LEVEL_RED_MIN,
-    SCORE_LEVEL_YELLOW_MIN,
 )
 from apps.analytics.ml.features import MODEL_PATH  # noqa: F401  (re-export)
 from apps.analytics.student_risk.infrastructure.repositories import (
@@ -145,14 +143,46 @@ def batch_calculate_academic_risk(self, academic_period_id, student_ids, user_id
 
 
 def _populate_risk_factors(risk_score, analysis):
-    factor_mapping = {
-        "LOW_ATTENDANCE": ("attendance_rate", 0.35),
-        "FAILING_GRADES": ("failing_subjects_count", 0.35),
-        "BEHAVIOR_ISSUES": ("severe_incidents_count", 0.20),
-        "SOCIOEMOTIONAL": ("conduct_score", 0.10),
+    # Mapeo de features ML a cada factor de riesgo
+    FEATURE_TO_FACTOR = {
+        "LOW_ATTENDANCE": [0, 1, 2, 3, 4],
+        "FAILING_GRADES": [5, 6, 7, 11],
+        "BEHAVIOR_ISSUES": [9, 8, 10],
+        "SOCIOEMOTIONAL": [12, 13, 14],
     }
+    TRAIN_FEATURES = [
+        "attendance_rate", "consecutive_absences_max", "tardiness_count",
+        "justified_absences", "unjustified_absences",
+        "formative_avg_normalized", "summative_avg_normalized",
+        "grade_trend_slope", "conduct_score",
+        "severe_incidents_count", "family_notified_ratio",
+        "prev_period_avg_grade", "age_grade_gap", "is_repeat", "has_special_needs",
+    ]
 
-    for factor_code, (variable_key, default_weight) in factor_mapping.items():
+    ml_importances = analysis.get("ml_feature_importances")
+
+    if ml_importances and len(ml_importances) == len(TRAIN_FEATURES):
+        # Calcular pesos desde feature importances del modelo ML
+        factor_weights = {}
+        for factor_code, feature_indices in FEATURE_TO_FACTOR.items():
+            total = sum(ml_importances[i] for i in feature_indices)
+            if total > 0:
+                factor_weights[factor_code] = total
+
+        total_weight = sum(factor_weights.values())
+        if total_weight > 0:
+            for code in factor_weights:
+                factor_weights[code] = round(factor_weights[code] / total_weight * 100, 1)
+    else:
+        # Fallback: usar pesos del config
+        factor_weights = {
+            "LOW_ATTENDANCE": 35.0,
+            "FAILING_GRADES": 35.0,
+            "BEHAVIOR_ISSUES": 20.0,
+            "SOCIOEMOTIONAL": 10.0,
+        }
+
+    for factor_code, weight in factor_weights.items():
         factor = RiskFactorRepository.get_by_code(factor_code)
         if not factor:
             continue
@@ -160,7 +190,7 @@ def _populate_risk_factors(risk_score, analysis):
         StudentRiskFactorRepository.model.objects.update_or_create(
             student_risk_score=risk_score,
             risk_factor=factor,
-            defaults={"contribution_weight": default_weight},
+            defaults={"contribution_weight": weight},
         )
 
 
@@ -170,6 +200,7 @@ def auto_generate_early_alerts(self, period_id=None):
         AcademicPeriodRepository,
     )
     from apps.analytics.early_alert.domain.services import EarlyAlertService
+    from apps.core.realtime.emitter import emit_to_all
     from apps.students.repositories.enrollment_repo import EnrollmentRepository
 
     if not period_id:
@@ -186,6 +217,12 @@ def auto_generate_early_alerts(self, period_id=None):
         period = AcademicPeriodRepository.get_by_id(period_id)
         alerts = EarlyAlertService.evaluate_student(enrollment, period)
         alerts_created += len(alerts)
+
+    emit_to_all("early_alerts_generated", {
+        "period_id": period_id,
+        "total_processed": len(enrollments),
+        "alerts_created": alerts_created,
+    })
 
     return {"processed": len(enrollments), "alerts_created": alerts_created}
 

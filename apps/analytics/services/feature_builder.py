@@ -127,7 +127,9 @@ class AcademicRiskFeatureBuilder:
 
     def _get_city_id(self, student):
         person = getattr(getattr(student, "user", None), "person", None)
-        return getattr(person, "city_id", None) if person else None
+        if person and person.parish_id:
+            return person.parish.city_id
+        return None
 
     def _get_active_enrollment(self, student):
         if not student:
