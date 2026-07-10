@@ -2243,7 +2243,7 @@ class Command(BaseCommand):
                     metrics = builder.build_persistence_metrics(snapshot)
 
                     snap = StudentFeatureSnapshotRepository.create_snapshot(
-                        student_id=enrollment.student_id,
+                        enrollment_id=enrollment.id,
                         academic_period_id=period.id,
                         metrics=metrics
                     )
@@ -2253,7 +2253,7 @@ class Command(BaseCommand):
                     risk_score = analysis["semaforo_riesgo"]["puntaje_riesgo"]
 
                     StudentRiskScoreRepository.create_score(
-                        student_id=enrollment.student_id,
+                        enrollment_id=enrollment.id,
                         academic_period_id=period.id,
                         risk_score=risk_score,
                         model_version=analysis.get("model_version", "seed-v2"),
