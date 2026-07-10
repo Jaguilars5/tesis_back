@@ -13,7 +13,9 @@ class EvaluationBlockTypeChoices(TextChoices):
 
 
 class EvaluationBlock(TimeStampedModel):
-    code = models.CharField(max_length=50, blank=True, db_index=True, verbose_name="Codigo")
+    code = models.CharField(
+        max_length=50, blank=True, db_index=True, verbose_name="Codigo"
+    )
     academic_period = models.ForeignKey(
         "academic_period.AcademicPeriod",
         on_delete=models.CASCADE,
@@ -28,11 +30,16 @@ class EvaluationBlock(TimeStampedModel):
     )
     name = models.CharField(max_length=100, verbose_name="Nombre")
     block_type = models.CharField(
-        max_length=20, choices=EvaluationBlockTypeChoices.choices,
-        null=True, blank=True, verbose_name="Tipo de bloque",
+        max_length=20,
+        choices=EvaluationBlockTypeChoices.choices,
+        null=True,
+        blank=True,
+        verbose_name="Tipo de bloque",
     )
     weight_percentage = models.DecimalField(
-        max_digits=5, decimal_places=2, verbose_name="Porcentaje de Ponderacion",
+        max_digits=5,
+        decimal_places=2,
+        verbose_name="Porcentaje de Ponderacion",
     )
     is_active = models.BooleanField(default=True, verbose_name="Activo")
 
@@ -47,15 +54,26 @@ class EvaluationBlock(TimeStampedModel):
 
     def clean(self):
         super().clean()
-        if self.weight_percentage and self.subject_offering_id and self.academic_period_id:
-            total = EvaluationBlock.objects.filter(
-                subject_offering=self.subject_offering,
-                academic_period=self.academic_period,
-                is_active=True,
-            ).exclude(pk=self.pk).aggregate(total=Sum("weight_percentage"))["total"] or 0
+        if (
+            self.weight_percentage
+            and self.subject_offering_id
+            and self.academic_period_id
+        ):
+            total = (
+                EvaluationBlock.objects.filter(
+                    subject_offering=self.subject_offering,
+                    academic_period=self.academic_period,
+                    is_active=True,
+                )
+                .exclude(pk=self.pk)
+                .aggregate(total=Sum("weight_percentage"))["total"]
+                or 0
+            )
             if total + self.weight_percentage > 100:
                 raise ValidationError(
-                    {"weight_percentage": f"La suma de pesos excede 100%. Actualmente: {total}%"}
+                    {
+                        "weight_percentage": f"La suma de pesos excede 100%. Actualmente: {total}%"
+                    }
                 )
 
     @property
@@ -71,7 +89,9 @@ class EvaluationBlock(TimeStampedModel):
 
 
 class BlockComponent(TimeStampedModel):
-    code = models.CharField(max_length=50, blank=True, db_index=True, verbose_name="Codigo")
+    code = models.CharField(
+        max_length=50, blank=True, db_index=True, verbose_name="Codigo"
+    )
     evaluation_block = models.ForeignKey(
         "grading_evaluation.EvaluationBlock",
         on_delete=models.CASCADE,
@@ -80,7 +100,9 @@ class BlockComponent(TimeStampedModel):
     )
     name = models.CharField(max_length=100, verbose_name="Nombre")
     internal_weight = models.DecimalField(
-        max_digits=5, decimal_places=2, verbose_name="Ponderacion Interna (%)",
+        max_digits=5,
+        decimal_places=2,
+        verbose_name="Ponderacion Interna (%)",
     )
     is_active = models.BooleanField(default=True, verbose_name="Activo")
 
@@ -93,13 +115,20 @@ class BlockComponent(TimeStampedModel):
     def clean(self):
         super().clean()
         if self.internal_weight and self.evaluation_block_id:
-            total = BlockComponent.objects.filter(
-                evaluation_block=self.evaluation_block,
-                is_active=True,
-            ).exclude(pk=self.pk).aggregate(total=Sum("internal_weight"))["total"] or 0
+            total = (
+                BlockComponent.objects.filter(
+                    evaluation_block=self.evaluation_block,
+                    is_active=True,
+                )
+                .exclude(pk=self.pk)
+                .aggregate(total=Sum("internal_weight"))["total"]
+                or 0
+            )
             if total + self.internal_weight > 100:
                 raise ValidationError(
-                    {"internal_weight": f"La suma de pesos internos excede 100%. Actualmente: {total}%"}
+                    {
+                        "internal_weight": f"La suma de pesos internos excede 100%. Actualmente: {total}%"
+                    }
                 )
 
     @property
@@ -127,15 +156,18 @@ class EvaluativeActivity(TimeStampedModel, SyncableModel):
     activity_type = models.ForeignKey(
         "grading_activity_type.ActivityType",
         on_delete=models.SET_NULL,
-        null=True, blank=True,
+        null=True,
+        blank=True,
         verbose_name="Tipo de Actividad",
     )
     max_score = models.DecimalField(
-        max_digits=5, decimal_places=2, verbose_name="Puntuacion M\u00e1xima"
+        max_digits=5, decimal_places=2, verbose_name="Puntuacion Maxima"
     )
     due_date = models.DateField(verbose_name="Fecha de Vencimiento")
     internal_weight = models.DecimalField(
-        max_digits=5, decimal_places=2, verbose_name="Ponderacion Interna (%)",
+        max_digits=5,
+        decimal_places=2,
+        verbose_name="Ponderacion Interna (%)",
     )
     is_active = models.BooleanField(default=True, verbose_name="Activo")
 
@@ -157,14 +189,18 @@ class EvaluativeActivity(TimeStampedModel, SyncableModel):
             tss_offering = self.teacher_subject_section.subject_offering
             if offering.id != tss_offering.id:
                 raise ValidationError(
-                    {"teacher_subject_section": "El docente no est\u00e1 asignado a la oferta de esta actividad"}
+                    {
+                        "teacher_subject_section": "El docente no esta asignado a la oferta de esta actividad"
+                    }
                 )
         if self.block_component_id and self.due_date:
             block = self.block_component.evaluation_block
             period = block.academic_period
             if self.due_date < period.start_date or self.due_date > period.end_date:
                 raise ValidationError(
-                    {"due_date": f"La fecha debe estar dentro del periodo academico ({period.start_date} - {period.end_date})"}
+                    {
+                        "due_date": f"La fecha debe estar dentro del periodo academico ({period.start_date} - {period.end_date})"
+                    }
                 )
 
     @property
@@ -173,7 +209,9 @@ class EvaluativeActivity(TimeStampedModel, SyncableModel):
 
     @property
     def teacher_subject_section_name(self):
-        return str(self.teacher_subject_section) if self.teacher_subject_section else None
+        return (
+            str(self.teacher_subject_section) if self.teacher_subject_section else None
+        )
 
     @property
     def subject_offering_name(self):

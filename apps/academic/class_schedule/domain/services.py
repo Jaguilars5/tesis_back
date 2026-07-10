@@ -27,9 +27,9 @@ class ClassScheduleService:
         if cls.repository.check_overlap(
             teacher_subject_section_id, day_of_week, start_time, end_time
         ):
-            raise ValueError({
-                "non_field_errors": "El horario se superpone con otro existente"
-            })
+            raise ValueError(
+                {"non_field_errors": "El horario se superpone con otro existente"}
+            )
         return cls.repository.create(
             teacher_subject_section_id=teacher_subject_section_id,
             day_of_week=day_of_week,
@@ -60,7 +60,9 @@ class ClassScheduleService:
         end_time = kwargs.get("end_time", schedule.end_time)
 
         cls._validate_or_raise(
-            teacher_subject_section_id=kwargs.get("teacher_subject_section_id", schedule.teacher_subject_section_id),
+            teacher_subject_section_id=kwargs.get(
+                "teacher_subject_section_id", schedule.teacher_subject_section_id
+            ),
             day_of_week=day_of_week,
             start_time=start_time,
             end_time=end_time,
@@ -72,9 +74,9 @@ class ClassScheduleService:
             end_time,
             exclude_id=schedule.id,
         ):
-            raise ValueError({
-                "non_field_errors": "El horario se superpone con otro existente"
-            })
+            raise ValueError(
+                {"non_field_errors": "El horario se superpone con otro existente"}
+            )
         clean = {k: v for k, v in kwargs.items() if k in allowed}
         return cls.repository.update(schedule.id, **clean)
 
@@ -96,7 +98,7 @@ class ClassScheduleService:
             return {
                 "requires_confirmation": True,
                 "affected_records": total,
-                "message": f"Esta accion desactivar\u00e1 {', '.join(parts)} relacionados",
+                "message": f"Esta accion desactivara {', '.join(parts)} relacionados",
                 "id": obj.id,
                 "is_active": True,
             }

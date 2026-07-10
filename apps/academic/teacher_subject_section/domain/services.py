@@ -21,9 +21,11 @@ class TeacherSubjectSectionService:
             subject_offering_id=subject_offering_id,
         )
         if cls.repository.exists_by_user_and_offering(user_id, subject_offering_id):
-            raise ValueError({
-                "non_field_errors": "Docente ya est\u00e1 asignado a esta oferta de materia"
-            })
+            raise ValueError(
+                {
+                    "non_field_errors": "Docente ya esta asignado a esta oferta de materia"
+                }
+            )
         return cls.repository.create(
             user_id=user_id,
             subject_offering_id=subject_offering_id,
@@ -63,7 +65,7 @@ class TeacherSubjectSectionService:
             return {
                 "requires_confirmation": True,
                 "affected_records": total,
-                "message": f"Esta accion desactivar\u00e1 {', '.join(parts)} relacionados",
+                "message": f"Esta accion desactivara {', '.join(parts)} relacionados",
                 "id": obj.id,
                 "is_active": True,
             }

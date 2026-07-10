@@ -26,7 +26,12 @@ from ..infrastructure.repositories import (
     PeriodGradeSummaryRepository,
     AnnualGradeSummaryRepository,
 )
-from ..permissions import ACTION_PERMISSIONS, GRADE_HISTORY_PERMISSIONS, GRADE_SUMMARY_PERMISSIONS, ANNUAL_GRADE_SUMMARY_PERMISSIONS
+from ..permissions import (
+    ACTION_PERMISSIONS,
+    GRADE_HISTORY_PERMISSIONS,
+    GRADE_SUMMARY_PERMISSIONS,
+    ANNUAL_GRADE_SUMMARY_PERMISSIONS,
+)
 
 
 @extend_schema_view(
@@ -34,7 +39,9 @@ from ..permissions import ACTION_PERMISSIONS, GRADE_HISTORY_PERMISSIONS, GRADE_S
     get=extend_schema(summary="Obtener nota de estudiante", tags=["grading"]),
     create=extend_schema(summary="Crear nota de estudiante", tags=["grading"]),
     update=extend_schema(summary="Actualizar nota de estudiante", tags=["grading"]),
-    partial_update=extend_schema(summary="Actualizar nota parcialmente", tags=["grading"]),
+    partial_update=extend_schema(
+        summary="Actualizar nota parcialmente", tags=["grading"]
+    ),
     destroy=extend_schema(summary="Eliminar nota de estudiante", tags=["grading"]),
     anular=extend_schema(summary="Anular nota de estudiante", tags=["grading"]),
 )
@@ -63,9 +70,15 @@ class StudentNoteViewSet(BaseGradingViewSet):
                 enrollment_id=data["enrollment"].id,
                 evaluative_activity_id=data["evaluative_activity"].id,
                 numeric_score=data.get("numeric_score"),
-                qualitative_scale_id=data.get("qualitative_scale").id if data.get("qualitative_scale") else None,
+                qualitative_scale_id=(
+                    data.get("qualitative_scale").id
+                    if data.get("qualitative_scale")
+                    else None
+                ),
                 teacher_observation=data.get("teacher_observation", ""),
-                user_id=self.request.user.id if self.request.user.is_authenticated else None,
+                user_id=(
+                    self.request.user.id if self.request.user.is_authenticated else None
+                ),
             )
             serializer.instance = obj
         except ValueError as e:
@@ -74,7 +87,12 @@ class StudentNoteViewSet(BaseGradingViewSet):
     def perform_update(self, serializer):
         data = serializer.validated_data
         kwargs = {}
-        for field in ("numeric_score", "teacher_observation", "grading_mode", "manually_overridden"):
+        for field in (
+            "numeric_score",
+            "teacher_observation",
+            "grading_mode",
+            "manually_overridden",
+        ):
             if field in data:
                 kwargs[field] = data[field]
         if "qualitative_scale" in data:
@@ -83,7 +101,9 @@ class StudentNoteViewSet(BaseGradingViewSet):
         try:
             obj = StudentNoteService.update_student_note(
                 note_id=serializer.instance.id,
-                user_id=self.request.user.id if self.request.user.is_authenticated else None,
+                user_id=(
+                    self.request.user.id if self.request.user.is_authenticated else None
+                ),
                 **kwargs,
             )
             serializer.instance = obj
@@ -125,7 +145,9 @@ class StudentNoteViewSet(BaseGradingViewSet):
 
     def _take_by_activity_get(self, request):
         evaluative_activity_id = request.query_params.get("evaluative_activity_id")
-        teacher_subject_section_id = request.query_params.get("teacher_subject_section_id")
+        teacher_subject_section_id = request.query_params.get(
+            "teacher_subject_section_id"
+        )
         if not evaluative_activity_id or not teacher_subject_section_id:
             return error_response(
                 "evaluative_activity_id y teacher_subject_section_id son requeridos",
@@ -141,7 +163,8 @@ class StudentNoteViewSet(BaseGradingViewSet):
             )
 
         activity, students_data = StudentNoteRepository.get_students_for_activity(
-            evaluative_activity_id, teacher_subject_section_id,
+            evaluative_activity_id,
+            teacher_subject_section_id,
         )
         if activity is None:
             return error_response(
@@ -151,37 +174,45 @@ class StudentNoteViewSet(BaseGradingViewSet):
 
         students_result = []
         for sd in students_data:
-            note_data = StudentNoteSerializer(sd["note_obj"]).data if sd["note_obj"] else None
-            students_result.append({
-                "enrollment_id": sd["enrollment_id"],
-                "student_id": sd["student_id"],
-                "student_name": sd["student_name"],
-                "note": note_data,
-            })
+            note_data = (
+                StudentNoteSerializer(sd["note_obj"]).data if sd["note_obj"] else None
+            )
+            students_result.append(
+                {
+                    "enrollment_id": sd["enrollment_id"],
+                    "student_id": sd["student_id"],
+                    "student_name": sd["student_name"],
+                    "note": note_data,
+                }
+            )
 
         period = activity.block_component.evaluation_block.academic_period
 
-        return ok_response({
-            "evaluative_activity": {
-                "id": activity.id,
-                "title": activity.title,
-                "max_score": str(activity.max_score),
-                "due_date": activity.due_date.isoformat(),
-            },
-            "academic_period": {
-                "id": period.id,
-                "name": period.name,
-                "start_date": period.start_date.isoformat(),
-                "end_date": period.end_date.isoformat(),
-                "grades_locked": period.grades_locked,
-            },
-            "students": students_result,
-        })
+        return ok_response(
+            {
+                "evaluative_activity": {
+                    "id": activity.id,
+                    "title": activity.title,
+                    "max_score": str(activity.max_score),
+                    "due_date": activity.due_date.isoformat(),
+                },
+                "academic_period": {
+                    "id": period.id,
+                    "name": period.name,
+                    "start_date": period.start_date.isoformat(),
+                    "end_date": period.end_date.isoformat(),
+                    "grades_locked": period.grades_locked,
+                },
+                "students": students_result,
+            }
+        )
 
     def _take_by_activity_post(self, request):
         try:
             evaluative_activity_id = int(request.data.get("evaluative_activity_id"))
-            teacher_subject_section_id = int(request.data.get("teacher_subject_section_id"))
+            teacher_subject_section_id = int(
+                request.data.get("teacher_subject_section_id")
+            )
         except (TypeError, ValueError):
             return error_response(
                 "evaluative_activity_id y teacher_subject_section_id son requeridos",
@@ -278,9 +309,14 @@ class GradeChangeHistoryViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         from ..infrastructure.models import GradeChangeHistory
-        return GradeChangeHistory.objects.select_related(
-            "student_note", "modified_by_user__person"
-        ).all().order_by("-modified_at")
+
+        return (
+            GradeChangeHistory.objects.select_related(
+                "student_note", "modified_by_user__person"
+            )
+            .all()
+            .order_by("-modified_at")
+        )
 
 
 @extend_schema_view(
@@ -288,7 +324,9 @@ class GradeChangeHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     get=extend_schema(summary="Obtener resumen de notas", tags=["grading"]),
     create=extend_schema(summary="Crear resumen de notas", tags=["grading"]),
     update=extend_schema(summary="Actualizar resumen de notas", tags=["grading"]),
-    partial_update=extend_schema(summary="Actualizar resumen parcialmente", tags=["grading"]),
+    partial_update=extend_schema(
+        summary="Actualizar resumen parcialmente", tags=["grading"]
+    ),
 )
 class PeriodGradeSummaryViewSet(BaseGradingViewSet):
     http_method_names = ["get", "post", "put", "patch", "head", "options"]
@@ -317,8 +355,10 @@ class PeriodGradeSummaryViewSet(BaseGradingViewSet):
         data = serializer.validated_data
         obj = GradeCalculationService.calculate_period_summary(
             enrollment=data.get("enrollment") or serializer.instance.enrollment,
-            subject_offering=data.get("subject_offering") or serializer.instance.subject_offering,
-            academic_period=data.get("academic_period") or serializer.instance.academic_period,
+            subject_offering=data.get("subject_offering")
+            or serializer.instance.subject_offering,
+            academic_period=data.get("academic_period")
+            or serializer.instance.academic_period,
         )
         serializer.instance = obj
 
@@ -333,7 +373,11 @@ class PeriodGradeSummaryViewSet(BaseGradingViewSet):
                     "subject_offering_id": {"type": "integer"},
                     "academic_period_id": {"type": "integer"},
                 },
-                "required": ["enrollment_id", "subject_offering_id", "academic_period_id"],
+                "required": [
+                    "enrollment_id",
+                    "subject_offering_id",
+                    "academic_period_id",
+                ],
             }
         },
         responses={202: {"type": "object"}},
@@ -348,11 +392,16 @@ class PeriodGradeSummaryViewSet(BaseGradingViewSet):
             period_id = int(request.data.get("academic_period_id"))
         except (TypeError, ValueError):
             return ok_response(
-                {"error": "enrollment_id, subject_offering_id y academic_period_id son requeridos"},
-                msg="Error", status_code=400,
+                {
+                    "error": "enrollment_id, subject_offering_id y academic_period_id son requeridos"
+                },
+                msg="Error",
+                status_code=400,
             )
 
-        task = recompute_period_grade_summary_task.delay(enrollment_id, offering_id, period_id)
+        task = recompute_period_grade_summary_task.delay(
+            enrollment_id, offering_id, period_id
+        )
         return ok_response({"task_id": task.id, "status": "PENDING"}, status_code=202)
 
     @extend_schema(
@@ -376,10 +425,16 @@ class PeriodGradeSummaryViewSet(BaseGradingViewSet):
         try:
             period_id = int(request.data.get("academic_period_id"))
         except (TypeError, ValueError):
-            return ok_response({"error": "academic_period_id es requerido"}, msg="Error", status_code=400)
+            return ok_response(
+                {"error": "academic_period_id es requerido"},
+                msg="Error",
+                status_code=400,
+            )
 
         if not AcademicPeriodRepository.get_by_id(period_id):
-            return ok_response({"error": "academic_period_id no existe"}, msg="Error", status_code=404)
+            return ok_response(
+                {"error": "academic_period_id no existe"}, msg="Error", status_code=404
+            )
 
         ids = GradeCalculationService.calculate_all_for_period(period_id)
         return ok_response(
@@ -393,7 +448,9 @@ class PeriodGradeSummaryViewSet(BaseGradingViewSet):
     get=extend_schema(summary="Obtener resumen anual", tags=["grading"]),
     create=extend_schema(summary="Crear resumen anual", tags=["grading"]),
     update=extend_schema(summary="Actualizar resumen anual", tags=["grading"]),
-    partial_update=extend_schema(summary="Actualizar resumen anual parcialmente", tags=["grading"]),
+    partial_update=extend_schema(
+        summary="Actualizar resumen anual parcialmente", tags=["grading"]
+    ),
 )
 class AnnualGradeSummaryViewSet(BaseGradingViewSet):
     http_method_names = ["get", "post", "put", "patch", "head", "options"]
@@ -410,7 +467,7 @@ class AnnualGradeSummaryViewSet(BaseGradingViewSet):
         return scope_student_to_enrollment(self.request, qs)
 
     @extend_schema(
-        summary="Recalcular todos los res\u00famenes anuales de un a\u00f1o escolar",
+        summary="Recalcular todos los res\u00famenes anuales de un año escolar",
         tags=["grading"],
         request={
             "application/json": {
@@ -430,7 +487,8 @@ class AnnualGradeSummaryViewSet(BaseGradingViewSet):
         except (TypeError, ValueError):
             return ok_response(
                 {"error": "school_year_id es requerido"},
-                msg="Error", status_code=400,
+                msg="Error",
+                status_code=400,
             )
 
         task = calculate_annual_grade_summaries_task.delay(school_year_id)
@@ -438,26 +496,34 @@ class AnnualGradeSummaryViewSet(BaseGradingViewSet):
 
     @extend_schema(
         summary="Reporte anual consolidado por estudiante",
-        description="Retorna todas las materias con su promedio anual y si el estudiante perdi\u00f3 el a\u00f1o",
+        description="Retorna todas las materias con su promedio anual y si el estudiante perdi\u00f3 el año",
         tags=["grading"],
         responses={200: {"type": "object"}},
     )
-    @action(detail=False, methods=["get"], url_path="student-report/(?P<enrollment_id>[^/.]+)")
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="student-report/(?P<enrollment_id>[^/.]+)",
+    )
     def student_report(self, request, enrollment_id=None):
         school_year_id = request.query_params.get("school_year_id")
 
         summaries = AnnualGradeSummaryRepository.get_by_enrollment(enrollment_id)
 
         if school_year_id:
-            summaries = [s for s in summaries if s.school_year_id == int(school_year_id)]
+            summaries = [
+                s for s in summaries if s.school_year_id == int(school_year_id)
+            ]
 
         if not summaries:
-            return ok_response({
-                "enrollment_id": int(enrollment_id) if enrollment_id else None,
-                "school_year_id": int(school_year_id) if school_year_id else None,
-                "year_failed": False,
-                "subjects": [],
-            })
+            return ok_response(
+                {
+                    "enrollment_id": int(enrollment_id) if enrollment_id else None,
+                    "school_year_id": int(school_year_id) if school_year_id else None,
+                    "year_failed": False,
+                    "subjects": [],
+                }
+            )
 
         has_failing = any(s.is_failing for s in summaries)
         school_year_name = summaries[0].school_year_name if summaries else None
@@ -465,19 +531,27 @@ class AnnualGradeSummaryViewSet(BaseGradingViewSet):
         subjects = []
         for s in summaries:
             subject = s.subject_offering.subject_academic_config.subject
-            subjects.append({
-                "subject_code": subject.code,
-                "subject_name": subject.name,
-                "annual_final_avg": str(s.annual_final_avg),
-                "is_failing": s.is_failing,
-                "promotion_status": s.promotion_status,
-                "is_finalized": s.is_finalized,
-            })
+            subjects.append(
+                {
+                    "subject_code": subject.code,
+                    "subject_name": subject.name,
+                    "annual_final_avg": str(s.annual_final_avg),
+                    "is_failing": s.is_failing,
+                    "promotion_status": s.promotion_status,
+                    "is_finalized": s.is_finalized,
+                }
+            )
 
-        return ok_response({
-            "enrollment_id": int(enrollment_id),
-            "school_year_id": int(school_year_id) if school_year_id else summaries[0].school_year_id,
-            "school_year_name": school_year_name,
-            "year_failed": has_failing,
-            "subjects": subjects,
-        })
+        return ok_response(
+            {
+                "enrollment_id": int(enrollment_id),
+                "school_year_id": (
+                    int(school_year_id)
+                    if school_year_id
+                    else summaries[0].school_year_id
+                ),
+                "school_year_name": school_year_name,
+                "year_failed": has_failing,
+                "subjects": subjects,
+            }
+        )

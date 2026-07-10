@@ -4,9 +4,13 @@ from datetime import date, time
 
 from apps.academic.period_type.infrastructure.models import PeriodType
 from apps.academic.subject.infrastructure.models import Subject
-from apps.academic.subject_academic_config.infrastructure.models import SubjectAcademicConfig
+from apps.academic.subject_academic_config.infrastructure.models import (
+    SubjectAcademicConfig,
+)
 from apps.academic.subject_offering.infrastructure.models import SubjectOffering
-from apps.academic.teacher_subject_section.infrastructure.models import TeacherSubjectSection
+from apps.academic.teacher_subject_section.infrastructure.models import (
+    TeacherSubjectSection,
+)
 from apps.institutions.academic_grade.infrastructure.models import AcademicGrade
 from apps.institutions.academic_level.infrastructure.models import AcademicLevel
 from apps.institutions.academic_sublevel.infrastructure.models import AcademicSublevel
@@ -20,23 +24,38 @@ from ..infrastructure.models import ClassSchedule
 class ClassScheduleAPITest(APITestCase):
     def setUp(self):
         self.user = create_test_user(
-            email="schedule@test.com", dni="7777777777",
-            names="Schedule", last_names="Tester", is_superuser=True,
+            email="schedule@test.com",
+            dni="7777777777",
+            names="Schedule",
+            last_names="Tester",
+            is_superuser=True,
         )
         self.teacher = create_test_user(
-            email="profesor@test.com", dni="8888888888",
-            names="Profesor", last_names="Uno",
+            email="profesor@test.com",
+            dni="8888888888",
+            names="Profesor",
+            last_names="Uno",
         )
         self.client.force_authenticate(user=self.user)
         level = AcademicLevel.objects.create(name="Primaria")
-        sublevel = AcademicSublevel.objects.create(academic_level=level, name="B\u00e1sica")
+        sublevel = AcademicSublevel.objects.create(academic_level=level, name="Basica")
         grade = AcademicGrade.objects.create(academic_sublevel=sublevel, name="6to")
-        school_year = SchoolYear.objects.create(start_date=date(2024, 9, 1), end_date=date(2025, 7, 31))
-        section = Section.objects.create(school_year=school_year, academic_grade=grade, parallel="A", capacity=40)
-        subject = Subject.objects.create(name="Matem\u00e1ticas", code="MAT-001")
-        config = SubjectAcademicConfig.objects.create(subject=subject, academic_grade=grade, weekly_hours=5)
-        offering = SubjectOffering.objects.create(section=section, subject_academic_config=config)
-        self.tss = TeacherSubjectSection.objects.create(user=self.teacher, subject_offering=offering)
+        school_year = SchoolYear.objects.create(
+            start_date=date(2024, 9, 1), end_date=date(2025, 7, 31)
+        )
+        section = Section.objects.create(
+            school_year=school_year, academic_grade=grade, parallel="A", capacity=40
+        )
+        subject = Subject.objects.create(name="Matematicas", code="MAT-001")
+        config = SubjectAcademicConfig.objects.create(
+            subject=subject, academic_grade=grade, weekly_hours=5
+        )
+        offering = SubjectOffering.objects.create(
+            section=section, subject_academic_config=config
+        )
+        self.tss = TeacherSubjectSection.objects.create(
+            user=self.teacher, subject_offering=offering
+        )
         self.url = "/api/academic/class-schedules/"
 
     def test_list_empty(self):
@@ -109,8 +128,11 @@ class ClassScheduleAPITest(APITestCase):
 
     def test_permission_denied(self):
         user_no_perm = create_test_user(
-            email="noperm@test.com", dni="9999999999",
-            names="No", last_names="Perm", is_superuser=False,
+            email="noperm@test.com",
+            dni="9999999999",
+            names="No",
+            last_names="Perm",
+            is_superuser=False,
         )
         self.client.force_authenticate(user=user_no_perm)
         response = self.client.get(self.url)

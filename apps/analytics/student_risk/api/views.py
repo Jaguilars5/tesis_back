@@ -60,6 +60,7 @@ def _raise_validation_error(exc: ValueError) -> None:
 # RiskFactor ViewSet (Read-only)
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @extend_schema_view(
     list=extend_schema(summary="Listar factores de riesgo", tags=["analytics"]),
     get=extend_schema(summary="Obtener factor de riesgo", tags=["analytics"]),
@@ -87,6 +88,7 @@ class RiskFactorViewSet(BaseAnalyticsViewSet):
 # ─────────────────────────────────────────────────────────────────────────────
 # StudentRiskFactor ViewSet (Read-only)
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @extend_schema_view(
     list=extend_schema(
@@ -119,6 +121,7 @@ class StudentRiskFactorViewSet(BaseAnalyticsViewSet):
 # ─────────────────────────────────────────────────────────────────────────────
 # StudentFeatureSnapshot ViewSet
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @extend_schema_view(
     list=extend_schema(summary="Listar snapshots de features", tags=["analytics"]),
@@ -153,6 +156,7 @@ class StudentFeatureSnapshotViewSet(BaseAnalyticsViewSet):
 # ─────────────────────────────────────────────────────────────────────────────
 # StudentRiskScore ViewSet
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @extend_schema_view(
     list=extend_schema(summary="Listar puntajes de riesgo", tags=["analytics"]),
@@ -267,17 +271,19 @@ class StudentRiskScoreViewSet(BaseAnalyticsViewSet):
 
         result = StudentRiskCalculationService.simulate(serializer.validated_data)
 
-        return ok_response({
-            "reglas": result["reglas"],
-            "ml": result["ml"],
-            "produccion": result["produccion"],
-            "config_usada": result["config_simulacion"],
-            "config_institucional": result["config_institucional"],
-        })
+        return ok_response(
+            {
+                "reglas": result["reglas"],
+                "ml": result["ml"],
+                "produccion": result["produccion"],
+                "config_usada": result["config_simulacion"],
+                "config_institucional": result["config_institucional"],
+            }
+        )
 
     @extend_schema(
         summary="Predecir riesgo por materia",
-        description="Usa el modelo ML por materia para predecir si una materia espec\u00edfica se ir\u00e1 a rojo",
+        description="Usa el modelo ML por materia para predecir si una materia especifica se ira a rojo",
         tags=["analytics"],
         request={
             "application/json": {
@@ -309,7 +315,7 @@ class StudentRiskScoreViewSet(BaseAnalyticsViewSet):
             academic_period_id = int(academic_period_id)
             subject_code = subject_code.upper()
         except (TypeError, ValueError):
-            return error_response("Par\u00e1metros inv\u00e1lidos", status_code=400)
+            return error_response("Parametros invalidos", status_code=400)
 
         from apps.analytics.ml.subject_model import SubjectRiskModelTrainer
 
@@ -332,7 +338,7 @@ class StudentRiskScoreViewSet(BaseAnalyticsViewSet):
 
     @extend_schema(
         summary="Predecir riesgo anual",
-        description="Usa el modelo ML anual para predecir si el estudiante perder\u00e1 el a\u00f1o",
+        description="Usa el modelo ML anual para predecir si el estudiante perdera el año",
         tags=["analytics"],
         request={
             "application/json": {
@@ -361,7 +367,7 @@ class StudentRiskScoreViewSet(BaseAnalyticsViewSet):
             enrollment_id = int(enrollment_id)
             academic_period_id = int(academic_period_id)
         except (TypeError, ValueError):
-            return error_response("Par\u00e1metros inv\u00e1lidos", status_code=400)
+            return error_response("Parametros invalidos", status_code=400)
 
         from apps.analytics.ml.annual_model import AnnualRiskModelTrainer
 
@@ -383,6 +389,7 @@ class StudentRiskScoreViewSet(BaseAnalyticsViewSet):
 # ─────────────────────────────────────────────────────────────────────────────
 # RiskScoringConfig ViewSet
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @extend_schema_view(
     list=extend_schema(

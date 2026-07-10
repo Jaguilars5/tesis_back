@@ -23,7 +23,7 @@ def validate_weight_percentage(value):
 
 def validate_max_score(value):
     if value is not None and value <= 0:
-        return {"max_score": "La puntuacion m\u00e1xima debe ser positiva"}
+        return {"max_score": "La puntuacion maxima debe ser positiva"}
     return {}
 
 
@@ -55,14 +55,25 @@ def validate_period_not_locked(academic_period, field="due_date"):
 
 def run_all_validators(**kwargs):
     errors = {}
-    errors.update(validate_required_fields(kwargs, [
-        "block_component_id", "teacher_subject_section_id", "title", "max_score", "due_date",
-    ]))
+    errors.update(
+        validate_required_fields(
+            kwargs,
+            [
+                "block_component_id",
+                "teacher_subject_section_id",
+                "title",
+                "max_score",
+                "due_date",
+            ],
+        )
+    )
     errors.update(validate_max_score(kwargs.get("max_score")))
     academic_period = kwargs.get("academic_period")
     if academic_period:
         errors.update(validate_period_not_locked(academic_period))
-        errors.update(validate_due_date_within_period(kwargs.get("due_date"), academic_period))
+        errors.update(
+            validate_due_date_within_period(kwargs.get("due_date"), academic_period)
+        )
     return errors
 
 

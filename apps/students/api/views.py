@@ -85,8 +85,9 @@ class StudentViewSet(BaseStudentsViewSet):
                 models.Prefetch(
                     "representatives_set",
                     queryset=(
-                        StudentRepresentative.objects.order_by("-is_primary", "-created_at")
-                        .select_related("kinship", "user__person")
+                        StudentRepresentative.objects.order_by(
+                            "-is_primary", "-created_at"
+                        ).select_related("kinship", "user__person")
                     ),
                     to_attr="_primary_rep_cache",
                 )
@@ -123,8 +124,12 @@ class StudentViewSet(BaseStudentsViewSet):
                 phone=serializer.validated_data.get("phone", ""),
                 document_type_id=serializer.validated_data.get("document_type"),
                 parish_id=serializer.validated_data.get("parish"),
-                has_special_needs=serializer.validated_data.get("has_special_needs", False),
-                special_needs_type_id=serializer.validated_data.get("special_needs_type"),
+                has_special_needs=serializer.validated_data.get(
+                    "has_special_needs", False
+                ),
+                special_needs_type_id=serializer.validated_data.get(
+                    "special_needs_type"
+                ),
             )
             out_serializer = StudentSerializer(student)
             return Response(out_serializer.data, status=201)
@@ -155,7 +160,7 @@ class StudentViewSet(BaseStudentsViewSet):
     def search(self, request):
         query = request.query_params.get("q", "")
         if not query:
-            return Response("Par\u00e1metro q requerido", status=400)
+            return Response("Parametro q requerido", status=400)
 
         students = StudentService.search_students(query)
         serializer = self.get_serializer(students, many=True)
@@ -282,20 +287,22 @@ class StudentRepresentativeViewSet(BaseStudentsViewSet):
 
 
 @extend_schema_view(
-    list=extend_schema(summary="Listar matr\u00edculas", tags=["students"]),
-    get=extend_schema(summary="Obtener matr\u00edcula", tags=["students"]),
-    create=extend_schema(summary="Crear matr\u00edcula", tags=["students"]),
-    update=extend_schema(summary="Actualizar matr\u00edcula", tags=["students"]),
+    list=extend_schema(summary="Listar matriculas", tags=["students"]),
+    get=extend_schema(summary="Obtener matricula", tags=["students"]),
+    create=extend_schema(summary="Crear matricula", tags=["students"]),
+    update=extend_schema(summary="Actualizar matricula", tags=["students"]),
     partial_update=extend_schema(
-        summary="Actualizar matr\u00edcula parcialmente", tags=["students"]
+        summary="Actualizar matricula parcialmente", tags=["students"]
     ),
-    destroy=extend_schema(summary="Eliminar matr\u00edcula", tags=["students"]),
-    soft_delete=extend_schema(summary="Desactivar matr\u00edcula (soft delete)", tags=["students"]),
+    destroy=extend_schema(summary="Eliminar matricula", tags=["students"]),
+    soft_delete=extend_schema(
+        summary="Desactivar matricula (soft delete)", tags=["students"]
+    ),
     withdraw=extend_schema(summary="Retirar estudiante", tags=["students"]),
     transfer=extend_schema(summary="Transferir estudiante", tags=["students"]),
-    by_section=extend_schema(summary="Matr\u00edculas por secci\u00f3n", tags=["students"]),
+    by_section=extend_schema(summary="Matriculas por secci\u00f3n", tags=["students"]),
     by_student=extend_schema(
-        summary="Matr\u00edcula activa del estudiante", tags=["students"]
+        summary="Matricula activa del estudiante", tags=["students"]
     ),
 )
 class EnrollmentViewSet(BaseStudentsViewSet):
@@ -434,7 +441,7 @@ class EnrollmentViewSet(BaseStudentsViewSet):
         enrollment = self.get_object()
         try:
             result = EnrollmentService.soft_delete_enrollment(enrollment)
-            return ok_response(result, msg="Matr\u00edcula desactivada exitosamente")
+            return ok_response(result, msg="Matricula desactivada exitosamente")
         except ValueError as e:
             return error_response(str(e), status_code=400)
 

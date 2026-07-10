@@ -10,7 +10,9 @@ class QualitativeScaleService:
     @classmethod
     def create_qualitative_scale(cls, code, name, description, numeric_equivalence):
         errors = validators.run_all_validators(
-            code=code, name=name, description=description,
+            code=code,
+            name=name,
+            description=description,
             numeric_equivalence=numeric_equivalence,
         )
         if errors:
@@ -51,7 +53,7 @@ class QualitativeScaleService:
             return {
                 "requires_confirmation": True,
                 "affected_records": total,
-                "message": f"Esta accion desactivar\u00e1 {', '.join(parts)} relacionados",
+                "message": f"Esta accion desactivara {', '.join(parts)} relacionados",
                 "id": obj.id,
                 "is_active": True,
             }

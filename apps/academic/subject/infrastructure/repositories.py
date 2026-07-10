@@ -14,26 +14,31 @@ class SubjectRepository(BaseRepository, SubjectRepositoryInterface):
         queryset = super().get_all(active_only=active_only)
         if search:
             queryset = queryset.filter(
-                db_models.Q(name__icontains=search) | db_models.Q(code__icontains=search)
+                db_models.Q(name__icontains=search)
+                | db_models.Q(code__icontains=search)
             )
         return queryset.order_by("name")
 
     @classmethod
     def get_cascade_counts(cls, instance_id: int) -> dict[str, int]:
-        from apps.academic.subject_academic_config.infrastructure.models import SubjectAcademicConfig
+        from apps.academic.subject_academic_config.infrastructure.models import (
+            SubjectAcademicConfig,
+        )
 
         config_count = SubjectAcademicConfig.objects.filter(
             subject_id=instance_id, is_active=True
         ).count()
         counts = {}
         if config_count:
-            counts["configuraciones acad\u00e9micas"] = config_count
+            counts["configuraciones academicas"] = config_count
         return counts
 
     @classmethod
     @transaction.atomic
     def deactivate_cascade(cls, instance_id: int) -> int:
-        from apps.academic.subject_academic_config.infrastructure.models import SubjectAcademicConfig
+        from apps.academic.subject_academic_config.infrastructure.models import (
+            SubjectAcademicConfig,
+        )
 
         total = SubjectAcademicConfig.objects.filter(
             subject_id=instance_id, is_active=True

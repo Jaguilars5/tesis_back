@@ -25,9 +25,9 @@ class SubjectOfferingService:
             subject_academic_config_id=subject_academic_config_id,
         )
         if existing:
-            raise ValueError({
-                "non_field_errors": "Ya existe esta oferta de materia para la seccion"
-            })
+            raise ValueError(
+                {"non_field_errors": "Ya existe esta oferta de materia para la seccion"}
+            )
         return cls.repository.create(
             section_id=section_id,
             subject_academic_config_id=subject_academic_config_id,
@@ -51,15 +51,20 @@ class SubjectOfferingService:
         new_config_id = kwargs.get(
             "subject_academic_config_id", offering.subject_academic_config_id
         )
-        if new_section_id != offering.section_id or new_config_id != offering.subject_academic_config_id:
+        if (
+            new_section_id != offering.section_id
+            or new_config_id != offering.subject_academic_config_id
+        ):
             duplicate = cls.repository.first(
                 section_id=new_section_id,
                 subject_academic_config_id=new_config_id,
             )
             if duplicate and duplicate.id != offering_id:
-                raise ValueError({
-                    "non_field_errors": "Ya existe esta oferta de materia para la seccion"
-                })
+                raise ValueError(
+                    {
+                        "non_field_errors": "Ya existe esta oferta de materia para la seccion"
+                    }
+                )
 
         clean = {k: v for k, v in kwargs.items() if k in allowed}
         return cls.repository.update(offering_id, **clean)
@@ -76,7 +81,7 @@ class SubjectOfferingService:
             return {
                 "requires_confirmation": True,
                 "affected_records": total,
-                "message": f"Esta accion desactivar\u00e1 {', '.join(parts)} relacionados",
+                "message": f"Esta accion desactivara {', '.join(parts)} relacionados",
                 "id": obj.id,
                 "is_active": True,
             }

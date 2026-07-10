@@ -9,6 +9,7 @@ Target: AnnualGradeSummary.is_failing (verdaderos anuales finalizados).
 
 Ejecutar: python manage.py train_risk_model --annual-model
 """
+
 import logging
 from decimal import Decimal
 
@@ -25,7 +26,7 @@ from .annual_features import (
 logger = logging.getLogger(__name__)
 
 ANNUAL_FEATURE_LABELS = {
-    "period_index": "Per\u00edodo del a\u00f1o",
+    "period_index": "Periodo del año",
     "attendance_rate": "Asistencia general",
     "consecutive_absences_max": "Ausencias consecutivas",
     "tardiness_count": "Tardanzas",
@@ -38,7 +39,7 @@ ANNUAL_FEATURE_LABELS = {
     "conduct_score": "Conducta",
     "severe_incidents_count": "Incidentes graves",
     "family_notified_ratio": "Notificaci\u00f3n familiar",
-    "prev_period_avg_grade": "Nota per\u00edodo anterior",
+    "prev_period_avg_grade": "Nota periodo anterior",
     "age_grade_gap": "Brecha edad-grado",
     "is_repeat": "Repitente",
     "has_special_needs": "Necesidades especiales",
@@ -54,6 +55,7 @@ class AnnualRiskModelTrainer:
         from apps.academic.academic_period.infrastructure.repositories import (
             AcademicPeriodRepository,
         )
+
         periods = AcademicPeriodRepository.get_by_school_year(
             academic_period.school_year_id
         ).order_by("start_date")
@@ -83,10 +85,14 @@ class AnnualRiskModelTrainer:
         skipped = 0
 
         for annual in annual_summaries:
-            snapshots = StudentFeatureSnapshot.objects.filter(
-                enrollment_id=annual.enrollment_id,
-                academic_period__school_year=annual.school_year,
-            ).select_related("academic_period").order_by("academic_period__start_date")
+            snapshots = (
+                StudentFeatureSnapshot.objects.filter(
+                    enrollment_id=annual.enrollment_id,
+                    academic_period__school_year=annual.school_year,
+                )
+                .select_related("academic_period")
+                .order_by("academic_period__start_date")
+            )
 
             if not snapshots.exists():
                 skipped += 1
@@ -100,16 +106,26 @@ class AnnualRiskModelTrainer:
                 features = {
                     "period_index": period_idx,
                     "attendance_rate": _to_number(snapshot.attendance_rate),
-                    "consecutive_absences_max": _to_number(snapshot.consecutive_absences_max),
+                    "consecutive_absences_max": _to_number(
+                        snapshot.consecutive_absences_max
+                    ),
                     "tardiness_count": _to_number(snapshot.tardiness_count),
                     "justified_absences": _to_number(snapshot.justified_absences),
                     "unjustified_absences": _to_number(snapshot.unjustified_absences),
-                    "formative_avg_normalized": _to_number(snapshot.formative_avg_normalized),
-                    "summative_avg_normalized": _to_number(snapshot.summative_avg_normalized),
+                    "formative_avg_normalized": _to_number(
+                        snapshot.formative_avg_normalized
+                    ),
+                    "summative_avg_normalized": _to_number(
+                        snapshot.summative_avg_normalized
+                    ),
                     "grade_trend_slope": _to_number(snapshot.grade_trend_slope),
-                    "failing_subjects_count": _to_number(snapshot.failing_subjects_count),
+                    "failing_subjects_count": _to_number(
+                        snapshot.failing_subjects_count
+                    ),
                     "conduct_score": _to_number(snapshot.conduct_score),
-                    "severe_incidents_count": _to_number(snapshot.severe_incidents_count),
+                    "severe_incidents_count": _to_number(
+                        snapshot.severe_incidents_count
+                    ),
                     "family_notified_ratio": _to_number(snapshot.family_notified_ratio),
                     "prev_period_avg_grade": _to_number(snapshot.prev_period_avg_grade),
                     "age_grade_gap": _to_number(snapshot.age_grade_gap),
@@ -122,19 +138,17 @@ class AnnualRiskModelTrainer:
                 y.append(target)
 
         if skipped:
-            logger.info(
-                "Estudiantes omitidos (sin snapshots en el año): %d", skipped
-            )
+            logger.info("Estudiantes omitidos (sin snapshots en el año): %d", skipped)
 
         logger.info(
             "Pares (X, y) generados: %d (target=1: %d, target=0: %d)",
-            len(X), sum(y), len(X) - sum(y),
+            len(X),
+            sum(y),
+            len(X) - sum(y),
         )
 
         if len(X) < 100:
-            raise ValueError(
-                f"Datos insuficientes: solo {len(X)} registros"
-            )
+            raise ValueError(f"Datos insuficientes: solo {len(X)} registros")
 
         df = pd.DataFrame(X, columns=self.FEATURES).fillna(0)
 
@@ -151,9 +165,7 @@ class AnnualRiskModelTrainer:
 
         cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
         cv_scores = cross_val_score(model, df, y, cv=cv, scoring="roc_auc")
-        logger.info(
-            "CV ROC-AUC: %.4f (±%.4f)", cv_scores.mean(), cv_scores.std()
-        )
+        logger.info("CV ROC-AUC: %.4f (±%.4f)", cv_scores.mean(), cv_scores.std())
 
         model.fit(df, y)
 
@@ -163,10 +175,12 @@ class AnnualRiskModelTrainer:
             classification_report(y, y_pred, target_names=["aprueba", "pierde_año"]),
         )
 
-        importance_df = pd.DataFrame({
-            "feature": self.FEATURES,
-            "importance": model.feature_importances_,
-        }).sort_values("importance", ascending=False)
+        importance_df = pd.DataFrame(
+            {
+                "feature": self.FEATURES,
+                "importance": model.feature_importances_,
+            }
+        ).sort_values("importance", ascending=False)
         logger.info("Feature importances:\n%s", importance_df)
 
         artifact = {
@@ -208,10 +222,14 @@ class AnnualRiskModelTrainer:
             logger.error("Error cargando modelo anual: %s", e)
             return None
 
-        snapshot = StudentFeatureSnapshot.objects.filter(
-            enrollment_id=enrollment_id,
-            academic_period_id=academic_period_id,
-        ).select_related("academic_period").first()
+        snapshot = (
+            StudentFeatureSnapshot.objects.filter(
+                enrollment_id=enrollment_id,
+                academic_period_id=academic_period_id,
+            )
+            .select_related("academic_period")
+            .first()
+        )
 
         if not snapshot:
             return None
@@ -242,6 +260,7 @@ class AnnualRiskModelTrainer:
         row = [features[col] for col in features_list]
 
         import numpy as np
+
         proba = model.predict_proba([row])[0]
         prob_positive = float(proba[1]) if model.classes_[1] == 1 else float(proba[0])
 
@@ -257,7 +276,9 @@ class AnnualRiskModelTrainer:
             {
                 "feature": features_list[i],
                 "label": ANNUAL_FEATURE_LABELS.get(features_list[i], features_list[i]),
-                "importance": round(float(importances[i]), 4) if i < len(importances) else 0,
+                "importance": (
+                    round(float(importances[i]), 4) if i < len(importances) else 0
+                ),
                 "value": float(features.get(features_list[i], 0)),
             }
             for i in range(len(features_list))

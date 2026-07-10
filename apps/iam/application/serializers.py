@@ -84,7 +84,9 @@ class LoginSerializer(TokenObtainPairSerializer):
         student_id = student.pk if student else None
         logger.info(
             "[LoginSerializer] user=%s, student=%s, student_id=%s",
-            user.id, student, student_id,
+            user.id,
+            student,
+            student_id,
         )
         data["user"] = {
             "id": user.id,
@@ -131,7 +133,15 @@ class RoleDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Role
-        fields = ["id", "name", "description", "is_active", "role_permissions", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "name",
+            "description",
+            "is_active",
+            "role_permissions",
+            "created_at",
+            "updated_at",
+        ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
@@ -145,7 +155,18 @@ class UserListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "username", "dni", "names", "last_names", "email", "role", "role_id", "is_active", "created_at"]
+        fields = [
+            "id",
+            "username",
+            "dni",
+            "names",
+            "last_names",
+            "email",
+            "role",
+            "role_id",
+            "is_active",
+            "created_at",
+        ]
         read_only_fields = ["id", "created_at"]
 
     def get_role(self, obj):
@@ -167,7 +188,19 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "username", "dni", "names", "last_names", "email", "role", "role_id", "is_active", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "username",
+            "dni",
+            "names",
+            "last_names",
+            "email",
+            "role",
+            "role_id",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
         read_only_fields = ["id", "username", "created_at", "updated_at"]
         extra_kwargs = {"password": {"write_only": True}}
 
@@ -179,12 +212,13 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
     def validate_email(self, value):
         from apps.people.models import Person
+
         instance = self.instance
         qs = Person.objects.filter(email=value)
         if instance and instance.person_id:
             qs = qs.exclude(id=instance.person_id)
         if qs.exists():
-            raise serializers.ValidationError("Este email ya est\u00e1 registrado.")
+            raise serializers.ValidationError("Este email ya esta registrado.")
         return value
 
 
@@ -203,14 +237,14 @@ class UserCreateSerializer(serializers.Serializer):
 
     def validate_email(self, value):
         from apps.people.models import Person
+
         if Person.objects.filter(email=value).exists():
-            raise serializers.ValidationError("Este email ya est\u00e1 registrado.")
+            raise serializers.ValidationError("Este email ya esta registrado.")
         return value
 
     def validate_document_number(self, value):
         from apps.people.models import Person
+
         if Person.objects.filter(document_number=value).exists():
-            raise serializers.ValidationError("Este documento ya est\u00e1 registrado.")
+            raise serializers.ValidationError("Este documento ya esta registrado.")
         return value
-
-

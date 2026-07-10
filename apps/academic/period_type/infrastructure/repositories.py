@@ -14,7 +14,8 @@ class PeriodTypeRepository(BaseRepository, PeriodTypeRepositoryInterface):
         queryset = super().get_all(active_only=active_only)
         if search:
             queryset = queryset.filter(
-                db_models.Q(name__icontains=search) | db_models.Q(code__icontains=search)
+                db_models.Q(name__icontains=search)
+                | db_models.Q(code__icontains=search)
             )
         return queryset.order_by("name")
 
@@ -34,7 +35,7 @@ class PeriodTypeRepository(BaseRepository, PeriodTypeRepositoryInterface):
         ).count()
         counts = {}
         if period_count:
-            counts["periodos acad\u00e9micos"] = period_count
+            counts["periodos academicos"] = period_count
         return counts
 
     @classmethod

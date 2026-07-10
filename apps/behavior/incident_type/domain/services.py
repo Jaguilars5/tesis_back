@@ -9,7 +9,9 @@ class IncidentTypeService:
 
     @classmethod
     def create_incident_type(cls, code, name, description=""):
-        errors = validators.run_all_validators(code=code, name=name, description=description)
+        errors = validators.run_all_validators(
+            code=code, name=name, description=description
+        )
         if errors:
             raise ValueError(errors)
         return cls.repository.create(
@@ -43,7 +45,7 @@ class IncidentTypeService:
             return {
                 "requires_confirmation": True,
                 "affected_records": total,
-                "message": f"Esta accion desactivar\u00e1 {', '.join(parts)} relacionados",
+                "message": f"Esta accion desactivara {', '.join(parts)} relacionados",
                 "id": obj.id,
                 "is_active": True,
             }

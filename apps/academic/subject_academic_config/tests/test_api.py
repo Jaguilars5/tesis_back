@@ -14,14 +14,19 @@ from ..infrastructure.models import SubjectAcademicConfig
 class SubjectAcademicConfigAPITest(APITestCase):
     def setUp(self):
         self.user = create_test_user(
-            email="config@test.com", dni="3333333333",
-            names="Config", last_names="Tester", is_superuser=True,
+            email="config@test.com",
+            dni="3333333333",
+            names="Config",
+            last_names="Tester",
+            is_superuser=True,
         )
         self.client.force_authenticate(user=self.user)
         level = AcademicLevel.objects.create(name="Primaria")
-        sublevel = AcademicSublevel.objects.create(academic_level=level, name="B\u00e1sica")
-        self.grade = AcademicGrade.objects.create(academic_sublevel=sublevel, name="6to")
-        self.subject = Subject.objects.create(name="Matem\u00e1ticas", code="MAT-001")
+        sublevel = AcademicSublevel.objects.create(academic_level=level, name="Basica")
+        self.grade = AcademicGrade.objects.create(
+            academic_sublevel=sublevel, name="6to"
+        )
+        self.subject = Subject.objects.create(name="Matematicas", code="MAT-001")
         self.url = "/api/academic/subject-academic-configs/"
 
     def test_list_empty(self):
@@ -41,7 +46,9 @@ class SubjectAcademicConfigAPITest(APITestCase):
 
     def test_retrieve(self):
         obj = SubjectAcademicConfig.objects.create(
-            subject=self.subject, academic_grade=self.grade, weekly_hours=5,
+            subject=self.subject,
+            academic_grade=self.grade,
+            weekly_hours=5,
         )
         response = self.client.get(f"{self.url}{obj.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -50,16 +57,24 @@ class SubjectAcademicConfigAPITest(APITestCase):
 
     def test_update(self):
         obj = SubjectAcademicConfig.objects.create(
-            subject=self.subject, academic_grade=self.grade, weekly_hours=5,
+            subject=self.subject,
+            academic_grade=self.grade,
+            weekly_hours=5,
         )
-        data = {"weekly_hours": 6, "subject": self.subject.id, "academic_grade": self.grade.id}
+        data = {
+            "weekly_hours": 6,
+            "subject": self.subject.id,
+            "academic_grade": self.grade.id,
+        }
         response = self.client.put(f"{self.url}{obj.id}/", data, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["data"]["weekly_hours"], 6)
 
     def test_destroy(self):
         obj = SubjectAcademicConfig.objects.create(
-            subject=self.subject, academic_grade=self.grade, weekly_hours=5,
+            subject=self.subject,
+            academic_grade=self.grade,
+            weekly_hours=5,
         )
         response = self.client.delete(f"{self.url}{obj.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -67,7 +82,9 @@ class SubjectAcademicConfigAPITest(APITestCase):
 
     def test_soft_delete(self):
         obj = SubjectAcademicConfig.objects.create(
-            subject=self.subject, academic_grade=self.grade, weekly_hours=5,
+            subject=self.subject,
+            academic_grade=self.grade,
+            weekly_hours=5,
         )
         response = self.client.post(f"{self.url}{obj.id}/soft-delete/", format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -76,8 +93,11 @@ class SubjectAcademicConfigAPITest(APITestCase):
 
     def test_permission_denied(self):
         user_no_perm = create_test_user(
-            email="noperm@test.com", dni="4444444444",
-            names="No", last_names="Perm", is_superuser=False,
+            email="noperm@test.com",
+            dni="4444444444",
+            names="No",
+            last_names="Perm",
+            is_superuser=False,
         )
         self.client.force_authenticate(user=user_no_perm)
         response = self.client.get(self.url)
@@ -85,7 +105,9 @@ class SubjectAcademicConfigAPITest(APITestCase):
 
     def test_create_duplicate(self):
         SubjectAcademicConfig.objects.create(
-            subject=self.subject, academic_grade=self.grade, weekly_hours=5,
+            subject=self.subject,
+            academic_grade=self.grade,
+            weekly_hours=5,
         )
         data = {
             "subject": self.subject.id,

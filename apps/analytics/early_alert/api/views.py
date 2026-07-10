@@ -49,7 +49,7 @@ class EarlyAlertViewSet(BaseAnalyticsViewSet):
 
     def create(self, request, *args, **kwargs):
         return error_response(
-            "Las alertas son generadas autom\u00e1ticamente por el sistema",
+            "Las alertas son generadas automaticamente por el sistema",
             status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
         )
 
@@ -76,7 +76,9 @@ class EarlyAlertViewSet(BaseAnalyticsViewSet):
         try:
             alert = self.get_object()
             actions = request.data.get("response_actions", "")
-            alert = EarlyAlertService.mark_as_attended(alert.id, request.user.id, actions)
+            alert = EarlyAlertService.mark_as_attended(
+                alert.id, request.user.id, actions
+            )
             return ok_response(
                 EarlyAlertSerializer(alert).data,
                 msg="Alerta marcada como atendida",

@@ -26,7 +26,9 @@ class StudentNoteRepository(BaseRepository, StudentNoteRepositoryInterface):
         ).first()
 
     @classmethod
-    def list_by_filters(cls, student_id=None, academic_period_id=None, subject_id=None, section_id=None):
+    def list_by_filters(
+        cls, student_id=None, academic_period_id=None, subject_id=None, section_id=None
+    ):
         queryset = cls.model.objects.all()
         if student_id:
             queryset = queryset.filter(enrollment__student_id=student_id)
@@ -43,7 +45,9 @@ class StudentNoteRepository(BaseRepository, StudentNoteRepositoryInterface):
         return queryset.order_by("-created_at")
 
     @classmethod
-    def get_students_for_activity(cls, evaluative_activity_id, teacher_subject_section_id):
+    def get_students_for_activity(
+        cls, evaluative_activity_id, teacher_subject_section_id
+    ):
         from apps.grading.evaluation.infrastructure.models import EvaluativeActivity
         from apps.students.models import Enrollment
 
@@ -57,12 +61,18 @@ class StudentNoteRepository(BaseRepository, StudentNoteRepositoryInterface):
 
         section_id = activity.teacher_subject_section.subject_offering.section_id
 
-        enrollments = Enrollment.objects.filter(
-            section_id=section_id,
-            enrollment_status="ACT",
-        ).select_related(
-            "student__user__person",
-        ).order_by("student__user__person__last_names", "student__user__person__names")
+        enrollments = (
+            Enrollment.objects.filter(
+                section_id=section_id,
+                enrollment_status="ACT",
+            )
+            .select_related(
+                "student__user__person",
+            )
+            .order_by(
+                "student__user__person__last_names", "student__user__person__names"
+            )
+        )
 
         existing_notes = cls.model.objects.filter(
             evaluative_activity_id=evaluative_activity_id,
@@ -74,12 +84,14 @@ class StudentNoteRepository(BaseRepository, StudentNoteRepositoryInterface):
         students_data = []
         for enr in enrollments:
             note = note_map.get(enr.id)
-            students_data.append({
-                "enrollment_id": enr.id,
-                "student_id": enr.student_id,
-                "student_name": enr.student.get_full_name(),
-                "note_obj": note,
-            })
+            students_data.append(
+                {
+                    "enrollment_id": enr.id,
+                    "student_id": enr.student_id,
+                    "student_name": enr.student.get_full_name(),
+                    "note_obj": note,
+                }
+            )
 
         return activity, students_data
 
@@ -98,7 +110,9 @@ class StudentNoteRepository(BaseRepository, StudentNoteRepositoryInterface):
         )
 
 
-class PeriodGradeSummaryRepository(BaseRepository, PeriodGradeSummaryRepositoryInterface):
+class PeriodGradeSummaryRepository(
+    BaseRepository, PeriodGradeSummaryRepositoryInterface
+):
     model = PeriodGradeSummary
 
     @classmethod
@@ -113,7 +127,9 @@ class PeriodGradeSummaryRepository(BaseRepository, PeriodGradeSummaryRepositoryI
         ).select_related("subject_offering", "academic_period", "qualitative_scale")
 
     @classmethod
-    def get_by_enrollment_offering_period(cls, enrollment, subject_offering, academic_period):
+    def get_by_enrollment_offering_period(
+        cls, enrollment, subject_offering, academic_period
+    ):
         return cls.model.objects.filter(
             enrollment=enrollment,
             subject_offering=subject_offering,
@@ -136,7 +152,9 @@ class PeriodGradeSummaryRepository(BaseRepository, PeriodGradeSummaryRepositoryI
         ).count()
 
 
-class AnnualGradeSummaryRepository(BaseRepository, AnnualGradeSummaryRepositoryInterface):
+class AnnualGradeSummaryRepository(
+    BaseRepository, AnnualGradeSummaryRepositoryInterface
+):
     model = AnnualGradeSummary
 
     @classmethod
@@ -184,7 +202,7 @@ class AnnualGradeSummaryRepository(BaseRepository, AnnualGradeSummaryRepositoryI
 
 
 class EvaluationRepository:
-    """Metodos de acceso a datos para c\u00e1lculos de evaluacion."""
+    """Metodos de acceso a datos para calculos de evaluacion."""
 
     FORMATIVE_TYPES = {"FORMATIVA"}
     SUMMATIVE_TYPES = {"SUMATIVA", "PROJECT"}
@@ -220,15 +238,12 @@ class EvaluationRepository:
             FORMATIVA) y ``summative`` (bloques SUMATIVA/PROJECT), todos
             ``Decimal`` cuantizados a 0.01.
         """
-        notes = (
-            StudentNote.objects.filter(
-                enrollment_id=enrollment_id,
-                evaluative_activity__block_component__evaluation_block__subject_offering_id=subject_offering_id,
-            )
-            .select_related(
-                "evaluative_activity__block_component__evaluation_block",
-                "qualitative_scale",
-            )
+        notes = StudentNote.objects.filter(
+            enrollment_id=enrollment_id,
+            evaluative_activity__block_component__evaluation_block__subject_offering_id=subject_offering_id,
+        ).select_related(
+            "evaluative_activity__block_component__evaluation_block",
+            "qualitative_scale",
         )
         if academic_period_id is not None:
             notes = notes.filter(
@@ -256,7 +271,11 @@ class EvaluationRepository:
             )
             comp_entry = block_entry["components"].setdefault(
                 component.id,
-                {"weight": Decimal(str(component.internal_weight)), "num": Decimal("0"), "den": Decimal("0")},
+                {
+                    "weight": Decimal(str(component.internal_weight)),
+                    "num": Decimal("0"),
+                    "den": Decimal("0"),
+                },
             )
             act_weight = Decimal(str(activity.internal_weight))
             comp_entry["num"] += act_weight * normalized
@@ -303,7 +322,9 @@ class EvaluationRepository:
         formative = _weighted(cls.FORMATIVE_TYPES)
         summative = _weighted(cls.SUMMATIVE_TYPES)
 
-        quant = lambda v: v.quantize(Decimal("0.01")) if v is not None else Decimal("0.00")
+        quant = lambda v: (
+            v.quantize(Decimal("0.01")) if v is not None else Decimal("0.00")
+        )
         return {
             "final": final.quantize(Decimal("0.01")),
             "formative": quant(formative),

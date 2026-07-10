@@ -202,10 +202,22 @@ Todas las respuestas siguen el formato:
             "description": "Materias, periodos academicos, oferta academica y proyectos interdisciplinarios",
         },
         {"name": "students", "description": "Estudiantes, representantes y matriculas"},
-        {"name": "grading", "description": "Calificaciones, bloques, componentes, indicadores y actividades evaluativas"},
-        {"name": "analytics", "description": "An\u00e1lisis de riesgo estudiantil y alertas tempranas"},
-        {"name": "attendance", "description": "Asistencia, estados de asistencia y tipos de ausencia"},
-        {"name": "behavior", "description": "Incidentes de conducta, habilidades socioemocionales y evaluaciones de comportamiento"},
+        {
+            "name": "grading",
+            "description": "Calificaciones, bloques, componentes, indicadores y actividades evaluativas",
+        },
+        {
+            "name": "analytics",
+            "description": "Analisis de riesgo estudiantil y alertas tempranas",
+        },
+        {
+            "name": "attendance",
+            "description": "Asistencia, estados de asistencia y tipos de ausencia",
+        },
+        {
+            "name": "behavior",
+            "description": "Incidentes de conducta, habilidades socioemocionales y evaluaciones de comportamiento",
+        },
         {"name": "configuration", "description": "Configuracion del sistema"},
         {"name": "integration", "description": "Sincronizacion con sistemas externos"},
         {"name": "people", "description": "Personas y tipos de documento"},

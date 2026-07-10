@@ -31,7 +31,9 @@ class EvaluationService:
         return block.academic_period
 
     @classmethod
-    def create_evaluative_activity(cls, block_component_id=None, teacher_subject_section_id=None, **kwargs):
+    def create_evaluative_activity(
+        cls, block_component_id=None, teacher_subject_section_id=None, **kwargs
+    ):
         academic_period = None
         if block_component_id:
             academic_period = cls._resolve_academic_period(block_component_id)
@@ -49,6 +51,7 @@ class EvaluationService:
             from apps.academic.teacher_subject_section.infrastructure.models import (
                 TeacherSubjectSection,
             )
+
             try:
                 tss = TeacherSubjectSection.objects.get(pk=teacher_subject_section_id)
                 component = cls.repository_component.get_active_component_for_offering(
@@ -120,9 +123,7 @@ class EvaluationService:
         try:
             from apps.core.notifications.tasks import notify_activity_created
 
-            transaction.on_commit(
-                lambda: notify_activity_created.delay(activity.id)
-            )
+            transaction.on_commit(lambda: notify_activity_created.delay(activity.id))
         except Exception:
             logger.warning(
                 "No se pudo programar la notificación de actividad creada activity=%s",
@@ -132,7 +133,9 @@ class EvaluationService:
 
     @classmethod
     def calculate_block_grade(cls, enrollment_id, evaluation_block_id):
-        notes = cls.repository_activity.get_notes_for_block(enrollment_id, evaluation_block_id)
+        notes = cls.repository_activity.get_notes_for_block(
+            enrollment_id, evaluation_block_id
+        )
         if not notes:
             return None
 
@@ -151,7 +154,9 @@ class EvaluationService:
             else:
                 normalized = Decimal("0.00")
 
-            combined_weight = (act_weight / Decimal("100")) * (comp_weight / Decimal("100"))
+            combined_weight = (act_weight / Decimal("100")) * (
+                comp_weight / Decimal("100")
+            )
             total_score += normalized * combined_weight
             total_weight += combined_weight
 
@@ -194,7 +199,7 @@ class EvaluationService:
             return {
                 "requires_confirmation": True,
                 "affected_records": total,
-                "message": f"Esta accion desactivar\u00e1 {', '.join(parts)} relacionados",
+                "message": f"Esta accion desactivara {', '.join(parts)} relacionados",
                 "id": obj.id,
                 "is_active": True,
             }
@@ -215,7 +220,7 @@ class EvaluationService:
             return {
                 "requires_confirmation": True,
                 "affected_records": total,
-                "message": f"Esta accion desactivar\u00e1 {', '.join(parts)} relacionados",
+                "message": f"Esta accion desactivara {', '.join(parts)} relacionados",
                 "id": obj.id,
                 "is_active": True,
             }
@@ -236,7 +241,7 @@ class EvaluationService:
             return {
                 "requires_confirmation": True,
                 "affected_records": total,
-                "message": f"Esta accion desactivar\u00e1 {', '.join(parts)} relacionados",
+                "message": f"Esta accion desactivara {', '.join(parts)} relacionados",
                 "id": obj.id,
                 "is_active": True,
             }

@@ -15,7 +15,9 @@ class SubjectAcademicConfigService:
 
     @classmethod
     @transaction.atomic
-    def create_config(cls, subject_id, academic_grade_id, weekly_hours, is_required=True):
+    def create_config(
+        cls, subject_id, academic_grade_id, weekly_hours, is_required=True
+    ):
         cls._validate_or_raise(
             subject_id=subject_id,
             academic_grade_id=academic_grade_id,
@@ -26,9 +28,11 @@ class SubjectAcademicConfigService:
             academic_grade_id=academic_grade_id,
         )
         if existing:
-            raise ValueError({
-                "non_field_errors": "Ya existe una configuracion para esta materia y grado"
-            })
+            raise ValueError(
+                {
+                    "non_field_errors": "Ya existe una configuracion para esta materia y grado"
+                }
+            )
         return cls.repository.create(
             subject_id=subject_id,
             academic_grade_id=academic_grade_id,
@@ -64,7 +68,7 @@ class SubjectAcademicConfigService:
             return {
                 "requires_confirmation": True,
                 "affected_records": total,
-                "message": f"Esta accion desactivar\u00e1 {', '.join(parts)} relacionados",
+                "message": f"Esta accion desactivara {', '.join(parts)} relacionados",
                 "id": obj.id,
                 "is_active": True,
             }

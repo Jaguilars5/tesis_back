@@ -23,7 +23,7 @@ class Command(BaseCommand):
             "--annual-model",
             action="store_true",
             dest="annual_model",
-            help="Entrena modelo anual (predice si el estudiante pierde el a\u00f1o)",
+            help="Entrena modelo anual (predice si el estudiante pierde el año)",
         )
 
     def handle(self, *args, **options):
@@ -43,7 +43,9 @@ class Command(BaseCommand):
         trainer = RiskModelTrainer()
         try:
             trainer.train()
-            self.stdout.write(self.style.SUCCESS("Modelo general entrenado exitosamente"))
+            self.stdout.write(
+                self.style.SUCCESS("Modelo general entrenado exitosamente")
+            )
         except ValueError as e:
             self.stdout.write(self.style.WARNING(str(e)))
 
@@ -51,7 +53,9 @@ class Command(BaseCommand):
         trainer = SubjectRiskModelTrainer()
         try:
             trainer.train()
-            self.stdout.write(self.style.SUCCESS("Modelo por materia entrenado exitosamente"))
+            self.stdout.write(
+                self.style.SUCCESS("Modelo por materia entrenado exitosamente")
+            )
         except ValueError as e:
             self.stdout.write(self.style.WARNING(str(e)))
 
