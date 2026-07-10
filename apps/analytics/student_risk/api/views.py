@@ -275,6 +275,110 @@ class StudentRiskScoreViewSet(BaseAnalyticsViewSet):
             "config_institucional": result["config_institucional"],
         })
 
+    @extend_schema(
+        summary="Predecir riesgo por materia",
+        description="Usa el modelo ML por materia para predecir si una materia espec\u00edfica se ir\u00e1 a rojo",
+        tags=["analytics"],
+        request={
+            "application/json": {
+                "type": "object",
+                "properties": {
+                    "enrollment_id": {"type": "integer"},
+                    "subject_code": {"type": "string"},
+                    "academic_period_id": {"type": "integer"},
+                },
+                "required": ["enrollment_id", "subject_code", "academic_period_id"],
+            }
+        },
+        responses={200: {"type": "object"}},
+    )
+    @action(detail=False, methods=["post"])
+    def predict_subject_risk(self, request):
+        enrollment_id = request.data.get("enrollment_id")
+        subject_code = request.data.get("subject_code")
+        academic_period_id = request.data.get("academic_period_id")
+
+        if not all([enrollment_id, subject_code, academic_period_id]):
+            return error_response(
+                "enrollment_id, subject_code y academic_period_id son requeridos",
+                status_code=400,
+            )
+
+        try:
+            enrollment_id = int(enrollment_id)
+            academic_period_id = int(academic_period_id)
+            subject_code = subject_code.upper()
+        except (TypeError, ValueError):
+            return error_response("Par\u00e1metros inv\u00e1lidos", status_code=400)
+
+        from apps.analytics.ml.subject_model import SubjectRiskModelTrainer
+
+        result = SubjectRiskModelTrainer.predict(
+            enrollment_id, subject_code, academic_period_id
+        )
+
+        if result is None:
+            return ok_response(
+                {
+                    "subject_code": subject_code,
+                    "probability": None,
+                    "risk_level": "desconocido",
+                    "error": "No hay datos suficientes o modelo no entrenado",
+                },
+                msg="No se pudo calcular riesgo para esta materia",
+            )
+
+        return ok_response(result)
+
+    @extend_schema(
+        summary="Predecir riesgo anual",
+        description="Usa el modelo ML anual para predecir si el estudiante perder\u00e1 el a\u00f1o",
+        tags=["analytics"],
+        request={
+            "application/json": {
+                "type": "object",
+                "properties": {
+                    "enrollment_id": {"type": "integer"},
+                    "academic_period_id": {"type": "integer"},
+                },
+                "required": ["enrollment_id", "academic_period_id"],
+            }
+        },
+        responses={200: {"type": "object"}},
+    )
+    @action(detail=False, methods=["post"])
+    def predict_annual_risk(self, request):
+        enrollment_id = request.data.get("enrollment_id")
+        academic_period_id = request.data.get("academic_period_id")
+
+        if not all([enrollment_id, academic_period_id]):
+            return error_response(
+                "enrollment_id y academic_period_id son requeridos",
+                status_code=400,
+            )
+
+        try:
+            enrollment_id = int(enrollment_id)
+            academic_period_id = int(academic_period_id)
+        except (TypeError, ValueError):
+            return error_response("Par\u00e1metros inv\u00e1lidos", status_code=400)
+
+        from apps.analytics.ml.annual_model import AnnualRiskModelTrainer
+
+        result = AnnualRiskModelTrainer.predict(enrollment_id, academic_period_id)
+
+        if result is None:
+            return ok_response(
+                {
+                    "probability": None,
+                    "risk_level": "desconocido",
+                    "error": "No hay snapshot o modelo no entrenado",
+                },
+                msg="No se pudo calcular riesgo anual",
+            )
+
+        return ok_response(result)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # RiskScoringConfig ViewSet

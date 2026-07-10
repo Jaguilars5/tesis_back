@@ -148,7 +148,10 @@ class AnnualGradeSummaryRepository(BaseRepository, AnnualGradeSummaryRepositoryI
     def get_by_enrollment(cls, enrollment_id):
         return cls.model.objects.filter(
             enrollment_id=enrollment_id,
-        ).select_related("subject_offering", "school_year")
+        ).select_related(
+            "subject_offering__subject_academic_config__subject",
+            "school_year",
+        )
 
     @classmethod
     def get_by_enrollment_offering_year(cls, enrollment, subject_offering, school_year):

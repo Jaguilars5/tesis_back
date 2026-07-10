@@ -16,6 +16,8 @@ RISK_SCORE_ACTION_PERMISSIONS = {
     "calculate": analytics.CREATE_STUDENT_RISK_FACTOR,
     "batch_calculate": analytics.CREATE_STUDENT_RISK_FACTOR,
     "simulate": analytics.VIEW_RISK_SCORE,
+    "predict_subject_risk": analytics.VIEW_RISK_SCORE,
+    "predict_annual_risk": analytics.VIEW_RISK_SCORE,
 }
 
 # RiskFactor ViewSet (readonly)

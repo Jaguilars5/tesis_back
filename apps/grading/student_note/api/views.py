@@ -435,3 +435,49 @@ class AnnualGradeSummaryViewSet(BaseGradingViewSet):
 
         task = calculate_annual_grade_summaries_task.delay(school_year_id)
         return ok_response({"task_id": task.id, "status": "PENDING"}, status_code=202)
+
+    @extend_schema(
+        summary="Reporte anual consolidado por estudiante",
+        description="Retorna todas las materias con su promedio anual y si el estudiante perdi\u00f3 el a\u00f1o",
+        tags=["grading"],
+        responses={200: {"type": "object"}},
+    )
+    @action(detail=False, methods=["get"], url_path="student-report/(?P<enrollment_id>[^/.]+)")
+    def student_report(self, request, enrollment_id=None):
+        school_year_id = request.query_params.get("school_year_id")
+
+        summaries = AnnualGradeSummaryRepository.get_by_enrollment(enrollment_id)
+
+        if school_year_id:
+            summaries = [s for s in summaries if s.school_year_id == int(school_year_id)]
+
+        if not summaries:
+            return ok_response({
+                "enrollment_id": int(enrollment_id) if enrollment_id else None,
+                "school_year_id": int(school_year_id) if school_year_id else None,
+                "year_failed": False,
+                "subjects": [],
+            })
+
+        has_failing = any(s.is_failing for s in summaries)
+        school_year_name = summaries[0].school_year_name if summaries else None
+
+        subjects = []
+        for s in summaries:
+            subject = s.subject_offering.subject_academic_config.subject
+            subjects.append({
+                "subject_code": subject.code,
+                "subject_name": subject.name,
+                "annual_final_avg": str(s.annual_final_avg),
+                "is_failing": s.is_failing,
+                "promotion_status": s.promotion_status,
+                "is_finalized": s.is_finalized,
+            })
+
+        return ok_response({
+            "enrollment_id": int(enrollment_id),
+            "school_year_id": int(school_year_id) if school_year_id else summaries[0].school_year_id,
+            "school_year_name": school_year_name,
+            "year_failed": has_failing,
+            "subjects": subjects,
+        })

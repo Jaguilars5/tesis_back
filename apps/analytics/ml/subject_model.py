@@ -20,6 +20,7 @@ from .subject_features import (
     SUBJECT_CODES,
     subject_model_path,
     _to_number,
+    SUBJECT_MODEL_DIR,
 )
 
 logger = logging.getLogger(__name__)
@@ -216,3 +217,74 @@ class SubjectRiskModelTrainer:
         if skipped:
             logger.warning("Materias omitidas (datos insuficientes): %s", skipped)
         return results
+
+    @classmethod
+    def predict(cls, enrollment_id, subject_code, academic_period_id):
+        """Predice la probabilidad de que una materia específica se vaya a rojo.
+
+        Args:
+            enrollment_id: ID de la matrícula
+            subject_code: Código de la materia (MAT, FIS, ...)
+            academic_period_id: ID del período académico
+
+        Returns:
+            Dict con probability (0-100) y risk_level (bajo, medio, alto)
+            o None si no hay modelo entrenado.
+        """
+        import joblib
+
+        path = subject_model_path(subject_code)
+        if not path.exists():
+            logger.warning("Modelo para %s no encontrado en %s", subject_code, path)
+            return None
+
+        try:
+            artifact = joblib.load(path)
+            model = artifact["model"]
+            features_list = artifact["features"]
+        except Exception as e:
+            logger.error("Error cargando modelo %s: %s", subject_code, e)
+            return None
+
+        from apps.academic.subject_offering.infrastructure.repositories import (
+            SubjectOfferingRepository,
+        )
+        from apps.grading.student_note.infrastructure.models import PeriodGradeSummary
+
+        summary = PeriodGradeSummary.objects.filter(
+            enrollment_id=enrollment_id,
+            subject_offering__subject_academic_config__subject__code=subject_code,
+            academic_period_id=academic_period_id,
+        ).first()
+
+        if not summary:
+            return None
+
+        snapshot = StudentFeatureSnapshot.objects.filter(
+            enrollment_id=enrollment_id,
+            academic_period_id=academic_period_id,
+        ).first()
+
+        if not snapshot:
+            return None
+
+        trainer = cls()
+        raw = trainer._build_features(summary, snapshot)
+        features = [_to_number(raw.get(col, 0)) for col in features_list]
+
+        import numpy as np
+        proba = model.predict_proba([features])[0]
+        prob_positive = float(proba[1]) if model.classes_[1] == 1 else float(proba[0])
+
+        if prob_positive < 0.3:
+            risk_level = "bajo"
+        elif prob_positive < 0.6:
+            risk_level = "medio"
+        else:
+            risk_level = "alto"
+
+        return {
+            "subject_code": subject_code,
+            "probability": round(prob_positive * 100, 2),
+            "risk_level": risk_level,
+        }

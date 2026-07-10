@@ -37,4 +37,5 @@ ANNUAL_GRADE_SUMMARY_PERMISSIONS = {
     "partial_update": grading.UPDATE_GRADE_SUMMARY,
     "destroy": grading.DELETE_GRADE_SUMMARY,
     "recalculate_school_year": grading.RECALCULATE_GRADE_SUMMARY,
+    "student_report": grading.VIEW_GRADE_SUMMARY,
 }

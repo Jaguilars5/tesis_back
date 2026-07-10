@@ -161,3 +161,78 @@ class AnnualRiskModelTrainer:
         logger.info("Modelo anual guardado en: %s", target_path)
 
         return model
+
+    @classmethod
+    def predict(cls, enrollment_id, academic_period_id):
+        """Predice la probabilidad de que un estudiante pierda el año.
+
+        Args:
+            enrollment_id: ID de la matrícula
+            academic_period_id: ID del período académico actual
+
+        Returns:
+            Dict con probability (0-100) y risk_level
+            o None si no hay modelo o snapshot.
+        """
+        import joblib
+
+        if not ANNUAL_MODEL_PATH.exists():
+            logger.warning("Modelo anual no encontrado en %s", ANNUAL_MODEL_PATH)
+            return None
+
+        try:
+            artifact = joblib.load(ANNUAL_MODEL_PATH)
+            model = artifact["model"]
+            features_list = artifact["features"]
+        except Exception as e:
+            logger.error("Error cargando modelo anual: %s", e)
+            return None
+
+        snapshot = StudentFeatureSnapshot.objects.filter(
+            enrollment_id=enrollment_id,
+            academic_period_id=academic_period_id,
+        ).select_related("academic_period").first()
+
+        if not snapshot:
+            return None
+
+        trainer = cls()
+        period_idx = trainer._get_period_index(snapshot.academic_period)
+
+        features = {
+            "period_index": period_idx,
+            "attendance_rate": _to_number(snapshot.attendance_rate),
+            "consecutive_absences_max": _to_number(snapshot.consecutive_absences_max),
+            "tardiness_count": _to_number(snapshot.tardiness_count),
+            "justified_absences": _to_number(snapshot.justified_absences),
+            "unjustified_absences": _to_number(snapshot.unjustified_absences),
+            "formative_avg_normalized": _to_number(snapshot.formative_avg_normalized),
+            "summative_avg_normalized": _to_number(snapshot.summative_avg_normalized),
+            "grade_trend_slope": _to_number(snapshot.grade_trend_slope),
+            "failing_subjects_count": _to_number(snapshot.failing_subjects_count),
+            "conduct_score": _to_number(snapshot.conduct_score),
+            "severe_incidents_count": _to_number(snapshot.severe_incidents_count),
+            "family_notified_ratio": _to_number(snapshot.family_notified_ratio),
+            "prev_period_avg_grade": _to_number(snapshot.prev_period_avg_grade),
+            "age_grade_gap": _to_number(snapshot.age_grade_gap),
+            "is_repeat": _to_number(snapshot.is_repeat),
+            "has_special_needs": _to_number(snapshot.has_special_needs),
+        }
+
+        row = [features[col] for col in features_list]
+
+        import numpy as np
+        proba = model.predict_proba([row])[0]
+        prob_positive = float(proba[1]) if model.classes_[1] == 1 else float(proba[0])
+
+        if prob_positive < 0.3:
+            risk_level = "bajo"
+        elif prob_positive < 0.6:
+            risk_level = "medio"
+        else:
+            risk_level = "alto"
+
+        return {
+            "probability": round(prob_positive * 100, 2),
+            "risk_level": risk_level,
+        }
