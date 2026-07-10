@@ -23,6 +23,24 @@ from .subject_features import (
     _to_number,
 )
 
+SUBJECT_FEATURE_LABELS = {
+    "subject_code_idx": "Materia",
+    "grade_in_subject": "Nota en la materia",
+    "grade_trend_in_subject": "Tendencia de nota",
+    "attendance_in_subject": "Asistencia a clase",
+    "formative_avg_in_subject": "Promedio formativo",
+    "summative_avg_in_subject": "Promedio sumativo",
+    "prev_period_grade_in_subject": "Nota periodo anterior",
+    "attendance_rate": "Asistencia general",
+    "consecutive_absences_max": "Ausencias consecutivas",
+    "tardiness_count": "Tardanzas",
+    "conduct_score": "Conducta",
+    "severe_incidents_count": "Incidentes graves",
+    "age_grade_gap": "Brecha edad-grado",
+    "is_repeat": "Repitente",
+    "has_special_needs": "Necesidades especiales",
+}
+
 logger = logging.getLogger(__name__)
 
 
@@ -279,8 +297,24 @@ class SubjectRiskModelTrainer:
         else:
             risk_level = "alto"
 
+        # Construir detalle de factores
+        importances = artifact.get("feature_importances", [])
+        feature_values = raw
+        factors = [
+            {
+                "feature": features_list[i],
+                "label": SUBJECT_FEATURE_LABELS.get(features_list[i], features_list[i]),
+                "importance": round(float(importances[i]), 4) if i < len(importances) else 0,
+                "value": float(feature_values.get(features_list[i], 0)),
+            }
+            for i in range(len(features_list))
+        ]
+        factors.sort(key=lambda f: f["importance"], reverse=True)
+        top_factors = [f for f in factors if f["importance"] > 0][:5]
+
         return {
             "subject_code": subject_code,
             "probability": round(prob_positive * 100, 2),
             "risk_level": risk_level,
+            "factors": top_factors,
         }

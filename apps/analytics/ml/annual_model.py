@@ -24,6 +24,26 @@ from .annual_features import (
 
 logger = logging.getLogger(__name__)
 
+ANNUAL_FEATURE_LABELS = {
+    "period_index": "Per\u00edodo del a\u00f1o",
+    "attendance_rate": "Asistencia general",
+    "consecutive_absences_max": "Ausencias consecutivas",
+    "tardiness_count": "Tardanzas",
+    "justified_absences": "Faltas justificadas",
+    "unjustified_absences": "Faltas injustificadas",
+    "formative_avg_normalized": "Promedio formativo",
+    "summative_avg_normalized": "Promedio sumativo",
+    "grade_trend_slope": "Tendencia de notas",
+    "failing_subjects_count": "Materias reprobadas",
+    "conduct_score": "Conducta",
+    "severe_incidents_count": "Incidentes graves",
+    "family_notified_ratio": "Notificaci\u00f3n familiar",
+    "prev_period_avg_grade": "Nota per\u00edodo anterior",
+    "age_grade_gap": "Brecha edad-grado",
+    "is_repeat": "Repitente",
+    "has_special_needs": "Necesidades especiales",
+}
+
 
 class AnnualRiskModelTrainer:
 
@@ -232,7 +252,21 @@ class AnnualRiskModelTrainer:
         else:
             risk_level = "alto"
 
+        importances = artifact.get("feature_importances", [])
+        factors = [
+            {
+                "feature": features_list[i],
+                "label": ANNUAL_FEATURE_LABELS.get(features_list[i], features_list[i]),
+                "importance": round(float(importances[i]), 4) if i < len(importances) else 0,
+                "value": float(features.get(features_list[i], 0)),
+            }
+            for i in range(len(features_list))
+        ]
+        factors.sort(key=lambda f: f["importance"], reverse=True)
+        top_factors = [f for f in factors if f["importance"] > 0][:5]
+
         return {
             "probability": round(prob_positive * 100, 2),
             "risk_level": risk_level,
+            "factors": top_factors,
         }
