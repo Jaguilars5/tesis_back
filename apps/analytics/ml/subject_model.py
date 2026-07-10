@@ -1,10 +1,11 @@
 """
-Entrenamiento del modelo por materia (modelo_riesgo_materia).
+Entrenamiento del modelo de riesgo por materia (modelo único).
 
-Predice la probabilidad de que una materia específica se vaya a rojo
+Predice la probabilidad de que UNA materia específica se vaya a rojo
 (final_avg_truncated < 7.00) en un período académico.
 
-Se entrena un RandomForest por materia (10 modelos independientes).
+Un solo RandomForest entrenado con todas las materias, usando
+subject_code_idx (0-9) como feature para diferenciar patrones.
 
 Ejecutar: python manage.py train_risk_model --subject-models
 """
@@ -17,10 +18,9 @@ from apps.attendance.attendance_core.infrastructure.models import Attendance
 from .subject_features import (
     SUBJECT_FEATURES,
     TRAIN_SUBJECT_FEATURES,
-    SUBJECT_CODES,
-    subject_model_path,
+    SUBJECT_CODE_MAP,
+    SUBJECT_MODEL_PATH,
     _to_number,
-    SUBJECT_MODEL_DIR,
 )
 
 logger = logging.getLogger(__name__)
@@ -87,7 +87,9 @@ class SubjectRiskModelTrainer:
         return float(summary.final_avg_truncated) if summary else 0.0
 
     def _build_features(self, summary, snapshot):
+        subject_code = summary.subject_offering.subject_academic_config.subject.code
         features = {}
+        features["subject_code_idx"] = SUBJECT_CODE_MAP.get(subject_code, 0)
         features["grade_in_subject"] = float(summary.final_avg_truncated)
         features["grade_trend_in_subject"] = self._get_grade_trend_in_subject(
             summary.enrollment_id, summary.subject_offering_id, summary.academic_period_id
@@ -110,7 +112,7 @@ class SubjectRiskModelTrainer:
         features["has_special_needs"] = _to_number(getattr(snapshot, "has_special_needs", False))
         return features
 
-    def train_subject(self, subject_code, model_path=None):
+    def train(self, model_path=None):
         import joblib
         import pandas as pd
         import numpy as np
@@ -119,14 +121,17 @@ class SubjectRiskModelTrainer:
         from sklearn.metrics import classification_report
 
         summaries = PeriodGradeSummary.objects.filter(
-            subject_offering__subject_academic_config__subject__code=subject_code,
-        ).select_related("enrollment", "subject_offering", "academic_period")
+            subject_offering__subject_academic_config__subject__code__in=list(SUBJECT_CODE_MAP.keys()),
+        ).select_related(
+            "enrollment",
+            "subject_offering__subject_academic_config__subject",
+            "academic_period",
+        )
 
         total = summaries.count()
-        logger.info("Materia %s: %s period summaries encontrados", subject_code, total)
-        if total < 30:
-            logger.warning("Materia %s: datos insuficientes (%s), se omite", subject_code, total)
-            return None
+        logger.info("Total period summaries (todas las materias): %d", total)
+        if total < 100:
+            raise ValueError(f"Datos insuficientes: solo {total} registros")
 
         X, y = [], []
         skipped = 0
@@ -144,18 +149,19 @@ class SubjectRiskModelTrainer:
             y.append(1 if summary.is_failing else 0)
 
         if skipped:
-            logger.info("Materia %s: %s registros omitidos (sin snapshot)", subject_code, skipped)
+            logger.info("Registros omitidos (sin snapshot): %d", skipped)
 
         logger.info(
-            "Materia %s: pares (X, y) generados: %d (target=1: %d, target=0: %d)",
-            subject_code, len(X), sum(y), len(X) - sum(y),
+            "Pares (X, y) generados: %d (target=1: %d, target=0: %d)",
+            len(X), sum(y), len(X) - sum(y),
         )
 
-        if len(X) < 50:
-            logger.warning("Materia %s: datos insuficientes (%s), se omite", subject_code, len(X))
-            return None
+        if len(X) < 100:
+            raise ValueError(f"Datos insuficientes: solo {len(X)} registros")
 
         df = pd.DataFrame(X, columns=self.FEATURES).fillna(0)
+
+        logger.info("Estadísticas descriptivas:\n%s", df.describe())
 
         model = RandomForestClassifier(
             n_estimators=200,
@@ -167,21 +173,17 @@ class SubjectRiskModelTrainer:
         )
 
         try:
-            cv = StratifiedKFold(n_splits=min(5, sum(y)), shuffle=True, random_state=42)
+            cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
             cv_scores = cross_val_score(model, df, y, cv=cv, scoring="roc_auc")
-            logger.info(
-                "Materia %s: CV ROC-AUC: %.4f (±%.4f)",
-                subject_code, cv_scores.mean(), cv_scores.std(),
-            )
+            logger.info("CV ROC-AUC: %.4f (±%.4f)", cv_scores.mean(), cv_scores.std())
         except Exception as e:
-            logger.warning("Materia %s: CV falló (%s), entrenando sin CV", subject_code, e)
+            logger.warning("CV falló (%s), entrenando sin CV", e)
 
         model.fit(df, y)
 
         y_pred = model.predict(df)
         logger.info(
-            "Materia %s: classification report (train):\n%s",
-            subject_code,
+            "Classification report (train):\n%s",
             classification_report(y, y_pred, target_names=["aprobado", "reprobado"]),
         )
 
@@ -189,75 +191,48 @@ class SubjectRiskModelTrainer:
             "feature": self.FEATURES,
             "importance": model.feature_importances_,
         }).sort_values("importance", ascending=False)
-        logger.info("Materia %s: feature importances:\n%s", subject_code, importance_df)
+        logger.info("Feature importances:\n%s", importance_df)
 
         artifact = {
             "model": model,
             "features": self.FEATURES,
             "feature_importances": model.feature_importances_.tolist(),
-            "subject_code": subject_code,
+            "model_type": "subject_risk",
         }
 
-        target_path = model_path or subject_model_path(subject_code)
+        target_path = model_path or SUBJECT_MODEL_PATH
         joblib.dump(artifact, target_path)
-        logger.info("Materia %s: modelo guardado en: %s", subject_code, target_path)
+        logger.info("Modelo guardado en: %s", target_path)
         return model
-
-    def train_all_subjects(self):
-        results = {}
-        for code in SUBJECT_CODES:
-            logger.info("=" * 60)
-            logger.info("Entrenando modelo para materia: %s", code)
-            logger.info("=" * 60)
-            model = self.train_subject(code)
-            results[code] = model is not None
-        trained = [code for code, ok in results.items() if ok]
-        skipped = [code for code, ok in results.items() if not ok]
-        logger.info("Modelos por materia entrenados: %s", trained)
-        if skipped:
-            logger.warning("Materias omitidas (datos insuficientes): %s", skipped)
-        return results
 
     @classmethod
     def predict(cls, enrollment_id, subject_code, academic_period_id):
-        """Predice la probabilidad de que una materia específica se vaya a rojo.
-
-        Args:
-            enrollment_id: ID de la matrícula
-            subject_code: Código de la materia (MAT, FIS, ...)
-            academic_period_id: ID del período académico
-
-        Returns:
-            Dict con probability (0-100) y risk_level (bajo, medio, alto)
-            o None si no hay modelo entrenado.
-        """
         import joblib
+        import numpy as np
 
-        path = subject_model_path(subject_code)
-        if not path.exists():
-            logger.warning("Modelo para %s no encontrado en %s", subject_code, path)
+        if not SUBJECT_MODEL_PATH.exists():
+            logger.warning("Modelo no encontrado en %s", SUBJECT_MODEL_PATH)
             return None
 
         try:
-            artifact = joblib.load(path)
+            artifact = joblib.load(SUBJECT_MODEL_PATH)
             model = artifact["model"]
             features_list = artifact["features"]
         except Exception as e:
-            logger.error("Error cargando modelo %s: %s", subject_code, e)
+            logger.error("Error cargando modelo: %s", e)
             return None
 
-        from apps.academic.subject_offering.infrastructure.repositories import (
-            SubjectOfferingRepository,
-        )
         from apps.grading.student_note.infrastructure.models import PeriodGradeSummary
 
         summary = PeriodGradeSummary.objects.filter(
             enrollment_id=enrollment_id,
             subject_offering__subject_academic_config__subject__code=subject_code,
             academic_period_id=academic_period_id,
-        ).first()
+        ).select_related("subject_offering__subject_academic_config__subject").first()
 
         if not summary:
+            logger.warning("No hay period summary para enrollment=%s subject=%s period=%s",
+                           enrollment_id, subject_code, academic_period_id)
             return None
 
         snapshot = StudentFeatureSnapshot.objects.filter(
@@ -266,13 +241,14 @@ class SubjectRiskModelTrainer:
         ).first()
 
         if not snapshot:
+            logger.warning("No hay snapshot para enrollment=%s period=%s",
+                           enrollment_id, academic_period_id)
             return None
 
         trainer = cls()
         raw = trainer._build_features(summary, snapshot)
         features = [_to_number(raw.get(col, 0)) for col in features_list]
 
-        import numpy as np
         proba = model.predict_proba([features])[0]
         prob_positive = float(proba[1]) if model.classes_[1] == 1 else float(proba[0])
 
