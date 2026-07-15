@@ -1,12 +1,13 @@
 import hashlib
 import logging
+import uuid as uuid_lib
 
 from django.db import transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from ..infrastructure.repositories import SyncQueueRepository
-from ..infrastructure.models import SyncStatusChoices
+from ..infrastructure.repositories import SyncBatchRepository, SyncQueueRepository
+from ..infrastructure.models import BatchStatusChoices, SyncStatusChoices
 
 logger = logging.getLogger("apps.integration.sync")
 
@@ -62,8 +63,7 @@ class ConflictResolutionStrategy:
 class SyncQueueService:
 
     @staticmethod
-    @transaction.atomic
-    def queue_operation(user, source_table, record_uuid, operation, payload=None, client_version=None):
+    def queue_operation(user, source_table, record_uuid, operation, payload=None, client_version=None, batch=None):
         payload = payload or {}
         idempotency_key = SyncQueueService._build_idempotency_key(
             source_table, record_uuid, operation, payload
@@ -140,13 +140,15 @@ class SyncQueueService:
             status=SyncStatusChoices.PENDING,
             idempotency_key=idempotency_key,
             attempts=0,
+            batch=batch,
         )
         logger.info(
-            "[QUEUE] Item creado id=%s status=PENDING source_table=%r record_uuid=%r operation=%r",
+            "[QUEUE] Item creado id=%s status=PENDING source_table=%r record_uuid=%r operation=%r batch=%s",
             instance.id,
             source_table,
             record_uuid,
             operation,
+            batch.id if batch else None,
         )
         return instance
 
@@ -166,22 +168,52 @@ class SyncQueueService:
         return hashlib.sha256(raw.encode()).hexdigest()[:64]
 
     @staticmethod
-    def process_push(user, operations):
+    @transaction.atomic
+    def process_push(user, operations, client_batch_id=None):
         from ..tasks.sync_tasks import process_sync_queue_item, SYNC_HANDLERS
 
         logger.info(
             "[PUSH] Recibido lote de %d operacion(es) de user=%s. "
-            "source_tables=%s. Handlers registrados=%s",
+            "source_tables=%s. Handlers registrados=%s. client_batch_id=%s",
             len(operations),
             getattr(user, "id", None),
             [op.get("source_table") for op in operations],
             sorted(SYNC_HANDLERS.keys()),
+            client_batch_id,
+        )
+
+        # Idempotencia de batch: si ya se commitió, retornar respuesta cacheada
+        if client_batch_id:
+            existing_batch = SyncBatchRepository.get_by_client_batch_id(client_batch_id)
+            if existing_batch and existing_batch.committed:
+                logger.info(
+                    "[PUSH] Batch %s ya fue commiteado anteriormente. "
+                    "Retornando respuesta cacheada.",
+                    client_batch_id,
+                )
+                return existing_batch.cached_response or {
+                    "accepted": 0,
+                    "rejected": 0,
+                    "conflicts": 0,
+                    "results": [],
+                    "batch_id": str(existing_batch.uuid),
+                    "cached": True,
+                }
+
+        # Crear lote
+        batch_id_str = client_batch_id or str(uuid_lib.uuid4())
+        batch = SyncBatchRepository.create(
+            client_batch_id=batch_id_str,
+            user=user,
+            total_operations=len(operations),
+            status=BatchStatusChoices.RECEIVED,
         )
 
         results = []
         accepted = 0
         rejected = 0
         conflicts = 0
+        queued_ids = []
 
         for index, op in enumerate(operations):
             record_uuid = op.get("record_uuid")
@@ -205,6 +237,7 @@ class SyncQueueService:
                     operation=op.get("operation"),
                     payload=op.get("payload", {}),
                     client_version=op.get("client_version"),
+                    batch=batch,
                 )
 
                 if isinstance(result, dict) and result.get("dedup"):
@@ -217,15 +250,7 @@ class SyncQueueService:
                     })
                 elif hasattr(result, "id"):
                     accepted += 1
-                    transaction.on_commit(
-                        lambda id=result.id: process_sync_queue_item.delay(id)
-                    )
-                    logger.info(
-                        "[PUSH] op[%d] item id=%s encolado (transaction.on_commit). "
-                        "El worker lo recibira tras el commit de la transaccion actual.",
-                        index,
-                        result.id,
-                    )
+                    queued_ids.append(result.id)
                     results.append({
                         "record_uuid": record_uuid,
                         "status": "QUEUED",
@@ -255,18 +280,60 @@ class SyncQueueService:
                     "message": str(exc),
                 })
 
-        logger.info(
-            "[PUSH] Resumen lote: accepted=%d rejected=%d conflicts=%d",
-            accepted,
-            rejected,
-            conflicts,
-        )
-        return {
+        response_data = {
+            "batch_id": str(batch.uuid),
             "accepted": accepted,
             "rejected": rejected,
             "conflicts": conflicts,
             "results": results,
         }
+
+        # Si hay al menos un error, revertir todo el batch
+        if rejected > 0:
+            logger.warning(
+                "[PUSH] Batch %s tiene %d operaciones rechazadas. "
+                "Haciendo ROLLBACK de todo el lote.",
+                batch_id_str,
+                rejected,
+            )
+            SyncBatchRepository.update(
+                batch.id,
+                status=BatchStatusChoices.FAILED,
+                committed=False,
+                failed_operations=rejected,
+                completed_operations=accepted,
+                cached_response=response_data,
+            )
+            # La transacción hará ROLLBACK automático al salir
+            transaction.set_rollback(True)
+            return response_data
+
+        # Todo ok — marcar batch como commiteado
+        SyncBatchRepository.update(
+            batch.id,
+            status=BatchStatusChoices.QUEUED,
+            committed=True,
+            completed_operations=accepted,
+            cached_response=response_data,
+        )
+
+        # Disparar Celery tasks SOLO después del commit
+        transaction.on_commit(
+            lambda ids=queued_ids: [
+                process_sync_queue_item.delay(qid) for qid in ids
+            ]
+        )
+
+        logger.info(
+            "[PUSH] Batch %s: %d aceptadas, %d rechazadas, %d conflictos. "
+            "%d tareas Celery encoladas via on_commit.",
+            batch_id_str,
+            accepted,
+            rejected,
+            conflicts,
+            len(queued_ids),
+        )
+        return response_data
 
     @staticmethod
     def pull_changes(since=None, source_table=None, limit=100):
@@ -340,6 +407,64 @@ class SyncQueueService:
             status=status,
             last_error=error_message,
         )
+
+    @staticmethod
+    @transaction.atomic
+    def rollback_batch(batch_uuid):
+        from ..tasks.sync_tasks import SYNC_HANDLERS
+
+        logger.info("[ROLLBACK] Revirtiendo batch uuid=%s", batch_uuid)
+        batch = SyncBatchRepository.get_by_uuid(batch_uuid)
+        if not batch:
+            logger.error("[ROLLBACK] Batch %s no encontrado", batch_uuid)
+            return
+        if batch.status == BatchStatusChoices.ROLLED_BACK:
+            logger.info("[ROLLBACK] Batch %s ya fue revertido", batch_uuid)
+            return
+
+        items = SyncQueueRepository.get_by_batch(batch.id)
+        rolled_back_count = 0
+
+        for item in items:
+            if item.status == SyncStatusChoices.ROLLED_BACK:
+                continue
+
+            handler = SYNC_HANDLERS.get(item.source_table)
+            if not handler:
+                logger.warning("[ROLLBACK] No hay handler para source_table=%s", item.source_table)
+                SyncQueueRepository.update(item.id, status=SyncStatusChoices.ROLLED_BACK)
+                rolled_back_count += 1
+                continue
+
+            try:
+                if item.status == SyncStatusChoices.SYNCED:
+                    op = item.operation or ""
+                    if op in ("INSERT", "CREATE"):
+                        handler.handle_rollback_create(item.record_uuid, item.previous_state or {})
+                    elif op == "UPDATE":
+                        handler.handle_rollback_update(item.record_uuid, item.previous_state or {})
+                    elif op == "DELETE":
+                        handler.handle_rollback_delete(item.record_uuid, item.previous_state or {})
+
+                SyncQueueRepository.update(item.id, status=SyncStatusChoices.ROLLED_BACK)
+                rolled_back_count += 1
+            except Exception:
+                logger.exception("[ROLLBACK] Error revirtiendo item %s del batch %s", item.id, batch_uuid)
+
+        SyncBatchRepository.update(
+            batch.id,
+            status=BatchStatusChoices.ROLLED_BACK,
+        )
+        logger.info(
+            "[ROLLBACK] Batch %s revertido: %d items procesados",
+            batch_uuid,
+            rolled_back_count,
+        )
+        return {
+            "batch_uuid": batch_uuid,
+            "rolled_back": rolled_back_count,
+            "total": items.count(),
+        }
 
 
 def _is_incompatible(client_version, min_version):

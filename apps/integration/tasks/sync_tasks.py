@@ -1,12 +1,14 @@
 import logging
 
+import uuid
+
 from celery import shared_task
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 
-from ..infrastructure.repositories import SyncQueueRepository
+from ..infrastructure.repositories import SyncBatchRepository, SyncQueueRepository
 from ..domain.services import ConflictResolutionStrategy
-from ..infrastructure.models import SyncStatusChoices
+from ..infrastructure.models import BatchStatusChoices, SyncStatusChoices
 
 logger = logging.getLogger("apps.integration.sync")
 
@@ -53,6 +55,19 @@ class BaseSyncHandler:
     source_table = None
     model = None
     lookup_field = "uuid"
+    business_key_fields = []
+
+    @classmethod
+    def _find_by_business_key(cls, payload):
+        if not cls.business_key_fields:
+            return None
+        filters = {}
+        for field in cls.business_key_fields:
+            value = payload.get(field)
+            if value is None:
+                return None
+            filters[field] = value
+        return cls.model.objects.filter(**filters).first()
 
     @classmethod
     def handle_insert(cls, record_uuid, payload):
@@ -62,6 +77,18 @@ class BaseSyncHandler:
             record_uuid,
             sorted((payload or {}).keys()),
         )
+
+        # Buscar por clave de negocio para evitar duplicados
+        existing = cls._find_by_business_key(payload)
+        if existing is not None:
+            logger.info(
+                "[INSERT] Registro existente encontrado por clave de negocio en %s uuid=%s. "
+                "Se actualiza en lugar de insertar.",
+                getattr(cls.model, "__name__", None),
+                str(existing.uuid),
+            )
+            return cls.handle_update(str(existing.uuid), {**payload, "uuid": str(existing.uuid)})
+
         instance = cls.model(**payload)
         instance.uuid = record_uuid
         instance.sync_status = "SYNCED"
@@ -133,6 +160,62 @@ class BaseSyncHandler:
         )
         return {"status": "DELETED", "uuid": str(record_uuid)}
 
+    # --- Rollback methods ---
+
+    @classmethod
+    def handle_rollback_create(cls, record_uuid, previous_state):
+        logger.info(
+            "[ROLLBACK_CREATE] Eliminando registro creado en %s uuid=%s",
+            getattr(cls.model, "__name__", None),
+            record_uuid,
+        )
+        cls.model.objects.filter(**{cls.lookup_field: record_uuid}).delete()
+        return {"status": "ROLLED_BACK", "uuid": str(record_uuid)}
+
+    @classmethod
+    def handle_rollback_update(cls, record_uuid, previous_state):
+        logger.info(
+            "[ROLLBACK_UPDATE] Restaurando estado anterior en %s uuid=%s",
+            getattr(cls.model, "__name__", None),
+            record_uuid,
+        )
+        if previous_state:
+            cls.model.objects.filter(**{cls.lookup_field: record_uuid}).update(**previous_state)
+        return {"status": "ROLLED_BACK", "uuid": str(record_uuid)}
+
+    @classmethod
+    def handle_rollback_delete(cls, record_uuid, previous_state):
+        logger.info(
+            "[ROLLBACK_DELETE] Reinsertando registro eliminado en %s uuid=%s",
+            getattr(cls.model, "__name__", None),
+            record_uuid,
+        )
+        if previous_state:
+            data = dict(previous_state)
+            if cls.lookup_field not in data:
+                data[cls.lookup_field] = record_uuid
+            cls.model.objects.create(**data)
+        return {"status": "ROLLED_BACK", "uuid": str(record_uuid)}
+
+
+def _check_batch_rollback(batch_id):
+    try:
+        from ..infrastructure.models import SyncBatch
+        batch = SyncBatch.objects.filter(id=batch_id).first()
+        if not batch:
+            return
+        if batch.status in (BatchStatusChoices.ROLLED_BACK, BatchStatusChoices.COMPLETED):
+            return
+        synced_count = SyncQueue.objects.filter(
+            batch_id=batch.id, status=SyncStatusChoices.SYNCED
+        ).count()
+        total_failed = (batch.failed_operations or 0)
+        if (total_failed + synced_count) >= batch.total_operations and total_failed > 0:
+            from .sync_tasks import rollback_batch
+            rollback_batch.delay(str(batch.uuid))
+    except Exception:
+        logger.exception("Error checking batch rollback for batch_id=%s", batch_id)
+
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def process_sync_queue_item(self, sync_id):
@@ -159,6 +242,10 @@ def process_sync_queue_item(self, sync_id):
         if sync_item.status != SyncStatusChoices.PENDING:
             logger.info("[TASK] SyncQueue item %s ya procesado (status=%s), se omite", sync_id, sync_item.status)
             return {"ok": True, "status": str(sync_item.status)}
+
+        if sync_item.status == SyncStatusChoices.ROLLED_BACK:
+            logger.info("[TASK] SyncQueue item %s fue revertido (ROLLED_BACK), se omite", sync_id)
+            return {"ok": True, "status": "ROLLED_BACK"}
 
         SyncQueueRepository.update(sync_item.id, status=SyncStatusChoices.PROCESSING, attempts=sync_item.attempts + 1, last_attempt_at=timezone.now())
 
@@ -188,6 +275,27 @@ def process_sync_queue_item(self, sync_id):
         )
 
         with transaction.atomic():
+            # Capturar previous_state antes de modificar
+            previous_state = {}
+            if operation in ("UPDATE",):
+                try:
+                    existing = handler.model.objects.get(**{handler.lookup_field: record_uuid})
+                    previous_state = {f.name: getattr(existing, f.name) for f in handler.model._meta.fields if f.name not in ("id",)}
+                    for k, v in previous_state.items():
+                        if isinstance(v, (uuid.UUID,)):
+                            previous_state[k] = str(v)
+                except handler.model.DoesNotExist:
+                    logger.warning("[TASK] No se encontró registro existente para UPDATE uuid=%s", record_uuid)
+            elif operation == "DELETE":
+                try:
+                    existing = handler.model.objects.get(**{handler.lookup_field: record_uuid})
+                    previous_state = {f.name: getattr(existing, f.name) for f in handler.model._meta.fields if f.name not in ("id",)}
+                    for k, v in previous_state.items():
+                        if isinstance(v, (uuid.UUID,)):
+                            previous_state[k] = str(v)
+                except handler.model.DoesNotExist:
+                    logger.warning("[TASK] No se encontró registro existente para DELETE uuid=%s", record_uuid)
+
             if operation in ("INSERT", "CREATE"):
                 result = handler.handle_insert(record_uuid, payload)
             elif operation == "UPDATE":
@@ -208,6 +316,7 @@ def process_sync_queue_item(self, sync_id):
                 status=SyncStatusChoices.SYNCED,
                 processed_at=timezone.now(),
                 last_error="",
+                previous_state=previous_state,
             )
 
         logger.info("[TASK] SyncQueue item %s procesado exitosamente -> SYNCED", sync_id)
@@ -226,6 +335,13 @@ def process_sync_queue_item(self, sync_id):
                     last_error=str(exc),
                     last_attempt_at=timezone.now(),
                 )
+
+                if sync_item.batch_id and new_status == SyncStatusChoices.ERROR:
+                    SyncBatchRepository.update(
+                        sync_item.batch_id,
+                        failed_operations=models.F("failed_operations") + 1,
+                    )
+                    _check_batch_rollback(sync_item.batch_id)
         except Exception:
             logger.exception("Error al actualizar estado de SyncQueue item %s", sync_id)
         raise self.retry(exc=exc)
@@ -240,3 +356,16 @@ def process_pending_sync_batch():
         count += 1
     logger.info("Disparados %d SyncQueue items para procesamiento", count)
     return {"ok": True, "dispatched": count}
+
+
+@shared_task(bind=True, max_retries=2, default_retry_delay=10)
+def rollback_batch(self, batch_uuid):
+    from ..domain.services import SyncQueueService
+    logger.info("[ROLLBACK] Iniciando rollback del batch %s", batch_uuid)
+    try:
+        SyncQueueService.rollback_batch(batch_uuid)
+        logger.info("[ROLLBACK] Batch %s revertido exitosamente", batch_uuid)
+        return {"ok": True, "batch_uuid": batch_uuid, "status": "ROLLED_BACK"}
+    except Exception as exc:
+        logger.exception("[ROLLBACK] Error revirtiendo batch %s", batch_uuid)
+        raise self.retry(exc=exc)

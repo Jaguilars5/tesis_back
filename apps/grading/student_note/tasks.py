@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 class StudentNoteSyncHandler(BaseSyncHandler):
     source_table = "student_note"
     model = StudentNote
+    business_key_fields = ["enrollment_id", "evaluative_activity_id"]
 
 
 @shared_task(bind=True, ignore_result=True)

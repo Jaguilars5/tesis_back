@@ -37,6 +37,7 @@ def recalculate_conduct_average_task(self, enrollment_id, academic_period_id):
 class ConductIncidentSyncHandler(BaseSyncHandler):
     source_table = "conduct_incident"
     model = ConductIncident
+    business_key_fields = ["enrollment_id", "incident_type_id", "incident_date"]
 
     @classmethod
     def _resolve_incident_type(cls, payload):

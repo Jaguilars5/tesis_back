@@ -6,3 +6,4 @@ from apps.integration.tasks.sync_tasks import BaseSyncHandler, register_sync_han
 class EvaluativeActivitySyncHandler(BaseSyncHandler):
     source_table = "evaluative_activity"
     model = EvaluativeActivity
+    business_key_fields = ["teacher_subject_section_id", "academic_period_id", "name"]

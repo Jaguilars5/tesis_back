@@ -6,12 +6,22 @@ from django.utils import timezone
 from apps.core.models import TimeStampedModel
 
 
+class BatchStatusChoices(models.TextChoices):
+    RECEIVED = "RECEIVED", "Recibido"
+    QUEUED = "QUEUED", "Encolado"
+    PROCESSING = "PROCESSING", "En procesamiento"
+    COMPLETED = "COMPLETED", "Completado"
+    FAILED = "FAILED", "Fallido"
+    ROLLED_BACK = "ROLLED_BACK", "Revertido"
+
+
 class SyncStatusChoices(models.TextChoices):
     PENDING = "PENDING", "Pendiente de sincronizar"
     PROCESSING = "PROCESSING", "En procesamiento"
     SYNCED = "SYNCED", "Sincronizado"
     ERROR = "ERROR", "Error de sincronización"
     CONFLICT = "CONFLICT", "Conflicto detectado"
+    ROLLED_BACK = "ROLLED_BACK", "Revertido"
 
 
 class SyncOperationChoices(models.TextChoices):
@@ -52,9 +62,45 @@ class SyncableModel(models.Model):
         self.sync_status = SyncStatusChoices.ERROR
 
 
+class SyncBatch(TimeStampedModel):
+    uuid = models.UUIDField(
+        default=uuid.uuid4, editable=False, unique=True, verbose_name="UUID",
+    )
+    client_batch_id = models.CharField(
+        max_length=64, unique=True, db_index=True, verbose_name="ID del lote (cliente)",
+    )
+    user = models.ForeignKey(
+        "iam.User",
+        on_delete=models.CASCADE,
+        verbose_name="Usuario origen",
+    )
+    status = models.CharField(
+        max_length=20, choices=BatchStatusChoices.choices, default=BatchStatusChoices.RECEIVED,
+        db_index=True, verbose_name="Estado del lote",
+    )
+    total_operations = models.PositiveIntegerField(default=0, verbose_name="Total de operaciones")
+    completed_operations = models.PositiveIntegerField(default=0, verbose_name="Operaciones completadas")
+    failed_operations = models.PositiveIntegerField(default=0, verbose_name="Operaciones fallidas")
+    committed = models.BooleanField(default=False, verbose_name="Transacción commiteada")
+    cached_response = models.JSONField(default=dict, blank=True, verbose_name="Respuesta cacheada")
+
+    class Meta:
+        app_label = "integration"
+        verbose_name = "Lote de Sincronización"
+        verbose_name_plural = "Lotes de Sincronización"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Batch {self.client_batch_id} — {self.status} ({self.total_operations} ops)"
+
+
 class SyncQueue(TimeStampedModel):
     uuid = models.UUIDField(
         default=uuid.uuid4, editable=False, unique=True, verbose_name="UUID",
+    )
+    batch = models.ForeignKey(
+        SyncBatch, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="items", verbose_name="Lote",
     )
     idempotency_key = models.CharField(
         max_length=64, unique=True, db_index=True, blank=True, verbose_name="Clave de Idempotencia",

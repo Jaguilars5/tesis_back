@@ -1,6 +1,29 @@
 from abc import ABC, abstractmethod
 
 
+class SyncBatchRepositoryInterface(ABC):
+
+    @classmethod
+    @abstractmethod
+    def get_by_client_batch_id(cls, client_batch_id):
+        ...
+
+    @classmethod
+    @abstractmethod
+    def create(cls, **data):
+        ...
+
+    @classmethod
+    @abstractmethod
+    def update(cls, pk, **data):
+        ...
+
+    @classmethod
+    @abstractmethod
+    def get_by_uuid(cls, uuid):
+        ...
+
+
 class SyncQueueRepositoryInterface(ABC):
 
     @classmethod

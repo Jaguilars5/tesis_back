@@ -6,3 +6,4 @@ from apps.students.models import Enrollment
 class EnrollmentSyncHandler(BaseSyncHandler):
     source_table = "enrollment"
     model = Enrollment
+    business_key_fields = ["student_id", "teacher_subject_section_id", "academic_period_id"]

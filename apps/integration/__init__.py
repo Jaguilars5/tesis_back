@@ -3,10 +3,13 @@ INTEGRATION_APPS = [
 ]
 
 __all__ = [
+    "SyncBatch",
     "SyncQueue",
     "SyncableModel",
     "SyncStatusChoices",
+    "BatchStatusChoices",
     "SyncOperationChoices",
+    "SyncBatchRepository",
     "SyncQueueRepository",
     "SyncQueueService",
     "ConflictResolutionStrategy",
@@ -16,6 +19,15 @@ __all__ = [
 
 
 def __getattr__(name):
+    if name == "SyncBatch":
+        from .infrastructure.models import SyncBatch
+        return SyncBatch
+    if name == "BatchStatusChoices":
+        from .infrastructure.models import BatchStatusChoices
+        return BatchStatusChoices
+    if name == "SyncBatchRepository":
+        from .infrastructure.repositories import SyncBatchRepository
+        return SyncBatchRepository
     if name == "SyncQueue":
         from .infrastructure.models import SyncQueue
         return SyncQueue

@@ -6,3 +6,4 @@ from apps.analytics.early_alert.infrastructure.models import EarlyAlert
 class EarlyAlertSyncHandler(BaseSyncHandler):
     source_table = "early_alert"
     model = EarlyAlert
+    business_key_fields = ["enrollment_id", "academic_period_id"]

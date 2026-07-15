@@ -1,3 +1,3 @@
-from ..infrastructure.models import SyncQueue, SyncableModel, SyncStatusChoices, SyncOperationChoices
+from ..infrastructure.models import SyncBatch, SyncQueue, SyncableModel, SyncStatusChoices, BatchStatusChoices, SyncOperationChoices
 
-__all__ = ["SyncQueue", "SyncableModel", "SyncStatusChoices", "SyncOperationChoices"]
+__all__ = ["SyncBatch", "SyncQueue", "SyncableModel", "SyncStatusChoices", "BatchStatusChoices", "SyncOperationChoices"]

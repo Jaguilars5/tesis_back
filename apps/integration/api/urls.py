@@ -16,4 +16,9 @@ urlpatterns = router.urls + [
         SyncQueueViewSet.as_view({"get": "pull"}),
         name="sync-pull",
     ),
+    path(
+        "sync/rollback/",
+        SyncQueueViewSet.as_view({"post": "rollback"}),
+        name="sync-rollback",
+    ),
 ]

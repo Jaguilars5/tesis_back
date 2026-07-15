@@ -9,8 +9,10 @@ from apps.core.utils import ok_response
 from .base import BaseIntegrationViewSet
 from ..application.serializers import SyncQueueSerializer
 from ..domain.services import SyncQueueService
-from ..infrastructure.repositories import SyncQueueRepository
+from ..infrastructure.repositories import SyncBatchRepository, SyncQueueRepository
 from ..permissions import ACTION_PERMISSIONS
+
+from ..infrastructure.models import BatchStatusChoices
 
 logger = logging.getLogger("apps.integration.sync")
 
@@ -24,6 +26,7 @@ logger = logging.getLogger("apps.integration.sync")
     destroy=extend_schema(summary="Eliminar elemento de cola", tags=["integration"]),
     push=extend_schema(summary="Recibir lote de operaciones del cliente", tags=["integration"]),
     pull=extend_schema(summary="Entregar cambios pendientes al cliente", tags=["integration"]),
+    rollback=extend_schema(summary="Revertir un lote de sincronización", tags=["integration"]),
 )
 class SyncQueueViewSet(BaseIntegrationViewSet):
     serializer_class = SyncQueueSerializer
@@ -46,11 +49,13 @@ class SyncQueueViewSet(BaseIntegrationViewSet):
 
     def push(self, request):
         operations = request.data.get("operations", [])
+        client_batch_id = request.data.get("client_batch_id")
         logger.info(
             "[VIEW] POST push de user=%s: %d operacion(es) en el body. "
-            "Claves del body=%s",
+            "client_batch_id=%s. Claves del body=%s",
             getattr(request.user, "id", None),
             len(operations) if isinstance(operations, list) else "N/A",
+            client_batch_id,
             sorted(request.data.keys()) if hasattr(request.data, "keys") else "N/A",
         )
         if not operations:
@@ -62,6 +67,7 @@ class SyncQueueViewSet(BaseIntegrationViewSet):
         summary = SyncQueueService.process_push(
             user=request.user,
             operations=operations,
+            client_batch_id=client_batch_id,
         )
         return ok_response(summary)
 
@@ -79,3 +85,26 @@ class SyncQueueViewSet(BaseIntegrationViewSet):
             source_table=source_table,
         )
         return ok_response({"count": len(results), "results": results})
+
+    def rollback(self, request):
+        batch_id = request.data.get("batch_id")
+        if not batch_id:
+            return ok_response({"ok": False, "msg": "batch_id es requerido"})
+
+        batch = SyncBatchRepository.get_by_client_batch_id(batch_id)
+        if not batch:
+            batch = SyncBatchRepository.get_by_uuid(batch_id)
+
+        if not batch:
+            return ok_response({"ok": False, "msg": "Lote no encontrado"})
+
+        if batch.status == BatchStatusChoices.ROLLED_BACK:
+            return ok_response({"ok": True, "msg": "Lote ya fue revertido", "batch_id": str(batch.uuid)})
+
+        result = SyncQueueService.rollback_batch(str(batch.uuid))
+        logger.info(
+            "[VIEW] Rollback ejecutado para batch=%s por user=%s",
+            batch_id,
+            getattr(request.user, "id", None),
+        )
+        return ok_response(result)
