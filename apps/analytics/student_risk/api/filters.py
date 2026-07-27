@@ -26,8 +26,18 @@ class RiskFactorFilter(django_filters.FilterSet):
 class StudentRiskScoreFilter(django_filters.FilterSet):
     """Filtros para puntajes de riesgo."""
 
+    RISK_TYPE_CHOICES = [
+        ("general", "General"),
+        ("annual", "Anual"),
+        ("dropout", "Desercion"),
+    ]
+
     enrollment = django_filters.NumberFilter()
     academic_period = django_filters.NumberFilter()
+    risk_type = django_filters.ChoiceFilter(
+        method="filter_risk_type",
+        choices=RISK_TYPE_CHOICES,
+    )
     risk_label = django_filters.ChoiceFilter(
         choices=[("verde", "Verde"), ("amarillo", "Amarillo"), ("rojo", "Rojo")]
     )
@@ -46,7 +56,16 @@ class StudentRiskScoreFilter(django_filters.FilterSet):
 
     class Meta:
         model = StudentRiskScore
-        fields = ["enrollment", "academic_period", "risk_label"]
+        fields = ["enrollment", "academic_period", "risk_label", "risk_type"]
+
+    def filter_risk_type(self, queryset, name, value):
+        if value == "annual":
+            return queryset.filter(model_version__startswith="annual-risk")
+        if value == "dropout":
+            return queryset.filter(model_version__startswith="dropout-risk")
+        return queryset.exclude(model_version__startswith="annual-risk").exclude(
+            model_version__startswith="dropout-risk"
+        )
 
 
 class StudentRiskFactorFilter(django_filters.FilterSet):

@@ -127,7 +127,11 @@ class StudentRiskScoreSerializer(serializers.ModelSerializer):
         from apps.analytics.student_risk.domain.risk_engine import score_to_risk_label
 
         data = super().to_representation(instance)
-        data["risk_label"] = score_to_risk_label(float(instance.risk_score))
+        model_version = instance.model_version or ""
+        if model_version.startswith(("annual-risk", "dropout-risk")):
+            data["risk_label"] = instance.risk_label
+        else:
+            data["risk_label"] = score_to_risk_label(float(instance.risk_score))
         return data
 
 

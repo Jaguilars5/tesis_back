@@ -39,6 +39,7 @@ class StudentRiskScoreRepository(BaseRepository, StudentRiskScoreRepositoryInter
     """Repositorio para puntajes de riesgo de estudiantes."""
 
     model = StudentRiskScore
+    SPECIALIZED_MODEL_PREFIXES = ("annual-risk", "dropout-risk")
 
     @classmethod
     def get_all(cls, active_only: bool = True):
@@ -134,12 +135,25 @@ class StudentRiskScoreRepository(BaseRepository, StudentRiskScoreRepositoryInter
             if enrollment:
                 enrollment_id = enrollment.id
 
-        cls.model.objects.filter(
+        existing = cls.model.objects.filter(
             enrollment_id=enrollment_id,
             academic_period_id=academic_period_id,
-        ).delete()
+        )
+        if model_version and model_version.startswith("annual-risk"):
+            existing = existing.filter(model_version__startswith="annual-risk")
+        elif model_version and model_version.startswith("dropout-risk"):
+            existing = existing.filter(model_version__startswith="dropout-risk")
+        else:
+            existing = existing.exclude(
+                model_version__startswith="annual-risk"
+            ).exclude(model_version__startswith="dropout-risk")
+        existing.delete()
 
-        if risk_score is not None:
+        is_specialized_model = bool(
+            model_version
+            and model_version.startswith(cls.SPECIALIZED_MODEL_PREFIXES)
+        )
+        if risk_score is not None and (risk_label is None or not is_specialized_model):
             from apps.analytics.student_risk.domain.risk_engine import score_to_risk_label
 
             risk_label = score_to_risk_label(float(risk_score))

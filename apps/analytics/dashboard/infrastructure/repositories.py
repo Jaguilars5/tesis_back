@@ -33,6 +33,37 @@ from apps.students.models import Enrollment
 class DashboardRepository:
     """Acceso a datos para KPIs, distribuciones y reportes del dashboard."""
 
+    RISK_TYPES = ("general", "annual", "dropout")
+
+    @staticmethod
+    def normalize_risk_type(risk_type: str | None) -> str:
+        value = (risk_type or "general").strip().lower()
+        if value not in DashboardRepository.RISK_TYPES:
+            raise ValueError(
+                "risk_type no valido. Opciones: general, annual, dropout"
+            )
+        return value
+
+    @classmethod
+    def _filter_scores_by_risk_type(cls, qs, risk_type: str | None = "general"):
+        risk_type = cls.normalize_risk_type(risk_type)
+        if risk_type == "annual":
+            return qs.filter(model_version__startswith="annual-risk")
+        if risk_type == "dropout":
+            return qs.filter(model_version__startswith="dropout-risk")
+        return qs.exclude(model_version__startswith="annual-risk").exclude(
+            model_version__startswith="dropout-risk"
+        )
+
+    @classmethod
+    def risk_scores_for_period(
+        cls, academic_period_id: int, risk_type: str | None = "general"
+    ):
+        return cls._filter_scores_by_risk_type(
+            StudentRiskScore.objects.filter(academic_period_id=academic_period_id),
+            risk_type,
+        )
+
     # ── Helpers ──────────────────────────────────────────────────────────────
     @staticmethod
     def _label_counts(scores_qs) -> dict:
@@ -66,10 +97,12 @@ class DashboardRepository:
         }
 
     @classmethod
-    def get_risk_label_counts(cls, academic_period_id: int) -> dict:
+    def get_risk_label_counts(
+        cls, academic_period_id: int, risk_type: str | None = "general"
+    ) -> dict:
         """Distribución global de etiquetas de riesgo para un período."""
         return cls._label_counts(
-            StudentRiskScore.objects.filter(academic_period_id=academic_period_id)
+            cls.risk_scores_for_period(academic_period_id, risk_type)
         )
 
     @classmethod
@@ -80,33 +113,43 @@ class DashboardRepository:
         ).count()
 
     @classmethod
-    def scores_with_grade(cls, academic_period_id: int):
-        return StudentRiskScore.objects.filter(
-            academic_period_id=academic_period_id
-        ).select_related("enrollment__section__academic_grade")
+    def scores_with_grade(
+        cls, academic_period_id: int, risk_type: str | None = "general"
+    ):
+        return cls.risk_scores_for_period(academic_period_id, risk_type).select_related(
+            "enrollment__section__academic_grade"
+        )
 
     @classmethod
-    def scores_with_city(cls, academic_period_id: int):
-        return StudentRiskScore.objects.filter(
-            academic_period_id=academic_period_id
-        ).select_related("enrollment__student__user__person__parish__city")
+    def scores_with_city(
+        cls, academic_period_id: int, risk_type: str | None = "general"
+    ):
+        return cls.risk_scores_for_period(academic_period_id, risk_type).select_related(
+            "enrollment__student__user__person__parish__city"
+        )
 
     @classmethod
-    def scores_with_parish(cls, academic_period_id: int):
-        return StudentRiskScore.objects.filter(
-            academic_period_id=academic_period_id
-        ).select_related("enrollment__student__user__person__parish")
+    def scores_with_parish(
+        cls, academic_period_id: int, risk_type: str | None = "general"
+    ):
+        return cls.risk_scores_for_period(academic_period_id, risk_type).select_related(
+            "enrollment__student__user__person__parish"
+        )
 
     @classmethod
-    def scores_with_special_needs(cls, academic_period_id: int):
-        return StudentRiskScore.objects.filter(
-            academic_period_id=academic_period_id
-        ).select_related("enrollment__student__special_needs_type")
+    def scores_with_special_needs(
+        cls, academic_period_id: int, risk_type: str | None = "general"
+    ):
+        return cls.risk_scores_for_period(academic_period_id, risk_type).select_related(
+            "enrollment__student__special_needs_type"
+        )
 
     @classmethod
-    def scores_with_person_by_label(cls, academic_period_id: int, risk_label: str):
-        return StudentRiskScore.objects.filter(
-            academic_period_id=academic_period_id, risk_label=risk_label
+    def scores_with_person_by_label(
+        cls, academic_period_id: int, risk_label: str, risk_type: str | None = "general"
+    ):
+        return cls.risk_scores_for_period(academic_period_id, risk_type).filter(
+            risk_label=risk_label
         ).select_related("enrollment__student__user__person")
 
     # ── Sección ──────────────────────────────────────────────────────────────
@@ -304,7 +347,9 @@ class DashboardRepository:
         ]
 
     @classmethod
-    def get_near_threshold_students(cls, academic_period_id: int) -> dict:
+    def get_near_threshold_students(
+        cls, academic_period_id: int, risk_type: str | None = "general"
+    ) -> dict:
         """
         Estudiantes cerca del umbral de cambio de semáforo.
 
@@ -321,8 +366,8 @@ class DashboardRepository:
         yellow_min = float(config.score_yellow_min)
         buffer = 5.0
 
-        scores = StudentRiskScore.objects.filter(
-            academic_period_id=academic_period_id
+        scores = cls.risk_scores_for_period(
+            academic_period_id, risk_type
         ).select_related("enrollment__student__user__person")
 
         def _format(s):
@@ -352,11 +397,14 @@ class DashboardRepository:
         }
 
     @classmethod
-    def get_risk_factors_breakdown(cls, academic_period_id: int) -> list:
+    def get_risk_factors_breakdown(
+        cls, academic_period_id: int, risk_type: str | None = "general"
+    ) -> list:
         """Peso promedio de contribución de cada factor de riesgo."""
+        scores = cls.risk_scores_for_period(academic_period_id, risk_type)
         qs = (
             StudentRiskFactor.objects.filter(
-                student_risk_score__academic_period_id=academic_period_id
+                student_risk_score__in=scores
             )
             .values("risk_factor__name")
             .annotate(avg_weight=Avg("contribution_weight"))

@@ -48,6 +48,17 @@ WEIGHTS = {
 
 _model_available = MODEL_PATH.exists()
 
+SPECIALIZED_RISK_MODEL_VERSIONS = {
+    "annual": "annual-risk-v1",
+    "dropout": "dropout-risk-v1",
+}
+
+SPECIALIZED_RISK_LABELS = {
+    "alto": "rojo",
+    "medio": "amarillo",
+    "bajo": "verde",
+}
+
 
 def calculate_academic_risk(snapshot, metrics=None):
     """Wrapper de compatibilidad sobre el motor de reglas/ML del módulo."""
@@ -109,13 +120,20 @@ def calculate_student_academic_risk_task(self, student_id, academic_period_id, u
 
 
 @shared_task(bind=True)
-def batch_calculate_academic_risk(self, academic_period_id, student_ids, user_id=None):
+def batch_calculate_academic_risk(
+    self, academic_period_id, student_ids, user_id=None, risk_type="general"
+):
     total = len(student_ids)
     results = {"total": total, "processed": 0, "failed": 0, "errors": []}
 
     for student_id in student_ids:
         try:
-            calculate_student_academic_risk_task.apply(args=[student_id, academic_period_id])
+            if risk_type == "general":
+                calculate_student_academic_risk_task.apply(
+                    args=[student_id, academic_period_id]
+                )
+            else:
+                _calculate_specialized_risk(student_id, academic_period_id, risk_type)
             results["processed"] += 1
         except Exception as exc:
             results["failed"] += 1
@@ -123,8 +141,9 @@ def batch_calculate_academic_risk(self, academic_period_id, student_ids, user_id
             logger.error("Error calculando riesgo para estudiante %s: %s", student_id, exc)
 
     logger.info(
-        "[BATCH] period_id=%s total=%d procesados=%d fallidos=%d modelo_disponible=%s task_id=%s",
+        "[BATCH] period_id=%s risk_type=%s total=%d procesados=%d fallidos=%d modelo_disponible=%s task_id=%s",
         academic_period_id,
+        risk_type,
         total,
         results["processed"],
         results["failed"],
@@ -140,6 +159,60 @@ def batch_calculate_academic_risk(self, academic_period_id, student_ids, user_id
         )
 
     return results
+
+
+def _calculate_specialized_risk(student_id, academic_period_id, risk_type):
+    from apps.academic.academic_period import AcademicPeriod
+    from apps.students.models import Enrollment
+
+    if risk_type not in SPECIALIZED_RISK_MODEL_VERSIONS:
+        raise ValueError(
+            "risk_type no valido. Opciones: general, annual, dropout"
+        )
+
+    period = AcademicPeriod.objects.get(pk=academic_period_id)
+    enrollment = Enrollment.objects.filter(
+        student_id=student_id,
+        section__school_year=period.school_year,
+    ).first()
+    if not enrollment:
+        raise ValueError("No se encontro matricula para el estudiante en el periodo")
+
+    builder = AcademicRiskFeatureBuilder(student_id, academic_period_id)
+    snapshot = builder.build()
+    metrics = builder.build_persistence_metrics(snapshot)
+
+    with transaction.atomic():
+        StudentFeatureSnapshotRepository.create_snapshot(
+            student_id=student_id,
+            academic_period_id=academic_period_id,
+            metrics=metrics,
+        )
+
+        if risk_type == "annual":
+            from apps.analytics.ml.annual_model import AnnualRiskModelTrainer
+
+            prediction = AnnualRiskModelTrainer.predict(enrollment.id, academic_period_id)
+        else:
+            from apps.analytics.ml.dropout_model import DropoutRiskModelTrainer
+
+            prediction = DropoutRiskModelTrainer.predict(enrollment.id, academic_period_id)
+
+        if prediction is None or prediction.get("probability") is None:
+            raise ValueError("No hay datos suficientes o modelo no entrenado")
+
+        risk_score = StudentRiskScoreRepository.create_score(
+            enrollment_id=enrollment.id,
+            academic_period_id=academic_period_id,
+            risk_score=prediction["probability"],
+            risk_label=SPECIALIZED_RISK_LABELS.get(
+                prediction.get("risk_level"), "verde"
+            ),
+            model_version=SPECIALIZED_RISK_MODEL_VERSIONS[risk_type],
+        )
+        _populate_prediction_factors(risk_score, prediction.get("factors") or [])
+
+    return prediction
 
 
 def _populate_risk_factors(risk_score, analysis):
@@ -205,6 +278,65 @@ def _populate_risk_factors(risk_score, analysis):
             student_risk_score=risk_score,
             risk_factor=factor,
             defaults={"contribution_weight": weight},
+        )
+
+
+def _populate_prediction_factors(risk_score, factors):
+    feature_to_factor = {
+        "LOW_ATTENDANCE": {
+            "attendance_rate",
+            "attendance_in_subject",
+            "consecutive_absences_max",
+            "tardiness_count",
+            "justified_absences",
+            "unjustified_absences",
+        },
+        "FAILING_GRADES": {
+            "grade_in_subject",
+            "grade_trend_in_subject",
+            "formative_avg_in_subject",
+            "summative_avg_in_subject",
+            "prev_period_grade_in_subject",
+            "formative_avg_normalized",
+            "summative_avg_normalized",
+            "grade_trend_slope",
+            "failing_subjects_count",
+            "prev_period_avg_grade",
+            "period_index",
+        },
+        "BEHAVIOR_ISSUES": {
+            "conduct_score",
+            "severe_incidents_count",
+            "family_notified_ratio",
+        },
+        "SOCIOEMOTIONAL": {
+            "age_grade_gap",
+            "is_repeat",
+            "has_special_needs",
+        },
+    }
+
+    factor_weights = {}
+    for factor in factors:
+        feature = factor.get("feature")
+        importance = float(factor.get("importance") or 0)
+        for code, feature_names in feature_to_factor.items():
+            if feature in feature_names:
+                factor_weights[code] = factor_weights.get(code, 0) + importance
+                break
+
+    total_weight = sum(factor_weights.values())
+    if total_weight <= 0:
+        return
+
+    for code, raw_weight in factor_weights.items():
+        factor = RiskFactorRepository.get_by_code(code)
+        if not factor:
+            continue
+        StudentRiskFactorRepository.model.objects.update_or_create(
+            student_risk_score=risk_score,
+            risk_factor=factor,
+            defaults={"contribution_weight": round(raw_weight / total_weight * 100, 1)},
         )
 
 

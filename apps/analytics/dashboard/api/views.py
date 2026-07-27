@@ -25,6 +25,12 @@ from ..domain.services import (
 )
 
 
+def _get_risk_type(request):
+    return DashboardService.repository.normalize_risk_type(
+        request.query_params.get("risk_type") or request.data.get("risk_type")
+    )
+
+
 @extend_schema_view(
     overview=extend_schema(summary="KPIs globales del período", tags=["analytics"]),
     risk_distribution=extend_schema(
@@ -82,7 +88,7 @@ class DashboardViewSet(viewsets.ViewSet):
             return error_response("period_id es requerido", status_code=400)
 
         try:
-            data = DashboardService.get_overview(int(period_id))
+            data = DashboardService.get_overview(int(period_id), _get_risk_type(request))
             return ok_response(data)
         except Exception as e:
             return error_response(str(e), status_code=400)
@@ -99,7 +105,9 @@ class DashboardViewSet(viewsets.ViewSet):
             return error_response("period_id es requerido", status_code=400)
 
         try:
-            data = DashboardService.get_risk_distribution_by_grade(int(period_id))
+            data = DashboardService.get_risk_distribution_by_grade(
+                int(period_id), _get_risk_type(request)
+            )
             return ok_response(data)
         except Exception as e:
             return error_response(str(e), status_code=400)
@@ -116,7 +124,9 @@ class DashboardViewSet(viewsets.ViewSet):
             return error_response("period_id es requerido", status_code=400)
 
         try:
-            data = DashboardService.get_risk_distribution_by_city(int(period_id))
+            data = DashboardService.get_risk_distribution_by_city(
+                int(period_id), _get_risk_type(request)
+            )
             return ok_response(data)
         except Exception as e:
             return error_response(str(e), status_code=400)
@@ -134,7 +144,7 @@ class DashboardViewSet(viewsets.ViewSet):
 
         try:
             data = DashboardService.get_risk_distribution_by_special_needs_type(
-                int(period_id)
+                int(period_id), _get_risk_type(request)
             )
             return ok_response(data)
         except Exception as e:
@@ -188,7 +198,9 @@ class DashboardViewSet(viewsets.ViewSet):
             return error_response("period_id es requerido", status_code=400)
 
         try:
-            data = DashboardService.get_students_at_risk(int(period_id), risk_label)
+            data = DashboardService.get_students_at_risk(
+                int(period_id), risk_label, _get_risk_type(request)
+            )
             return ok_response(data)
         except Exception as e:
             return error_response(str(e), status_code=400)
@@ -297,12 +309,14 @@ class DashboardViewSet(viewsets.ViewSet):
         Body: {"academic_period_id": <id>}
         """
         period_id = request.data.get("academic_period_id")
+        risk_type = request.data.get("risk_type", "general")
         if not period_id:
             return error_response("academic_period_id es requerido", status_code=400)
 
         try:
+            risk_type = DashboardService.repository.normalize_risk_type(risk_type)
             task = RecalculationService.recalculate_period(
-                int(period_id), user_id=request.user.id
+                int(period_id), user_id=request.user.id, risk_type=risk_type
             )
             if task:
                 return ok_response(
@@ -333,6 +347,7 @@ class DashboardViewSet(viewsets.ViewSet):
             return error_response("period_id es requerido", status_code=400)
 
         school_year_id = request.query_params.get("school_year_id")
+        risk_type = request.query_params.get("risk_type", "general")
         include_city = request.query_params.get("include_risk_by_city", "").lower() == "true"
         include_parish = request.query_params.get("include_risk_by_parish", "").lower() == "true"
         include_needs = request.query_params.get("include_special_needs_gap", "").lower() == "true"
@@ -341,6 +356,7 @@ class DashboardViewSet(viewsets.ViewSet):
             data = DirectorDashboardService.get_director_dashboard(
                 academic_period_id=int(period_id),
                 school_year_id=int(school_year_id) if school_year_id else None,
+                risk_type=risk_type,
                 include_risk_by_city=include_city,
                 include_risk_by_parish=include_parish,
                 include_special_needs_gap=include_needs,

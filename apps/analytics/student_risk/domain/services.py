@@ -70,14 +70,20 @@ class StudentRiskCalculationService:
         )
 
     @classmethod
-    def batch_calculate(cls, academic_period_id: int, student_ids: list, user_id: Optional[int] = None):
+    def batch_calculate(
+        cls,
+        academic_period_id: int,
+        student_ids: list,
+        user_id: Optional[int] = None,
+        risk_type: str = "general",
+    ):
         """
         Calcula riesgo en batch para múltiples estudiantes.
         """
         from apps.analytics.tasks import batch_calculate_academic_risk
 
         return batch_calculate_academic_risk.delay(
-            academic_period_id, student_ids, user_id=user_id
+            academic_period_id, student_ids, user_id=user_id, risk_type=risk_type
         )
 
     @classmethod

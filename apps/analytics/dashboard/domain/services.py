@@ -23,7 +23,9 @@ class DashboardService:
     repository = DashboardRepository
 
     @classmethod
-    def get_overview(cls, academic_period_id: int) -> Dict[str, Any]:
+    def get_overview(
+        cls, academic_period_id: int, risk_type: str | None = "general"
+    ) -> Dict[str, Any]:
         """KPIs globales para un período académico."""
         metrics = cls.repository.get_snapshot_aggregates(academic_period_id)
         return {
@@ -34,21 +36,23 @@ class DashboardService:
             "summative_avg": metrics["summative_avg"],
             "failing_count": metrics["failing_count"],
             "risk_distribution": cls.repository.get_risk_label_counts(
-                academic_period_id
+                academic_period_id, risk_type
             ),
             "active_alerts": cls.repository.get_active_alerts_count(academic_period_id),
             "avg_severe_incidents": metrics["avg_severe_incidents"],
         }
 
     @classmethod
-    def get_risk_distribution_by_grade(cls, academic_period_id: int) -> Dict[str, Dict]:
+    def get_risk_distribution_by_grade(
+        cls, academic_period_id: int, risk_type: str | None = "general"
+    ) -> Dict[str, Dict]:
         """Distribución de riesgo por grado académico."""
 
         def grade_name(score):
             return score.enrollment.section.academic_grade.name
 
         return cls._risk_distribution_by_dimension(
-            cls.repository.scores_with_grade(academic_period_id), grade_name
+            cls.repository.scores_with_grade(academic_period_id, risk_type), grade_name
         )
 
     @classmethod
@@ -68,7 +72,9 @@ class DashboardService:
         return distribution
 
     @classmethod
-    def get_risk_distribution_by_city(cls, academic_period_id: int) -> Dict[str, Dict]:
+    def get_risk_distribution_by_city(
+        cls, academic_period_id: int, risk_type: str | None = "general"
+    ) -> Dict[str, Dict]:
         """Distribución de riesgo por ciudad de origen."""
 
         def city_name(score):
@@ -78,11 +84,13 @@ class DashboardService:
             return city.name if city else None
 
         return cls._risk_distribution_by_dimension(
-            cls.repository.scores_with_city(academic_period_id), city_name
+            cls.repository.scores_with_city(academic_period_id, risk_type), city_name
         )
 
     @classmethod
-    def get_risk_distribution_by_parish(cls, academic_period_id: int) -> Dict[str, Dict]:
+    def get_risk_distribution_by_parish(
+        cls, academic_period_id: int, risk_type: str | None = "general"
+    ) -> Dict[str, Dict]:
         """Distribución de riesgo por parroquia de origen."""
 
         def parish_name(score):
@@ -91,12 +99,12 @@ class DashboardService:
             return parish.name if parish else None
 
         return cls._risk_distribution_by_dimension(
-            cls.repository.scores_with_parish(academic_period_id), parish_name
+            cls.repository.scores_with_parish(academic_period_id, risk_type), parish_name
         )
 
     @classmethod
     def get_risk_distribution_by_special_needs_type(
-        cls, academic_period_id: int
+        cls, academic_period_id: int, risk_type: str | None = "general"
     ) -> Dict[str, Dict]:
         """Distribución de riesgo por tipo de NEE (Fase 4)."""
 
@@ -105,7 +113,7 @@ class DashboardService:
             return snt.name if snt else "Sin NEE"
 
         return cls._risk_distribution_by_dimension(
-            cls.repository.scores_with_special_needs(academic_period_id), needs_type
+            cls.repository.scores_with_special_needs(academic_period_id, risk_type), needs_type
         )
 
     @classmethod
@@ -163,7 +171,10 @@ class DashboardService:
 
     @classmethod
     def get_students_at_risk(
-        cls, academic_period_id: int, risk_label: str = "rojo"
+        cls,
+        academic_period_id: int,
+        risk_label: str = "rojo",
+        risk_type: str | None = "general",
     ) -> List[Dict[str, Any]]:
         """Lista de estudiantes con nivel de riesgo específico."""
         return [
@@ -174,7 +185,7 @@ class DashboardService:
                 "risk_label": s.risk_label,
             }
             for s in cls.repository.scores_with_person_by_label(
-                academic_period_id, risk_label
+                academic_period_id, risk_label, risk_type
             )
         ]
 
@@ -399,7 +410,12 @@ class RecalculationService:
         return cls.repository.get_active_student_ids_for_period(academic_period_id)
 
     @classmethod
-    def recalculate_period(cls, academic_period_id: int, user_id: Optional[int] = None):
+    def recalculate_period(
+        cls,
+        academic_period_id: int,
+        user_id: Optional[int] = None,
+        risk_type: str = "general",
+    ):
         """
         Inicia recálculo de riesgo para todos los estudiantes de un período.
 
@@ -409,12 +425,13 @@ class RecalculationService:
             StudentRiskCalculationService,
         )
 
+        risk_type = cls.repository.normalize_risk_type(risk_type)
         student_ids = cls.get_student_ids_for_period(academic_period_id)
         if not student_ids:
             return None
 
         return StudentRiskCalculationService.batch_calculate(
-            academic_period_id, student_ids, user_id=user_id
+            academic_period_id, student_ids, user_id=user_id, risk_type=risk_type
         )
 
 
@@ -432,22 +449,22 @@ class DirectorDashboardService:
     # ── Secciones "core" (siempre incluidas) ──────────────────────────────
 
     SECTIONS = {
-        "overview": lambda repo, pid, **_kw: DashboardService.get_overview(pid),
-        "risk_by_grade": lambda repo, pid, **_kw: DashboardService.get_risk_distribution_by_grade(pid),
+        "overview": lambda repo, pid, **kw: DashboardService.get_overview(pid, kw.get("risk_type")),
+        "risk_by_grade": lambda repo, pid, **kw: DashboardService.get_risk_distribution_by_grade(pid, kw.get("risk_type")),
         "enrollment_trend": lambda repo, pid, **kw: DashboardService.get_enrollment_trend(kw.get("school_year_id")),
         "failing_subjects": lambda repo, pid, **_kw: repo.get_failing_subjects_ranking(pid),
         "unattended_alerts_summary": lambda repo, pid, **_kw: repo.get_unattended_alerts_summary(pid),
-        "risk_factor_breakdown": lambda repo, pid, **_kw: repo.get_risk_factors_breakdown(pid),
+        "risk_factor_breakdown": lambda repo, pid, **kw: repo.get_risk_factors_breakdown(pid, kw.get("risk_type")),
         "declining_students": lambda repo, pid, **_kw: repo.get_declining_students(pid),
-        "near_threshold": lambda repo, pid, **_kw: repo.get_near_threshold_students(pid),
+        "near_threshold": lambda repo, pid, **kw: repo.get_near_threshold_students(pid, kw.get("risk_type")),
         "critical_alerts": lambda repo, pid, **_kw: repo.get_critical_alerts(pid),
         "recent_incidents": lambda repo, pid, **_kw: repo.get_recent_incidents(pid),
     }
 
     # ── Secciones "opt-in" (solo si se solicitan) ─────────────────────────
     OPTIONAL_SECTIONS = {
-        "risk_by_city": lambda repo, pid, **_kw: DashboardService.get_risk_distribution_by_city(pid),
-        "risk_by_parish": lambda repo, pid, **_kw: DashboardService.get_risk_distribution_by_parish(pid),
+        "risk_by_city": lambda repo, pid, **kw: DashboardService.get_risk_distribution_by_city(pid, kw.get("risk_type")),
+        "risk_by_parish": lambda repo, pid, **kw: DashboardService.get_risk_distribution_by_parish(pid, kw.get("risk_type")),
         "special_needs_gap": lambda repo, pid, **_kw: repo.get_special_needs_gap(pid),
     }
 
@@ -456,6 +473,7 @@ class DirectorDashboardService:
         cls,
         academic_period_id: int,
         school_year_id: Optional[int] = None,
+        risk_type: str = "general",
         include_risk_by_city: bool = False,
         include_risk_by_parish: bool = False,
         include_special_needs_gap: bool = False,
@@ -473,7 +491,8 @@ class DirectorDashboardService:
             Dict con todas las secciones solicitadas.
         """
         data: Dict[str, Any] = {}
-        kw = {"school_year_id": school_year_id}
+        risk_type = cls.repository.normalize_risk_type(risk_type)
+        kw = {"school_year_id": school_year_id, "risk_type": risk_type}
 
         # Core sections
         for name, loader in cls.SECTIONS.items():
@@ -490,7 +509,7 @@ class DirectorDashboardService:
         if include_risk_by_city:
             try:
                 data["risk_by_city"] = cls.OPTIONAL_SECTIONS["risk_by_city"](
-                    cls.repository, academic_period_id
+                    cls.repository, academic_period_id, **kw
                 )
             except Exception:
                 data["risk_by_city"] = None
@@ -498,7 +517,7 @@ class DirectorDashboardService:
         if include_risk_by_parish:
             try:
                 data["risk_by_parish"] = cls.OPTIONAL_SECTIONS["risk_by_parish"](
-                    cls.repository, academic_period_id
+                    cls.repository, academic_period_id, **kw
                 )
             except Exception:
                 data["risk_by_parish"] = None
