@@ -56,7 +56,7 @@
 | Serializer | Campos readonly |
 |------------|-----------------|
 | `UserListSerializer` | `dni`, `names`, `last_names`, `role` (code), `created_at` |
-| `UserDetailSerializer` | `dni`, `names`, `last_names`, `role` (objeto RoleDetail), `username`, `created_at`, `updated_at` |
+| `UserDetailSerializer` | `dni`, `names`, `last_names`, `role` (code), `role_id`, `username`, `created_at`, `updated_at` |
 | `UserCreateSerializer` | `username` (autogenerado) |
 | `UserLoginDataSerializer` | `id`, `username`, `dni`, `names`, `last_names`, `email`, `role`, `role_id`, `is_active`, `permissions` |
 | `LoginResponseSerializer` | `access`, `refresh`, `user` |

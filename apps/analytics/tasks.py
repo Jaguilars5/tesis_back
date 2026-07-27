@@ -143,29 +143,43 @@ def batch_calculate_academic_risk(self, academic_period_id, student_ids, user_id
 
 
 def _populate_risk_factors(risk_score, analysis):
-    # Mapeo de features ML a cada factor de riesgo
+    from apps.analytics.ml.features import TRAIN_FEATURES
+
+    # Mapeo por nombre para evitar desalineacion si cambia el contrato de features.
     FEATURE_TO_FACTOR = {
-        "LOW_ATTENDANCE": [0, 1, 2, 3, 4],
-        "FAILING_GRADES": [5, 6, 7, 11],
-        "BEHAVIOR_ISSUES": [9, 8, 10],
-        "SOCIOEMOTIONAL": [12, 13, 14],
+        "LOW_ATTENDANCE": {
+            "attendance_rate",
+            "consecutive_absences_max",
+            "tardiness_count",
+            "justified_absences",
+            "unjustified_absences",
+        },
+        "FAILING_GRADES": {
+            "formative_avg_normalized",
+            "summative_avg_normalized",
+            "grade_trend_slope",
+            "failing_subjects_count",
+            "prev_period_avg_grade",
+        },
+        "BEHAVIOR_ISSUES": {
+            "conduct_score",
+            "severe_incidents_count",
+            "family_notified_ratio",
+        },
+        "SOCIOEMOTIONAL": {
+            "age_grade_gap",
+            "is_repeat",
+            "has_special_needs",
+        },
     }
-    TRAIN_FEATURES = [
-        "attendance_rate", "consecutive_absences_max", "tardiness_count",
-        "justified_absences", "unjustified_absences",
-        "formative_avg_normalized", "summative_avg_normalized",
-        "grade_trend_slope", "conduct_score",
-        "severe_incidents_count", "family_notified_ratio",
-        "prev_period_avg_grade", "age_grade_gap", "is_repeat", "has_special_needs",
-    ]
 
     ml_importances = analysis.get("ml_feature_importances")
 
     if ml_importances and len(ml_importances) == len(TRAIN_FEATURES):
-        # Calcular pesos desde feature importances del modelo ML
+        importance_by_feature = dict(zip(TRAIN_FEATURES, ml_importances))
         factor_weights = {}
-        for factor_code, feature_indices in FEATURE_TO_FACTOR.items():
-            total = sum(ml_importances[i] for i in feature_indices)
+        for factor_code, feature_names in FEATURE_TO_FACTOR.items():
+            total = sum(importance_by_feature.get(name, 0) for name in feature_names)
             if total > 0:
                 factor_weights[factor_code] = total
 

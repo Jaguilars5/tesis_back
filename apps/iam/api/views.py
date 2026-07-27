@@ -1,9 +1,16 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.conf import settings
+from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import send_mail
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from drf_spectacular.utils import extend_schema, extend_schema_view
 
 from rest_framework import status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
@@ -22,6 +29,8 @@ from apps.iam.application.serializers import (
     PermissionSerializer,
     LoginSerializer,
     LoginResponseSerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
     TokenRefreshResponseSerializer,
     CustomTokenRefreshSerializer,
 )
@@ -58,6 +67,95 @@ class CustomTokenRefreshView(TokenRefreshView):
     permission_classes = [permissions.AllowAny]
     authentication_classes = []
     serializer_class = CustomTokenRefreshSerializer
+
+
+PASSWORD_RESET_SENT_MSG = (
+    "Si los datos coinciden con una cuenta activa, enviaremos instrucciones al correo registrado."
+)
+
+
+@extend_schema(
+    tags=["iam"],
+    summary="Solicitar recuperaciÃ³n de contraseÃ±a",
+    description="Genera un enlace de recuperaciÃ³n para el usuario o correo indicado.",
+    request=PasswordResetRequestSerializer,
+)
+class PasswordResetRequestView(APIView):
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        identifier = serializer.validated_data["identifier"].strip()
+        user = UserService.get_user_for_password_reset(identifier)
+
+        if user and user.person and user.person.email:
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+            frontend_base_url = getattr(
+                settings,
+                "PASSWORD_RESET_FRONTEND_URL",
+                request.headers.get("Origin") or "http://localhost:5173",
+            ).rstrip("/")
+            reset_url = f"{frontend_base_url}/reset-password/{uid}/{token}"
+            send_mail(
+                subject="RecuperaciÃ³n de contraseÃ±a",
+                message=(
+                    "Recibimos una solicitud para restablecer tu contraseÃ±a.\n\n"
+                    f"Ingresa al siguiente enlace para crear una nueva contraseÃ±a:\n{reset_url}\n\n"
+                    "Si no solicitaste este cambio, puedes ignorar este mensaje."
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.person.email],
+                fail_silently=False,
+            )
+
+        return ok_response(msg=PASSWORD_RESET_SENT_MSG)
+
+
+@extend_schema(
+    tags=["iam"],
+    summary="Confirmar recuperaciÃ³n de contraseÃ±a",
+    description="Valida el token de recuperaciÃ³n y actualiza la contraseÃ±a.",
+    request=PasswordResetConfirmSerializer,
+)
+class PasswordResetConfirmView(APIView):
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            user_id = force_str(urlsafe_base64_decode(serializer.validated_data["uid"]))
+            user = UserService.get_user(user_id)
+        except (TypeError, ValueError, OverflowError, DjangoValidationError):
+            return error_response(
+                "El enlace de recuperaciÃ³n no es vÃ¡lido o ha expirado.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        token = serializer.validated_data["token"]
+        if not default_token_generator.check_token(user, token):
+            return error_response(
+                "El enlace de recuperaciÃ³n no es vÃ¡lido o ha expirado.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        new_password = serializer.validated_data["new_password"]
+        try:
+            validate_password(new_password, user=user)
+            UserService.change_password(user.id, new_password)
+        except DjangoValidationError as e:
+            return error_response(
+                "La contraseÃ±a no cumple los requisitos.",
+                data={"password_errors": list(e.messages)},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return ok_response(msg="ContraseÃ±a actualizada correctamente.")
 
 
 @extend_schema_view(
@@ -289,7 +387,7 @@ class UserViewSet(SoftDeleteModelMixin, BaseIamViewSet):
     def get_serializer_class(self):
         if self.action == "create":
             return UserCreateSerializer
-        elif self.action == "get":
+        elif self.action in ("get", "update", "partial_update"):
             return UserDetailSerializer
         return UserListSerializer
 
@@ -335,7 +433,7 @@ class UserViewSet(SoftDeleteModelMixin, BaseIamViewSet):
             })
         except ValueError as e:
             return error_response(str(e), status_code=status.HTTP_400_BAD_REQUEST)
-        except ValidationError as e:
+        except DjangoValidationError as e:
             return error_response(
                 {"password_errors": list(e.messages)},
                 status_code=status.HTTP_400_BAD_REQUEST,

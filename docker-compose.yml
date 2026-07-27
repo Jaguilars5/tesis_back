@@ -116,6 +116,18 @@ services:
       - redis
       - celery
 
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: edu-manager-ngrok
+    command: http http://host.docker.internal:5173 --log=stdout
+    restart: unless-stopped
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    ports:
+      - "4040:4040"
+    depends_on:
+      - web
+
 # ─────────────────────────────────────────
 # VOLÚMENES PERSISTENTES
 # ─────────────────────────────────────────

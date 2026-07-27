@@ -15,12 +15,17 @@ from django.conf import settings
 from django.utils import timezone
 
 from apps.analytics.ml import features
-from apps.analytics.ml.features import FEATURE_COLUMNS, TRAIN_FEATURES, MODEL_PATH
+from apps.analytics.ml.features import (
+    FEATURE_COLUMNS,
+    TRAIN_FEATURES,
+    MODEL_PATH,
+    columns_match,
+)
 
 logger = logging.getLogger(__name__)
 
 MODEL_VERSION_FALLBACK = "rules-fallback-v1"
-MODEL_VERSION_SKLEARN = "sklearn-joblib-v2"
+MODEL_VERSION_SKLEARN = "sklearn-joblib-v3-institutional"
 
 # Umbrales del semáforo derivados del puntaje final (0–100).
 # Deben coincidir con la interpretación del simulador ML en el frontend.
@@ -37,7 +42,7 @@ def _default_config():
     return DEFAULT_CONFIG
 if _model_available:
     logger.info(
-        "[INIT] Modelo ML encontrado en %s. Las predicciones usarán GradientBoosting.",
+        "[INIT] Modelo ML encontrado en %s. Las predicciones usaran RandomForest.",
         MODEL_PATH,
     )
 else:
@@ -97,6 +102,8 @@ def calculate_risk(
 
     # El motor ML solo se intenta cuando la institución lo selecciona.
     ml_score = _predict_ml_score(snapshot, metrics) if config.engine == "ML" else None
+    if ml_score is not None:
+        ml_score = _align_ml_score_to_rule_band(ml_score, rule_level)
     score = ml_score if ml_score is not None else fallback_score
     level = _score_to_level(score)
     if ml_score is not None:
@@ -159,6 +166,25 @@ def score_to_risk_label(score: float) -> str:
 def _score_to_level(score: float) -> str:
     """Alias interno de :func:`score_to_risk_label`."""
     return score_to_risk_label(score)
+
+
+def _align_ml_score_to_rule_band(score: float, rule_level: str) -> float:
+    """
+    Mantiene el ML general dentro de la banda institucional de reglas.
+
+    El modelo general se entrena para aprender el mismo semaforo que reglas. Si
+    un arbol extrapola fuera de esa banda para perfiles simulados o escasos, se
+    publica el score ajustado dentro del nivel institucional y se conserva la
+    comparativa como diferencia de intensidad, no como cambio de constructo.
+    """
+    score = max(0.0, min(100.0, float(score)))
+    if rule_level == "verde":
+        return min(score, SCORE_LEVEL_YELLOW_MIN - 0.01)
+    if rule_level == "amarillo":
+        return min(max(score, SCORE_LEVEL_YELLOW_MIN), SCORE_LEVEL_RED_MIN - 0.01)
+    if rule_level == "rojo":
+        return max(score, SCORE_LEVEL_RED_MIN)
+    return score
 
 
 def _risk_level(variables: Dict, config=None) -> str:
@@ -384,9 +410,9 @@ def _get_ml_feature_importances() -> Optional[List[float]]:
 
 def _predict_ml_score(snapshot: Dict, metrics: Optional[Dict] = None) -> Optional[float]:
     """
-    Predicción del modelo matemático (regresión logística).
+    Predicción del modelo general institucional.
 
-    Retorna ``P(is_failing=True) * 100`` como score 0-100, o ``None``
+    Retorna un score 0-100 compatible con el semáforo de reglas, o ``None``
     para que el motor de reglas actúe como fallback.
     """
     estudiante_id = snapshot.get("estudiante_id", "?")
@@ -413,6 +439,24 @@ def _predict_ml_score(snapshot: Dict, metrics: Optional[Dict] = None) -> Optiona
 
     model = artifact["model"]
     model_features = artifact.get("features", TRAIN_FEATURES)
+    model_type = artifact.get("model_type")
+    if model_type != "general_institutional_risk":
+        logger.warning(
+            "[ML][FALLBACK-INTENCIONAL] Estudiante=%s - Artefacto general antiguo "
+            "o incompatible (model_type=%s). Reentrena con: python manage.py train_risk_model",
+            estudiante_id,
+            model_type or "desconocido",
+        )
+        return None
+    if not columns_match(model_features):
+        logger.warning(
+            "[ML][FALLBACK-INTENCIONAL] Estudiante=%s - Columnas incompatibles "
+            "en artefacto ML. Esperadas=%s Recibidas=%s",
+            estudiante_id,
+            FEATURE_COLUMNS,
+            model_features,
+        )
+        return None
 
     try:
         full_dict = (
@@ -428,19 +472,39 @@ def _predict_ml_score(snapshot: Dict, metrics: Optional[Dict] = None) -> Optiona
             {k: round(v, 2) if isinstance(v, float) else v for k, v in feature_dict.items()},
         )
 
-        import pandas as pd
-        X = pd.DataFrame([feature_dict], columns=model_features)
+        try:
+            import pandas as pd
+
+            X = pd.DataFrame([feature_dict], columns=model_features)
+        except ModuleNotFoundError:
+            X = [[feature_dict[col] for col in model_features]]
 
         proba = model.predict_proba(X)[0]
-        clases = getattr(model, "classes_", [0, 1])
-        # classes_[1] = clase positiva (is_failing=True)
-        pos_idx = list(clases).index(1) if 1 in clases else 1
-        score = round(float(proba[pos_idx]) * 100, 2)
+        clases = list(getattr(model, "classes_", [0, 1, 2]))
+        centers = artifact.get("score_class_centers") or {0: 20.0, 1: 55.0, 2: 85.0}
+        centers = {int(k): float(v) for k, v in centers.items()}
+        expected_score = sum(
+            float(proba[idx]) * centers.get(int(label), 0.0)
+            for idx, label in enumerate(clases)
+        )
+        predicted_class = int(model.predict(X)[0])
+
+        if predicted_class == 0:
+            score = min(expected_score, SCORE_LEVEL_YELLOW_MIN - 0.01)
+        elif predicted_class == 1:
+            score = min(
+                max(expected_score, SCORE_LEVEL_YELLOW_MIN),
+                SCORE_LEVEL_RED_MIN - 0.01,
+            )
+        else:
+            score = max(expected_score, SCORE_LEVEL_RED_MIN)
+        score = round(max(0.0, min(100.0, float(score))), 2)
 
         logger.info(
-            "[ML] Estudiante=%s — P(is_failing)=%.4f Score=%.2f",
+            "[ML] Estudiante=%s - Riesgo institucional clases=%s probas=%s Score=%.2f",
             estudiante_id,
-            float(proba[pos_idx]),
+            clases,
+            [round(float(p), 4) for p in proba],
             score,
         )
         return score

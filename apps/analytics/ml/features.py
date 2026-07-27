@@ -42,10 +42,11 @@ FEATURE_COLUMNS = [
     "has_special_needs",
 ]
 
-# Features para entrenamiento supervisado: excluye failing_subjects_count
-# porque tiene correlación directa (leakage) con el target is_failing:
-# si count > 0 → is_failing = True siempre.
-TRAIN_FEATURES = [col for col in FEATURE_COLUMNS if col != "failing_subjects_count"]
+# Features para entrenamiento supervisado del modelo general institucional.
+# Se conserva failing_subjects_count porque el target ya no es is_failing puro:
+# el modelo aprende el semáforo institucional producido por el motor de reglas,
+# donde las materias reprobadas son una señal académica válida.
+TRAIN_FEATURES = FEATURE_COLUMNS
 
 CONDUCT_BASE = 10.0
 

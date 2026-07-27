@@ -22,6 +22,7 @@ from .annual_features import (
     ANNUAL_MODEL_PATH,
     _to_number,
 )
+from .training_params import build_training_params
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,7 @@ class AnnualRiskModelTrainer:
                 return idx
         return 1
 
-    def train(self, model_path=None):
+    def train(self, model_path=None, training_params=None):
         import joblib
         import pandas as pd
         import numpy as np
@@ -154,16 +155,22 @@ class AnnualRiskModelTrainer:
 
         logger.info("Estadísticas descriptivas:\n%s", df.describe())
 
+        params = build_training_params(**(training_params or {}))
+
         model = RandomForestClassifier(
-            n_estimators=200,
-            max_depth=12,
-            min_samples_leaf=5,
-            class_weight="balanced",
-            random_state=42,
-            n_jobs=-1,
+            n_estimators=params.n_estimators,
+            max_depth=params.max_depth,
+            min_samples_leaf=params.min_samples_leaf,
+            class_weight=params.class_weight,
+            random_state=params.random_state,
+            n_jobs=params.n_jobs,
         )
 
-        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+        cv = StratifiedKFold(
+            n_splits=params.cv_splits,
+            shuffle=True,
+            random_state=params.random_state,
+        )
         cv_scores = cross_val_score(model, df, y, cv=cv, scoring="roc_auc")
         logger.info("CV ROC-AUC: %.4f (±%.4f)", cv_scores.mean(), cv_scores.std())
 
@@ -188,6 +195,7 @@ class AnnualRiskModelTrainer:
             "features": self.FEATURES,
             "feature_importances": model.feature_importances_.tolist(),
             "model_type": "annual_risk",
+            "training_params": params.__dict__,
         }
 
         target_path = model_path or ANNUAL_MODEL_PATH

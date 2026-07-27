@@ -22,6 +22,7 @@ from .subject_features import (
     SUBJECT_MODEL_PATH,
     _to_number,
 )
+from .training_params import build_training_params
 
 SUBJECT_FEATURE_LABELS = {
     "subject_code_idx": "Materia",
@@ -130,7 +131,7 @@ class SubjectRiskModelTrainer:
         features["has_special_needs"] = _to_number(getattr(snapshot, "has_special_needs", False))
         return features
 
-    def train(self, model_path=None):
+    def train(self, model_path=None, training_params=None):
         import joblib
         import pandas as pd
         import numpy as np
@@ -201,17 +202,23 @@ class SubjectRiskModelTrainer:
 
         logger.info("Estadísticas descriptivas:\n%s", df.describe())
 
+        params = build_training_params(**(training_params or {}))
+
         model = RandomForestClassifier(
-            n_estimators=200,
-            max_depth=12,
-            min_samples_leaf=5,
-            class_weight="balanced",
-            random_state=42,
-            n_jobs=-1,
+            n_estimators=params.n_estimators,
+            max_depth=params.max_depth,
+            min_samples_leaf=params.min_samples_leaf,
+            class_weight=params.class_weight,
+            random_state=params.random_state,
+            n_jobs=params.n_jobs,
         )
 
         try:
-            cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+            cv = StratifiedKFold(
+                n_splits=params.cv_splits,
+                shuffle=True,
+                random_state=params.random_state,
+            )
             cv_scores = cross_val_score(model, df, y, cv=cv, scoring="roc_auc")
             logger.info("CV ROC-AUC: %.4f (±%.4f)", cv_scores.mean(), cv_scores.std())
         except Exception as e:
@@ -236,6 +243,7 @@ class SubjectRiskModelTrainer:
             "features": self.FEATURES,
             "feature_importances": model.feature_importances_.tolist(),
             "model_type": "subject_risk",
+            "training_params": params.__dict__,
         }
 
         target_path = model_path or SUBJECT_MODEL_PATH

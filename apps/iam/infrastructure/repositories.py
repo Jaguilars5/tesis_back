@@ -23,6 +23,13 @@ class UserRepository(BaseRepository, UserRepositoryInterface):
             return None
 
     @classmethod
+    def get_by_username_or_email(cls, identifier):
+        return cls.model.objects.filter(
+            Q(username__iexact=identifier) | Q(person__email__iexact=identifier),
+            is_active=True,
+        ).first()
+
+    @classmethod
     def get_by_email(cls, email):
         try:
             return cls.model.objects.get(person__email=email)

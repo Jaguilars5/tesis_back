@@ -16,8 +16,12 @@ RISK_SCORE_ACTION_PERMISSIONS = {
     "calculate": analytics.CREATE_STUDENT_RISK_FACTOR,
     "batch_calculate": analytics.CREATE_STUDENT_RISK_FACTOR,
     "simulate": analytics.VIEW_RISK_SCORE,
+    "simulate_subject": analytics.VIEW_RISK_SCORE,
+    "simulate_annual": analytics.VIEW_RISK_SCORE,
+    "simulate_dropout": analytics.VIEW_RISK_SCORE,
     "predict_subject_risk": analytics.VIEW_RISK_SCORE,
     "predict_annual_risk": analytics.VIEW_RISK_SCORE,
+    "predict_dropout_risk": analytics.VIEW_RISK_SCORE,
 }
 
 # RiskFactor ViewSet (readonly)
@@ -43,4 +47,5 @@ SCORING_CONFIG_ACTION_PERMISSIONS = {
     "list": analytics.VIEW_SCORING_CONFIG,
     "update_config": analytics.UPDATE_SCORING_CONFIG,
     "apply_preset": analytics.UPDATE_SCORING_CONFIG,
+    "train_model": analytics.UPDATE_SCORING_CONFIG,
 }

@@ -51,15 +51,18 @@ INERT_FIELDS_6_5 = [
 
 # Modelos falsos a nivel de módulo para que joblib.dump pueda picklearlos.
 class FakeProbaModel:
-    """Imita un GradientBoostingClassifier con predict_proba y feature_names_in_."""
+    """Imita un clasificador multiclase institucional con predict_proba."""
 
-    def __init__(self, columns, classes=("verde", "amarillo", "rojo"), probs=(0.1, 0.2, 0.7)):
+    def __init__(self, columns, classes=(0, 1, 2), probs=(0.1, 0.2, 0.7)):
         self.feature_names_in_ = list(columns)
         self.classes_ = list(classes)
         self._probs = list(probs)
 
     def predict_proba(self, X):
         return [self._probs]
+
+    def predict(self, X):
+        return [self.classes_[self._probs.index(max(self._probs))]]
 
 
 def _sample_snapshot():
@@ -191,12 +194,21 @@ class Phase1PredictionTest(SimpleTestCase):
             except OSError:
                 pass
 
-    def _dump_model(self, model):
+    def _dump_model(self, model, *, model_type="general_institutional_risk"):
         import joblib
 
         fd, path = tempfile.mkstemp(suffix=".joblib")
         os.close(fd)
-        joblib.dump(model, path)
+        joblib.dump(
+            {
+                "model": model,
+                "features": list(getattr(model, "feature_names_in_", FEATURE_COLUMNS)),
+                "feature_importances": [1 / len(FEATURE_COLUMNS)] * len(FEATURE_COLUMNS),
+                "model_type": model_type,
+                "score_class_centers": {0: 20.0, 1: 55.0, 2: 85.0},
+            },
+            path,
+        )
         self._tmp_files.append(path)
         from pathlib import Path
 
@@ -212,8 +224,8 @@ class Phase1PredictionTest(SimpleTestCase):
         with patch.object(risk_engine, "MODEL_PATH", model_path):
             score = tasks._predict_ml_score(_sample_snapshot())
         self.assertIsNotNone(score, "Con columnas coincidentes NO debe caer a fallback")
-        # classes ("verde","amarillo","rojo") y probs (...,0.7) -> rojo*100 = 70
-        self.assertAlmostEqual(score, 70.0, places=2)
+        # 0.1*20 + 0.2*55 + 0.7*85 = 72.5, dentro del rango rojo.
+        self.assertAlmostEqual(score, 72.5, places=2)
 
     @unittest.skipUnless(HAS_JOBLIB, "joblib no instalado en este entorno")
     def test_column_mismatch_falls_back_intentionally(self):
@@ -260,7 +272,7 @@ class Phase1PredictionTest(SimpleTestCase):
                     "has_special_needs": 0.0,
                 }
             )
-            labels.append("rojo" if high_risk else "verde")
+            labels.append(2 if high_risk else 0)
 
         df = pd.DataFrame(rows, columns=FEATURE_COLUMNS)
         model = GradientBoostingClassifier(random_state=42).fit(df, labels)

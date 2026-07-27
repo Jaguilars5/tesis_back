@@ -7,7 +7,7 @@ Pobla la base de datos con datos realistas multianuales (2022-2027) para
 
 Características:
   • Años lectivos 2022-2023 a 2025-2026 (históricos) y 2026-2027 (activo)
-  • Clases, asistencia y entregas solo hasta el 09-jul-2026
+  • Clases, asistencia y entregas solo hasta el 15-jul-2026
   • 10 asignaturas del currículo BGU, 20 docentes titulares
   • 20 estudiantes por paralelo (60 por curso, 180 por año lectivo)
   • Cada estudiante tiene exactamente un representante primario
@@ -38,7 +38,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core.management import call_command
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 from apps.academic.academic_period import AcademicPeriod
 from apps.academic.class_schedule import ClassSchedule
@@ -95,8 +95,8 @@ SCHOOL_YEAR = {
     "is_active":  True,
 }
 
-# Último día con clases / asistencia / entregas (hoy = 09-jul-2026)
-ACTIVE_YEAR_INSTRUCTIONAL_END = date(2026, 7, 9)
+# Último día con clases / asistencia / entregas (hoy = 15-jul-2026)
+ACTIVE_YEAR_INSTRUCTIONAL_END = date(2026, 7, 15)
 
 
 def _instructional_end_date(period) -> date:
@@ -706,8 +706,83 @@ def _build_schedule():
 SCHEDULE_SLOTS = _build_schedule()
 
 
-def _get_swapped_times(start_time, end_time):
-    """Rotación de bloques para 2do y 3ro (distintos horarios que 1ro)."""
+def _build_second_grade_schedule():
+    """Horario propio de 2do BGU sin cruces con docentes compartidos de 1ro."""
+    block_times = {
+        1: (_t(7, 0), _t(7, 40)),
+        2: (_t(7, 40), _t(8, 20)),
+        3: (_t(8, 20), _t(9, 0)),
+        4: (_t(9, 0), _t(9, 40)),
+        5: (_t(9, 55), _t(10, 35)),
+        6: (_t(10, 35), _t(11, 15)),
+        7: (_t(11, 15), _t(11, 55)),
+    }
+    weekly = {
+        1: [
+            ("ING", "BIO", "LEN"),
+            ("QUI", "ING", "FIL"),
+            ("MAT", "FIS", "ING"),
+            ("BIO", "MAT", "FIS"),
+            ("FIS", "EDU_FIS", "MAT"),
+            ("FIL", "LEN", "EDU_FIS"),
+            (None, "QUI", "BIO"),
+        ],
+        2: [
+            ("ING", "SOC", "LEN"),
+            ("LEN", "ING", "FIL"),
+            ("EDU_ART", "FIS", "ING"),
+            ("QUI", "MAT", "FIS"),
+            ("FIS", "EDU_FIS", "MAT"),
+            ("FIL", "LEN", None),
+            (None, "QUI", "BIO"),
+        ],
+        3: [
+            ("LEN", "MAT", "FIS"),
+            ("ING", "SOC", "LEN"),
+            ("FIS", "ING", "SOC"),
+            ("BIO", "FIS", "QUI"),
+            ("MAT", "FIL", "EDU_ART"),
+            ("SOC", "EDU_ART", "ING"),
+            ("EDU_FIS", None, None),
+        ],
+        4: [
+            ("ING", "SOC", "QUI"),
+            ("LEN", "BIO", "MAT"),
+            ("SOC", "LEN", "FIS"),
+            ("FIS", "ING", "SOC"),
+            ("MAT", "EDU_ART", "BIO"),
+            ("BIO", "FIS", None),
+            ("EDU_FIS", None, "ING"),
+        ],
+        5: [
+            ("QUI", "BIO", "MAT"),
+            ("EDU_ART", "MAT", "QUI"),
+            ("MAT", "LEN", "EDU_ART"),
+            ("ING", "FIL", "EDU_FIS"),
+            ("LEN", "ING", "SOC"),
+            ("SOC", "QUI", "ING"),
+            (None, None, "LEN"),
+        ],
+    }
+
+    slots = []
+    for day, rows in weekly.items():
+        for block_num, (a_subj, b_subj, c_subj) in enumerate(rows, start=1):
+            start, end = block_times[block_num]
+            if a_subj:
+                slots.append((a_subj, "A", day, start, end))
+            if b_subj:
+                slots.append((b_subj, "B", day, start, end))
+            if c_subj:
+                slots.append((c_subj, "C", day, start, end))
+    return slots
+
+
+SCHEDULE_SLOTS_2DO = _build_second_grade_schedule()
+
+
+def _get_third_grade_times(start_time, end_time):
+    """Rotación de bloques para 3ro (docentes distintos a 1ro/2do)."""
     # Morning blocks (1-4): 7:00-9:40
     if start_time == _t(7, 0): return _t(8, 20), _t(9, 0)
     if start_time == _t(7, 40): return _t(9, 0), _t(9, 40)
@@ -1301,11 +1376,11 @@ class Command(BaseCommand):
 
             count_schedules = 0
             for (scode, parallel, day, start, end) in SCHEDULE_SLOTS:
-                for grade_code in ("BGU_1RO", "BGU_2DO", "BGU_3RO"):
+                for grade_code in ("BGU_1RO", "BGU_3RO"):
                     if grade_code == "BGU_1RO":
                         actual_start, actual_end = start, end
                     else:
-                        actual_start, actual_end = _get_swapped_times(start, end)
+                        actual_start, actual_end = _get_third_grade_times(start, end)
                     tss = teacher_map.get((grade_code, scode, parallel))
                     if tss:
                         cs, created = ClassSchedule.objects.get_or_create(
@@ -1319,6 +1394,37 @@ class Command(BaseCommand):
                             cs.end_time = actual_end
                             cs.save()
                         count_schedules += 1
+            second_grade_tss = [
+                tss
+                for (grade_code, _scode, _parallel), tss in teacher_map.items()
+                if grade_code == "BGU_2DO"
+            ]
+            if second_grade_tss:
+                ClassSchedule.objects.filter(
+                    teacher_subject_section__in=second_grade_tss
+                ).update(is_active=False)
+                for scode, parallel, day, start, end in SCHEDULE_SLOTS_2DO:
+                    tss = teacher_map.get(("BGU_2DO", scode, parallel))
+                    if not tss:
+                        continue
+                    cs, created = ClassSchedule.objects.get_or_create(
+                        teacher_subject_section=tss,
+                        day_of_week=day,
+                        start_time=start,
+                        defaults={"end_time": end, "is_active": year_is_active},
+                    )
+                    updates = {}
+                    if cs.end_time != end:
+                        updates["end_time"] = end
+                    if cs.is_active != year_is_active:
+                        updates["is_active"] = year_is_active
+                    if updates:
+                        for field, value in updates.items():
+                            setattr(cs, field, value)
+                        cs.save(update_fields=list(updates.keys()))
+                    count_schedules += 1
+
+            self._validate_schedule_conflicts(school_year)
             self.stdout.write(f"  [OK] Horarios creados para el año: {count_schedules}")
 
             STUDENTS_PER_GRADE = 60
@@ -1544,6 +1650,48 @@ class Command(BaseCommand):
             admin_users, doc_users, rep_users, est_users,
             credentials_file=options.get("credentials_file"),
         )
+
+    def _validate_schedule_conflicts(self, school_year):
+        schedules = (
+            ClassSchedule.objects.filter(
+                is_active=True,
+                teacher_subject_section__subject_offering__section__school_year=school_year,
+            )
+            .select_related(
+                "teacher_subject_section__user__person",
+                "teacher_subject_section__subject_offering__section__academic_grade",
+                "teacher_subject_section__subject_offering__subject_academic_config__subject",
+            )
+            .order_by("day_of_week", "start_time")
+        )
+        teacher_slots = defaultdict(list)
+        section_slots = defaultdict(list)
+        for schedule in schedules:
+            tss = schedule.teacher_subject_section
+            slot = (schedule.day_of_week, schedule.start_time, schedule.end_time)
+            teacher_slots[(tss.user_id, *slot)].append(schedule)
+            section_slots[(tss.subject_offering.section_id, *slot)].append(schedule)
+
+        conflicts = []
+        for grouped in (teacher_slots, section_slots):
+            for records in grouped.values():
+                if len(records) > 1:
+                    conflicts.append(records)
+
+        if conflicts:
+            examples = []
+            for records in conflicts[:5]:
+                examples.append(
+                    " | ".join(
+                        f"{r.teacher_subject_section.user.username}: "
+                        f"{r.subject_name} - {r.section_name} "
+                        f"d{r.day_of_week} {r.start_time}-{r.end_time}"
+                        for r in records
+                    )
+                )
+            raise CommandError(
+                "La seed genero horarios con cruces:\n" + "\n".join(examples)
+            )
 
     def _seed_catalogs(self):
         self.stdout.write("  -> Sembrando catálogos base...")
@@ -1815,7 +1963,7 @@ class Command(BaseCommand):
         status_J = AttendanceStatus.objects.get(code="J")
         status_A = AttendanceStatus.objects.get(code="A")
 
-        schedules = ClassSchedule.objects.select_related("teacher_subject_section").all()
+        schedules = ClassSchedule.objects.select_related("teacher_subject_section").filter(is_active=True)
         attendance_to_create = []
 
         for period in periods:

@@ -1,11 +1,13 @@
 from datetime import date, timedelta
 from decimal import Decimal
 from dataclasses import replace
+from types import SimpleNamespace
 from unittest.mock import patch
 
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 
 from apps.analytics.services.risk_scoring_config_service import DEFAULT_CONFIG
+from apps.analytics.ml.train_model import RiskModelTrainer
 from apps.analytics.student_risk.domain.risk_engine import calculate_risk
 
 from apps.institutions.models import Section
@@ -37,6 +39,36 @@ from apps.attendance.attendance_status import AttendanceStatus
 from apps.behavior.incident_type import IncidentType
 from apps.institutions.models import AcademicLevel, AcademicGrade, AcademicSublevel, SchoolYear
 from apps.students.models import Enrollment, Student
+
+
+class InstitutionalRiskTargetTest(SimpleTestCase):
+    def test_healthy_profile_rules_target_is_green(self):
+        snapshot = SimpleNamespace(
+            attendance_rate=Decimal("96.19"),
+            consecutive_absences_max=1,
+            tardiness_count=8,
+            justified_absences=2,
+            unjustified_absences=3,
+            formative_avg_normalized=Decimal("7.75"),
+            summative_avg_normalized=Decimal("7.75"),
+            grade_trend_slope=Decimal("0.04"),
+            failing_subjects_count=0,
+            conduct_score=Decimal("10.00"),
+            severe_incidents_count=0,
+            family_notified_ratio=Decimal("0.00"),
+            prev_period_avg_grade=None,
+            age_grade_gap=0,
+            is_repeat=False,
+            has_special_needs=False,
+        )
+
+        target, score, label = RiskModelTrainer._get_rules_target(
+            snapshot, DEFAULT_CONFIG
+        )
+
+        self.assertEqual(label, "verde")
+        self.assertEqual(target, 0)
+        self.assertLess(score, 40)
 
 
 class AcademicRiskModelTest(TestCase):
@@ -275,16 +307,29 @@ class AcademicRiskModelTest(TestCase):
         self.assertEqual(result["semaforo_riesgo"]["nivel"], "verde")
 
     @patch("apps.analytics.student_risk.domain.risk_engine._predict_ml_score", return_value=98.0)
-    def test_semaphore_level_follows_ml_score_not_rule_band(self, _mocked_ml):
-        """Puntaje ML alto debe clasificar en rojo aunque las reglas digan amarillo."""
+    def test_ml_score_is_aligned_to_rules_band(self, _mocked_ml):
+        """El ML general no debe publicar un semaforo distinto al institucional."""
         config = replace(DEFAULT_CONFIG, engine="ML")
         snapshot = self._base_snapshot()
         snapshot["variables"]["asistencia"]["porcentaje_asistencia"] = 80.0
 
         result = calculate_risk(snapshot, config=config)
 
-        self.assertEqual(result["semaforo_riesgo"]["puntaje_riesgo"], 98.0)
-        self.assertEqual(result["semaforo_riesgo"]["nivel"], "rojo")
+        self.assertEqual(result["semaforo_riesgo"]["puntaje_riesgo"], 69.99)
+        self.assertEqual(result["semaforo_riesgo"]["nivel"], "amarillo")
+
+    @patch("apps.analytics.student_risk.domain.risk_engine._predict_ml_score", return_value=92.0)
+    def test_low_risk_profile_ml_cannot_jump_to_red(self, _mocked_ml):
+        config = replace(DEFAULT_CONFIG, engine="ML")
+        snapshot = self._base_snapshot()
+        snapshot["variables"]["asistencia"]["porcentaje_asistencia"] = 95.0
+        snapshot["variables"]["calificaciones"]["promedio_actual"] = 8.5
+        snapshot["variables"]["conducta"]["faltas_leves"] = 1
+
+        result = calculate_risk(snapshot, config=config)
+
+        self.assertEqual(result["semaforo_riesgo"]["puntaje_riesgo"], 39.99)
+        self.assertEqual(result["semaforo_riesgo"]["nivel"], "verde")
 
     @patch("apps.analytics.tasks._predict_ml_score", return_value=None)
     def test_task_returns_json_and_persists_fallback_result(self, mocked_predict):
@@ -332,8 +377,8 @@ class SimulateRiskEnginesTest(TestCase):
         self.assertIn("rules-fallback", result["reglas"]["model_version"])
         self.assertEqual(result["reglas"]["motor"], "reglas")
         self.assertLess(result["reglas"]["semaforo_riesgo"]["puntaje_riesgo"], 90)
-        self.assertEqual(result["ml"]["puntaje_riesgo"], 92.0)
-        self.assertEqual(result["produccion"]["semaforo_riesgo"]["puntaje_riesgo"], 92.0)
+        self.assertEqual(result["ml"]["puntaje_riesgo"], 69.99)
+        self.assertEqual(result["produccion"]["semaforo_riesgo"]["puntaje_riesgo"], 69.99)
         self.assertEqual(result["produccion"]["motor"], "ML")
 
 
@@ -364,6 +409,6 @@ class SimulateRiskEnginesTest(TestCase):
 
       self.assertIn("rules-fallback", result["reglas"]["model_version"])
       self.assertLess(result["reglas"]["semaforo_riesgo"]["puntaje_riesgo"], 90)
-      self.assertEqual(result["ml"]["puntaje_riesgo"], 92.0)
-      self.assertEqual(result["produccion"]["semaforo_riesgo"]["puntaje_riesgo"], 92.0)
+      self.assertEqual(result["ml"]["puntaje_riesgo"], 69.99)
+      self.assertEqual(result["produccion"]["semaforo_riesgo"]["puntaje_riesgo"], 69.99)
       self.assertEqual(result["produccion"]["motor"], "ML")

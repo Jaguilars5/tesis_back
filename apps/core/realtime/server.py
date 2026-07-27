@@ -21,11 +21,17 @@ from apps.iam.models import User
 
 logger = logging.getLogger(__name__)
 
+socketio_cors_allowed_origins = getattr(
+    settings,
+    "SOCKETIO_CORS_ALLOWED_ORIGINS",
+    list(settings.CORS_ALLOWED_ORIGINS),
+)
+
 sio = socketio.AsyncServer(
     async_mode="asgi",
     # Reutiliza los mismos orígenes permitidos que Django (definidos en .env)
     # para que el CORS de Socket.IO no se desincronice del de la API REST.
-    cors_allowed_origins=list(settings.CORS_ALLOWED_ORIGINS),
+    cors_allowed_origins=socketio_cors_allowed_origins,
     client_manager=AsyncRedisManager(settings.SOCKETIO_REDIS_URL),
     # Mantiene la conexión WebSocket activa para evitar que daphne
     # cierre el socket por inactividad (timeout ~30s por defecto).

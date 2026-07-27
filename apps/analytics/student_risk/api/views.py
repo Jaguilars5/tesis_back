@@ -4,6 +4,9 @@ ViewSets de API para riesgo estudiantil.
 Usa BaseAnalyticsViewSet para respuestas estandarizadas.
 """
 
+from io import StringIO
+
+from django.core.management import call_command
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -26,10 +29,14 @@ from ..application.serializers import (
     ApplyPresetSerializer,
     RiskFactorSerializer,
     RiskScoringConfigSerializer,
+    SimulateAnnualRiskInputSerializer,
+    SimulateDropoutRiskInputSerializer,
     SimulateRiskInputSerializer,
+    SimulateSubjectRiskInputSerializer,
     StudentFeatureSnapshotSerializer,
     StudentRiskFactorSerializer,
     StudentRiskScoreSerializer,
+    TrainRiskModelSerializer,
 )
 from ..infrastructure.repositories import (
     RiskFactorRepository,
@@ -281,6 +288,42 @@ class StudentRiskScoreViewSet(BaseAnalyticsViewSet):
             }
         )
 
+    @action(detail=False, methods=["post"])
+    def simulate_subject(self, request):
+        """Simula riesgo por materia con parametros manuales, sin persistir."""
+        serializer = SimulateSubjectRiskInputSerializer(data=request.data)
+        if not serializer.is_valid():
+            raise DRFValidationError(serializer.errors)
+
+        result = StudentRiskCalculationService.simulate_subject(
+            serializer.validated_data
+        )
+        return ok_response(result)
+
+    @action(detail=False, methods=["post"])
+    def simulate_annual(self, request):
+        """Simula riesgo anual con parametros manuales, sin persistir."""
+        serializer = SimulateAnnualRiskInputSerializer(data=request.data)
+        if not serializer.is_valid():
+            raise DRFValidationError(serializer.errors)
+
+        result = StudentRiskCalculationService.simulate_annual(
+            serializer.validated_data
+        )
+        return ok_response(result)
+
+    @action(detail=False, methods=["post"])
+    def simulate_dropout(self, request):
+        """Simula riesgo de desercion con parametros manuales, sin persistir."""
+        serializer = SimulateDropoutRiskInputSerializer(data=request.data)
+        if not serializer.is_valid():
+            raise DRFValidationError(serializer.errors)
+
+        result = StudentRiskCalculationService.simulate_dropout(
+            serializer.validated_data
+        )
+        return ok_response(result)
+
     @extend_schema(
         summary="Predecir riesgo por materia",
         description="Usa el modelo ML por materia para predecir si una materia especifica se ira a rojo",
@@ -385,6 +428,55 @@ class StudentRiskScoreViewSet(BaseAnalyticsViewSet):
 
         return ok_response(result)
 
+    @extend_schema(
+        summary="Predecir riesgo de desercion",
+        description="Usa el modelo ML de desercion para estimar abandono/no continuidad",
+        tags=["analytics"],
+        request={
+            "application/json": {
+                "type": "object",
+                "properties": {
+                    "enrollment_id": {"type": "integer"},
+                    "academic_period_id": {"type": "integer"},
+                },
+                "required": ["enrollment_id", "academic_period_id"],
+            }
+        },
+        responses={200: {"type": "object"}},
+    )
+    @action(detail=False, methods=["post"])
+    def predict_dropout_risk(self, request):
+        enrollment_id = request.data.get("enrollment_id")
+        academic_period_id = request.data.get("academic_period_id")
+
+        if not all([enrollment_id, academic_period_id]):
+            return error_response(
+                "enrollment_id y academic_period_id son requeridos",
+                status_code=400,
+            )
+
+        try:
+            enrollment_id = int(enrollment_id)
+            academic_period_id = int(academic_period_id)
+        except (TypeError, ValueError):
+            return error_response("Parametros invalidos", status_code=400)
+
+        from apps.analytics.ml.dropout_model import DropoutRiskModelTrainer
+
+        result = DropoutRiskModelTrainer.predict(enrollment_id, academic_period_id)
+
+        if result is None:
+            return ok_response(
+                {
+                    "probability": None,
+                    "risk_level": "desconocido",
+                    "error": "No hay snapshot o modelo no entrenado",
+                },
+                msg="No se pudo calcular riesgo de desercion",
+            )
+
+        return ok_response(result)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # RiskScoringConfig ViewSet
@@ -468,6 +560,48 @@ class RiskScoringConfigViewSet(BaseAnalyticsViewSet):
             )
         except ValueError as exc:
             _raise_validation_error(exc)
+
+    @action(detail=False, methods=["post"])
+    def train_model(self, request):
+        """
+        Ejecuta el comando de entrenamiento configurado en el backend.
+
+        POST /api/analytics/scoring-config/train_model/
+        Body: {"model_type": "general" | "subject" | "annual"}
+        """
+        serializer = TrainRiskModelSerializer(data=request.data)
+        if not serializer.is_valid():
+            raise DRFValidationError(serializer.errors)
+
+        model_type = serializer.validated_data["model_type"]
+        training_params = serializer.get_training_params()
+        stdout = StringIO()
+        stderr = StringIO()
+        command_kwargs = {"stdout": stdout, "stderr": stderr}
+        if model_type == "subject":
+            command_kwargs["subject_model"] = True
+        elif model_type == "annual":
+            command_kwargs["annual_model"] = True
+        elif model_type == "dropout":
+            command_kwargs["dropout_model"] = True
+        command_kwargs.update(training_params)
+
+        try:
+            call_command("train_risk_model", **command_kwargs)
+        except Exception as exc:
+            return error_response(str(exc), status_code=400)
+
+        return ok_response(
+            {
+                "model_type": model_type,
+                "command": "python manage.py train_risk_model",
+                "preset": serializer.validated_data["preset"],
+                "training_params": training_params,
+                "output": stdout.getvalue().strip(),
+                "error_output": stderr.getvalue().strip(),
+            },
+            msg="Entrenamiento del modelo finalizado",
+        )
 
     @action(detail=False, methods=["post"])
     def apply_preset(self, request):

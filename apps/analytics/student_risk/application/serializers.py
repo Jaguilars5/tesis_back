@@ -393,7 +393,119 @@ class SimulateRiskInputSerializer(serializers.Serializer):
     try_ml = serializers.BooleanField(default=True)
 
 
+class SimulateSubjectRiskInputSerializer(serializers.Serializer):
+    subject_code = serializers.CharField(default="MAT", max_length=20)
+    grade_in_subject = serializers.FloatField(min_value=0, max_value=10)
+    grade_trend_in_subject = serializers.FloatField(default=0)
+    attendance_in_subject = serializers.FloatField(min_value=0, max_value=100)
+    formative_avg_in_subject = serializers.FloatField(min_value=0, max_value=10)
+    summative_avg_in_subject = serializers.FloatField(min_value=0, max_value=10)
+    prev_period_grade_in_subject = serializers.FloatField(
+        min_value=0, max_value=10, default=0
+    )
+    attendance_rate = serializers.FloatField(min_value=0, max_value=100)
+    consecutive_absences_max = serializers.IntegerField(min_value=0, default=0)
+    tardiness_count = serializers.IntegerField(min_value=0, default=0)
+    conduct_score = serializers.FloatField(min_value=0, max_value=10, default=10)
+    severe_incidents_count = serializers.IntegerField(min_value=0, default=0)
+    age_grade_gap = serializers.IntegerField(min_value=0, default=0)
+    is_repeat = serializers.BooleanField(default=False)
+    has_special_needs = serializers.BooleanField(default=False)
+
+
+class SimulateAnnualRiskInputSerializer(serializers.Serializer):
+    period_index = serializers.IntegerField(min_value=1, max_value=10, default=1)
+    attendance_rate = serializers.FloatField(min_value=0, max_value=100)
+    consecutive_absences_max = serializers.IntegerField(min_value=0, default=0)
+    tardiness_count = serializers.IntegerField(min_value=0, default=0)
+    justified_absences = serializers.IntegerField(min_value=0, default=0)
+    unjustified_absences = serializers.IntegerField(min_value=0, default=0)
+    formative_avg_normalized = serializers.FloatField(min_value=0, max_value=10)
+    summative_avg_normalized = serializers.FloatField(min_value=0, max_value=10)
+    grade_trend_slope = serializers.FloatField(default=0)
+    failing_subjects_count = serializers.IntegerField(min_value=0, default=0)
+    conduct_score = serializers.FloatField(min_value=0, max_value=10, default=10)
+    severe_incidents_count = serializers.IntegerField(min_value=0, default=0)
+    family_notified_ratio = serializers.FloatField(min_value=0, max_value=1, default=0)
+    prev_period_avg_grade = serializers.FloatField(min_value=0, max_value=10, default=0)
+    age_grade_gap = serializers.IntegerField(min_value=0, default=0)
+    is_repeat = serializers.BooleanField(default=False)
+    has_special_needs = serializers.BooleanField(default=False)
+
+
+class SimulateDropoutRiskInputSerializer(SimulateAnnualRiskInputSerializer):
+    pass
+
+
 class ApplyPresetSerializer(serializers.Serializer):
     """Serializer para aplicar un preset de configuración."""
 
     preset = serializers.ChoiceField(choices=ScoringPresetChoices.choices)
+
+
+class TrainRiskModelSerializer(serializers.Serializer):
+    """Serializer para solicitar entrenamiento de modelos de riesgo."""
+
+    TRAINING_PRESETS = {
+        "balanced": {
+            "n_estimators": 200,
+            "max_depth": 12,
+            "min_samples_leaf": 5,
+            "class_weight": "balanced",
+            "cv_splits": 5,
+            "random_state": 42,
+        },
+        "fast": {
+            "n_estimators": 100,
+            "max_depth": 8,
+            "min_samples_leaf": 8,
+            "class_weight": "balanced",
+            "cv_splits": 3,
+            "random_state": 42,
+        },
+        "robust": {
+            "n_estimators": 400,
+            "max_depth": 16,
+            "min_samples_leaf": 3,
+            "class_weight": "balanced",
+            "cv_splits": 5,
+            "random_state": 42,
+        },
+    }
+
+    model_type = serializers.ChoiceField(
+        choices=[
+            ("general", "General"),
+            ("subject", "Por materia"),
+            ("annual", "Anual"),
+            ("dropout", "Desercion"),
+        ],
+        default="general",
+    )
+    preset = serializers.ChoiceField(
+        choices=[("balanced", "Balanceado"), ("fast", "Rapido"), ("robust", "Robusto")],
+        default="balanced",
+    )
+    n_estimators = serializers.IntegerField(min_value=50, max_value=1000, required=False)
+    max_depth = serializers.IntegerField(min_value=3, max_value=40, required=False)
+    min_samples_leaf = serializers.IntegerField(min_value=1, max_value=50, required=False)
+    class_weight = serializers.ChoiceField(
+        choices=[("balanced", "Balanceado"), ("none", "Sin balanceo")],
+        required=False,
+    )
+    cv_splits = serializers.IntegerField(min_value=2, max_value=10, required=False)
+    random_state = serializers.IntegerField(min_value=0, max_value=999999, required=False)
+
+    def get_training_params(self):
+        params = dict(self.TRAINING_PRESETS[self.validated_data["preset"]])
+        for field in (
+            "n_estimators",
+            "max_depth",
+            "min_samples_leaf",
+            "class_weight",
+            "cv_splits",
+            "random_state",
+        ):
+            if field in self.validated_data:
+                params[field] = self.validated_data[field]
+        return params

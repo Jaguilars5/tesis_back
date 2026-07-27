@@ -114,7 +114,7 @@ class StudentRiskCalculationService:
 
         Retorna:
           - ``reglas``: score heurístico (siempre motor de reglas).
-          - ``ml``: probabilidad estimada de reprobar (regresión logística).
+          - ``ml``: riesgo academico general estimado por el modelo institucional.
           - ``produccion``: resultado con el motor seleccionado en config.
           - ``config_simulacion``: pesos/umbrales usados en la simulación.
           - ``config_institucional``: configuración persistida en BD.
@@ -124,7 +124,12 @@ class StudentRiskCalculationService:
         from apps.analytics.services.risk_scoring_config_service import (
             RiskScoringConfigService,
         )
-        from .risk_engine import calculate_risk, _predict_ml_score, score_to_risk_label
+        from .risk_engine import (
+            calculate_risk,
+            _align_ml_score_to_rule_band,
+            _predict_ml_score,
+            score_to_risk_label,
+        )
 
         variables = {
             "conducta": {
@@ -192,11 +197,19 @@ class StudentRiskCalculationService:
             try:
                 ml_score = _predict_ml_score(snapshot, metrics)
                 if ml_score is not None:
-                    puntaje = round(float(ml_score), 2)
+                    puntaje = round(
+                        float(
+                            _align_ml_score_to_rule_band(
+                                ml_score,
+                                rules_result["semaforo_riesgo"]["nivel"],
+                            )
+                        ),
+                        2,
+                    )
                     ml_result = {
                         "puntaje_riesgo": puntaje,
                         "nivel": score_to_risk_label(puntaje),
-                        "model_version": "sklearn-joblib-v2",
+                        "model_version": "sklearn-joblib-v3-institutional",
                     }
                 else:
                     ml_result = {
@@ -239,6 +252,142 @@ class StudentRiskCalculationService:
             "config_institucional": cls._effective_config_to_api_dict(
                 institucional, inst_preset
             ),
+        }
+
+    @classmethod
+    def simulate_subject(cls, params: Dict[str, Any]) -> Dict[str, Any]:
+        from apps.analytics.ml.subject_features import (
+            SUBJECT_CODE_MAP,
+            SUBJECT_MODEL_PATH,
+            TRAIN_SUBJECT_FEATURES,
+            _to_number,
+        )
+        from apps.analytics.ml.subject_model import SUBJECT_FEATURE_LABELS
+
+        raw = {
+            **params,
+            "subject_code_idx": SUBJECT_CODE_MAP.get(
+                str(params.get("subject_code", "MAT")).upper(), 0
+            ),
+        }
+        return cls._simulate_probability_model(
+            model_path=SUBJECT_MODEL_PATH,
+            expected_model_type="subject_risk",
+            default_features=TRAIN_SUBJECT_FEATURES,
+            raw=raw,
+            labels=SUBJECT_FEATURE_LABELS,
+            unavailable_message="Modelo por materia no entrenado",
+            to_number=_to_number,
+        )
+
+    @classmethod
+    def simulate_annual(cls, params: Dict[str, Any]) -> Dict[str, Any]:
+        from apps.analytics.ml.annual_features import (
+            ANNUAL_MODEL_PATH,
+            TRAIN_ANNUAL_FEATURES,
+            _to_number,
+        )
+        from apps.analytics.ml.annual_model import ANNUAL_FEATURE_LABELS
+
+        return cls._simulate_probability_model(
+            model_path=ANNUAL_MODEL_PATH,
+            expected_model_type="annual_risk",
+            default_features=TRAIN_ANNUAL_FEATURES,
+            raw=params,
+            labels=ANNUAL_FEATURE_LABELS,
+            unavailable_message="Modelo anual no entrenado",
+            to_number=_to_number,
+        )
+
+    @classmethod
+    def simulate_dropout(cls, params: Dict[str, Any]) -> Dict[str, Any]:
+        from apps.analytics.ml.dropout_features import (
+            DROPOUT_FEATURE_LABELS,
+            DROPOUT_MODEL_PATH,
+            TRAIN_DROPOUT_FEATURES,
+            _to_number,
+        )
+
+        return cls._simulate_probability_model(
+            model_path=DROPOUT_MODEL_PATH,
+            expected_model_type="dropout_risk",
+            default_features=TRAIN_DROPOUT_FEATURES,
+            raw=params,
+            labels=DROPOUT_FEATURE_LABELS,
+            unavailable_message="Modelo de desercion no entrenado",
+            to_number=_to_number,
+        )
+
+    @staticmethod
+    def _simulate_probability_model(
+        *,
+        model_path,
+        expected_model_type: str,
+        default_features: list[str],
+        raw: Dict[str, Any],
+        labels: Dict[str, str],
+        unavailable_message: str,
+        to_number,
+    ) -> Dict[str, Any]:
+        import joblib
+
+        if not model_path.exists():
+            return {"error": unavailable_message}
+
+        try:
+            artifact = joblib.load(model_path)
+        except Exception:
+            return {"error": "No se pudo cargar el artefacto del modelo"}
+
+        if artifact.get("model_type") != expected_model_type:
+            return {"error": "Artefacto incompatible. Reentrene este modelo."}
+
+        model = artifact["model"]
+        features = artifact.get("features", default_features)
+        feature_dict = {col: to_number(raw.get(col, 0)) for col in features}
+        row = [feature_dict[col] for col in features]
+
+        try:
+            try:
+                import pandas as pd
+
+                X = pd.DataFrame([feature_dict], columns=features)
+            except ModuleNotFoundError:
+                X = [row]
+
+            proba = model.predict_proba(X)[0]
+            classes = list(getattr(model, "classes_", [0, 1]))
+            pos_idx = classes.index(1) if 1 in classes else len(classes) - 1
+            probability = round(float(proba[pos_idx]) * 100, 2)
+        except Exception:
+            return {"error": "Error al ejecutar el modelo"}
+
+        if probability < 30:
+            level = "bajo"
+        elif probability < 60:
+            level = "medio"
+        else:
+            level = "alto"
+
+        importances = artifact.get("feature_importances", [])
+        factors = [
+            {
+                "feature": features[i],
+                "label": labels.get(features[i], features[i]),
+                "importance": round(float(importances[i]), 4)
+                if i < len(importances)
+                else 0,
+                "value": float(feature_dict.get(features[i], 0)),
+            }
+            for i in range(len(features))
+        ]
+        factors.sort(key=lambda item: item["importance"], reverse=True)
+
+        return {
+            "probability": probability,
+            "risk_level": level,
+            "model_type": expected_model_type,
+            "factors": [factor for factor in factors if factor["importance"] > 0][:5],
         }
 
     @staticmethod

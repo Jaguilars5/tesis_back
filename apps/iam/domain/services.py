@@ -54,6 +54,10 @@ class UserService:
         return cls.repository.get_by_username(username)
 
     @classmethod
+    def get_user_for_password_reset(cls, identifier):
+        return cls.repository.get_by_username_or_email(identifier)
+
+    @classmethod
     def list_users(cls):
         return cls.repository.get_all_active()
 
