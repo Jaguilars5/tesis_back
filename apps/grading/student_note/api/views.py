@@ -55,7 +55,7 @@ class StudentNoteViewSet(BaseGradingViewSet):
     ordering = ["-id"]
 
     def get_queryset(self):
-        qs = StudentNoteRepository.get_all().select_related(
+        qs = StudentNoteRepository.get_all(active_only=False).select_related(
             "evaluative_activity__activity_type",
             "evaluative_activity__teacher_subject_section__subject_offering__subject_academic_config__subject",
             "evaluative_activity__teacher_subject_section__subject_offering__section",
@@ -339,7 +339,7 @@ class PeriodGradeSummaryViewSet(BaseGradingViewSet):
     ordering = ["-id"]
 
     def get_queryset(self):
-        qs = PeriodGradeSummaryRepository.get_all()
+        qs = PeriodGradeSummaryRepository.get_all(active_only=False)
         return scope_student_to_enrollment(self.request, qs)
 
     def perform_create(self, serializer):
@@ -463,7 +463,7 @@ class AnnualGradeSummaryViewSet(BaseGradingViewSet):
     ordering = ["-id"]
 
     def get_queryset(self):
-        qs = AnnualGradeSummaryRepository.get_all()
+        qs = AnnualGradeSummaryRepository.get_all(active_only=False)
         return scope_student_to_enrollment(self.request, qs)
 
     @extend_schema(

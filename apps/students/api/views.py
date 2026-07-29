@@ -76,7 +76,7 @@ class StudentViewSet(BaseStudentsViewSet):
     ordering = ["user__person__last_names"]
 
     def get_queryset(self):
-        qs = StudentRepository.get_all().select_related(
+        qs = StudentRepository.get_all(active_only=False).select_related(
             "user__person__parish__city",
             "user__person__document_type",
         )
@@ -229,18 +229,36 @@ class StudentRepresentativeViewSet(BaseStudentsViewSet):
     ordering = ["-is_primary", "created_at"]
 
     def get_queryset(self):
-        return StudentRepresentativeRepository.get_all()
+        return StudentRepresentativeRepository.get_all(active_only=False)
 
     def create(self, request, *args, **kwargs):
+        student = request.data.get("student")
+        user = request.data.get("user")
+        kinship = request.data.get("kinship", "Padre")
+        kwargs = {
+            "is_primary": request.data.get("is_primary", False),
+            "emergency_contact": request.data.get("emergency_contact", False),
+            "receives_notifications": request.data.get("receives_notifications", True),
+        }
         try:
-            relationship = StudentService.assign_representative(
-                student_id=request.data.get("student"),
-                user_id=request.data.get("user"),
-                kinship=request.data.get("kinship", "Padre"),
-                is_primary=request.data.get("is_primary", False),
-                emergency_contact=request.data.get("emergency_contact", False),
-                receives_notifications=request.data.get("receives_notifications", True),
-            )
+            if user:
+                relationship = StudentService.assign_representative(
+                    student_id=student, user_id=user, kinship=kinship, **kwargs
+                )
+            else:
+                relationship = StudentService.create_and_assign_representative(
+                    student_id=student,
+                    kinship=kinship,
+                    **kwargs,
+                    document_number=request.data["document_number"],
+                    names=request.data["names"],
+                    last_names=request.data["last_names"],
+                    email=request.data.get("email", ""),
+                    phone=request.data.get("phone", ""),
+                    birth_date=request.data.get("birth_date"),
+                    document_type_id=request.data.get("document_type"),
+                    parish_id=request.data.get("parish"),
+                )
             serializer = self.get_serializer(relationship)
             return Response(serializer.data, status=201)
         except ValueError as e:
@@ -322,7 +340,7 @@ class EnrollmentViewSet(BaseStudentsViewSet):
     ordering = ["-enrollment_date"]
 
     def get_queryset(self):
-        return EnrollmentRepository.get_all()
+        return EnrollmentRepository.get_all(active_only=False)
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -450,15 +468,21 @@ class EnrollmentViewSet(BaseStudentsViewSet):
     list=extend_schema(summary="Listar necesidades especiales", tags=["students"]),
     retrieve=extend_schema(summary="Obtener necesidad especial", tags=["students"]),
 )
-class SpecialNeedsTypeViewSet(viewsets.ReadOnlyModelViewSet):
+class SpecialNeedsTypeViewSet(BaseStudentsViewSet):
     serializer_class = SpecialNeedsTypeSerializer
     pagination_class = StandardResultsSetPagination
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasPermission]
+    action_permissions = ACTION_PERMISSIONS["special_needs_type"]
+    filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
+    search_fields = ["code", "name", "description"]
+    filterset_fields = ["is_active"]
+    ordering_fields = ["name", "code"]
+    ordering = ["name"]
 
     def get_queryset(self):
         from ..infrastructure.models import SpecialNeedsType as SNT
 
-        return SNT.objects.filter(is_active=True).order_by("name")
+        return SNT.objects.all().order_by("name")
 
 
 @extend_schema_view(

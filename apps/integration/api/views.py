@@ -33,7 +33,7 @@ class SyncQueueViewSet(BaseIntegrationViewSet):
     action_permissions = ACTION_PERMISSIONS
 
     def get_queryset(self):
-        return SyncQueueRepository.get_all()
+        return SyncQueueRepository.get_all(active_only=False)
 
     def get_permissions(self):
         if self.action in ("push", "pull"):

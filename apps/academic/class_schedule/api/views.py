@@ -51,7 +51,7 @@ class ClassScheduleViewSet(BaseAcademicViewSet):
     ordering = ["day_of_week", "start_time"]
 
     def get_queryset(self):
-        return ClassScheduleService.repository.get_all()
+        return ClassScheduleService.repository.get_all(active_only=False)
 
     def perform_create(self, serializer):
         data = serializer.validated_data

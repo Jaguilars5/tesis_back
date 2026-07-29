@@ -41,4 +41,13 @@ ACTION_PERMISSIONS = {
         "list": perms.VIEW_KINSHIP,
         "get": perms.VIEW_KINSHIP,
     },
+    "special_needs_type": {
+        "list": perms.VIEW_SPECIAL_NEEDS_TYPE,
+        "get": perms.VIEW_SPECIAL_NEEDS_TYPE,
+        "create": perms.CREATE_SPECIAL_NEEDS_TYPE,
+        "update": perms.UPDATE_SPECIAL_NEEDS_TYPE,
+        "partial_update": perms.UPDATE_SPECIAL_NEEDS_TYPE,
+        "destroy": perms.DELETE_SPECIAL_NEEDS_TYPE,
+        "soft_delete": perms.DELETE_SPECIAL_NEEDS_TYPE,
+    },
 }

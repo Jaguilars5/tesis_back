@@ -41,7 +41,7 @@ class AbsenceTypeViewSet(BaseAttendanceViewSet):
     ordering = ["name"]
 
     def get_queryset(self):
-        return AbsenceTypeService.repository.get_all()
+        return AbsenceTypeService.repository.get_all(active_only=False)
 
     def perform_create(self, serializer):
         data = serializer.validated_data

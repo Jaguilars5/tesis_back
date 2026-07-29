@@ -33,7 +33,7 @@ class IncidentTypeViewSet(BaseBehaviorViewSet):
     ordering = ["name"]
 
     def get_queryset(self):
-        return IncidentTypeRepository.get_all()
+        return IncidentTypeRepository.get_all(active_only=False)
 
     def perform_create(self, serializer):
         data = serializer.validated_data

@@ -34,7 +34,7 @@ class ConductIncidentViewSet(BaseBehaviorViewSet):
     ordering = ["-incident_date"]
 
     def get_queryset(self):
-        qs = ConductIncidentRepository.get_all()
+        qs = ConductIncidentRepository.get_all(active_only=False)
         return scope_student_to_enrollment(self.request, qs)
 
     def perform_create(self, serializer):

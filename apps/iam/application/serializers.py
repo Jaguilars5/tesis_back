@@ -378,7 +378,7 @@ class UserCreateSerializer(serializers.Serializer):
     names = serializers.CharField(max_length=100)
     last_names = serializers.CharField(max_length=100)
     email = serializers.EmailField()
-    password = serializers.CharField(write_only=True, min_length=8)
+    password = serializers.CharField(write_only=True, min_length=8, required=False)
     role_id = serializers.IntegerField()
     birth_date = serializers.DateField(required=False, allow_null=True)
     phone = serializers.CharField(required=False, allow_blank=True, max_length=15)
@@ -398,3 +398,9 @@ class UserCreateSerializer(serializers.Serializer):
         if Person.objects.filter(document_number=value).exists():
             raise serializers.ValidationError("Este documento ya esta registrado.")
         return value
+
+    def to_internal_value(self, data):
+        values = super().to_internal_value(data)
+        if "password" not in values or not values["password"]:
+            values["password"] = values.get("document_number", "")
+        return values

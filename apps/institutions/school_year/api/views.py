@@ -52,7 +52,7 @@ class SchoolYearViewSet(BaseInstitutionsViewSet):
         return ok_response(result)
 
     def get_queryset(self):
-        return self.repository.get_all()
+        return self.repository.get_all(active_only=False)
 
     def perform_create(self, serializer):
         data = serializer.validated_data

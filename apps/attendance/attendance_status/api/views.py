@@ -31,7 +31,7 @@ class AttendanceStatusViewSet(BaseAttendanceViewSet):
     ordering = ["name"]
 
     def get_queryset(self):
-        return AttendanceStatusRepository.get_all()
+        return AttendanceStatusRepository.get_all(active_only=False)
 
     def perform_create(self, serializer):
         data = serializer.validated_data

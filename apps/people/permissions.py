@@ -4,6 +4,11 @@ from apps.core.constants.permissions import people as perm
 CITY_ACTION_PERMISSIONS = {
     "list": None,
     "get": perm.VIEW_CITY,
+    "create": perm.CREATE_CITY,
+    "update": perm.UPDATE_CITY,
+    "partial_update": perm.UPDATE_CITY,
+    "destroy": perm.DELETE_CITY,
+    "soft_delete": perm.DELETE_CITY,
 }
 
 DOCUMENT_TYPE_ACTION_PERMISSIONS = {

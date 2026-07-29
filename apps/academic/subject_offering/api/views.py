@@ -44,7 +44,7 @@ class SubjectOfferingViewSet(BaseAcademicViewSet):
     ordering = ["-id"]
 
     def get_queryset(self):
-        return SubjectOfferingService.repository.get_all()
+        return SubjectOfferingService.repository.get_all(active_only=False)
 
     def perform_create(self, serializer):
         data = serializer.validated_data

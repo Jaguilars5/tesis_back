@@ -33,7 +33,7 @@ class SeverityViewSet(BaseBehaviorViewSet):
     ordering = ["name"]
 
     def get_queryset(self):
-        return SeverityRepository.get_all()
+        return SeverityRepository.get_all(active_only=False)
 
     def perform_create(self, serializer):
         data = serializer.validated_data

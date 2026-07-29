@@ -38,7 +38,7 @@ class BehaviorEvaluationViewSet(BaseBehaviorViewSet):
     ordering = ["-evaluation_date"]
 
     def get_queryset(self):
-        qs = BehaviorEvaluationRepository.get_all()
+        qs = BehaviorEvaluationRepository.get_all(active_only=False)
         return scope_student_to_enrollment(self.request, qs)
 
     def perform_create(self, serializer):

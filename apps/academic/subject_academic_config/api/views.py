@@ -41,7 +41,7 @@ class SubjectAcademicConfigViewSet(BaseAcademicViewSet):
     ordering = ["subject"]
 
     def get_queryset(self):
-        return SubjectAcademicConfigService.repository.get_all()
+        return SubjectAcademicConfigService.repository.get_all(active_only=False)
 
     def perform_create(self, serializer):
         data = serializer.validated_data

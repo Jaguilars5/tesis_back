@@ -45,7 +45,7 @@ class EvaluationBlockViewSet(BaseGradingViewSet):
     ordering = ["academic_period", "subject_offering", "block_type"]
 
     def get_queryset(self):
-        return EvaluationBlockRepository.get_all()
+        return EvaluationBlockRepository.get_all(active_only=False)
 
     def perform_create(self, serializer):
         data = serializer.validated_data
@@ -89,7 +89,7 @@ class BlockComponentViewSet(BaseGradingViewSet):
     ordering = ["evaluation_block", "name"]
 
     def get_queryset(self):
-        return BlockComponentRepository.get_all()
+        return BlockComponentRepository.get_all(active_only=False)
 
     def perform_create(self, serializer):
         data = serializer.validated_data
@@ -172,7 +172,7 @@ class EvaluativeActivityViewSet(BaseGradingViewSet):
     ordering = ["-due_date"]
 
     def get_queryset(self):
-        return EvaluativeActivityRepository.get_all()
+        return EvaluativeActivityRepository.get_all(active_only=False)
 
     def perform_create(self, serializer):
         data = serializer.validated_data

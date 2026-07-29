@@ -50,7 +50,7 @@ class TeacherSubjectSectionViewSet(BaseAcademicViewSet):
     ordering = ["-id"]
 
     def get_queryset(self):
-        return TeacherSubjectSectionService.repository.get_all()
+        return TeacherSubjectSectionService.repository.get_all(active_only=False)
 
     def perform_create(self, serializer):
         data = serializer.validated_data

@@ -33,7 +33,7 @@ class QualitativeScaleViewSet(BaseGradingViewSet):
     ordering = ["-numeric_equivalence"]
 
     def get_queryset(self):
-        return QualitativeScaleRepository.get_all()
+        return QualitativeScaleRepository.get_all(active_only=False)
 
     def perform_create(self, serializer):
         data = serializer.validated_data

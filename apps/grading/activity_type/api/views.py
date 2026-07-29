@@ -31,7 +31,7 @@ class ActivityTypeViewSet(BaseGradingViewSet):
     ordering = ["name"]
 
     def get_queryset(self):
-        return ActivityTypeRepository.get_all()
+        return ActivityTypeRepository.get_all(active_only=False)
 
     def perform_create(self, serializer):
         data = serializer.validated_data

@@ -89,7 +89,7 @@ class RiskFactorViewSet(BaseAnalyticsViewSet):
         self.repository = RiskFactorRepository()
 
     def get_queryset(self):
-        return self.repository.get_all()
+        return self.repository.get_all(active_only=False)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -122,7 +122,7 @@ class StudentRiskFactorViewSet(BaseAnalyticsViewSet):
         self.repository = StudentRiskFactorRepository()
 
     def get_queryset(self):
-        return self.repository.get_all()
+        return self.repository.get_all(active_only=False)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -157,7 +157,7 @@ class StudentFeatureSnapshotViewSet(BaseAnalyticsViewSet):
         self.repository = StudentFeatureSnapshotRepository()
 
     def get_queryset(self):
-        return self.repository.get_all()
+        return self.repository.get_all(active_only=False)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

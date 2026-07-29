@@ -41,7 +41,7 @@ class ParishViewSet(BasePeopleViewSet):
     ordering = ["name"]
 
     def get_queryset(self):
-        return ParishService.repository.get_all()
+        return ParishService.repository.get_all(active_only=False)
 
     def perform_create(self, serializer):
         data = serializer.validated_data
@@ -82,7 +82,7 @@ class CityViewSet(BasePeopleViewSet):
     ordering = ["name"]
 
     def get_queryset(self):
-        return CityService.repository.get_all()
+        return CityService.repository.get_all(active_only=False)
 
     def perform_create(self, serializer):
         data = serializer.validated_data
@@ -125,7 +125,7 @@ class DocumentTypeViewSet(BasePeopleViewSet):
     ordering = ["name"]
 
     def get_queryset(self):
-        return DocumentTypeService.repository.get_all()
+        return DocumentTypeService.repository.get_all(active_only=False)
 
     def perform_create(self, serializer):
         data = serializer.validated_data
@@ -168,7 +168,7 @@ class PersonViewSet(BasePeopleViewSet):
     ordering = ["last_names", "names"]
 
     def get_queryset(self):
-        return PersonService.repository.get_all()
+        return PersonService.repository.get_all(active_only=False)
 
     def perform_create(self, serializer):
         data = serializer.validated_data

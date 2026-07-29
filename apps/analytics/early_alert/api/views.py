@@ -45,7 +45,7 @@ class EarlyAlertViewSet(BaseAnalyticsViewSet):
     ordering = ["-detected_at"]
 
     def get_queryset(self):
-        return EarlyAlertService.repository.get_all()
+        return EarlyAlertService.repository.get_all(active_only=False)
 
     def create(self, request, *args, **kwargs):
         return error_response(

@@ -45,7 +45,7 @@ class AcademicPeriodViewSet(BaseAcademicViewSet):
     ordering = ["-start_date"]
 
     def get_queryset(self):
-        return AcademicPeriodService.repository.get_all()
+        return AcademicPeriodService.repository.get_all(active_only=False)
 
     def perform_create(self, serializer):
         data = serializer.validated_data

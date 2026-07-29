@@ -51,7 +51,7 @@ class AttendanceViewSet(BaseAttendanceViewSet):
     ordering = ["-attendance_date"]
 
     def get_queryset(self):
-        qs = AttendanceRepository.get_all()
+        qs = AttendanceRepository.get_all(active_only=False)
         qs = scope_student_to_enrollment(self.request, qs)
         return qs
 

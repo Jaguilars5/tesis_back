@@ -29,6 +29,9 @@ class PeoplePermissions:
     UPDATE_DOCUMENT_TYPE: Final[str] = "people.update_document_type"
     DELETE_DOCUMENT_TYPE: Final[str] = "people.delete_document_type"
     VIEW_CITY: Final[str] = "people.view_city"
+    CREATE_CITY: Final[str] = "people.create_city"
+    UPDATE_CITY: Final[str] = "people.update_city"
+    DELETE_CITY: Final[str] = "people.delete_city"
     VIEW_PARISH: Final[str] = "people.view_parish"
     CREATE_PARISH: Final[str] = "people.create_parish"
     UPDATE_PARISH: Final[str] = "people.update_parish"
@@ -109,6 +112,9 @@ class StudentsPermissions:
     TRANSFER_STUDENT: Final[str] = "students.transfer_student"
     VIEW_KINSHIP: Final[str] = "students.view_kinship"
     VIEW_SPECIAL_NEEDS_TYPE: Final[str] = "students.view_special_needs_type"
+    CREATE_SPECIAL_NEEDS_TYPE: Final[str] = "students.create_special_needs_type"
+    UPDATE_SPECIAL_NEEDS_TYPE: Final[str] = "students.update_special_needs_type"
+    DELETE_SPECIAL_NEEDS_TYPE: Final[str] = "students.delete_special_needs_type"
 
 
 @dataclass(frozen=True)
