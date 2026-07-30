@@ -85,12 +85,33 @@ class BehaviorEvaluationViewSet(BaseBehaviorViewSet):
     def calculate(self, request):
         enrollment_id = request.data.get("enrollment_id")
         academic_period_id = request.data.get("academic_period_id")
-        if not enrollment_id or not academic_period_id:
+        if not academic_period_id:
             return error_response(
-                "enrollment_id y academic_period_id son requeridos",
+                "academic_period_id es requerido",
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         try:
+            if not enrollment_id or enrollment_id == "all":
+                from apps.academic.academic_period.infrastructure.models import AcademicPeriod
+                from apps.students.infrastructure.models import Enrollment, EnrollmentStatusChoices
+
+                period = AcademicPeriod.objects.get(id=academic_period_id)
+                enrollments = Enrollment.objects.filter(
+                    section__school_year_id=period.school_year_id,
+                    enrollment_status=EnrollmentStatusChoices.ACTIVE,
+                ).values_list("id", flat=True)
+                evaluations = [
+                    BehaviorEvaluationService.calculate_behavior_evaluation(
+                        enrollment_id=enrollment,
+                        academic_period_id=academic_period_id,
+                    )
+                    for enrollment in enrollments
+                ]
+                serializer = self.get_serializer(evaluations, many=True)
+                return ok_response(
+                    {"count": len(evaluations), "results": serializer.data}
+                )
+
             evaluation = BehaviorEvaluationService.calculate_behavior_evaluation(
                 enrollment_id=enrollment_id,
                 academic_period_id=academic_period_id,

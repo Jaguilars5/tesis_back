@@ -12,10 +12,6 @@ from ..infrastructure.models import BatchStatusChoices, SyncStatusChoices
 logger = logging.getLogger("apps.integration.sync")
 
 
-class IncompatibleSchemaError(ValueError):
-    pass
-
-
 class ConflictResolutionStrategy:
     STRATEGIES = {
         "student_note": "LAST_WRITE_WINS",
@@ -38,14 +34,12 @@ class ConflictResolutionStrategy:
             return cls._server_wins(local_record, remote_payload)
         elif strategy == "MANUAL":
             return cls._manual_resolution_required(local_record, remote_payload)
-        return "ACCEPT_REMOTE"
+        return "KEEP_LOCAL"
 
     @classmethod
     def _last_write_wins(cls, local, remote):
         remote_version = remote.get("sync_version", 0)
-        if remote_version > local.sync_version:
-            return "ACCEPT_REMOTE"
-        elif remote_version < local.sync_version:
+        if remote_version <= local.sync_version:
             return "KEEP_LOCAL"
         return "ACCEPT_REMOTE"
 
@@ -191,7 +185,10 @@ class SyncQueueService:
                     "Retornando respuesta cacheada.",
                     client_batch_id,
                 )
-                return existing_batch.cached_response or {
+                cached = existing_batch.cached_response
+                if cached and isinstance(cached, dict) and "results" in cached:
+                    return cached
+                return {
                     "accepted": 0,
                     "rejected": 0,
                     "conflicts": 0,
@@ -363,10 +360,10 @@ class SyncQueueService:
             {
                 "uuid": str(item.uuid),
                 "source_table": item.source_table,
-                "operation": item.operation or None,
+                "operation": item.operation or "",
                 "record_uuid": item.record_uuid,
                 "payload": item.payload,
-                "status": item.status or None,
+                "status": item.status or "",
                 "processed_at": item.processed_at.isoformat() if item.processed_at else None,
             }
             for item in items
@@ -393,19 +390,6 @@ class SyncQueueService:
             status=SyncStatusChoices.SYNCED,
             processed_at=timezone.now(),
             last_error="",
-        )
-
-    @staticmethod
-    @transaction.atomic
-    def mark_failed(sync_id, error_message):
-        sync_item = SyncQueueRepository.get_by_id(sync_id)
-        if not sync_item:
-            return None
-        status = SyncStatusChoices.PENDING if sync_item.attempts < 3 else SyncStatusChoices.ERROR
-        return SyncQueueRepository.update(
-            sync_item.id,
-            status=status,
-            last_error=error_message,
         )
 
     @staticmethod
@@ -467,15 +451,4 @@ class SyncQueueService:
         }
 
 
-def _is_incompatible(client_version, min_version):
-    try:
-        client_parts = [int(x) for x in client_version.split(".")]
-        min_parts = [int(x) for x in min_version.split(".")]
-        for i in range(max(len(client_parts), len(min_parts))):
-            c = client_parts[i] if i < len(client_parts) else 0
-            m = min_parts[i] if i < len(min_parts) else 0
-            if c < m:
-                return True
-        return False
-    except (ValueError, IndexError):
-        return True
+

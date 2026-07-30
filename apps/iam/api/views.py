@@ -2,7 +2,6 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
-from django.core.mail import send_mail
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from drf_spectacular.utils import extend_schema, extend_schema_view
@@ -17,6 +16,10 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from apps.core.api.mixins import SoftDeleteModelMixin
 from apps.core.api.permissions import HasPermission
 from apps.core.constants.permissions import iam
+from apps.core.notifications.mail import (
+    send_notification_email,
+    send_password_reset_email,
+)
 from apps.core.utils import ok_response, error_response
 
 from apps.iam.domain.services import UserService, RoleService, PermissionService
@@ -41,6 +44,25 @@ from apps.iam.permissions import (
     USER_ACTION_PERMISSIONS,
 )
 from .base import BaseIamViewSet
+
+
+def send_mail(subject, message, from_email, recipient_list, fail_silently=False):
+    sent = 0
+    reset_url = next(
+        (line.strip() for line in message.splitlines() if "/reset-password/" in line),
+        "",
+    )
+    for recipient in recipient_list:
+        delivered = (
+            send_password_reset_email(recipient, reset_url)
+            if reset_url
+            else send_notification_email(recipient, subject, message)
+        )
+        if delivered:
+            sent += 1
+    if not fail_silently and sent < len(recipient_list):
+        raise RuntimeError("No se pudo enviar el correo")
+    return sent
 
 
 @extend_schema(
@@ -69,15 +91,13 @@ class CustomTokenRefreshView(TokenRefreshView):
     serializer_class = CustomTokenRefreshSerializer
 
 
-PASSWORD_RESET_SENT_MSG = (
-    "Si los datos coinciden con una cuenta activa, enviaremos instrucciones al correo registrado."
-)
+PASSWORD_RESET_SENT_MSG = "Si los datos coinciden con una cuenta activa, enviaremos instrucciones al correo registrado."
 
 
 @extend_schema(
     tags=["iam"],
-    summary="Solicitar recuperaciÃ³n de contraseÃ±a",
-    description="Genera un enlace de recuperaciÃ³n para el usuario o correo indicado.",
+    summary="Solicitar recuperacion de contraseña",
+    description="Genera un enlace de recuperacion para el usuario o correo indicado.",
     request=PasswordResetRequestSerializer,
 )
 class PasswordResetRequestView(APIView):
@@ -100,10 +120,10 @@ class PasswordResetRequestView(APIView):
             ).rstrip("/")
             reset_url = f"{frontend_base_url}/reset-password/{uid}/{token}"
             send_mail(
-                subject="RecuperaciÃ³n de contraseÃ±a",
+                subject="Recuperacion de contraseña",
                 message=(
-                    "Recibimos una solicitud para restablecer tu contraseÃ±a.\n\n"
-                    f"Ingresa al siguiente enlace para crear una nueva contraseÃ±a:\n{reset_url}\n\n"
+                    "Recibimos una solicitud para restablecer tu contraseña.\n\n"
+                    f"Ingresa al siguiente enlace para crear una nueva contraseña:\n{reset_url}\n\n"
                     "Si no solicitaste este cambio, puedes ignorar este mensaje."
                 ),
                 from_email=settings.DEFAULT_FROM_EMAIL,
@@ -116,8 +136,8 @@ class PasswordResetRequestView(APIView):
 
 @extend_schema(
     tags=["iam"],
-    summary="Confirmar recuperaciÃ³n de contraseÃ±a",
-    description="Valida el token de recuperaciÃ³n y actualiza la contraseÃ±a.",
+    summary="Confirmar recuperacion de contraseña",
+    description="Valida el token de recuperacion y actualiza la contraseña.",
     request=PasswordResetConfirmSerializer,
 )
 class PasswordResetConfirmView(APIView):
@@ -133,14 +153,14 @@ class PasswordResetConfirmView(APIView):
             user = UserService.get_user(user_id)
         except (TypeError, ValueError, OverflowError, DjangoValidationError):
             return error_response(
-                "El enlace de recuperaciÃ³n no es vÃ¡lido o ha expirado.",
+                "El enlace de recuperacion no es valido o ha expirado.",
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
         token = serializer.validated_data["token"]
         if not default_token_generator.check_token(user, token):
             return error_response(
-                "El enlace de recuperaciÃ³n no es vÃ¡lido o ha expirado.",
+                "El enlace de recuperacion no es valido o ha expirado.",
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -150,12 +170,12 @@ class PasswordResetConfirmView(APIView):
             UserService.change_password(user.id, new_password)
         except DjangoValidationError as e:
             return error_response(
-                "La contraseÃ±a no cumple los requisitos.",
+                "La contraseña no cumple los requisitos.",
                 data={"password_errors": list(e.messages)},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        return ok_response(msg="ContraseÃ±a actualizada correctamente.")
+        return ok_response(msg="Contraseña actualizada correctamente.")
 
 
 @extend_schema_view(
@@ -237,17 +257,11 @@ class PermissionViewSet(SoftDeleteModelMixin, BaseIamViewSet):
     get=extend_schema(summary="Obtener rol", tags=["iam"]),
     create=extend_schema(summary="Crear rol", tags=["iam"]),
     update=extend_schema(summary="Actualizar rol", tags=["iam"]),
-    partial_update=extend_schema(
-        summary="Actualizar rol parcialmente", tags=["iam"]
-    ),
+    partial_update=extend_schema(summary="Actualizar rol parcialmente", tags=["iam"]),
     destroy=extend_schema(summary="Eliminar rol", tags=["iam"]),
     add_permission=extend_schema(summary="Agregar permiso a rol", tags=["iam"]),
-    remove_permission=extend_schema(
-        summary="Remover permiso de rol", tags=["iam"]
-    ),
-    assign_permissions=extend_schema(
-        summary="Asignar permisos a rol", tags=["iam"]
-    ),
+    remove_permission=extend_schema(summary="Remover permiso de rol", tags=["iam"]),
+    assign_permissions=extend_schema(summary="Asignar permisos a rol", tags=["iam"]),
     soft_delete=extend_schema(summary="Desactivar rol con cascada", tags=["iam"]),
 )
 class RoleViewSet(SoftDeleteModelMixin, BaseIamViewSet):
@@ -345,7 +359,9 @@ class RoleViewSet(SoftDeleteModelMixin, BaseIamViewSet):
     search=extend_schema(summary="Buscar usuarios", tags=["iam"]),
     teachers=extend_schema(summary="Listar usuarios con rol docente", tags=["iam"]),
     students=extend_schema(summary="Listar usuarios con rol estudiante", tags=["iam"]),
-    representatives=extend_schema(summary="Listar usuarios con rol representante", tags=["iam"]),
+    representatives=extend_schema(
+        summary="Listar usuarios con rol representante", tags=["iam"]
+    ),
 )
 class UserViewSet(SoftDeleteModelMixin, BaseIamViewSet):
     """
@@ -427,10 +443,12 @@ class UserViewSet(SoftDeleteModelMixin, BaseIamViewSet):
 
         try:
             user = self.service.change_password(pk, new_password)
-            return ok_response({
-                "message": "Contraseña actualizada",
-                "must_change_password": user.must_change_password,
-            })
+            return ok_response(
+                {
+                    "message": "Contraseña actualizada",
+                    "must_change_password": user.must_change_password,
+                }
+            )
         except ValueError as e:
             return error_response(str(e), status_code=status.HTTP_400_BAD_REQUEST)
         except DjangoValidationError as e:

@@ -6,6 +6,7 @@ Usa BaseAnalyticsViewSet para respuestas estandarizadas.
 
 from io import StringIO
 
+from rest_framework.exceptions import PermissionDenied
 from django.core.management import call_command
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.decorators import action
@@ -16,6 +17,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 
 from apps.analytics.api.base import BaseAnalyticsViewSet
+from apps.core.api.filters import RoleBasedFilterBackend
 from apps.core.utils import ok_response, error_response
 
 from ..permissions import (
@@ -61,6 +63,45 @@ def _raise_validation_error(exc: ValueError) -> None:
         else {"non_field_errors": str(exc)}
     )
     raise DRFValidationError(errors) from exc
+
+
+def _ensure_enrollment_access(user, enrollment_id: int) -> None:
+    """Valida acceso de fila para acciones predictivas que reciben enrollment_id."""
+    role_codes = set(user.user_roles.values_list("role__code", flat=True))
+    if user.is_superuser or user.user_category == "ADMIN" or role_codes & {
+        "ADMIN",
+        "DIRECTOR",
+        "RECTOR",
+        "CONSEJERO",
+        "DECE",
+    }:
+        return
+
+    from apps.students.models import Enrollment
+
+    category = user.user_category
+    if category == "ESTUDIANTE":
+        allowed = Enrollment.objects.filter(
+            id=enrollment_id,
+            student__user=user,
+        ).exists()
+    elif category == "REPRESENTANTE":
+        allowed = Enrollment.objects.filter(
+            id=enrollment_id,
+            student__representatives_set__user=user,
+            student__representatives_set__is_active=True,
+        ).exists()
+    elif category == "DOCENTE":
+        allowed = Enrollment.objects.filter(
+            id=enrollment_id,
+            section__subject_offerings__teacher_assignments__user=user,
+            section__subject_offerings__teacher_assignments__is_active=True,
+        ).exists()
+    else:
+        allowed = False
+
+    if not allowed:
+        raise PermissionDenied("No tienes permiso para consultar esta matricula.")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -110,7 +151,7 @@ class StudentRiskFactorViewSet(BaseAnalyticsViewSet):
 
     serializer_class = StudentRiskFactorSerializer
     action_permissions = STUDENT_RISK_FACTOR_ACTION_PERMISSIONS
-    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filter_backends = [RoleBasedFilterBackend, DjangoFilterBackend, OrderingFilter]
     filterset_class = StudentRiskFactorFilter
     ordering_fields = ["contribution_weight", "created_at"]
     ordering = ["-contribution_weight"]
@@ -139,7 +180,12 @@ class StudentFeatureSnapshotViewSet(BaseAnalyticsViewSet):
 
     serializer_class = StudentFeatureSnapshotSerializer
     action_permissions = FEATURE_SNAPSHOT_ACTION_PERMISSIONS
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filter_backends = [
+        RoleBasedFilterBackend,
+        DjangoFilterBackend,
+        SearchFilter,
+        OrderingFilter,
+    ]
     filterset_class = StudentFeatureSnapshotFilter
     search_fields = ["enrollment__student__user__person__names"]
     ordering_fields = [
@@ -185,7 +231,12 @@ class StudentRiskScoreViewSet(BaseAnalyticsViewSet):
 
     serializer_class = StudentRiskScoreSerializer
     action_permissions = RISK_SCORE_ACTION_PERMISSIONS
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filter_backends = [
+        RoleBasedFilterBackend,
+        DjangoFilterBackend,
+        SearchFilter,
+        OrderingFilter,
+    ]
     filterset_class = StudentRiskScoreFilter
     search_fields = ["enrollment__student__user__person__names"]
     ordering_fields = ["risk_score", "calculated_at", "risk_label"]
@@ -360,6 +411,8 @@ class StudentRiskScoreViewSet(BaseAnalyticsViewSet):
         except (TypeError, ValueError):
             return error_response("Parametros invalidos", status_code=400)
 
+        _ensure_enrollment_access(request.user, enrollment_id)
+
         from apps.analytics.ml.subject_model import SubjectRiskModelTrainer
 
         result = SubjectRiskModelTrainer.predict(
@@ -412,6 +465,8 @@ class StudentRiskScoreViewSet(BaseAnalyticsViewSet):
         except (TypeError, ValueError):
             return error_response("Parametros invalidos", status_code=400)
 
+        _ensure_enrollment_access(request.user, enrollment_id)
+
         from apps.analytics.ml.annual_model import AnnualRiskModelTrainer
 
         result = AnnualRiskModelTrainer.predict(enrollment_id, academic_period_id)
@@ -460,6 +515,8 @@ class StudentRiskScoreViewSet(BaseAnalyticsViewSet):
             academic_period_id = int(academic_period_id)
         except (TypeError, ValueError):
             return error_response("Parametros invalidos", status_code=400)
+
+        _ensure_enrollment_access(request.user, enrollment_id)
 
         from apps.analytics.ml.dropout_model import DropoutRiskModelTrainer
 

@@ -92,6 +92,7 @@ class EnrollmentRepository(BaseRepository, EnrollmentRepositoryInterface):
         return cls.model.objects.filter(
             student_id=student_id,
             enrollment_status=EnrollmentStatusChoices.ACTIVE,
+            section__school_year__is_active=True,
         ).select_related("section").first()
 
     @classmethod
@@ -135,4 +136,5 @@ class EnrollmentRepository(BaseRepository, EnrollmentRepositoryInterface):
     def get_by_representative(cls, user):
         return cls.model.objects.filter(
             student__representatives_set__user=user,
+            section__school_year__is_active=True,
         ).select_related("student__user__person", "section").distinct()

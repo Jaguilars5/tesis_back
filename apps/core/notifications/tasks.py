@@ -55,7 +55,13 @@ def notify_activity_graded(self, note_id):
 
     activity_title = note.evaluative_activity.title if note.evaluative_activity_id else "una actividad"
     title = "Actividad calificada"
-    body = f"Se ha registrado la calificación de \"{activity_title}\"."
+    student_name = student.get_full_name()
+    if note.grading_mode == "NUMERIC" and note.numeric_score is not None:
+        body = f"Se ha registrado la calificación de {student_name} para \"{activity_title}\": {note.numeric_score}/{note.evaluative_activity.max_score}."
+    elif note.qualitative_scale:
+        body = f"Se ha registrado la calificación de {student_name} para \"{activity_title}\": {note.qualitative_scale.name}."
+    else:
+        body = f"Se ha registrado la calificación de {student_name} para \"{activity_title}\"."
     return NotificationService.notify(
         user_ids=user_ids,
         notification_type="ACTIVITY_GRADED",
@@ -89,7 +95,7 @@ def notify_attendance_created(self, attendance_id):
         else "registro"
     )
     title = "Registro de asistencia"
-    body = f"Se ha registrado tu asistencia ({status_label}) el {attendance.attendance_date}."
+    body = f"Se ha registrado la asistencia de {student.get_full_name()}: {status_label} el {attendance.attendance_date}."
     return NotificationService.notify(
         user_ids=user_ids,
         notification_type="ATTENDANCE_CREATED",
@@ -119,7 +125,8 @@ def notify_incident_created(self, incident_id):
 
     incident_label = incident.incident_type.name if incident.incident_type_id else "Incidente"
     title = "Incidente de conducta"
-    body = f"Se ha registrado un incidente de conducta ({incident_label}) el {incident.incident_date}."
+    severity_label = incident.severity.name if incident.severity else "Sin especificar"
+    body = f"Se ha registrado un incidente de conducta de {student.get_full_name()}: {incident_label} - {severity_label} el {incident.incident_date}."
     return NotificationService.notify(
         user_ids=user_ids,
         notification_type="INCIDENT_CREATED",

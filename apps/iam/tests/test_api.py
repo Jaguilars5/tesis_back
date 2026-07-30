@@ -1,3 +1,5 @@
+from unittest import mock
+
 from django.test import TestCase
 from django.contrib.auth.tokens import default_token_generator
 from django.core import mail
@@ -122,8 +124,11 @@ class UserAPITest(TestCase):
             "password": "testpass123",
             "role_id": self.role.id,
         }
-        response = self.client.post("/api/iam/users/", data, format="json")
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post("/api/iam/users/", data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("Bienvenido", mail.outbox[0].subject)
 
     def test_create_user_duplicate_email(self):
         data = {
@@ -138,6 +143,24 @@ class UserAPITest(TestCase):
         response = self.client.post("/api/iam/users/", data, format="json")
         self.assertIn(response.status_code, [status.HTTP_400_BAD_REQUEST, status.HTTP_422_UNPROCESSABLE_ENTITY])
 
+    @mock.patch("apps.core.email_validation.is_email_deliverable", return_value=False)
+    def test_create_user_rejects_hunter_invalid_email(self, _mock_deliverable):
+        data = {
+            "document_number": "22345678",
+            "names": "Invalid",
+            "last_names": "Email",
+            "email": "missing@example.com",
+            "password": "testpass123",
+            "role_id": self.role.id,
+        }
+
+        response = self.client.post("/api/iam/users/", data, format="json")
+
+        self.assertIn(
+            response.status_code,
+            [status.HTTP_400_BAD_REQUEST, status.HTTP_422_UNPROCESSABLE_ENTITY],
+        )
+
     def test_list_users(self):
         response = self.client.get("/api/iam/users/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -147,7 +170,7 @@ class UserAPITest(TestCase):
         from apps.people.models import Person, DocumentType
 
         doc_type = DocumentType.objects.get_or_create(
-            code="CC", defaults={"name": "CÃ©dula de CiudadanÃ­a"}
+            code="CC", defaults={"name": "Cedula de Ciudadania"}
         )[0]
         person = Person.objects.create(
             document_type=doc_type,
@@ -201,7 +224,7 @@ class UserAPITest(TestCase):
 
         self.client.logout()
         doc_type = DocumentType.objects.get_or_create(
-            code="CC", defaults={"name": "CÃ©dula de CiudadanÃ­a"}
+            code="CC", defaults={"name": "Cedula de Ciudadania"}
         )[0]
         person = Person.objects.create(
             document_type=doc_type,
@@ -234,7 +257,7 @@ class UserAPITest(TestCase):
 
         self.client.logout()
         doc_type = DocumentType.objects.get_or_create(
-            code="CC", defaults={"name": "CÃ©dula de CiudadanÃ­a"}
+            code="CC", defaults={"name": "Cedula de Ciudadania"}
         )[0]
         person = Person.objects.create(
             document_type=doc_type,

@@ -5,7 +5,7 @@ Predice la probabilidad de que UNA materia específica se vaya a rojo
 (final_avg_truncated < 7.00) en un período académico.
 
 Un solo RandomForest entrenado con todas las materias, usando
-subject_code_idx (0-9) como feature para diferenciar patrones.
+subject_code_idx como feature para diferenciar patrones.
 
 Ejecutar: python manage.py train_risk_model --subject-models
 """
@@ -244,6 +244,8 @@ class SubjectRiskModelTrainer:
             "feature_importances": model.feature_importances_.tolist(),
             "model_type": "subject_risk",
             "training_params": params.__dict__,
+            "subject_code_map": dict(SUBJECT_CODE_MAP),
+            "subject_feature_labels": dict(SUBJECT_FEATURE_LABELS),
         }
 
         target_path = model_path or SUBJECT_MODEL_PATH
@@ -254,19 +256,6 @@ class SubjectRiskModelTrainer:
     @classmethod
     def predict(cls, enrollment_id, subject_code, academic_period_id):
         import joblib
-        import numpy as np
-
-        if not SUBJECT_MODEL_PATH.exists():
-            logger.warning("Modelo no encontrado en %s", SUBJECT_MODEL_PATH)
-            return None
-
-        try:
-            artifact = joblib.load(SUBJECT_MODEL_PATH)
-            model = artifact["model"]
-            features_list = artifact["features"]
-        except Exception as e:
-            logger.error("Error cargando modelo: %s", e)
-            return None
 
         from apps.grading.student_note.infrastructure.models import PeriodGradeSummary
 
@@ -277,8 +266,19 @@ class SubjectRiskModelTrainer:
         ).select_related("subject_offering__subject_academic_config__subject").first()
 
         if not summary:
-            logger.warning("No hay period summary para enrollment=%s subject=%s period=%s",
-                           enrollment_id, subject_code, academic_period_id)
+            logger.warning(
+                "No hay period summary para enrollment=%s subject=%s period=%s",
+                enrollment_id, subject_code, academic_period_id,
+            )
+            annual_avg = cls._get_annual_avg(enrollment_id, subject_code)
+            if annual_avg is not None:
+                prob = cls._rule_based_risk(annual_avg)
+                return {
+                    "subject_code": subject_code,
+                    "probability": round(prob * 100, 2),
+                    "risk_level": "bajo" if prob < 0.3 else ("medio" if prob < 0.6 else "alto"),
+                    "factors": [],
+                }
             return None
 
         snapshot = StudentFeatureSnapshot.objects.filter(
@@ -287,9 +287,23 @@ class SubjectRiskModelTrainer:
         ).first()
 
         if not snapshot:
-            logger.warning("No hay snapshot para enrollment=%s period=%s",
-                           enrollment_id, academic_period_id)
+            logger.warning(
+                "No hay snapshot para enrollment=%s period=%s",
+                enrollment_id, academic_period_id,
+            )
             return None
+
+        if not SUBJECT_MODEL_PATH.exists():
+            logger.warning("Modelo no encontrado en %s", SUBJECT_MODEL_PATH)
+            return cls._fallback_from_summary(subject_code, summary)
+
+        try:
+            artifact = joblib.load(SUBJECT_MODEL_PATH)
+            model = artifact["model"]
+            features_list = artifact["features"]
+        except Exception as e:
+            logger.error("Error cargando modelo: %s", e)
+            return cls._fallback_from_summary(subject_code, summary)
 
         trainer = cls()
         raw = trainer._build_features(summary, snapshot)
@@ -305,7 +319,6 @@ class SubjectRiskModelTrainer:
         else:
             risk_level = "alto"
 
-        # Construir detalle de factores
         importances = artifact.get("feature_importances", [])
         feature_values = raw
         factors = [
@@ -325,4 +338,34 @@ class SubjectRiskModelTrainer:
             "probability": round(prob_positive * 100, 2),
             "risk_level": risk_level,
             "factors": top_factors,
+        }
+
+    @staticmethod
+    def _rule_based_risk(annual_avg: float) -> float:
+        if annual_avg >= 7:
+            return 0.15
+        if annual_avg >= 5:
+            return 0.50
+        return 0.85
+
+    @staticmethod
+    def _get_annual_avg(enrollment_id, subject_code):
+        from apps.grading.student_note.infrastructure.models import AnnualGradeSummary
+        summary = AnnualGradeSummary.objects.filter(
+            enrollment_id=enrollment_id,
+            subject_offering__subject_academic_config__subject__code=subject_code,
+        ).first()
+        if summary:
+            return float(summary.annual_final_avg)
+        return None
+
+    @classmethod
+    def _fallback_from_summary(cls, subject_code, summary):
+        grade = float(summary.final_avg_truncated) if summary else 7.0
+        prob = cls._rule_based_risk(grade)
+        return {
+            "subject_code": subject_code,
+            "probability": round(prob * 100, 2),
+            "risk_level": "bajo" if prob < 0.3 else ("medio" if prob < 0.6 else "alto"),
+            "factors": [],
         }

@@ -70,10 +70,8 @@ class NotificationService:
 
     @staticmethod
     def _send_emails(user_ids, title, body):
-        from django.conf import settings
-        from django.core.mail import send_mail
-
         from apps.iam.models import User
+        from apps.core.notifications.mail import send_notification_email
 
         users = User.objects.filter(id__in=user_ids).select_related("person")
         sent = 0
@@ -82,12 +80,6 @@ class NotificationService:
             email = getattr(person, "email", "") if person else ""
             if not email:
                 continue
-            send_mail(
-                subject=title,
-                message=body,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[email],
-                fail_silently=True,
-            )
-            sent += 1
+            if send_notification_email(email, title, body):
+                sent += 1
         return sent

@@ -1,10 +1,18 @@
+import logging
+
 from django.contrib.auth.password_validation import validate_password
+from django.db import transaction
+
+from apps.core.email_validation import validate_email_or_raise
+from apps.core.notifications.mail import send_welcome_email
 
 from ..infrastructure.repositories import (
     UserRepository,
     RoleRepository,
     PermissionRepository,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class UserService:
@@ -21,11 +29,13 @@ class UserService:
         if existing_dni:
             raise ValueError(f"El DNI {document_number} ya está registrado")
 
+        validate_email_or_raise(email)
+
         role = RoleRepository.get_by_id(role_id)
         if not role:
             raise ValueError(f"El rol con ID {role_id} no existe")
 
-        return cls.repository.create_user_with_person(
+        user = cls.repository.create_user_with_person(
             document_number=document_number,
             names=names,
             last_names=last_names,
@@ -37,6 +47,17 @@ class UserService:
             document_type_id=document_type_id,
             parish_id=parish_id,
         )
+        transaction.on_commit(
+            lambda: cls._send_welcome_email(user.id, email, names, password)
+        )
+        return user
+
+    @classmethod
+    def _send_welcome_email(cls, user_id, email, names, password):
+        user = cls.repository.get_by_id(user_id)
+        username = user.username if user else ""
+        if not send_welcome_email(email, names, username, password):
+            logger.warning("No se pudo enviar bienvenida al usuario %s", user_id)
 
     @classmethod
     def get_user(cls, user_id):
@@ -79,6 +100,8 @@ class UserService:
             existing = cls.repository.get_by_email(kwargs["email"])
             if existing and existing.id != user.id:
                 raise ValueError(f"El email {kwargs['email']} ya está registrado")
+        if "email" in kwargs and kwargs["email"] != current_email:
+            validate_email_or_raise(kwargs["email"])
         if "role" in kwargs:
             role = RoleRepository.get_by_id(kwargs["role"])
             if not role:

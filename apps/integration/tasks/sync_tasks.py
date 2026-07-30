@@ -56,6 +56,7 @@ class BaseSyncHandler:
     model = None
     lookup_field = "uuid"
     business_key_fields = []
+    update_allowed = None  # Set of field names; None = allow all (except internal)
 
     @classmethod
     def _find_by_business_key(cls, payload):
@@ -105,6 +106,11 @@ class BaseSyncHandler:
         return instance
 
     @classmethod
+    def _get_instance(cls, record_uuid):
+        qs = cls.model.objects.select_for_update().filter(**{cls.lookup_field: record_uuid})
+        return qs.get()
+
+    @classmethod
     def handle_update(cls, record_uuid, payload):
         logger.info(
             "[UPDATE] tabla_destino=%s lookup=%s=%s payload_keys=%s",
@@ -113,7 +119,7 @@ class BaseSyncHandler:
             record_uuid,
             sorted((payload or {}).keys()),
         )
-        instance = cls.model.objects.get(**{cls.lookup_field: record_uuid})
+        instance = cls._get_instance(record_uuid)
         incoming_version = payload.get("sync_version", 1)
 
         if incoming_version < instance.sync_version:
@@ -127,8 +133,13 @@ class BaseSyncHandler:
             elif resolution == "KEEP_LOCAL":
                 return {"status": "REJECTED", "reason": "Server version is newer", "uuid": str(instance.uuid)}
 
+        allowed = cls.update_allowed
         for field, value in payload.items():
-            if hasattr(instance, field) and field not in ["uuid", "sync_version", "id"]:
+            if field in ("uuid", "sync_version", "id"):
+                continue
+            if allowed is not None and field not in allowed:
+                continue
+            if hasattr(instance, field):
                 setattr(instance, field, value)
         instance.sync_version = max(instance.sync_version, incoming_version) + 1
         instance.mark_synced()
@@ -151,7 +162,7 @@ class BaseSyncHandler:
             cls.lookup_field,
             record_uuid,
         )
-        instance = cls.model.objects.get(**{cls.lookup_field: record_uuid})
+        instance = cls._get_instance(record_uuid)
         instance.delete()
         logger.info(
             "[DELETE] OK eliminado de %s uuid=%s",
@@ -211,7 +222,6 @@ def _check_batch_rollback(batch_id):
         ).count()
         total_failed = (batch.failed_operations or 0)
         if (total_failed + synced_count) >= batch.total_operations and total_failed > 0:
-            from .sync_tasks import rollback_batch
             rollback_batch.delay(str(batch.uuid))
     except Exception:
         logger.exception("Error checking batch rollback for batch_id=%s", batch_id)

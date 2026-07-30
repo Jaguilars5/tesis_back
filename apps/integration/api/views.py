@@ -5,7 +5,7 @@ from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 
-from apps.core.utils import ok_response
+from apps.core.utils import ok_response, error_response
 from .base import BaseIntegrationViewSet
 from ..application.serializers import SyncQueueSerializer
 from ..domain.services import SyncQueueService
@@ -69,6 +69,13 @@ class SyncQueueViewSet(BaseIntegrationViewSet):
             operations=operations,
             client_batch_id=client_batch_id,
         )
+        if summary.get("rejected", 0) > 0:
+            from apps.core.utils import error_response
+            return error_response(
+                f"{summary['rejected']} operación(es) rechazada(s). "
+                "El lote fue revertido. Corrija los errores y re-envíe.",
+                status=422,
+            )
         return ok_response(summary)
 
     def pull(self, request):

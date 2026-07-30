@@ -351,6 +351,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
     def validate_email(self, value):
         from apps.people.models import Person
+        from apps.core.email_validation import validate_email_or_raise
 
         instance = self.instance
         qs = Person.objects.filter(email=value)
@@ -358,6 +359,10 @@ class UserDetailSerializer(serializers.ModelSerializer):
             qs = qs.exclude(id=instance.person_id)
         if qs.exists():
             raise serializers.ValidationError("Este email ya esta registrado.")
+        try:
+            validate_email_or_raise(value)
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc))
         return value
 
     def validate_document_number(self, value):

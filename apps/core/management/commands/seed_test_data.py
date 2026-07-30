@@ -7,31 +7,28 @@ Pobla la base de datos con datos realistas multianuales (2022-2027) para
 
 Características:
   • Años lectivos 2022-2023 a 2025-2026 (históricos) y 2026-2027 (activo)
-  • Clases, asistencia y entregas solo hasta el 15-jul-2026
-  • 10 asignaturas del currículo BGU, 20 docentes titulares
+  • Clases, asistencia y entregas solo hasta el 29-jul-2026
+  • 13 materias en 1ro/2do, 11 materias en 3ro (currículo real Ecuador), 25 docentes
   • 20 estudiantes por paralelo (60 por curso, 180 por año lectivo)
   • Cada estudiante tiene exactamente un representante primario
   • Algunos representantes están vinculados a dos hermanos (max 2 estudiantes)
   • Horario sin cruces ni solapamientos entre docentes, materias y paralelos
-  • Bloques de 40 min, 7:00-11:55, 7 bloques por día, lunes a viernes
+  • Bloques de 45 min, 07:00-12:40, 7 bloques por día, lunes a viernes
   • Actividades evaluativas con nombres descriptivos por asignatura y trimestre
   • Notas con distribución variada entre 0 y 10 (no todas iguales)
   • Perfiles de riesgo con ruido y solapamiento (datos «sucios», más realistas para ML)
   • Incidentes conductuales con descripciones realistas por tipo
   • Idempotente: re-ejecutar no duplica registros
 
-Credenciales generadas por convención (el acceso en el sistema es por username):
-  Docentes       → usuario: <inicial_nombre><apellido> (ej. cvillacis) / pw: Doc.<Apellido>2025!
-  Estudiantes    → usuario: <inicial_nombre><apellido> / pw: Est.<Apellido>2025!
-  Representantes → usuario: <inicial_nombre><apellido> / pw: Rep.<Apellido>2025!
-  Admin/Director → usuario: <inicial_nombre><apellido> (ej. sadministrador) / pw: Admin@uetest2025!
+Credenciales generadas (el acceso en el sistema es por username):
+  Todos los usuarios → pw: Admin_123 (dato de prueba)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
 import datetime
 import random
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -48,7 +45,6 @@ from apps.academic.subject_academic_config import SubjectAcademicConfig
 from apps.academic.subject_offering import SubjectOffering
 from apps.academic.teacher_subject_section import TeacherSubjectSection
 from apps.analytics.early_alert.infrastructure.models import EarlyAlert
-from apps.analytics.student_risk import StudentFeatureSnapshot, StudentRiskScore
 from apps.attendance.attendance_status import AttendanceStatus
 from apps.attendance.attendance_core import Attendance
 from apps.behavior.conduct_incident import ConductIncident
@@ -57,13 +53,8 @@ from apps.behavior.severity import Severity
 from apps.behavior.behavior_evaluation import BehaviorEvaluationService
 from apps.grading.activity_type import ActivityType
 from apps.grading.evaluation import EvaluationBlock, BlockComponent, EvaluativeActivity
-from apps.grading.qualitative_scale import QualitativeScale
 from apps.grading.student_note import StudentNote, GradeCalculationService
-from apps.grading.student_note.infrastructure.models import (
-    PeriodGradeSummary,
-    PromotionStatusChoices,
-    AnnualGradeSummary,
-)
+from apps.grading.student_note.infrastructure.models import AnnualGradeSummary
 from apps.grading.student_note.signals import skip_period_summary_recalc
 from apps.iam import Role, User, UserRole
 from apps.institutions.school_year import SchoolYear
@@ -88,19 +79,8 @@ RANDOM_SEED = 2025
 random.seed(RANDOM_SEED)
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# DATOS MAESTROS
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-SCHOOL_YEAR = {
-    "name": "2026-2027",
-    "start_date": date(2026, 5, 4),
-    "end_date": date(2027, 3, 11),
-    "is_active": True,
-}
-
-# Último día con clases / asistencia / entregas (hoy = 15-jul-2026)
-ACTIVE_YEAR_INSTRUCTIONAL_END = date(2026, 7, 15)
+# Último día con clases / asistencia / entregas (hoy = 29-jul-2026)
+ACTIVE_YEAR_INSTRUCTIONAL_END = date(2026, 7, 29)
 
 
 def _instructional_end_date(period) -> date:
@@ -114,210 +94,68 @@ def _clamp_grade(value: float) -> float:
     return round(max(0.0, min(10.0, value)), 1)
 
 
-# Tres trimestres del año lectivo 2026-2027 (activo)
-TRIMESTRES = [
-    {
-        "code": "T1-2627",
-        "name": "Primer Trimestre",
-        "start_date": date(2026, 5, 4),
-        "end_date": date(2026, 8, 7),
-        "weight": Decimal("33.33"),
-    },
-    {
-        "code": "T2-2627",
-        "name": "Segundo Trimestre",
-        "start_date": date(2026, 8, 11),
-        "end_date": date(2026, 11, 13),
-        "weight": Decimal("33.33"),
-    },
-    {
-        "code": "T3-2627",
-        "name": "Tercer Trimestre",
-        "start_date": date(2026, 11, 16),
-        "end_date": date(2027, 2, 24),
-        "weight": Decimal("33.34"),
-    },
-]
-
-# ── Asignaturas 1ro BGU con carga horaria semanal ───────────────────────────
-# (código, nombre visible, horas/semana)
-MATERIAS_BGU = [
-    ("MAT", "Matemática", 4),
-    ("FIS", "Física", 4),
+# ── Asignaturas BGU con carga horaria semanal (currículo real Ecuador) ─────
+# 1.º y 2.º BGU comparten las mismas materias y horas
+MATERIAS_BGU_12 = [
+    ("MAT", "Matemática", 5),
+    ("FIS", "Física", 3),
     ("QUI", "Química", 3),
     ("BIO", "Biología", 3),
-    ("LEN", "Lengua y Literatura", 4),
-    ("ING", "Inglés", 5),
-    ("SOC", "Historia y Ciencias Sociales", 3),
+    ("HIS", "Historia", 2),
+    ("CIU", "Educación para la Ciudadanía", 2),
     ("FIL", "Filosofía", 2),
-    ("EDU_FIS", "Educación Física", 2),
-    ("EDU_ART", "Educación Cultural y Artística", 2),
+    ("LEN", "Lengua y Literatura", 5),
+    ("ING", "Inglés", 3),
+    ("EA", "Educación Cultural y Artística", 2),
+    ("EF", "Educación Física", 2),
+    ("EMP", "Emprendimiento y Gestión", 2),
+    ("ACO", "Acompañamiento Integral", 1),
 ]
 
-# ── Docentes (un titular por asignatura) ─────────────────────────────────────
+# 3.º BGU (Bachillerato en Ciencias) — con optativas
+MATERIAS_BGU_3 = [
+    ("MAT", "Matemática", 4),
+    ("FIS", "Física", 2),
+    ("QUI", "Química", 2),
+    ("BIO", "Biología", 2),
+    ("HIS", "Historia", 3),
+    ("LEN", "Lengua y Literatura", 4),
+    ("ING", "Inglés", 3),
+    ("EF", "Educación Física", 2),
+    ("EMP", "Emprendimiento y Gestión", 2),
+    ("ACO", "Acompañamiento Integral", 1),
+    ("INF", "Informática Aplicada", 10),
+]
+
+# ── Docentes (un titular por asignatura, por nivel) ─────────────────────────
 # Cada entrada: tag, cédula, nombres, apellidos, materia que dicta
 DOCENTES = [
-    {
-        "tag": "doc_mat",
-        "document_number": "0901100001",
-        "names": "Jose Luis",
-        "last_names": "Pineda Ramon",
-        "subject_code": "MAT",
-        "birth_date": date(1978, 3, 15),
-    },
-    {
-        "tag": "doc_fis",
-        "document_number": "0901100002",
-        "names": "Gabriel Leonardo",
-        "last_names": "Hasqui Ortega",
-        "subject_code": "FIS",
-        "birth_date": date(1980, 7, 22),
-    },
-    {
-        "tag": "doc_qui",
-        "document_number": "0901100003",
-        "names": "Angel Joan",
-        "last_names": "Punina Arellano",
-        "subject_code": "QUI",
-        "birth_date": date(1982, 11, 5),
-    },
-    {
-        "tag": "doc_bio",
-        "document_number": "0901100004",
-        "names": "Luis Eduardo",
-        "last_names": "Rodríguez Herrera",
-        "subject_code": "BIO",
-        "birth_date": date(1979, 4, 18),
-    },
-    {
-        "tag": "doc_len",
-        "document_number": "0901100005",
-        "names": "Angel Vicente",
-        "last_names": "Gonzales Carrion",
-        "subject_code": "LEN",
-        "birth_date": date(1975, 9, 30),
-    },
-    {
-        "tag": "doc_ing",
-        "document_number": "0901100006",
-        "names": "Christopher Jhoan",
-        "last_names": "Zeas Sesme",
-        "subject_code": "ING",
-        "birth_date": date(1985, 6, 12),
-    },
-    {
-        "tag": "doc_soc",
-        "document_number": "0901100007",
-        "names": "Jordy Enrique",
-        "last_names": "Aguilar Yaure",
-        "subject_code": "SOC",
-        "birth_date": date(1977, 1, 25),
-    },
-    {
-        "tag": "doc_fil",
-        "document_number": "0901100008",
-        "names": "Jostion Erasmon",
-        "last_names": "Mejicano Romero",
-        "subject_code": "FIL",
-        "birth_date": date(1983, 8, 8),
-    },
-    {
-        "tag": "doc_edf",
-        "document_number": "0901100009",
-        "names": "Jordy David",
-        "last_names": "Pincay Murillo",
-        "subject_code": "EDU_FIS",
-        "birth_date": date(1986, 2, 14),
-    },
-    {
-        "tag": "doc_art",
-        "document_number": "0901100010",
-        "names": "Elias Daniel",
-        "last_names": "Ramon Guaman",
-        "subject_code": "EDU_ART",
-        "birth_date": date(1990, 5, 20),
-    },
-    # ── Docentes 3ro BGU ──────────────────────────────────────────────────────
-    {
-        "tag": "doc_mat3",
-        "document_number": "0901100011",
-        "names": "Chintia Michelle",
-        "last_names": "Castro Naranjo",
-        "subject_code": "MAT",
-        "birth_date": date(1984, 5, 10),
-    },
-    {
-        "tag": "doc_fis3",
-        "document_number": "0901100012",
-        "names": "Dyane Chistina",
-        "last_names": "Moina Parraga",
-        "subject_code": "FIS",
-        "birth_date": date(1981, 9, 3),
-    },
-    {
-        "tag": "doc_qui3",
-        "document_number": "0901100013",
-        "names": "Mauricio Claudio",
-        "last_names": "Codex Gpt",
-        "subject_code": "QUI",
-        "birth_date": date(1987, 2, 18),
-    },
-    {
-        "tag": "doc_bio3",
-        "document_number": "0901100014",
-        "names": "Arianna Nayeli",
-        "last_names": "Alvarado Ricaurte",
-        "subject_code": "BIO",
-        "birth_date": date(1983, 8, 25),
-    },
-    {
-        "tag": "doc_len3",
-        "document_number": "0901100015",
-        "names": "Jeremy Jampiere",
-        "last_names": "Cuadrado Crespo",
-        "subject_code": "LEN",
-        "birth_date": date(1979, 12, 7),
-    },
-    {
-        "tag": "doc_ing3",
-        "document_number": "0901100016",
-        "names": "Danny Jhair",
-        "last_names": "Macas Namicela",
-        "subject_code": "ING",
-        "birth_date": date(1986, 4, 14),
-    },
-    {
-        "tag": "doc_soc3",
-        "document_number": "0901100017",
-        "names": "Michelle Justine",
-        "last_names": "Mora Aguilar",
-        "subject_code": "SOC",
-        "birth_date": date(1980, 10, 30),
-    },
-    {
-        "tag": "doc_fil3",
-        "document_number": "0901100018",
-        "names": "Rodrigo Josue",
-        "last_names": "Gevara Reyes",
-        "subject_code": "FIL",
-        "birth_date": date(1985, 7, 12),
-    },
-    {
-        "tag": "doc_edf3",
-        "document_number": "0901100019",
-        "names": "Jorge Luis",
-        "last_names": "Rodas Silva",
-        "subject_code": "EDU_FIS",
-        "birth_date": date(1988, 1, 28),
-    },
-    {
-        "tag": "doc_art3",
-        "document_number": "0901100020",
-        "names": "Damian Alexander",
-        "last_names": "Gerrero Rodriguez",
-        "subject_code": "EDU_ART",
-        "birth_date": date(1989, 11, 5),
-    },
+    # ── 1.º y 2.º BGU ─────────────────────────────────────────────────────
+    {"tag": "doc_mat",  "document_number": "0901100001", "names": "Jose Luis",           "last_names": "Pineda Ramon",       "subject_code": "MAT", "birth_date": date(1978, 3, 15)},
+    {"tag": "doc_fis",  "document_number": "0901100002", "names": "Gabriel Leonardo",    "last_names": "Hasqui Ortega",      "subject_code": "FIS", "birth_date": date(1980, 7, 22)},
+    {"tag": "doc_qui",  "document_number": "0901100003", "names": "Angel Joan",          "last_names": "Punina Arellano",    "subject_code": "QUI", "birth_date": date(1982, 11, 5)},
+    {"tag": "doc_bio",  "document_number": "0901100004", "names": "Luis Eduardo",        "last_names": "Rodríguez Herrera",  "subject_code": "BIO", "birth_date": date(1979, 4, 18)},
+    {"tag": "doc_his",  "document_number": "0901100005", "names": "Jordy Enrique",       "last_names": "Aguilar Yaure",      "subject_code": "HIS", "birth_date": date(1977, 1, 25)},
+    {"tag": "doc_ciu",  "document_number": "0901100006", "names": "Angel Vicente",       "last_names": "Gonzales Carrion",   "subject_code": "CIU", "birth_date": date(1975, 9, 30)},
+    {"tag": "doc_fil",  "document_number": "0901100007", "names": "Jostin Erasmo",       "last_names": "Mejicano Romero",    "subject_code": "FIL", "birth_date": date(1983, 8, 8)},
+    {"tag": "doc_len",  "document_number": "0901100008", "names": "Christopher Jhoan",   "last_names": "Zeas Sesme",         "subject_code": "LEN", "birth_date": date(1985, 6, 12)},
+    {"tag": "doc_ing",  "document_number": "0901100009", "names": "Jordy David",         "last_names": "Pincay Murillo",     "subject_code": "ING", "birth_date": date(1986, 2, 14)},
+    {"tag": "doc_ea",   "document_number": "0901100010", "names": "Elias Daniel",        "last_names": "Ramon Guaman",       "subject_code": "EA",  "birth_date": date(1990, 5, 20)},
+    {"tag": "doc_ef",   "document_number": "0901100011", "names": "Jorge Luis",          "last_names": "Rodas Silva",        "subject_code": "EF",  "birth_date": date(1988, 1, 28)},
+    {"tag": "doc_emp",  "document_number": "0901100012", "names": "Mauricio Claudio",    "last_names": "Codex Gpt",          "subject_code": "EMP", "birth_date": date(1987, 2, 18)},
+    {"tag": "doc_aco",  "document_number": "0901100013", "names": "Damian Alexander",    "last_names": "Guerrero Rodriguez", "subject_code": "ACO", "birth_date": date(1989, 11, 5)},
+    # ── 3.º BGU ───────────────────────────────────────────────────────────
+    {"tag": "doc_mat3",  "document_number": "0901100014", "names": "Cinthia Michelle",    "last_names": "Castro Naranjo",     "subject_code": "MAT", "birth_date": date(1984, 5, 10)},
+    {"tag": "doc_fis3",  "document_number": "0901100015", "names": "Dyane Chistina",      "last_names": "Moina Parraga",      "subject_code": "FIS", "birth_date": date(1981, 9, 3)},
+    {"tag": "doc_qui3",  "document_number": "0901100016", "names": "Arianna Nayeli",      "last_names": "Alvarado Ricaurte",  "subject_code": "QUI", "birth_date": date(1983, 8, 25)},
+    {"tag": "doc_bio3",  "document_number": "0901100017", "names": "Jeremy Jampiere",     "last_names": "Cuadrado Crespo",    "subject_code": "BIO", "birth_date": date(1979, 12, 7)},
+    {"tag": "doc_his3",  "document_number": "0901100018", "names": "Michelle Justine",    "last_names": "Mora Aguilar",       "subject_code": "HIS", "birth_date": date(1980, 10, 30)},
+    {"tag": "doc_len3",  "document_number": "0901100019", "names": "Danny Jhair",         "last_names": "Macas Namicela",     "subject_code": "LEN", "birth_date": date(1986, 4, 14)},
+    {"tag": "doc_ing3",  "document_number": "0901100020", "names": "Rodrigo Josue",       "last_names": "Guevara Reyes",      "subject_code": "ING", "birth_date": date(1985, 7, 12)},
+    {"tag": "doc_ef3",   "document_number": "0901100021", "names": "Jordy Enrique",       "last_names": "Aguilar Yaure",      "subject_code": "EF",  "birth_date": date(1982, 4, 18)},
+    {"tag": "doc_emp3",  "document_number": "0901100022", "names": "Verónica Susana",     "last_names": "Peña Sánchez",       "subject_code": "EMP", "birth_date": date(1983, 6, 17)},
+    {"tag": "doc_aco3",  "document_number": "0901100023", "names": "Leonidas Raúl",       "last_names": "Ortega Lozano",      "subject_code": "ACO", "birth_date": date(1978, 4, 2)},
+    {"tag": "doc_opt",   "document_number": "0901100024", "names": "Mariana Elizabeth",   "last_names": "Vargas Celi",        "subject_code": "OPT", "birth_date": date(1981, 8, 29)},
 ]
 
 # ── Usuarios administrativos ─────────────────────────────────────────────────
@@ -328,7 +166,7 @@ ADMIN_USERS = [
         "names": "Sistema",
         "last_names": "Administrador",
         "email": "admin@uetest.edu.ec",
-        "password": "Emelec_28",
+        "password": "Admin_123",
         "is_superuser": True,
         "role_code": None,
         "birth_date": date(1980, 1, 1),
@@ -336,455 +174,30 @@ ADMIN_USERS = [
     {
         "tag": "director",
         "document_number": "0900000002",
-        "names": "Mercedez Victoria",
-        "last_names": "Sagñai Guaman",
+        "names": "Mercedes Victoria",
+        "last_names": "Sagnay Guaman",
         "email": "victoria.sagnay2004@gmail.com",
-        "password": "Emelec_28",
+        "password": "Admin_123",
         "is_superuser": False,
         "role_code": "DIRECTOR",
         "birth_date": date(1970, 6, 10),
     },
-    {
-        "tag": "consejero",
-        "document_number": "0900000003",
-        "names": "Lorena Beatriz",
-        "last_names": "Zamora Hidalgo",
-        "email": "consejero.dece@uetest.edu.ec",
-        "password": "Emelec_28",
-        "is_superuser": False,
-        "role_code": "CONSEJERO",
-        "birth_date": date(1984, 3, 22),
-    },
-]
 
-# ── Estudiantes ───────────────────────────────────────────────────────────────
-# 12 por paralelo A, 12 por paralelo B (24 total)
-# Formato: tag, cédula, nombres, apellidos, paralelo, birth_date
-ESTUDIANTES = [
-    # ── Paralelo A ──────────────────────────────────────────────────────────
-    {
-        "tag": "est_a01",
-        "document_number": "0910200101",
-        "names": "Anthony Jhair",
-        "last_names": "Aguilar Salzar",
-        "parallel": "A",
-        "birth_date": date(2009, 3, 12),
-    },
-    {
-        "tag": "est_a02",
-        "document_number": "0910200102",
-        "names": "Aslhey Mishelle",
-        "last_names": "Maldonado Salazar",
-        "parallel": "A",
-        "birth_date": date(2010, 7, 25),
-    },
-    {
-        "tag": "est_a03",
-        "document_number": "0910200103",
-        "names": "Camila Carmen",
-        "last_names": "Maldonado Salazar",
-        "parallel": "A",
-        "birth_date": date(2011, 1, 8),
-    },
-    {
-        "tag": "est_a04",
-        "document_number": "0910200104",
-        "names": "Gabriela Mishelle",
-        "last_names": "Delgado Vera",
-        "parallel": "A",
-        "birth_date": date(2009, 11, 3),
-    },
-    {
-        "tag": "est_a05",
-        "document_number": "0910200105",
-        "names": "Mateo Nicolás",
-        "last_names": "Espinoza Toro",
-        "parallel": "A",
-        "birth_date": date(2010, 5, 17),
-    },
-    {
-        "tag": "est_a06",
-        "document_number": "0910200106",
-        "names": "Andrea Sofía",
-        "last_names": "Flores Guamán",
-        "parallel": "A",
-        "birth_date": date(2011, 2, 28),
-    },
-    {
-        "tag": "est_a07",
-        "document_number": "0910200107",
-        "names": "Andrés Mauricio",
-        "last_names": "García Molina",
-        "parallel": "A",
-        "birth_date": date(2009, 9, 14),
-    },
-    {
-        "tag": "est_a08",
-        "document_number": "0910200108",
-        "names": "Valeria Nicole",
-        "last_names": "Herrera Pacheco",
-        "parallel": "A",
-        "birth_date": date(2010, 4, 6),
-    },
-    {
-        "tag": "est_a09",
-        "document_number": "0910200109",
-        "names": "Juan Pablo",
-        "last_names": "Intriago Barros",
-        "parallel": "A",
-        "birth_date": date(2011, 8, 19),
-    },
-    {
-        "tag": "est_a10",
-        "document_number": "0910200110",
-        "names": "Paola Estefanía",
-        "last_names": "Jiménez Olmedo",
-        "parallel": "A",
-        "birth_date": date(2009, 12, 1),
-    },
-    {
-        "tag": "est_a11",
-        "document_number": "0910200111",
-        "names": "Kevin Steeven",
-        "last_names": "Lara Morocho",
-        "parallel": "A",
-        "birth_date": date(2010, 6, 22),
-    },
-    {
-        "tag": "est_a12",
-        "document_number": "0910200112",
-        "names": "María Fernanda",
-        "last_names": "Morales Quiñónez",
-        "parallel": "A",
-        "birth_date": date(2011, 3, 30),
-    },
-    # ── Paralelo B ──────────────────────────────────────────────────────────
-    {
-        "tag": "est_b01",
-        "document_number": "0910200201",
-        "names": "Luis Fernando",
-        "last_names": "Naranjo Ponce",
-        "parallel": "B",
-        "birth_date": date(2009, 2, 11),
-    },
-    {
-        "tag": "est_b02",
-        "document_number": "0910200202",
-        "names": "Priscila Marisol",
-        "last_names": "Ortega Sánchez",
-        "parallel": "B",
-        "birth_date": date(2010, 10, 5),
-    },
-    {
-        "tag": "est_b03",
-        "document_number": "0910200203",
-        "names": "Emilio Javier",
-        "last_names": "Peña Villamar",
-        "parallel": "B",
-        "birth_date": date(2011, 4, 23),
-    },
-    {
-        "tag": "est_b04",
-        "document_number": "0910200204",
-        "names": "Natalia Daniela",
-        "last_names": "Quito Benítez",
-        "parallel": "B",
-        "birth_date": date(2009, 8, 9),
-    },
-    {
-        "tag": "est_b05",
-        "document_number": "0910200205",
-        "names": "Pablo Rodrigo",
-        "last_names": "Romero Cárdenas",
-        "parallel": "B",
-        "birth_date": date(2010, 1, 27),
-    },
-    {
-        "tag": "est_b06",
-        "document_number": "0910200206",
-        "names": "Karla Alejandra",
-        "last_names": "Samaniego Torres",
-        "parallel": "B",
-        "birth_date": date(2011, 6, 15),
-    },
-    {
-        "tag": "est_b07",
-        "document_number": "0910200207",
-        "names": "Bryan Stalyn",
-        "last_names": "Tapia Guevara",
-        "parallel": "B",
-        "birth_date": date(2009, 5, 4),
-    },
-    {
-        "tag": "est_b08",
-        "document_number": "0910200208",
-        "names": "Alejandra Pamela",
-        "last_names": "Urgiles Montoya",
-        "parallel": "B",
-        "birth_date": date(2010, 7, 18),
-    },
-    {
-        "tag": "est_b09",
-        "document_number": "0910200209",
-        "names": "Cristian José",
-        "last_names": "Vargas Coello",
-        "parallel": "B",
-        "birth_date": date(2011, 9, 7),
-    },
-    {
-        "tag": "est_b10",
-        "document_number": "0910200210",
-        "names": "Melanie Yoselin",
-        "last_names": "Washburn Cajas",
-        "parallel": "B",
-        "birth_date": date(2009, 5, 31),
-    },
-    {
-        "tag": "est_b11",
-        "document_number": "0910200211",
-        "names": "Ronaldo Jesús",
-        "last_names": "Yánez Bustamante",
-        "parallel": "B",
-        "birth_date": date(2010, 11, 16),
-    },
-    {
-        "tag": "est_b12",
-        "document_number": "0910200212",
-        "names": "Carolina Liseth",
-        "last_names": "Zambrano Aguilar",
-        "parallel": "B",
-        "birth_date": date(2011, 1, 20),
-    },
-]
-
-# ── Representantes ─────────────────────────────────────────────────────────
-# Reglas:
-#   - Cada estudiante tiene EXACTAMENTE un representante primario
-#   - Un representante puede tener 1 o 2 estudiantes (hermanos, nunca más de 2)
-#   - Ningún representante queda sin estudiante asociado
-#   - Parentesco y nombre coherentes con los estudiantes
-#
-# La columna "students" lista los tags de estudiantes que representa.
-REPRESENTANTES = [
-    # — Representantes de paralelo A ————————————————————————————————————————
-    {
-        "tag": "rep_a01",
-        "document_number": "0900100101",
-        "names": "Alba María",
-        "last_names": "Salazar Aguilar",
-        "birth_date": date(1980, 6, 5),
-        "kinship_code": "PADRE",
-        "students": ["est_a01"],  # Sebastián Almeida
-    },
-    {
-        "tag": "rep_a02",
-        "document_number": "0900100102",
-        "names": "Veronica Rocio",
-        "last_names": "Salazar Aguilar",
-        "birth_date": date(1982, 9, 14),
-        "kinship_code": "MADRE",
-        "students": ["est_a02"],  # Camila Burbano
-    },
-    {
-        "tag": "rep_a03",
-        "document_number": "0900100103",
-        "names": "Rolando Leopoldo",
-        "last_names": "Maldonado Romero",
-        "birth_date": date(1978, 12, 20),
-        "kinship_code": "PADRE",
-        "students": ["est_a03"],  # Diego Córdova
-    },
-    {
-        "tag": "rep_a04",
-        "document_number": "0900100104",
-        "names": "Gustavo Isaias",
-        "last_names": "Aguilar Romero",
-        "birth_date": date(1983, 4, 11),
-        "kinship_code": "MADRE",
-        "students": ["est_a04"],  # Gabriela Delgado
-    },
-    {
-        "tag": "rep_a05",
-        "document_number": "0900100105",
-        "names": "Nelson Patricio",
-        "last_names": "Espinoza Granda",
-        "birth_date": date(1975, 8, 30),
-        "kinship_code": "PADRE",
-        "students": ["est_a05"],  # Mateo Espinoza
-    },
-    {
-        "tag": "rep_a06",
-        "document_number": "0900100106",
-        "names": "Silvia Marisol",
-        "last_names": "Flores Cedeño",
-        "birth_date": date(1985, 2, 7),
-        "kinship_code": "MADRE",
-        "students": ["est_a06"],  # Andrea Flores
-    },
-    {
-        "tag": "rep_a07",
-        "document_number": "0900100107",
-        "names": "Marco Antonio",
-        "last_names": "García Mendoza",
-        "birth_date": date(1979, 11, 3),
-        "kinship_code": "PADRE",
-        "students": ["est_a07"],  # Andrés García
-    },
-    # rep_a08 representa dos hermanos: Valeria (A) y Bryan (B)
-    {
-        "tag": "rep_a08",
-        "document_number": "0900100108",
-        "names": "Isabel Rocío",
-        "last_names": "Herrera Salazar",
-        "birth_date": date(1981, 5, 25),
-        "kinship_code": "MADRE",
-        "students": [
-            "est_a08",
-            "est_b07",
-        ],  # Valeria Herrera + Bryan Tapia (nombre materno diferente, común en Ecuador)
-    },
-    {
-        "tag": "rep_a09",
-        "document_number": "0900100109",
-        "names": "Oswaldo Ramiro",
-        "last_names": "Intriago Mero",
-        "birth_date": date(1977, 7, 19),
-        "kinship_code": "PADRE",
-        "students": ["est_a09"],  # Juan Pablo Intriago
-    },
-    {
-        "tag": "rep_a10",
-        "document_number": "0900100110",
-        "names": "Carmen Auxiliadora",
-        "last_names": "Jiménez Palacios",
-        "birth_date": date(1980, 3, 8),
-        "kinship_code": "MADRE",
-        "students": ["est_a10"],  # Paola Jiménez
-    },
-    # rep_a11 representa dos hermanos: Kevin (A) y Luis (B)
-    {
-        "tag": "rep_a11",
-        "document_number": "0900100111",
-        "names": "Freddy Bolívar",
-        "last_names": "Lara Quinatoa",
-        "birth_date": date(1976, 10, 15),
-        "kinship_code": "PADRE",
-        "students": [
-            "est_a11",
-            "est_b01",
-        ],  # Kevin Lara + Luis Naranjo (madre diferente)
-    },
-    {
-        "tag": "rep_a12",
-        "document_number": "0900100112",
-        "names": "Gloria Esperanza",
-        "last_names": "Morales Idrovo",
-        "birth_date": date(1982, 1, 28),
-        "kinship_code": "MADRE",
-        "students": ["est_a12"],  # María Fernanda Morales
-    },
-    # — Representantes de paralelo B ————————————————————————————————————————
-    # (est_b01 y est_b07 ya están cubiertos por rep_a11 y rep_a08)
-    {
-        "tag": "rep_b02",
-        "document_number": "0900100202",
-        "names": "Leonidas Raúl",
-        "last_names": "Ortega Lozano",
-        "birth_date": date(1978, 4, 2),
-        "kinship_code": "PADRE",
-        "students": ["est_b02"],  # Priscila Ortega
-    },
-    {
-        "tag": "rep_b03",
-        "document_number": "0900100203",
-        "names": "Verónica Susana",
-        "last_names": "Peña Sánchez",
-        "birth_date": date(1983, 6, 17),
-        "kinship_code": "MADRE",
-        "students": ["est_b03"],  # Emilio Peña
-    },
-    # rep_b04 representa dos hermanas: Natalia (B) y Carolina (B)
-    {
-        "tag": "rep_b04",
-        "document_number": "0900100204",
-        "names": "Blanca Noemí",
-        "last_names": "Quito Freire",
-        "birth_date": date(1980, 9, 23),
-        "kinship_code": "MADRE",
-        "students": [
-            "est_b04",
-            "est_b12",
-        ],  # Natalia Quito + Carolina Zambrano (padre diferente)
-    },
-    {
-        "tag": "rep_b05",
-        "document_number": "0900100205",
-        "names": "Gonzalo Efraín",
-        "last_names": "Romero Iñiguez",
-        "birth_date": date(1975, 12, 10),
-        "kinship_code": "PADRE",
-        "students": ["est_b05"],  # Pablo Romero
-    },
-    {
-        "tag": "rep_b06",
-        "document_number": "0900100206",
-        "names": "Alexandra Paola",
-        "last_names": "Samaniego Vilema",
-        "birth_date": date(1984, 7, 4),
-        "kinship_code": "MADRE",
-        "students": ["est_b06"],  # Karla Samaniego
-    },
-    {
-        "tag": "rep_b08",
-        "document_number": "0900100208",
-        "names": "Rodrigo Marcelo",
-        "last_names": "Urgiles Merchán",
-        "birth_date": date(1977, 2, 14),
-        "kinship_code": "PADRE",
-        "students": ["est_b08"],  # Alejandra Urgiles
-    },
-    {
-        "tag": "rep_b09",
-        "document_number": "0900100209",
-        "names": "Mariana Elizabeth",
-        "last_names": "Vargas Celi",
-        "birth_date": date(1981, 8, 29),
-        "kinship_code": "MADRE",
-        "students": ["est_b09"],  # Cristian Vargas
-    },
-    {
-        "tag": "rep_b10",
-        "document_number": "0900100210",
-        "names": "Jonathan Xavier",
-        "last_names": "Washburn Vera",
-        "birth_date": date(1979, 5, 6),
-        "kinship_code": "PADRE",
-        "students": ["est_b10"],  # Melanie Washburn
-    },
-    {
-        "tag": "rep_b11",
-        "document_number": "0900100211",
-        "names": "Piedad Aurora",
-        "last_names": "Yánez Álvarez",
-        "birth_date": date(1976, 11, 12),
-        "kinship_code": "MADRE",
-        "students": ["est_b11"],  # Ronaldo Yánez
-    },
 ]
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# HORARIO SIN CRUCES
+# HORARIO SIN CRUCES — 45 min por período, 35 períodos semanales
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Estructura del día: bloques de 40 min, 7:00-11:55, con recreo 09:40-09:55
+# Estructura del día: 7 bloques de 45 min, 07:00-12:40, con recreo 10:10-10:25
 #
-#  Bloque 1  07:00 – 07:40
-#  Bloque 2  07:40 – 08:20
-#  Bloque 3  08:20 – 09:00
-#  Bloque 4  09:00 – 09:40
-#  [recreo]  09:40 – 09:55
-#  Bloque 5  09:55 – 10:35
-#  Bloque 6  10:35 – 11:15
-#  Bloque 7  11:15 – 11:55
+#  Bloque 1  07:00 – 07:45
+#  Bloque 2  07:45 – 08:30
+#  Bloque 3  08:30 – 09:15
+#  Bloque 4  09:15 – 10:00
+#  [recreo]  10:00 – 10:25
+#  Bloque 5  10:25 – 11:10
+#  Bloque 6  11:10 – 11:55
+#  Bloque 7  11:55 – 12:40
 #
 # Reglas de cruce CERO:
 #   1. El constraint del modelo es (teacher_subject_section, day_of_week, start_time).
@@ -792,195 +205,154 @@ REPRESENTANTES = [
 #   2. Un docente no puede estar en dos paralelos distintos en el mismo bloque.
 #   3. Un paralelo no puede tener dos materias en el mismo bloque horario.
 #
-# Los 3 paralelos (A, B, C) comparten los 7 bloques diarios, con distintas
-# materias asignadas a cada uno en cada bloque (sin solapamiento de docentes).
-# Para los grados 2do y 3ro se aplica una rotación de bloques (swap) para
-# distribuir los horarios dentro de la ventana de 7:00-11:55.
-#
-# Horas semanales resultantes (cada slot = 40 min ≈ 1 hora pedagógica):
-#   MAT 4 | FIS 4 | QUI 3 | BIO 3 | LEN 4 | ING 5 | SOC 3 | FIL 2 | EDU_FIS 2 | EDU_ART 2
+# Los 3 paralelos (A, B, C) comparten los 7 bloques diarios. Cada grado tiene
+# su propia matriz (materias distintas entre 1ro/2do y 3ro).
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+BLOCK_TIMES = [
+    (1, datetime.time(7, 0), datetime.time(7, 45)),
+    (2, datetime.time(7, 45), datetime.time(8, 30)),
+    (3, datetime.time(8, 30), datetime.time(9, 15)),
+    (4, datetime.time(9, 15), datetime.time(10, 0)),
+    (5, datetime.time(10, 25), datetime.time(11, 10)),
+    (6, datetime.time(11, 10), datetime.time(11, 55)),
+    (7, datetime.time(11, 55), datetime.time(12, 40)),
+]
 
-def _t(h: int, m: int) -> datetime.time:
-    """Atajo para construir un datetime.time."""
-    return datetime.time(h, m)
+
+def _make_schedule(subjects_with_hours, seed=2025):
+    """
+    Genera una lista de (subject_code, parallel, day, start, end) para 35 slots
+    semanales × 3 paralelos, sin cruces entre paralelos del mismo grado.
+    Usa un generador aleatorio con la semilla dada para reproducibilidad.
+    """
+    from collections import deque
+    pool_a = deque()
+    pool_b = deque()
+    pool_c = deque()
+    for code, _name, hours in subjects_with_hours:
+        for _ in range(hours):
+            pool_a.append(code)
+            pool_b.append(code)
+            pool_c.append(code)
+    local_rnd = random.Random(seed)
+    local_rnd.shuffle(pool_a)
+    local_rnd.shuffle(pool_b)
+    local_rnd.shuffle(pool_c)
+
+    slots = []
+    for day_idx in range(5):
+        day = day_idx + 1
+        for block_num, start, end in BLOCK_TIMES:
+            used = set()
+            picks = {}
+            pools = {"A": pool_a, "B": pool_b, "C": pool_c}
+            for p in ("A", "B", "C"):
+                for _ in range(len(pools[p])):
+                    cand = pools[p][0]
+                    pools[p].rotate(-1)
+                    if cand not in used:
+                        picks[p] = cand
+                        used.add(cand)
+                        pools[p].popleft()
+                        break
+                else:
+                    cand = pools[p][0]
+                    pools[p].popleft()
+                    picks[p] = cand
+                    used.add(cand)
+            for p in ("A", "B", "C"):
+                slots.append((picks[p], p, day, start, end))
+    return slots
 
 
-def _build_schedule():
-    """Genera SCHEDULE_SLOTS para 3 paralelos, 40-min bloques, 7:00-11:55."""
-    _BLOCK_TIMES = [
-        (1, _t(7, 0), _t(7, 40)),
-        (2, _t(7, 40), _t(8, 20)),
-        (3, _t(8, 20), _t(9, 0)),
-        (4, _t(9, 0), _t(9, 40)),
-        (5, _t(9, 55), _t(10, 35)),
-        (6, _t(10, 35), _t(11, 15)),
-        (7, _t(11, 15), _t(11, 55)),
+def _make_coordinated_schedule(subjects_with_hours, seed=2025, forbidden_by_slot=None):
+    """
+    Genera una lista de (subject_code, parallel, day, start, end) para 35 slots
+    semanales x 3 paralelos, sin repetir materia dentro del mismo bloque.
+
+    forbidden_by_slot permite coordinar otro grado que comparte docentes: las
+    materias listadas para un bloque no se vuelven a usar en ese mismo bloque.
+    """
+    subject_hours = {code: hours for code, _name, hours in subjects_with_hours}
+    subject_codes = [code for code, _name, _hours in subjects_with_hours]
+    slot_keys = [
+        (day, start, end)
+        for day in range(1, 6)
+        for _block_num, start, end in BLOCK_TIMES
     ]
+    forbidden_by_slot = forbidden_by_slot or {}
 
-    # Matriz semanal: day(1-5) → block(1-7) → (A_subj, B_subj, C_subj)
-    # Diseñada para que en cada bloque los 3 sujetos sean distintos y cada
-    # paralelo reciba exactamente: MAT4 FIS4 QUI3 BIO3 LEN4 ING5 SOC3 FIL2 EF2 EA2
-    _WEEKLY = {
-        1: [  # LUNES
-            ("MAT", "FIS", "QUI"),
-            ("MAT", "FIS", "LEN"),
-            ("LEN", "QUI", "BIO"),
-            ("ING", "SOC", "EDU_ART"),
-            ("ING", "LEN", "FIL"),
-            ("SOC", "BIO", "MAT"),
-            ("FIL", "EDU_ART", "EDU_FIS"),
-        ],
-        2: [  # MARTES
-            ("FIS", "MAT", "BIO"),
-            ("FIS", "MAT", "QUI"),
-            ("QUI", "LEN", "MAT"),
-            ("SOC", "ING", "LEN"),
-            ("LEN", "QUI", "ING"),
-            ("BIO", "SOC", "MAT"),
-            ("ING", "FIL", "EDU_FIS"),
-        ],
-        3: [  # MIERCOLES
-            ("FIL", "EDU_FIS", "ING"),
-            ("EDU_FIS", "MAT", "FIS"),
-            ("MAT", "BIO", "QUI"),
-            ("EDU_ART", "ING", "MAT"),
-            ("ING", "LEN", "SOC"),
-            ("QUI", "EDU_FIS", "BIO"),
-            ("EDU_ART", "FIL", "SOC"),
-        ],
-        4: [  # JUEVES
-            ("BIO", "MAT", "FIS"),
-            ("ING", "FIS", "FIL"),
-            ("MAT", "BIO", "ING"),
-            ("EDU_FIS", "QUI", "EDU_ART"),
-            ("FIS", "ING", "LEN"),
-            ("QUI", "EDU_ART", "ING"),
-            ("BIO", "LEN", "SOC"),
-        ],
-        5: [  # VIERNES
-            ("FIS", "ING", "LEN"),
-            ("LEN", "FIS", "ING"),
-            ("SOC", "ING", "FIS"),
-            ("LEN", "SOC", "FIS"),
-            (None, None, None),
-            (None, None, None),
-            (None, None, None),
-        ],
-    }
+    for attempt in range(2000):
+        local_rnd = random.Random(seed + attempt)
+        remaining = {
+            parallel: Counter(subject_hours) for parallel in ("A", "B", "C")
+        }
+        slots = []
+        schedule_failed = False
 
-    slots = []
-    for day in range(1, 6):
-        day_blocks = _WEEKLY[day]
-        for block_idx, (block_num, start, end) in enumerate(_BLOCK_TIMES):
-            a_subj, b_subj, c_subj = day_blocks[block_idx]
-            if a_subj:
-                slots.append((a_subj, "A", day, start, end))
-            if b_subj:
-                slots.append((b_subj, "B", day, start, end))
-            if c_subj:
-                slots.append((c_subj, "C", day, start, end))
-    return slots
+        for day, start, end in slot_keys:
+            forbidden = set(forbidden_by_slot.get((day, start, end), set()))
+            used = set()
+            picks = {}
+            parallels = ["A", "B", "C"]
+            local_rnd.shuffle(parallels)
+
+            for parallel in parallels:
+                options = [
+                    code
+                    for code in subject_codes
+                    if remaining[parallel][code] > 0
+                    and code not in forbidden
+                    and code not in used
+                ]
+                if not options:
+                    schedule_failed = True
+                    break
+
+                max_remaining = max(remaining[parallel][code] for code in options)
+                best_options = [
+                    code
+                    for code in options
+                    if remaining[parallel][code] == max_remaining
+                ]
+                chosen = local_rnd.choice(best_options)
+                picks[parallel] = chosen
+                used.add(chosen)
+                remaining[parallel][chosen] -= 1
+
+            if schedule_failed:
+                break
+
+            for parallel in ("A", "B", "C"):
+                slots.append((picks[parallel], parallel, day, start, end))
+
+        if not schedule_failed and all(
+            all(hours == 0 for hours in remaining[parallel].values())
+            for parallel in ("A", "B", "C")
+        ):
+            return slots
+
+    raise ValueError("No se pudo generar un horario sin cruces para la seed")
 
 
-SCHEDULE_SLOTS = _build_schedule()
+def _subjects_by_slot(slots):
+    subjects = defaultdict(set)
+    for subject_code, _parallel, day, start, end in slots:
+        subjects[(day, start, end)].add(subject_code)
+    return subjects
 
 
-def _build_second_grade_schedule():
-    """Horario propio de 2do BGU sin cruces con docentes compartidos de 1ro."""
-    block_times = {
-        1: (_t(7, 0), _t(7, 40)),
-        2: (_t(7, 40), _t(8, 20)),
-        3: (_t(8, 20), _t(9, 0)),
-        4: (_t(9, 0), _t(9, 40)),
-        5: (_t(9, 55), _t(10, 35)),
-        6: (_t(10, 35), _t(11, 15)),
-        7: (_t(11, 15), _t(11, 55)),
-    }
-    weekly = {
-        1: [
-            ("ING", "BIO", "LEN"),
-            ("QUI", "ING", "FIL"),
-            ("MAT", "FIS", "ING"),
-            ("BIO", "MAT", "FIS"),
-            ("FIS", "EDU_FIS", "MAT"),
-            ("FIL", "LEN", "EDU_FIS"),
-            (None, "QUI", "BIO"),
-        ],
-        2: [
-            ("ING", "SOC", "LEN"),
-            ("LEN", "ING", "FIL"),
-            ("EDU_ART", "FIS", "ING"),
-            ("QUI", "MAT", "FIS"),
-            ("FIS", "EDU_FIS", "MAT"),
-            ("FIL", "LEN", None),
-            (None, "QUI", "BIO"),
-        ],
-        3: [
-            ("LEN", "MAT", "FIS"),
-            ("ING", "SOC", "LEN"),
-            ("FIS", "ING", "SOC"),
-            ("BIO", "FIS", "QUI"),
-            ("MAT", "FIL", "EDU_ART"),
-            ("SOC", "EDU_ART", "ING"),
-            ("EDU_FIS", None, None),
-        ],
-        4: [
-            ("ING", "SOC", "QUI"),
-            ("LEN", "BIO", "MAT"),
-            ("SOC", "LEN", "FIS"),
-            ("FIS", "ING", "SOC"),
-            ("MAT", "EDU_ART", "BIO"),
-            ("BIO", "FIS", None),
-            ("EDU_FIS", None, "ING"),
-        ],
-        5: [
-            ("QUI", "BIO", "MAT"),
-            ("EDU_ART", "MAT", "QUI"),
-            ("MAT", "LEN", "EDU_ART"),
-            ("ING", "FIL", "EDU_FIS"),
-            ("LEN", "ING", "SOC"),
-            ("SOC", "QUI", "ING"),
-            (None, None, "LEN"),
-        ],
-    }
-
-    slots = []
-    for day, rows in weekly.items():
-        for block_num, (a_subj, b_subj, c_subj) in enumerate(rows, start=1):
-            start, end = block_times[block_num]
-            if a_subj:
-                slots.append((a_subj, "A", day, start, end))
-            if b_subj:
-                slots.append((b_subj, "B", day, start, end))
-            if c_subj:
-                slots.append((c_subj, "C", day, start, end))
-    return slots
-
-
-SCHEDULE_SLOTS_2DO = _build_second_grade_schedule()
-
-
-def _get_third_grade_times(start_time, end_time):
-    """Rotación de bloques para 3ro (docentes distintos a 1ro/2do)."""
-    # Morning blocks (1-4): 7:00-9:40
-    if start_time == _t(7, 0):
-        return _t(8, 20), _t(9, 0)
-    if start_time == _t(7, 40):
-        return _t(9, 0), _t(9, 40)
-    if start_time == _t(8, 20):
-        return _t(7, 0), _t(7, 40)
-    if start_time == _t(9, 0):
-        return _t(7, 40), _t(8, 20)
-    # Afternoon blocks (5-7): 9:55-11:55
-    if start_time == _t(9, 55):
-        return _t(10, 35), _t(11, 15)
-    if start_time == _t(10, 35):
-        return _t(11, 15), _t(11, 55)
-    if start_time == _t(11, 15):
-        return _t(9, 55), _t(10, 35)
-    return start_time, end_time
+# 1ro y 2do comparten docentes por materia, asi que sus horarios se coordinan
+# para que una misma asignatura no aparezca en ambos grados en el mismo bloque.
+# 3ro tiene sus propios docentes y materias.
+SCHEDULE_SLOTS_1RO = _make_coordinated_schedule(MATERIAS_BGU_12, seed=2025)
+SCHEDULE_SLOTS_2DO = _make_coordinated_schedule(
+    MATERIAS_BGU_12,
+    seed=2026,
+    forbidden_by_slot=_subjects_by_slot(SCHEDULE_SLOTS_1RO),
+)
+SCHEDULE_SLOTS_3RO = _make_coordinated_schedule(MATERIAS_BGU_3, seed=2027)
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1063,16 +435,16 @@ ACTIVIDADES_POR_TRIMESTRE = {
             "Workshop: Listening and speaking – daily routines",
             "TALLER",
         ),
-        # Historia y Ciencias Sociales
-        ("SOC", "Tareas", "Tarea 1: Culturas precolombinas del Ecuador", "TAREA"),
+        # Historia
+        ("HIS", "Tareas", "Tarea 1: Culturas precolombinas del Ecuador", "TAREA"),
         (
-            "SOC",
+            "HIS",
             "Lecciones",
             "Lección oral: Conquista española y colonia",
             "LECCION_ORAL",
         ),
         (
-            "SOC",
+            "HIS",
             "Talleres",
             "Taller: Línea del tiempo – historia ecuatoriana",
             "TALLER",
@@ -1087,16 +459,28 @@ ACTIVIDADES_POR_TRIMESTRE = {
         ),
         ("FIL", "Talleres", "Taller: Debate filosófico – ética y virtud", "TALLER"),
         # Educación Física
-        ("EDU_FIS", "Tareas", "Informe 1: Calentamiento y vuelta a la calma", "TAREA"),
-        ("EDU_FIS", "Talleres", "Taller: Atletismo – técnica de carrera", "TALLER"),
+        ("EF", "Tareas", "Informe 1: Calentamiento y vuelta a la calma", "TAREA"),
+        ("EF", "Talleres", "Taller: Atletismo – técnica de carrera", "TALLER"),
         # Educación Cultural y Artística
-        ("EDU_ART", "Tareas", "Tarea 1: Historia del arte – Renacimiento", "TAREA"),
+        ("EA", "Tareas", "Tarea 1: Historia del arte – Renacimiento", "TAREA"),
         (
-            "EDU_ART",
+            "EA",
             "Talleres",
             "Taller: Técnicas mixtas – collage y acuarela",
             "TALLER",
         ),
+        # Ciudadanía
+        ("CIU", "Tareas", "Tarea 1: Derechos humanos y constitución", "TAREA"),
+        ("CIU", "Talleres", "Taller: Debate sobre participación ciudadana", "TALLER"),
+        # Emprendimiento
+        ("EMP", "Tareas", "Tarea 1: Plan de negocios – idea inicial", "TAREA"),
+        ("EMP", "Talleres", "Taller: Análisis FODA del emprendimiento", "TALLER"),
+        # Acompañamiento Integral
+        ("ACO", "Tareas", "Portafolio 1: Proyecto de vida personal", "TAREA"),
+        # Informática Aplicada
+        ("INF", "Tareas", "Práctica 1: Ofimática – hoja de cálculo", "TAREA"),
+        ("INF", "Tareas", "Práctica 2: Algoritmos básicos en pseudocódigo", "TAREA"),
+        ("INF", "Talleres", "Taller: Desarrollo de página web sencilla", "TALLER"),
     ],
     2: [
         (
@@ -1160,19 +544,19 @@ ACTIVIDADES_POR_TRIMESTRE = {
         ),
         ("ING", "Talleres", "Workshop: Debate – environmental issues", "TALLER"),
         (
-            "SOC",
+            "HIS",
             "Tareas",
             "Tarea 2: Independencia del Ecuador y Gran Colombia",
             "TAREA",
         ),
         (
-            "SOC",
+            "HIS",
             "Lecciones",
             "Lección oral: Período republicano del Ecuador (siglo XIX)",
             "LECCION_ORAL",
         ),
         (
-            "SOC",
+            "HIS",
             "Talleres",
             "Taller: Análisis de fuentes históricas primarias",
             "TALLER",
@@ -1195,25 +579,37 @@ ACTIVIDADES_POR_TRIMESTRE = {
             "Taller: Ensayo filosófico – libertad y determinismo",
             "TALLER",
         ),
-        ("EDU_FIS", "Tareas", "Informe 2: Fundamentos del deporte colectivo", "TAREA"),
+        ("EF", "Tareas", "Informe 2: Fundamentos del deporte colectivo", "TAREA"),
         (
-            "EDU_FIS",
+            "EF",
             "Talleres",
             "Taller: Baloncesto – técnica y reglas de juego",
             "TALLER",
         ),
         (
-            "EDU_ART",
+            "EA",
             "Tareas",
             "Tarea 2: Análisis de obra artística contemporánea",
             "TAREA",
         ),
         (
-            "EDU_ART",
+            "EA",
             "Talleres",
             "Taller: Diseño gráfico – composición y color",
             "TALLER",
         ),
+        # Ciudadanía
+        ("CIU", "Tareas", "Tarea 2: Participación política y democracia", "TAREA"),
+        ("CIU", "Talleres", "Taller: Simulación de sesión del consejo estudiantil", "TALLER"),
+        # Emprendimiento
+        ("EMP", "Tareas", "Tarea 2: Estudio de mercado del emprendimiento", "TAREA"),
+        ("EMP", "Talleres", "Taller: Elaboración de presupuesto y flujo de caja", "TALLER"),
+        # Acompañamiento Integral
+        ("ACO", "Tareas", "Portafolio 2: Habilidades socioemocionales", "TAREA"),
+        # Informática Aplicada
+        ("INF", "Tareas", "Práctica 3: Base de datos relacional básica", "TAREA"),
+        ("INF", "Tareas", "Práctica 4: Programación en Python – condicionales", "TAREA"),
+        ("INF", "Talleres", "Taller: Creación de presentación multimedia interactiva", "TALLER"),
     ],
     3: [
         (
@@ -1302,19 +698,19 @@ ACTIVIDADES_POR_TRIMESTRE = {
             "PROYECTO",
         ),
         (
-            "SOC",
+            "HIS",
             "Tareas",
             "Tarea 3: Ecuador contemporáneo – economía y sociedad",
             "TAREA",
         ),
         (
-            "SOC",
+            "HIS",
             "Lecciones",
             "Lección oral: Globalización y desafíos del siglo XXI",
             "LECCION_ORAL",
         ),
         (
-            "SOC",
+            "HIS",
             "Talleres",
             "Proyecto trimestral Sociales: investigación de campo",
             "PROYECTO",
@@ -1337,50 +733,42 @@ ACTIVIDADES_POR_TRIMESTRE = {
             "Proyecto trimestral Filosofía: ensayo de postura ética",
             "PROYECTO",
         ),
-        ("EDU_FIS", "Tareas", "Informe 3: Plan personal de actividad física", "TAREA"),
+        ("EF", "Tareas", "Informe 3: Plan personal de actividad física", "TAREA"),
         (
-            "EDU_FIS",
+            "EF",
             "Talleres",
             "Demostración deportiva final – atletismo o deporte colectivo",
             "EXPOSICION",
         ),
         (
-            "EDU_ART",
+            "EA",
             "Tareas",
             "Tarea 3: Apreciación de obra musical ecuatoriana",
             "TAREA",
         ),
         (
-            "EDU_ART",
+            "EA",
             "Talleres",
             "Exposición artística final – muestra de trabajos del año",
             "EXPOSICION",
         ),
+        # Ciudadanía
+        ("CIU", "Tareas", "Tarea 3: Convivencia social y resolución de conflictos", "TAREA"),
+        ("CIU", "Talleres", "Taller: Proyecto de servicio comunitario", "TALLER"),
+        # Emprendimiento
+        ("EMP", "Tareas", "Tarea 3: Estrategias de marketing digital", "TAREA"),
+        ("EMP", "Talleres", "Taller: Pitch de presentación del emprendimiento", "TALLER"),
+        # Acompañamiento Integral
+        ("ACO", "Tareas", "Portafolio 3: Reflexión sobre el año lectivo", "TAREA"),
+        # Informática Aplicada
+        ("INF", "Tareas", "Práctica 5: Programación en Python – ciclos y listas", "TAREA"),
+        ("INF", "Tareas", "Práctica 6: Consultas SQL básicas", "TAREA"),
+        ("INF", "Talleres", "Taller: Proyecto integrador – aplicación web básica", "TALLER"),
     ],
 }
 
 # Distribución de notas realista: mayoría aprobando, algunos en riesgo
 # Pesos: [4,5,6,7,8,9,10,10,9,8,7,6,5] → concentrado en 6-9
-_NOTA_POOL = [
-    Decimal("3.00"),
-    Decimal("4.00"),
-    Decimal("4.50"),
-    Decimal("5.00"),
-    Decimal("5.50"),
-    Decimal("6.00"),
-    Decimal("6.50"),
-    Decimal("7.00"),
-    Decimal("7.00"),
-    Decimal("7.50"),
-    Decimal("8.00"),
-    Decimal("8.00"),
-    Decimal("8.50"),
-    Decimal("9.00"),
-    Decimal("9.00"),
-    Decimal("9.50"),
-    Decimal("10.00"),
-]
-
 # Incidentes conductuales con descripciones realistas
 INCIDENTES_DESCRIPCION = {
     "PERTURBACION": [
@@ -1560,6 +948,43 @@ for i in range(1, 421):
             "students": [student_tag],
         }
     )
+
+# ── Estudiantes y representantes específicos (independientes del pool) ──
+SPECIFIC_EXTRA = [
+    {
+        "tag": "est_spec_anthony", "rep_tag": "rep_spec_alba",
+        "student_doc": "0910299901", "rep_doc": "0900199901",
+        "names": "Anthony Jhair", "last_names": "Aguilar Salazar",
+        "birth_date": date(2009, 3, 12),
+        "grade_code": "BGU_3RO",
+        "rep_names": "Alba María", "rep_last_names": "Salazar Aguilar",
+        "rep_birth": date(1980, 6, 5), "kinship": "MADRE",
+        "email": "est.aguilar.spec@uetest.edu.ec",
+        "rep_email": "rep.salazar.spec@uetest.edu.ec",
+    },
+    {
+        "tag": "est_spec_ashley", "rep_tag": "rep_spec_vero",
+        "student_doc": "0910299902", "rep_doc": "0900199902",
+        "names": "Ashley Mishelle", "last_names": "Maldonado Salazar",
+        "birth_date": date(2010, 7, 25),
+        "grade_code": "BGU_3RO",
+        "rep_names": "Verónica Rocío", "rep_last_names": "Salazar Aguilar",
+        "rep_birth": date(1982, 9, 14), "kinship": "MADRE",
+        "email": "est.maldonado.spec@uetest.edu.ec",
+        "rep_email": "rep.salazar.vero@uetest.edu.ec",
+    },
+    {
+        "tag": "est_spec_camila", "rep_tag": "rep_spec_vero",
+        "student_doc": "0910299903", "rep_doc": "0900199902",
+        "names": "Camila Carmen", "last_names": "Maldonado Salazar",
+        "birth_date": date(2011, 1, 8),
+        "grade_code": "BGU_1RO",
+        "rep_names": "", "rep_last_names": "",
+        "rep_birth": None, "kinship": "MADRE",
+        "email": "est.camila.spec@uetest.edu.ec",
+        "rep_email": "",
+    },
+]
 
 # ── Parroquias disponibles (dependen de seed_catalogs, se usan como lookup) ──
 ALL_PARISH_CODES = (
@@ -1790,9 +1215,9 @@ class Command(BaseCommand):
 
         grade_bgu1, grade_bgu2, grade_bgu3 = self._create_grades()
         subjects = self._create_subjects()
-        configs_bgu1 = self._create_subject_configs(subjects, grade_bgu1)
-        configs_bgu2 = self._create_subject_configs(subjects, grade_bgu2)
-        configs_bgu3 = self._create_subject_configs(subjects, grade_bgu3)
+        configs_bgu1 = self._create_subject_configs(subjects, grade_bgu1, MATERIAS_BGU_12)
+        configs_bgu2 = self._create_subject_configs(subjects, grade_bgu2, MATERIAS_BGU_12)
+        configs_bgu3 = self._create_subject_configs(subjects, grade_bgu3, MATERIAS_BGU_3)
 
         admin_users = self._create_admin_users()
         doc_users = self._create_docentes()
@@ -1815,7 +1240,7 @@ class Command(BaseCommand):
             ]:
                 apellido_slug = apellido_slug.replace(a, b)
             email = f"est.{apellido_slug}.{e['tag']}@uetest.edu.ec"
-            password = f"Emelec_28"
+            password = "Admin_123"
             parish_code = ALL_PARISH_CODES[idx % len(ALL_PARISH_CODES)]
             u = self._make_user(
                 document_number=e["document_number"],
@@ -1868,7 +1293,7 @@ class Command(BaseCommand):
             ]:
                 apellido_slug = apellido_slug.replace(a, b)
             email = f"rep.{apellido_slug}@uetest.edu.ec"
-            password = f"Rep.{r['last_names'].split()[0]}2025!"
+            password = "Admin_123"
             first_student_tag = r["students"][0]
             parish_code = student_parish_map.get(first_student_tag, ALL_PARISH_CODES[0])
             u = self._make_user(
@@ -2039,41 +1464,13 @@ class Command(BaseCommand):
                         teacher_map[key] = tss
 
             count_schedules = 0
-            for scode, parallel, day, start, end in SCHEDULE_SLOTS:
-                for grade_code in ("BGU_1RO", "BGU_3RO"):
-                    if grade_code == "BGU_1RO":
-                        actual_start, actual_end = start, end
-                    else:
-                        actual_start, actual_end = _get_third_grade_times(start, end)
+            for grade_code, slot_list in [
+                ("BGU_1RO", SCHEDULE_SLOTS_1RO),
+                ("BGU_2DO", SCHEDULE_SLOTS_2DO),
+                ("BGU_3RO", SCHEDULE_SLOTS_3RO),
+            ]:
+                for scode, parallel, day, start, end in slot_list:
                     tss = teacher_map.get((grade_code, scode, parallel))
-                    if tss:
-                        cs, created = ClassSchedule.objects.get_or_create(
-                            teacher_subject_section=tss,
-                            day_of_week=day,
-                            start_time=actual_start,
-                            defaults={
-                                "end_time": actual_end,
-                                "is_active": year_is_active,
-                            },
-                        )
-                        if not created and (
-                            cs.is_active != year_is_active or cs.end_time != actual_end
-                        ):
-                            cs.is_active = year_is_active
-                            cs.end_time = actual_end
-                            cs.save()
-                        count_schedules += 1
-            second_grade_tss = [
-                tss
-                for (grade_code, _scode, _parallel), tss in teacher_map.items()
-                if grade_code == "BGU_2DO"
-            ]
-            if second_grade_tss:
-                ClassSchedule.objects.filter(
-                    teacher_subject_section__in=second_grade_tss
-                ).update(is_active=False)
-                for scode, parallel, day, start, end in SCHEDULE_SLOTS_2DO:
-                    tss = teacher_map.get(("BGU_2DO", scode, parallel))
                     if not tss:
                         continue
                     cs, created = ClassSchedule.objects.get_or_create(
@@ -2082,15 +1479,12 @@ class Command(BaseCommand):
                         start_time=start,
                         defaults={"end_time": end, "is_active": year_is_active},
                     )
-                    updates = {}
-                    if cs.end_time != end:
-                        updates["end_time"] = end
-                    if cs.is_active != year_is_active:
-                        updates["is_active"] = year_is_active
-                    if updates:
-                        for field, value in updates.items():
-                            setattr(cs, field, value)
-                        cs.save(update_fields=list(updates.keys()))
+                    if not created and (
+                        cs.is_active != year_is_active or cs.end_time != end
+                    ):
+                        cs.is_active = year_is_active
+                        cs.end_time = end
+                        cs.save()
                     count_schedules += 1
 
             self._validate_schedule_conflicts(school_year)
@@ -2143,10 +1537,7 @@ class Command(BaseCommand):
                 ]
                 local_rand.shuffle(passed_2do)
 
-                intake_3ro = (
-                    repeaters_3ro
-                    + passed_2do[: STUDENTS_PER_GRADE - len(repeaters_3ro)]
-                )
+                intake_3ro = repeaters_3ro + passed_2do
                 local_rand.shuffle(intake_3ro)
 
                 for idx, tag in enumerate(intake_3ro[:STUDENTS_PER_GRADE]):
@@ -2180,10 +1571,7 @@ class Command(BaseCommand):
                 ]
                 local_rand.shuffle(passed_1ro)
 
-                intake_2do = (
-                    repeaters_2do
-                    + passed_1ro[: STUDENTS_PER_GRADE - len(repeaters_2do)]
-                )
+                intake_2do = repeaters_2do + passed_1ro
                 local_rand.shuffle(intake_2do)
 
                 for idx, tag in enumerate(intake_2do[:STUDENTS_PER_GRADE]):
@@ -2275,6 +1663,78 @@ class Command(BaseCommand):
                     f"  [OK] Retiros: {len(withdrawn_tags)} estudiantes marcados como retirados"
                 )
 
+            # ── Estudiantes específicos (solo en año activo) ────────────────
+            if year_is_active:
+                for spec in SPECIFIC_EXTRA:
+                    section = sections.get(spec["grade_code"])
+                    if not section:
+                        continue
+                    parallel = "A"
+                    sec = section.get(parallel) or next(iter(section.values()), None)
+                    if not sec:
+                        continue
+
+                    est_user = self._make_user(
+                        document_number=spec["student_doc"],
+                        names=spec["names"],
+                        last_names=spec["last_names"],
+                        email=spec["email"],
+                        password="Admin_123",
+                        birth_date=spec["birth_date"],
+                        parish_code="ZAR-URB",
+                    )
+                    est_users[spec["tag"]] = est_user
+                    UserRole.objects.get_or_create(user=est_user, role=est_role)
+
+                    student, _ = Student.objects.get_or_create(
+                        student_code=f"BGU-{spec['student_doc'][-6:]}",
+                        defaults={"user": est_user, "is_active": True},
+                    )
+                    students[spec["tag"]] = student
+
+                    enroll, _ = Enrollment.objects.get_or_create(
+                        student=student,
+                        section=sec,
+                        defaults={"enrollment_status": "ACT", "is_repeat": False},
+                    )
+                    current_enrollments[spec["tag"]] = enroll
+                    student_states[spec["tag"]] = {"last_grade": spec["grade_code"], "last_status": None, "repeat_count": 0}
+
+                    # Representante
+                    rep_created = False
+                    for r_spec in SPECIFIC_EXTRA:
+                        if r_spec["rep_tag"] == spec["rep_tag"] and r_spec.get("rep_user_created"):
+                            spec["rep_user"] = r_spec["rep_user"]
+                            rep_created = True
+                            break
+                    if not rep_created:
+                        rep_user = self._make_user(
+                            document_number=spec["rep_doc"],
+                            names=spec["rep_names"],
+                            last_names=spec["rep_last_names"],
+                            email=spec["rep_email"],
+                            password="Admin_123",
+                            birth_date=spec["rep_birth"],
+                            parish_code="ZAR-URB",
+                        )
+                        UserRole.objects.get_or_create(user=rep_user, role=rep_role)
+                        spec["rep_user"] = rep_user
+                        spec["rep_user_created"] = True
+                        rep_users[spec["rep_tag"]] = rep_user
+
+                    kinship = Kinship.objects.get(code=spec["kinship"])
+                    StudentRepresentative.objects.get_or_create(
+                        student=student,
+                        user=spec["rep_user"],
+                        defaults={
+                            "kinship": kinship,
+                            "is_primary": True,
+                            "receives_notifications": True,
+                            "is_active": True,
+                            "emergency_contact": True,
+                        },
+                    )
+
             failing_students = set()
             medium_risk_students = set()
 
@@ -2317,6 +1777,9 @@ class Command(BaseCommand):
             # ── Estado de promoción desde AnnualGradeSummary ────
             for tag in current_enrollments:
                 enroll = current_enrollments[tag]
+                if enroll.enrollment_status == "RET":
+                    student_states[tag].pop("last_status", None)
+                    continue
                 has_failing = AnnualGradeSummary.objects.filter(
                     enrollment=enroll,
                     school_year=school_year,
@@ -2373,6 +1836,32 @@ class Command(BaseCommand):
                         "students": active_students,
                     }
                 )
+
+        # ── Agregar específicos a STUDENT_POOL/REPRESENTATIVE_POOL (para credentials) ──
+        for s in SPECIFIC_EXTRA:
+            STUDENT_POOL.append({
+                "tag": s["tag"],
+                "document_number": s["student_doc"],
+                "names": s["names"],
+                "last_names": s["last_names"],
+                "birth_date": s["birth_date"],
+            })
+        rep_seen = set()
+        for s in SPECIFIC_EXTRA:
+            if s["rep_tag"] in rep_seen:
+                continue
+            rep_seen.add(s["rep_tag"])
+            if not s["rep_doc"]:
+                continue
+            REPRESENTATIVE_POOL.append({
+                "tag": s["rep_tag"],
+                "document_number": s["rep_doc"],
+                "names": s["rep_names"],
+                "last_names": s["rep_last_names"],
+                "birth_date": s["rep_birth"],
+                "kinship_code": s["kinship"],
+                "students": [x["tag"] for x in SPECIFIC_EXTRA if x["rep_tag"] == s["rep_tag"]],
+            })
 
         active_sy = SchoolYear.objects.filter(is_active=True).first()
         active_sections = Section.objects.filter(school_year=active_sy)
@@ -2485,7 +1974,7 @@ class Command(BaseCommand):
 
     def _create_subjects(self):
         objs = {}
-        for code, name, _ in MATERIAS_BGU:
+        for code, name, _ in MATERIAS_BGU_12 + MATERIAS_BGU_3:
             obj, _ = Subject.objects.get_or_create(
                 code=code,
                 defaults={"name": name, "is_active": True},
@@ -2494,16 +1983,16 @@ class Command(BaseCommand):
         self.stdout.write(f"  [OK] Asignaturas verificadas: {len(objs)}")
         return objs
 
-    def _create_subject_configs(self, subjects, grade):
+    def _create_subject_configs(self, subjects, grade, subject_list):
         configs = {}
-        for code, _, weekly_hours in MATERIAS_BGU:
+        for code, _, weekly_hours in subject_list:
             subj = subjects[code]
             cfg, _ = SubjectAcademicConfig.objects.get_or_create(
                 subject=subj,
                 academic_grade=grade,
                 defaults={
                     "weekly_hours": weekly_hours,
-                    "is_required": True,
+                    "is_required": code not in ("INF",),
                     "is_active": True,
                 },
             )
@@ -2589,7 +2078,7 @@ class Command(BaseCommand):
             ]:
                 apellido_slug = apellido_slug.replace(a, b)
             email = f"doc.{apellido_slug}@uetest.edu.ec"
-            password = f"Doc.{d['last_names'].split()[0]}2025!"
+            password = "Admin_123"
             u = self._make_user(
                 document_number=d["document_number"],
                 names=d["names"],
@@ -2607,7 +2096,6 @@ class Command(BaseCommand):
         role_map = {
             "admin": None,
             "director": "DIRECTOR",
-            "consejero": "CONSEJERO",
         }
         for tag, role_code in role_map.items():
             if not role_code:
@@ -2735,7 +2223,7 @@ class Command(BaseCommand):
 
         schedules = ClassSchedule.objects.select_related(
             "teacher_subject_section"
-        ).filter(is_active=True)
+        ).all()
         attendance_to_create = []
 
         for period in periods:
@@ -3121,20 +2609,20 @@ class Command(BaseCommand):
 
     def _create_behavior_evaluations(self, enrollments, periods, admin_users):
         count = 0
-        consejero = admin_users.get("consejero")
+        admin_user = admin_users.get("director") or admin_users.get("admin")
         for enrollment in enrollments.values():
             for period in periods:
                 try:
                     evaluation = (
                         BehaviorEvaluationService.calculate_behavior_evaluation(
-                            enrollment, period
+                            enrollment.id, period.id
                         )
                     )
                     if evaluation.final_scale is None:
                         evaluation.final_scale = evaluation.calculated_scale
-                    evaluation.created_by = consejero
-                    evaluation.evaluated_by = consejero
-                    evaluation.approved_by = consejero
+                    evaluation.created_by = admin_user
+                    evaluation.evaluated_by = admin_user
+                    evaluation.approved_by = admin_user
                     evaluation.approval_date = period.end_date
                     evaluation.general_observation = (
                         "Evaluación de conducta generada al cierre del período."
@@ -3144,12 +2632,15 @@ class Command(BaseCommand):
                     evaluation.save()
                     count += 1
                 except Exception as e:
-                    pass
+                    self.stderr.write(
+                        f"  [!] Error en evaluación de conducta "
+                        f"(enrollment={enrollment.id}, period={period.id}): {e}"
+                    )
         self.stdout.write(f"  [OK] Evaluaciones de conducta: {count}")
 
     def _create_early_alerts(self, enrollments, periods, admin_users):
         count = 0
-        consejero = admin_users.get("consejero")
+        admin_user = admin_users.get("director") or admin_users.get("admin")
         all_enroll = list(enrollments.values())
         alert_types = [
             (
@@ -3183,7 +2674,7 @@ class Command(BaseCommand):
                         "description": description,
                         "urgency_level": local_rand.choice(["low", "medium", "high"]),
                         "attended": True,
-                        "attended_by_user": consejero,
+                        "attended_by_user": admin_user,
                         "attended_at": attended_at,
                         "response_actions": "Entrevista con el estudiante.",
                         "sync_status": "SYNCED",
@@ -3247,37 +2738,51 @@ class Command(BaseCommand):
 
     def _build_credentials_lines(self, admin_users, doc_users, rep_users, est_users):
         sep = "-" * 60
+        active_est_tags = {e["tag"] for e in ESTUDIANTES}
+        active_rep_tags = {r["tag"] for r in REPRESENTANTES}
+
+        active_doc_usernames = set()
+        tss_qs = TeacherSubjectSection.objects.filter(
+            subject_offering__section__school_year__is_active=True,
+            is_active=True,
+        ).values_list("user__username", flat=True)
+        for uname in tss_qs:
+            active_doc_usernames.add(uname)
+
         lines = [
             sep,
             "  CREDENCIALES DE ACCESO (Método de acceso: username)",
             sep,
             "",
-            "  Administradores:",
+            "  [ACTIVO]     = Cuenta accesible en el sistema actual",
+            "  [HISTÓRICO]  = Cuenta de años lectivos anteriores (solo consulta)",
+            "",
+            "  ── Administradores ──",
         ]
         for item in ADMIN_USERS:
             u = admin_users.get(item["tag"])
             username = u.username if u else "desconocido"
             lines.append(
-                f"  [{item['tag'].upper():12}] usuario: {username:15} | pw: {item['password']:20} | correo: {item['email']}"
+                f"  [ACTIVO] [{item['tag'].upper():12}] usuario: {username:15} | pw: Admin_123            | correo: {item['email']}"
             )
 
-        lines.extend(["", "  Docentes:"])
+        lines.extend(["", "  ── Docentes ──"])
         for d in DOCENTES:
             u = doc_users.get(d["tag"])
             username = u.username if u else "desconocido"
             email = u.person.email if (u and u.person) else "desconocido"
-            pw = f"Doc.{d['last_names'].split()[0]}2025!"
+            status = "ACTIVO" if u and u.username in active_doc_usernames else "HISTÓRICO"
             lines.append(
-                f"  [{d['subject_code']:8}] usuario: {username:15} | pw: {pw:20} | correo: {email}"
+                f"  [{status:8}] [{d['subject_code']:8}] usuario: {username:15} | pw: Admin_123           | correo: {email}"
             )
 
-        lines.extend(["", "  Representantes:"])
+        lines.extend(["", "  ── Representantes ──"])
         est_by_tag = {e["tag"]: e for e in ESTUDIANTES}
-        for r in REPRESENTANTES:
+        for r in REPRESENTATIVE_POOL:
             u = rep_users.get(r["tag"])
             username = u.username if u else "desconocido"
             email = u.person.email if (u and u.person) else "desconocido"
-            pw = f"Rep.{r['last_names'].split()[0]}2025!"
+            status = "ACTIVO" if r["tag"] in active_rep_tags else "HISTÓRICO"
             hijos = []
             for s_tag in r["students"]:
                 se = est_by_tag.get(s_tag)
@@ -3289,19 +2794,25 @@ class Command(BaseCommand):
                     hijos.append(s_tag)
             hijos_str = ", ".join(hijos)
             lines.append(
-                f"  usuario: {username:15} | pw: {pw:20} | correo: {email:30} | estudiantes: {hijos_str}"
+                f"  [{status:8}] usuario: {username:15} | pw: Admin_123           | correo: {email:30} | estudiantes: {hijos_str}"
             )
 
-        lines.extend(["", "  Estudiantes:"])
-        for e in ESTUDIANTES:
+        lines.extend(["", "  ── Estudiantes ──"])
+        for e in STUDENT_POOL:
             u = est_users.get(e["tag"])
             username = u.username if u else "desconocido"
             email = u.person.email if (u and u.person) else "desconocido"
-            pw = f"Est.{e['last_names'].split()[0]}2025!"
             full_name = u.get_full_name() if u else f"{e['names']} {e['last_names']}"
-            lines.append(
-                f"  curso: {e.get('grade_name', '?')} | paralelo: {e.get('parallel', '?')} | año: {e.get('school_year_name', '?')} | usuario: {username:15} | pw: {pw:20} | estudiante: {full_name}"
-            )
+            status = "ACTIVO" if e["tag"] in active_est_tags else "HISTÓRICO"
+            se = next((s for s in ESTUDIANTES if s["tag"] == e["tag"]), None)
+            if se:
+                lines.append(
+                    f"  [{status:8}] curso: {se.get('grade_name', '?')} | paralelo: {se.get('parallel', '?')} | año: {se.get('school_year_name', '?')} | usuario: {username:15} | pw: Admin_123           | estudiante: {full_name}"
+                )
+            else:
+                lines.append(
+                    f"  [{status:8}] usuario: {username:15} | pw: Admin_123           | estudiante: {full_name}"
+                )
 
         return lines
 
@@ -3314,6 +2825,8 @@ class Command(BaseCommand):
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         return output_path
+
+
 
     def _print_summary(
         self,
@@ -3337,7 +2850,7 @@ class Command(BaseCommand):
         )
         self.stdout.write(f"  Secciones activas: {sections.count()}")
         self.stdout.write(f"  Períodos:          {len(periods)}")
-        self.stdout.write(f"  Asignaturas BGU:   {len(MATERIAS_BGU)}")
+        self.stdout.write(f"  Asignaturas 1ro/2do: {len(MATERIAS_BGU_12)} | 3ro: {len(MATERIAS_BGU_3)}")
         self.stdout.write(f"  Docentes:          {len(DOCENTES)}")
         self.stdout.write(f"  Estudiantes total: {len(students)}")
         self.stdout.write(f"  Matrículas año:    {len(enrollments)}")

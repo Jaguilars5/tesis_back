@@ -28,7 +28,7 @@ class ConductIncidentViewSet(BaseBehaviorViewSet):
     serializer_class = ConductIncidentSerializer
     action_permissions = ACTION_PERMISSIONS
     filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
-    filterset_fields = ["enrollment"]
+    filterset_fields = ["enrollment", "academic_period", "academic_period__school_year"]
     search_fields = ["enrollment__student__user__person__names", "description"]
     ordering_fields = ["incident_date", "created_at"]
     ordering = ["-incident_date"]

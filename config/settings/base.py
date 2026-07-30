@@ -108,7 +108,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-        "OPTIONS": {"min_length": 12},
+        "OPTIONS": {"min_length": 8},
     },
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
@@ -255,6 +255,17 @@ CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "http://localhost:3000"
 # ─── Socket.IO ───────────────────────────────────────────────────────────────
 SOCKETIO_REDIS_URL = os.getenv(
     "SOCKETIO_REDIS_URL", os.getenv("REDIS_URL", "redis://localhost:6379/0")
+)
+
+# Hunter Email Verifier
+HUNTER_VALIDATE_EMAILS = os.getenv("HUNTER_VALIDATE_EMAILS", "True") == "True"
+HUNTER_API_KEY = os.getenv("HUNTER_API_KEY", "")
+HUNTER_TIMEOUT_SECONDS = int(os.getenv("HUNTER_TIMEOUT_SECONDS", 10))
+
+# Frontend usado para enlaces en correos publicos.
+PASSWORD_RESET_FRONTEND_URL = os.getenv(
+    "PASSWORD_RESET_FRONTEND_URL",
+    os.getenv("FRONTEND_URL", "http://localhost:5173"),
 )
 
 # ─── Celery ──────────────────────────────────────────────────────────────────

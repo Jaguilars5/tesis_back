@@ -59,9 +59,7 @@ class StudentRoleHandler(BaseRoleHandler):
         User, Person, Student, Enrollment, TeacherSubjectSection,
         EvaluativeActivity, StudentNote, PeriodGradeSummary,
         Attendance, ConductIncident, BehaviorEvaluation,
-    }
-    DENIED_MODELS = {
-        EarlyAlert, StudentRiskScore, StudentRiskFactor, StudentFeatureSnapshot
+        StudentRiskScore, StudentRiskFactor, StudentFeatureSnapshot,
     }
 
     def _filter_logic(self, queryset) -> QuerySet:
@@ -95,6 +93,16 @@ class StudentRoleHandler(BaseRoleHandler):
         elif model in (Attendance, ConductIncident, BehaviorEvaluation):
             return queryset.filter(enrollment__student__person=self.user.person).distinct()
 
+        # Riesgo academico propio
+        elif model is StudentRiskScore:
+            return queryset.filter(enrollment__student__user=self.user).distinct()
+        elif model is StudentRiskFactor:
+            return queryset.filter(
+                student_risk_score__enrollment__student__user=self.user
+            ).distinct()
+        elif model is StudentFeatureSnapshot:
+            return queryset.filter(enrollment__student__user=self.user).distinct()
+
         return queryset.none()
 
 
@@ -108,7 +116,7 @@ class RepresentativeRoleHandler(BaseRoleHandler):
         TeacherSubjectSection, EvaluativeActivity, StudentNote,
         PeriodGradeSummary, Attendance, ConductIncident,
         BehaviorEvaluation, EarlyAlert, StudentRiskScore,
-        StudentRiskFactor
+        StudentRiskFactor, StudentFeatureSnapshot
     }
 
     def _filter_logic(self, queryset) -> QuerySet:
@@ -151,8 +159,26 @@ class RepresentativeRoleHandler(BaseRoleHandler):
             ).distinct()
 
         # Alertas Tempranas y Analítica Predictiva de sus representados
-        elif model in (EarlyAlert, StudentRiskScore, StudentRiskFactor):
-            return queryset.filter(student__representatives_set__person=self.user.person).distinct()
+        elif model is EarlyAlert:
+            return queryset.filter(
+                enrollment__student__representatives_set__user=self.user,
+                enrollment__student__representatives_set__is_active=True,
+            ).distinct()
+        elif model is StudentRiskScore:
+            return queryset.filter(
+                enrollment__student__representatives_set__user=self.user,
+                enrollment__student__representatives_set__is_active=True,
+            ).distinct()
+        elif model is StudentRiskFactor:
+            return queryset.filter(
+                student_risk_score__enrollment__student__representatives_set__user=self.user,
+                student_risk_score__enrollment__student__representatives_set__is_active=True,
+            ).distinct()
+        elif model is StudentFeatureSnapshot:
+            return queryset.filter(
+                enrollment__student__representatives_set__user=self.user,
+                enrollment__student__representatives_set__is_active=True,
+            ).distinct()
 
         return queryset.none()
 
@@ -167,7 +193,8 @@ class TeacherRoleHandler(BaseRoleHandler):
         User, Person, TeacherSubjectSection, EvaluativeActivity,
         StudentNote, PeriodGradeSummary,
         Attendance, ConductIncident, BehaviorEvaluation,
-        EarlyAlert, StudentRiskScore, Enrollment
+        EarlyAlert, StudentRiskScore, StudentRiskFactor, StudentFeatureSnapshot,
+        Enrollment
     }
 
     def filter(self, queryset) -> QuerySet:
@@ -201,14 +228,36 @@ class TeacherRoleHandler(BaseRoleHandler):
                 enrollment__section__teacher_subject_sections__user=self.user
             ).distinct()
 
-        # Asistencia y Comportamiento de sus alumnos en sus secciones
-        elif model in (Attendance, ConductIncident, BehaviorEvaluation):
+        # Asistencia de sus alumnos en sus secciones
+        elif model is Attendance:
             return queryset.filter(teacher_subject_section__user=self.user).distinct()
 
-        # Alertas Tempranas y Riesgo predictivo de alumnos bajo su asignación
-        elif model in (EarlyAlert, StudentRiskScore):
+        # Comportamiento de sus alumnos en sus secciones
+        elif model in (ConductIncident, BehaviorEvaluation):
             return queryset.filter(
-                student__enrollments__section__teacher_subject_sections__user=self.user
+                enrollment__section__teacher_subject_sections__user=self.user
+            ).distinct()
+
+        # Alertas Tempranas y Riesgo predictivo de alumnos bajo su asignación
+        elif model is EarlyAlert:
+            return queryset.filter(
+                enrollment__section__subject_offerings__teacher_assignments__user=self.user,
+                enrollment__section__subject_offerings__teacher_assignments__is_active=True,
+            ).distinct()
+        elif model is StudentRiskScore:
+            return queryset.filter(
+                enrollment__section__subject_offerings__teacher_assignments__user=self.user,
+                enrollment__section__subject_offerings__teacher_assignments__is_active=True,
+            ).distinct()
+        elif model is StudentRiskFactor:
+            return queryset.filter(
+                student_risk_score__enrollment__section__subject_offerings__teacher_assignments__user=self.user,
+                student_risk_score__enrollment__section__subject_offerings__teacher_assignments__is_active=True,
+            ).distinct()
+        elif model is StudentFeatureSnapshot:
+            return queryset.filter(
+                enrollment__section__subject_offerings__teacher_assignments__user=self.user,
+                enrollment__section__subject_offerings__teacher_assignments__is_active=True,
             ).distinct()
 
         return queryset.none()

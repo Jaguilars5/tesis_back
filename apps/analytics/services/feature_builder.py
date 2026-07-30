@@ -140,20 +140,62 @@ class AcademicRiskFeatureBuilder:
     def _get_previous_period_avg(self, student, current_period):
         if not current_period:
             return None
-        prev_period_qs = type(current_period).objects.filter(
-            school_year=current_period.school_year,
-            start_date__lt=current_period.start_date,
-        ).order_by("-start_date")
-        prev_period = prev_period_qs.first()
-        if not prev_period:
+
+        prev_period = (
+            type(current_period)
+            .objects.filter(
+                school_year=current_period.school_year,
+                start_date__lt=current_period.start_date,
+            )
+            .order_by("-start_date")
+            .first()
+        )
+
+        if prev_period:
+            enrollment = self._get_active_enrollment(student)
+            if not enrollment:
+                return None
+            from apps.grading.student_note import PeriodGradeSummary
+            summary = PeriodGradeSummary.objects.filter(
+                enrollment=enrollment,
+                academic_period=prev_period,
+            ).first()
+            return _round_decimal(summary.final_avg_truncated) if summary else None
+
+        # No previous period in same school year → buscar en el año anterior
+        from apps.institutions.school_year.infrastructure.models import SchoolYear
+        from apps.students.repositories.enrollment_repo import EnrollmentRepository
+
+        prev_school_year = (
+            SchoolYear.objects.filter(
+                end_date__lt=current_period.school_year.start_date
+            )
+            .order_by("-end_date")
+            .first()
+        )
+        if not prev_school_year:
             return None
-        enrollment = self._get_active_enrollment(student)
-        if not enrollment:
+
+        last_period_prev = (
+            type(current_period)
+            .objects.filter(school_year=prev_school_year)
+            .order_by("-end_date")
+            .first()
+        )
+        if not last_period_prev:
             return None
+
+        prev_enrollment = EnrollmentRepository.model.objects.filter(
+            student=student,
+            section__school_year=prev_school_year,
+        ).first()
+        if not prev_enrollment:
+            return None
+
         from apps.grading.student_note import PeriodGradeSummary
         summary = PeriodGradeSummary.objects.filter(
-            enrollment=enrollment,
-            academic_period=prev_period,
+            enrollment=prev_enrollment,
+            academic_period=last_period_prev,
         ).first()
         return _round_decimal(summary.final_avg_truncated) if summary else None
 
@@ -164,7 +206,19 @@ class AcademicRiskFeatureBuilder:
         if not person or not person.birth_date:
             return 0
         actual_age = (period.start_date - person.birth_date).days // 365
-        expected_age = 5 + (getattr(period.school_year, "grade_level", 0) or 0)
+
+        from apps.students.repositories.enrollment_repo import EnrollmentRepository
+        enrollment = EnrollmentRepository.model.objects.filter(
+            student=student,
+            section__school_year_id=period.school_year_id,
+        ).select_related("section__academic_grade").first()
+
+        grade_level = 0
+        if enrollment:
+            code = enrollment.section.academic_grade.code
+            grade_level = {"BGU_1RO": 10, "BGU_2DO": 11, "BGU_3RO": 12}.get(code, 0)
+
+        expected_age = 5 + grade_level
         return max(0, actual_age - expected_age)
 
     def validate_snapshot(self, snapshot):
@@ -178,9 +232,10 @@ class AcademicRiskFeatureBuilder:
         self._validate_non_negative(asistencia, "total_faltas")
         self._validate_non_negative(asistencia, "faltas_justificadas")
         self._validate_non_negative(asistencia, "faltas_injustificadas")
-        self._validate_range(
-            asistencia.get("porcentaje_asistencia"), 0, 100, "porcentaje_asistencia"
-        )
+        if asistencia.get("porcentaje_asistencia") is not None:
+            self._validate_range(
+                asistencia["porcentaje_asistencia"], 0, 100, "porcentaje_asistencia"
+            )
         self._validate_range(calificaciones.get("promedio_actual"), 0, 10, "promedio_actual")
         self._validate_range(calificaciones.get("ultimo_examen"), 0, 10, "ultimo_examen")
         self._validate_non_negative(calificaciones, "materias_reprobadas")
@@ -216,10 +271,10 @@ class AcademicRiskFeatureBuilder:
         justificadas = sum(1 for attendance in attendances if attendance.attendance_status and attendance.attendance_status.code == "J")
         injustificadas = sum(1 for attendance in attendances if attendance.attendance_status and attendance.attendance_status.code == "A")
         tardanzas = sum(1 for attendance in attendances if attendance.attendance_status and attendance.attendance_status.code == "T")
-        porcentaje = (presentes / total * 100) if total else 0
+        porcentaje = (presentes / total * 100) if total else None
 
         return {
-            "porcentaje_asistencia": round(porcentaje, 2),
+            "porcentaje_asistencia": round(porcentaje, 2) if porcentaje is not None else None,
             "total_faltas": justificadas + injustificadas,
             "faltas_justificadas": justificadas,
             "faltas_injustificadas": injustificadas,

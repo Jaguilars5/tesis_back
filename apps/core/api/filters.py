@@ -13,7 +13,12 @@ from apps.academic.academic_period import AcademicPeriod
 from apps.academic.subject import Subject
 from apps.academic.subject_academic_config import SubjectAcademicConfig
 from apps.academic.subject_offering import SubjectOffering
-from apps.analytics.student_risk import RiskFactor
+from apps.analytics.student_risk import (
+    RiskFactor,
+    StudentFeatureSnapshot,
+    StudentRiskFactor,
+    StudentRiskScore,
+)
 
 from .role_handlers import ROLE_HANDLERS
 
@@ -31,6 +36,13 @@ PUBLIC_CATALOGS = {
     AttendanceStatus,
     IncidentType,
     RiskFactor,
+}
+
+INSTITUTIONAL_RISK_ROLES = {"DIRECTOR", "RECTOR", "CONSEJERO", "DECE"}
+RISK_PRIVATE_MODELS = {
+    StudentRiskScore,
+    StudentRiskFactor,
+    StudentFeatureSnapshot,
 }
 
 
@@ -55,6 +67,10 @@ class RoleBasedFilterBackend(BaseFilterBackend):
 
         # 3. Lista blanca de Catálogos Públicos y Estructuras Curriculares Básicas (Lectura permitida)
         if model in PUBLIC_CATALOGS:
+            return queryset
+
+        role_codes = set(user.user_roles.values_list("role__code", flat=True))
+        if model in RISK_PRIVATE_MODELS and role_codes & INSTITUTIONAL_RISK_ROLES:
             return queryset
 
         # 4. Despacho dinámico basado en la categoría del usuario (Patrón Handler)

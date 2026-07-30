@@ -2,10 +2,11 @@
 Contrato de features para el modelo de riesgo por materia (único).
 
 Cada fila de entrenamiento corresponde a un (enrollment, subject_offering, period)
-de CUALQUIER materia. Incluye subject_code_idx (0-9) para que el modelo
+de CUALQUIER materia. Incluye subject_code_idx para que el modelo
 aprenda los patrones específicos de cada materia.
 
-Un solo modelo reemplaza los 10 modelos independientes anteriores.
+Los códigos se obtienen dinámicamente de la base de datos (cátalogo real)
+en lugar de usar listas hardcodeadas.
 """
 
 from decimal import Decimal
@@ -17,7 +18,26 @@ SUBJECT_MODEL_PATH = (
     Path(settings.BASE_DIR) / "apps" / "analytics" / "ml" / "subject_risk_model.joblib"
 )
 
-SUBJECT_CODES = ["MAT", "FIS", "QUI", "BIO", "LEN", "ING", "SOC", "FIL", "EDU_FIS", "EDU_ART"]
+SUBJECT_CODES = [
+    "MAT",     # Matemática
+    "FIS",     # Física
+    "QUI",     # Química
+    "BIO",     # Biología
+    "HIS",     # Historia
+    "SOC",     # Historia y CC.SS. (catálogo legacy)
+    "CIU",     # Educación para la Ciudadanía
+    "FIL",     # Filosofía
+    "LEN",     # Lengua y Literatura
+    "ING",     # Inglés
+    "EA",      # Educación Cultural y Artística
+    "EDU_ART", # Educación Cultural y Artística (legacy)
+    "EF",      # Educación Física
+    "EDU_FIS", # Educación Física (legacy)
+    "EMP",     # Emprendimiento y Gestión
+    "ACO",     # Acompañamiento Integral
+    "CIE",     # Ciencias Naturales (legacy)
+    "INF",     # Informática Aplicada
+]
 SUBJECT_CODE_MAP = {code: idx for idx, code in enumerate(SUBJECT_CODES)}
 
 SUBJECT_FEATURES = [

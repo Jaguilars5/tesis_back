@@ -31,16 +31,15 @@ CACHES = {
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
 
 # ─── Correo Electrónico ──────────────────────────────────────────────────────
-EMAIL_BACKEND = os.getenv(
-    "EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
-)
-EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
-EMAIL_PORT = int(os.getenv("EMAIL_PORT", "1025"))
-EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "dev")
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "dev")
-EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "False") == "True"
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True") == "True"
 DEFAULT_FROM_EMAIL = os.getenv(
-    "DEFAULT_FROM_EMAIL", "Sistema Académico <dev@localhost>"
+    "DEFAULT_FROM_EMAIL",
+    EMAIL_HOST_USER or "Sistema Academico <dev@localhost>",
 )
 
 # ─── Aplicaciones de Desarrollo ───────────────────────────────────────────────

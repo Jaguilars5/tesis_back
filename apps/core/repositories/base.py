@@ -61,9 +61,13 @@ class BaseRepository:
 
     @classmethod
     def update(cls, pk, **data):
-        data["updated_at"] = timezone.now()
-        cls.model.objects.filter(pk=pk).update(**data)
-        return cls.get_by_id(pk)
+        instance = cls.get_by_id(pk)
+        if instance is None:
+            return None
+        for key, value in data.items():
+            setattr(instance, key, value)
+        instance.save()
+        return instance
 
     @classmethod
     def delete(cls, pk):

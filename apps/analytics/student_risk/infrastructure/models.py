@@ -154,6 +154,8 @@ class StudentFeatureSnapshot(TimeStampedModel):
     attendance_rate = models.DecimalField(
         max_digits=5,
         decimal_places=2,
+        null=True,
+        blank=True,
         default=0.00,
         verbose_name="Tasa de Asistencia",
     )

@@ -17,9 +17,7 @@ def notify_representatives_of_absence(self, attendance_id):
     Envía por dos canales: in-app en tiempo real (Socket.IO) y correo
     electrónico, respetando el flag ``receives_notifications`` del representante.
     """
-    from django.conf import settings
-    from django.core.mail import send_mail
-
+    from apps.core.notifications.mail import send_notification_email
     from apps.students.repositories.students_repo import (
         StudentRepresentativeRepository,
     )
@@ -66,12 +64,10 @@ def notify_representatives_of_absence(self, attendance_id):
         person = getattr(rep.user, "person", None)
         email = getattr(person, "email", "") if person else ""
         if email:
-            send_mail(
-                subject=f"Notificación de inasistencia - {student_name}",
-                message=body,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[email],
-                fail_silently=True,
+            send_notification_email(
+                email,
+                f"Notificacion de inasistencia - {student_name}",
+                body,
             )
 
         notified += 1
